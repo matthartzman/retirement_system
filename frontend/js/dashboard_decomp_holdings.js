@@ -480,7 +480,9 @@ export function renderHoldings() {
   const cashOnly = cashOnlyAccounts(h.data);
   visible.forEach(({ r, i }) => {
     const cash = cashOnly.has(String(r.account || "").trim().toLowerCase());
-    const managed = isManagedHoldingAccount(r.account) || cash;
+    // The log writes an account's securities lots, never its CASH lot (that is the cash ledger's: imports write it, the owner may edit it).
+    const isCashLot = String(r.symbol || "").trim().toUpperCase() === "CASH";
+    const managed = (isManagedHoldingAccount(r.account) && !isCashLot) || cash;
     html +=
       `<tr data-hidx="${i}"${managed ? ' data-managed="1"' : ""}>` +
       cols
@@ -514,7 +516,7 @@ export function renderHoldings() {
       (managed
         ? (cash
           ? `<td data-label="Actions"><a href="#" onclick="setStep('cash_accounts');return false" title="Cash accounts are kept on the Checking &amp; Savings page">Managed in Checking &amp; Savings</a></td></tr>`
-          : `<td data-label="Actions"><a href="#" onclick="setStep('sales_ledger');return false" title="This account is managed by the transaction log">Managed in Transactions</a></td></tr>`)
+          : `<td data-label="Actions"></td></tr>`)
         : `<td data-label="Actions"><button class="btn" type="button" aria-label="Insert a lot for this symbol" onclick="insertHoldingLotLike(${i})">+</button> ${deleteIconBtn(`deleteHoldingLot(${i})`)}</td></tr>`);
   });
   html += `</tbody></table></div></details>`;
