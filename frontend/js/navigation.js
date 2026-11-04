@@ -398,7 +398,8 @@
     const scope=safeCall(ctx.getSearchScope)||'page';
     const el=document.getElementById('combinedSearch');
     if(el){
-      el.value=scope==='nav'?(safeCall(ctx.getNavSearchText)||''):(safeCall(ctx.getSearchText)||'');
+      // Never overwrite what is being typed: the debounced commit has not stored it yet, so the stored text is stale.
+      if(document.activeElement!==el)el.value=scope==='nav'?(safeCall(ctx.getNavSearchText)||''):(safeCall(ctx.getSearchText)||'');
       el.placeholder=scope==='nav'?'Search navigation...':'Search this page...';
     }
     // UX-010 (WI-509): expose the selected scope as aria-pressed, not colour only.
