@@ -56,7 +56,6 @@ const STEPS = [
     group: "Investments & Property",
     title: "Other Assets and Liabilities",
   },
-  { id: "account_tax_basis", group: "Investments & Property", title: "Account Tax Basis" },
   {
     // #329 O11 / #330 §4.3 (W9): moved out of Strategy -- HELOC is a
     // liability held against an asset, not an optimizer. No longer
@@ -108,6 +107,7 @@ const STEPS = [
     group: "Taxes",
     title: "Charitable Giving",
   },
+  { id: "account_tax_basis", group: "Taxes", title: "Account Tax Basis" },
   {
     // #330 P8 / Q6 (W13): the Family & Business nav group. Its features own
     // no page of their own -- their inputs are row GROUPS on Other Assets
