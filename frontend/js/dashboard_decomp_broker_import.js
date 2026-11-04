@@ -23,6 +23,7 @@ let biImports = null;
 let biSort = { key: "import_id", dir: -1 }; // newest first
 let biImportsOpen = false;
 let biMessage = null; // { text, error }
+let biDone = null; // set after a successful commit: drives the next-step links
 
 const biMoney = (v) => (window.slMoney ? window.slMoney(v) : String(v));
 const biNum = (v) => esc(String(Math.round(Number(v) * 1e6) / 1e6));
@@ -101,14 +102,15 @@ function biBodyHtml() {
   const accounts = (biImports && biImports.accounts) || [];
   const multiHints = !!(biPreview && (biPreview.hints || []).length > 1);
   const msg = biMessage ? `<p class="${biMessage.error ? "field-error" : "muted"}" role="status">${esc(biMessage.text)}</p>` : "";
-  return `<h3>Import brokerage activity</h3><p class="muted">Fidelity “History for Account”, E*Trade “Transaction History” or Vanguard “OfxDownload” CSV. Re-importing an overlapping file adds only new rows.</p>` +
+  const steps = window.slStepsHtml ? window.slStepsHtml(biPreview ? 2 : 1) : "";
+  return `${steps}<h3>Import brokerage activity</h3><p class="muted">Fidelity “History for Account”, E*Trade “Transaction History” or Vanguard “OfxDownload” CSV. Re-importing an overlapping file adds only new rows.</p>` +
     `<div class="field-grid"><label>Broker<select aria-label="Broker" onchange="biSetBroker(this.value)">${BI_BROKERS.map(([v, l]) => `<option value="${v}" ${v === biBroker ? "selected" : ""}>${l}</option>`).join("")}</select></label>` +
     `<label>Broker file<input type="file" accept=".csv,text/csv" aria-label="Brokerage history file" onchange="biFileChosen(this)"></label>` +
     `<label>Plan account<select id="biAccount" onchange="biSetAccount(this.value)"><option value="">${biPreview && biPreview.account ? "" : "Choose…"}</option><option value="${BI_IN_FILE}" ${biAccount === BI_IN_FILE ? "selected" : ""}>Account in file (one per record)</option>` +
     accounts.map((a) => `<option value="${esc(a)}" ${a === (biAccount || (biPreview && biPreview.account)) ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("") + `</select></label>` +
     `<label>Lot method<select onchange="biSetMethod(this.value)">${BI_METHODS.map(([v, l]) => `<option value="${v}" ${v === biMethod ? "selected" : ""}>${l}</option>`).join("")}</select></label></div>` +
     `${multiHints || (biPreview && biPreview.needs_account) ? biHintPickersHtml(biPreview.hints, accounts, biAccounts, true) : ""}` +
-    `<button class="btn" type="button" onclick="biPreviewFile()" ${biText ? "" : "disabled"}>Preview</button>${msg}${biPreview ? biPreviewHtml(biPreview) : ""}` +
+    `<button class="btn" type="button" onclick="biPreviewFile()" ${biText ? "" : "disabled"}>Preview</button>${msg}${biPreview ? biPreviewHtml(biPreview) : ""}${biDone && window.slNextStepHtml ? window.slNextStepHtml(biDone) : ""}` +
     `<details ${biImportsOpen ? "open" : ""} ontoggle="biToggleImports(this.open)"><summary><strong>Imports</strong> (${((biImports && biImports.imports) || []).length})</summary>${biImportsHtml(biImports && biImports.imports)}</details>`;
 }
 
@@ -120,6 +122,11 @@ export function renderBrokerImport() {
 export function biSummary() {
   const n = ((biImports && biImports.imports) || []).length;
   return { count: n, tone: "", text: `${n} imports` };
+}
+
+export function biStateText() {
+  const l = (biImports && biImports.imports) || [];
+  return l.length ? `Last import ${String(l[l.length - 1].imported_at || "").slice(0, 10)} · ${l.length} imports` : "";
 }
 
 function biPaint(see) { // `see`: selector of the result to bring into view; this panel sits far down the page
@@ -162,6 +169,7 @@ const biBody = () => {
 };
 
 export async function biPreviewFile() {
+  biDone = null;
   biMessage = { text: "Previewing…", error: false }; biPaint("[role=status]");
   try {
     biPreview = await api("/api/sales/broker/preview", { method: "POST", body: JSON.stringify({ ...biBody(), method: biMethod }) });
@@ -177,6 +185,7 @@ export async function biCommit() {
     const out = await api("/api/sales/broker/commit", { method: "POST", body: JSON.stringify({ ...biBody(), confirm_method: biConfirm && !biHistory ? biMethod : "" }) });
     biMessage = { text: `Imported ${out.rows_new} rows: ${out.lots_added} new lots, ${out.confirmed.length} sales confirmed, ${out.queued.length} left in the queue.`, error: false };
     biPreview = null;
+    biDone = {};
   } catch (e) { biMessage = { text: e.message, error: true }; }
   await biLoadImports();
   if (window.loadSalesLedger) window.loadSalesLedger();
@@ -193,6 +202,6 @@ export async function biRevert(id) {
 }
 
 Object.assign(window, {
-  biSummary, biLotsHtml, biOrdersHtml, biPreviewHtml, biImportsHtml, renderBrokerImport, biLoadImports, biFileChosen,
+  biSummary, biStateText, biLotsHtml, biOrdersHtml, biPreviewHtml, biImportsHtml, renderBrokerImport, biLoadImports, biFileChosen,
   biSetAccount, biSetBroker, biSetHintAccount, biHintPickersHtml, biSetMethod, biSetConfirm, biSetHistory, biSortBy, biToggleImports, biPreviewFile, biCommit, biRevert,
 });

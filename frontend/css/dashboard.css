@@ -1348,3 +1348,7 @@ header :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{o
 .st-link-row{margin:4px 0;font-size:13px}
 .sl-tax-cols{display:grid;grid-template-columns:1fr;gap:16px}
 @media (min-width:1100px){.sl-tax-cols{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}}
+.sl-steps{display:flex;flex-wrap:wrap;gap:6px 16px;list-style:none;margin:0 0 8px;padding:0;font-size:12px;color:var(--muted)}
+.sl-step.on{color:var(--ink);border-bottom:2px solid var(--accent)}
+.sl-next{margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--soft)}
+.bb-viewed{display:block;margin:10px 0}

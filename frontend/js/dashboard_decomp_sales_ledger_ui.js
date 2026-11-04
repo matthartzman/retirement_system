@@ -127,8 +127,8 @@ export function slAnnounce(text, assertive = false) {
 }
 
 const SL_SEC_META = { queue: ["Sales waiting for lots", true], health: ["Log health", true], log: ["Transaction log", true], cash: ["Cash in investment", false],
-  ledger: ["Sales ledger", true], wash: ["Realized gains & wash sales", true], cf: ["Carryforward", false], imports: ["Broker imports", false], b1099: ["Broker 1099-B", false] };
-const SL_TAB_SECS = { fix: ["queue", "health", "log", "cash"], ledger: ["ledger"], tax: ["wash", "cf"], import: ["imports", "b1099"] };
+  ledger: ["Sales ledger", true], wash: ["Realized gains & wash sales", true], cf: ["Carryforward", false], imports: ["Broker imports", false], b1099: ["Broker 1099-B", false], csv: ["Sales CSV import", false] };
+const SL_TAB_SECS = { fix: ["queue", "health", "log", "cash"], ledger: ["ledger"], tax: ["wash", "cf"], import: ["imports", "b1099", "csv"] };
 // Only real alerts (same predicate as the strip) count; informational counts such as row totals never open or pin a section.
 export const slAlertCountOf = (s) => (slIsAlert(s) && s.count > 0 ? s.count : 0);
 const slAlertCount = (key) => slAlertCountOf(slSums[key]);
@@ -210,4 +210,17 @@ export function slSecAll(tab, open) {
 
 slOnSummary((key, summary) => slSecUpdate(key, summary));
 
-Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSecHtml, slAlertCountOf, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown });
+// Shared Source -> Preview -> Apply skeleton: a text row (current step in bold and aria-current, never colour alone).
+export const slStepsHtml = (current) => `<ol class="sl-steps" aria-label="Import steps">` + ["Source", "Preview", "Apply"].map((t, i) =>
+  (i + 1 === current ? `<li class="sl-step on" aria-current="step"><strong>${i + 1} ${t}</strong></li>` : `<li class="sl-step">${i + 1} ${t}</li>`)).join("") + `</ol>`;
+
+// Post-apply links: re-run the wash check after a 1099-B apply, and Fix lots when sales are waiting.
+export function slNextStepHtml(result) {
+  if (!result) return "";
+  const q = Number((slSums.queue || {}).count) || 0;
+  const link = (tab, sec, text) => `<a href="#sales_ledger?tab=${tab}&amp;sec=${sec}" onclick="slGo('${tab}','${sec}');return false">${text}</a>`;
+  const items = [result.wash ? link("tax", "wash", "Review changed lots / re-run wash check") : "", q > 0 ? link("fix", "queue", `${q} sale${q === 1 ? "" : "s"} waiting → Fix lots`) : ""].filter(Boolean);
+  return items.length ? `<p class="sl-next" role="status">Next: ${items.join(" · ")}</p>` : "";
+}
+
+Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSecHtml, slAlertCountOf, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown, slStepsHtml, slNextStepHtml });

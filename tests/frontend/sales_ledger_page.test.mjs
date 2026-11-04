@@ -259,7 +259,9 @@ describe("four tabs (Task 4)", () => {
     };
     for (const n of ["renderSalesQueue", "renderTransactionLog", "renderCashInvestment"]) assert.ok(inPanel("fix", n), n);
     assert.doesNotMatch(html, /id="tx"/); // Task 11: the separate Transactions panel is merged into the Transaction log
-    for (const t of ['id="slFormRoot"', 'id="slCsvRoot"', 'id="slListRoot"']) assert.ok(inPanel("ledger", t), t);
+    for (const t of ['id="slFormRoot"', 'id="slListRoot"']) assert.ok(inPanel("ledger", t), t);
+    assert.ok(inPanel("import", 'id="slCsvRoot"'));
+    assert.ok(!inPanel("ledger", 'id="slCsvRoot"'));
     assert.ok(inPanel("tax", "renderSalesTaxYear"));
     for (const n of ["renderBrokerImport", "renderSalesBroker1099b"]) assert.ok(inPanel("import", n), n);
   }));
@@ -416,7 +418,7 @@ describe("ledger tab (Task 12)", () => {
     const html = m.renderSalesLedger();
     assert.equal(html.split('id="slFormDrawer"').length - 1, 1);
     assert.match(html, /<details class="drawer" id="slFormDrawer">/);
-    assert.match(html, /<div class="rc-scroll sl-scroll"|id="sl-sec-ledger"/);
+    assert.match(html, /id="sl-sec-ledger"/);
   }));
 
   test("hidden voided count comes from one extra fetch; absent on failure", withApi(loadWith(), async () => {
@@ -434,4 +436,94 @@ describe("ledger tab (Task 12)", () => {
     assert.equal(label.textContent, "");
     delete globalThis.__roots.slVoidedCount;
   }));
+
+  test("toolbar count is the length of the (cash-filtered) list, like the badge", withApi(async (url, opts) => {
+    if (url.startsWith("/api/sales?")) return { success: true, sales: rows.slice(0, 2), totals: { count: 5, short_gain: 0, long_gain: 0 } };
+    return undefined;
+  }, async () => {
+    mkRoot("slListRoot");
+    await m.loadSalesLedger();
+    assert.match(globalThis.__roots.slListRoot.innerHTML, /<strong>2<\/strong> sales/);
+    delete globalThis.__roots.slListRoot;
+  }));
+
+  test("the hidden-void count uses the year the load started with, even if the year changes mid-load", withApi(async (url) => {
+    if (url.startsWith("/api/sales?")) {
+      calls.push([url]);
+      if (!url.includes("include_voided") && !globalThis.__kicked) { globalThis.__kicked = true; m.slSetYear("2019"); }
+      return { success: true, sales: rows.slice(0, 2), totals: { count: 2, short_gain: 0, long_gain: 0 } };
+    }
+    return undefined;
+  }, async () => {
+    const orig = String(new Date().getFullYear());
+    globalThis.__kicked = true;
+    await m.slSetYear(orig);
+    calls.length = 0;
+    globalThis.__kicked = false;
+    await m.loadSalesLedger();
+    await new Promise((r) => setTimeout(r, 20));
+    const years = calls.filter((c) => c[0].includes("include_voided=1")).map((c) => new URLSearchParams(c[0].split("?")[1]).get("year")).sort();
+    assert.deepEqual(years, [orig, "2019"].sort());
+    delete globalThis.__kicked;
+    await m.slSetYear(orig);
+  }));
+
+  test("with Show voided on there is no extra include_voided fetch and nothing is hidden", withApi(loadWith(), async () => {
+    await m.slSetShowVoided(true);
+    calls.length = 0;
+    await m.loadSalesLedger();
+    assert.equal(calls.filter((c) => c[0].includes("/api/sales?")).length, 1);
+    assert.equal(m.slHiddenVoidCount(), 0);
+    await m.slSetShowVoided(false);
+  }));
+});
+
+describe("import tab skeleton (Task 15)", () => {
+  test("slStepsHtml marks exactly the current step, with text, not colour only", () => {
+    for (const n of [1, 2, 3]) {
+      const h = window.slStepsHtml(n);
+      assert.equal((h.match(/aria-current="step"/g) || []).length, 1);
+      assert.match(h, new RegExp(`aria-current="step"[^>]*><strong>${n} (Source|Preview|Apply)</strong>`));
+      assert.match(h, /1 Source/); assert.match(h, /2 Preview/); assert.match(h, /3 Apply/);
+    }
+  });
+  test("slNextStepHtml offers the wash re-run after a 1099-B apply, and the queue link only when sales are waiting", () => {
+    window.slPublish("queue", { count: 0, tone: "", text: "" });
+    let h = window.slNextStepHtml({ wash: true });
+    assert.match(h, /slGo\('tax','wash'\)/);
+    assert.match(h, /Review changed lots \/ re-run wash check/);
+    assert.doesNotMatch(h, /slGo\('fix','queue'\)/);
+    window.slPublish("queue", { count: 3, tone: "warn", text: "3 waiting" });
+    h = window.slNextStepHtml({ wash: true });
+    assert.match(h, /3 sales waiting → Fix lots/);
+    assert.match(h, /slGo\('fix','queue'\)/);
+    assert.doesNotMatch(window.slNextStepHtml({}), /slGo\('tax','wash'\)/);
+    assert.equal(window.slNextStepHtml(null), "");
+    window.slPublish("queue", { count: 0, tone: "", text: "" });
+    assert.equal(window.slNextStepHtml({}), "");
+  });
+  test("the Sales CSV box is a closed section of the Import tab; the Ledger tab has none; ids stay unique", () => {
+    globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+    try {
+      const html = m.renderSalesLedger();
+      const imp = html.slice(html.indexOf('id="sl-p-import"'));
+      const led = html.slice(html.indexOf('id="sl-p-ledger"'), html.indexOf('id="sl-p-tax"'));
+      assert.match(imp, /<details class="sl-sec" id="sl-sec-csv" data-key="csv" data-alert="0">/);
+      assert.match(imp, /Sales CSV import/);
+      assert.match(imp, /id="slCsvRoot"/);
+      assert.match(imp, /1 Source/);
+      assert.doesNotMatch(led, /slCsvRoot|id="slCsv"/);
+      for (const id of ["slCsv", "slCsvRoot"]) assert.equal(html.split(`id="${id}"`).length - 1, 1, id);
+    } finally { delete globalThis.localStorage; }
+  });
+  test("csv is a known section key for deep links", () => {
+    globalThis.location = { hash: "#sales_ledger?tab=import&sec=csv" };
+    try { assert.deepEqual(m.slHashTarget(), { tab: "import", sec: "csv" }); } finally { delete globalThis.location; }
+  });
+  test("the CSV step moves to Preview once a preview exists", async () => {
+    globalThis.__fields.slCsv = "a,b\n";
+    await m.slImportPreview();
+    assert.match(m.renderSalesLedger(), /aria-current="step"[^>]*><strong>2 Preview<\/strong>/);
+    delete globalThis.__fields.slCsv;
+  });
 });

@@ -16,6 +16,7 @@ before(async () => {
     if (url === "/api/sales/broker/commit") return { success: true, rows_new: 3, lots_added: 1, confirmed: [1], queued: [] };
     return { success: true };
   };
+  await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
   sl = await import("../../frontend/js/dashboard_decomp_sales_ledger.js");
   m = await import("../../frontend/js/dashboard_decomp_broker_import.js");
 });
@@ -218,5 +219,28 @@ describe("summary publish", () => {
     delete globalThis.slPublish;
     await assert.doesNotReject(m.biLoadImports());
     globalThis.api = orig;
+  });
+});
+
+describe("skeleton and next steps (Task 15)", () => {
+  test("step 1 before a preview, step 2 once one exists, back to 1 after commit", async () => {
+    await m.biLoadImports();
+    assert.match(m.renderBrokerImport(), /aria-current="step"[^>]*><strong>1 Source<\/strong>/);
+    globalThis.api = ((orig) => async (url, opts) => (url === "/api/sales/broker/preview" ? PREVIEW : orig(url, opts)))(globalThis.api);
+    await m.biPreviewFile();
+    assert.match(m.renderBrokerImport(), /aria-current="step"[^>]*><strong>2 Preview<\/strong>/);
+    await m.biCommit();
+    assert.match(m.renderBrokerImport(), /aria-current="step"[^>]*><strong>1 Source<\/strong>/);
+  });
+  test("after a commit the next-step links are rendered; the imports history markup is unchanged", async () => {
+    const ui = await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
+    ui.slPublish("queue", { count: 2, tone: "warn", text: "2 waiting" });
+    globalThis.api = ((orig) => async (url, opts) => (url === "/api/sales/broker/imports" ? { imports: [{ import_id: 1, imported_at: "2026-10-30T12:00:00" }], accounts: [] } : orig(url, opts)))(globalThis.api);
+    await m.biCommit();
+    const h = m.renderBrokerImport();
+    assert.match(h, /2 sales waiting → Fix lots/);
+    assert.match(h, /<details\s+ontoggle/);
+    assert.equal(m.biStateText(), "Last import 2026-10-30 · 1 imports");
+    ui.slPublish("queue", { count: 0, tone: "", text: "" });
   });
 });

@@ -38,6 +38,7 @@ before(async () => {
     if (url === "/api/sales/1099b/apply") return { success: true, statement_id: 4, corrected: 3, added: 1, superseded: null };
     return { success: true };
   };
+  await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
   m = await import("../../frontend/js/dashboard_decomp_sales_1099b.js");
 });
 beforeEach(() => { calls.length = 0; downloads = []; confirmAnswer = true; });
@@ -84,7 +85,8 @@ describe("suggestions and return of capital", () => {
 });
 
 describe("preview and control totals", () => {
-  test("a tying corrected statement can be applied", () => {
+  test("a tying corrected statement can be applied once the differences are reviewed", () => {
+    m.bbMarkViewed(true);
     const html = m.bbPreviewHtml(PREVIEW());
     assert.match(html, /CORRECTED statement dated 2026-03-14/);
     assert.match(html, /Control totals tie/);
@@ -118,12 +120,16 @@ describe("calls", () => {
     await m.bbPreviewStatement();
     assert.deepEqual(calls[0], ["/api/sales/1099b/preview", "POST", { broker: "vanguard", account: "Brokerage", content: "statement text" }]);
     await m.bbApply();
+    assert.equal(calls.length, 1); // not reviewed yet: nothing applied
+    m.bbMarkViewed(true);
+    await m.bbApply();
     assert.deepEqual(calls[1], ["/api/sales/1099b/apply", "POST", { broker: "vanguard", account: "Brokerage", content: "statement text", replace: false }]);
   });
   test("replacing an earlier import asks first and sends replace true; declining sends nothing", async () => {
     globalThis.api = ((orig) => async (url, opts) => (url === "/api/sales/1099b/preview" ? (calls.push([url]), PREVIEW({ supersedes: { statement_id: 2, line_count: 1 } })) : orig(url, opts)))(globalThis.api);
     m.bbSetText("statement text");
     await m.bbPreviewStatement();
+    m.bbMarkViewed(true);
     confirmAnswer = false;
     calls.length = 0;
     await m.bbApply();
@@ -148,5 +154,70 @@ describe("summary publish", () => {
     assert.deepEqual(pub.at(-1), ["b1099", { count: 0, tone: "", text: "" }]);
     delete globalThis.slPublish;
     await assert.doesNotReject(m.bbLoadAccounts());
+  });
+});
+
+describe("apply gating (Task 15)", () => {
+  test("bbCanApply is true only when the totals tie (can_apply) and the report was viewed", () => {
+    assert.equal(m.bbCanApply(PREVIEW(), true), true);
+    assert.equal(m.bbCanApply(PREVIEW(), false), false);
+    assert.equal(m.bbCanApply(PREVIEW({ can_apply: false }), true), false);
+    assert.equal(m.bbCanApply(PREVIEW({ can_apply: false }), false), false);
+    assert.equal(m.bbCanApply(null, true), false);
+  });
+  test("Apply is disabled with a visible reason until the box is ticked, then enabled", () => {
+    m.bbMarkViewed(false);
+    let html = m.bbPreviewHtml(PREVIEW());
+    assert.match(html, /onclick="bbApply\(\)" disabled/);
+    assert.match(html, /Review the differences and tick the box; totals must tie\./);
+    assert.match(html, /<input type="checkbox"[^>]*onchange="bbMarkViewed\(this\.checked\)"[^>]*> I have reviewed this difference report/);
+    m.bbMarkViewed(true);
+    html = m.bbPreviewHtml(PREVIEW());
+    assert.doesNotMatch(html, /onclick="bbApply\(\)" disabled/);
+    assert.doesNotMatch(html, /Review the differences and tick the box/);
+    assert.match(html, /<input type="checkbox"[^>]*checked/);
+  });
+  test("viewed resets when a new preview is built", async () => {
+    m.bbSetText("statement text"); m.bbSetAccount("Brokerage");
+    await m.bbPreviewStatement();
+    m.bbMarkViewed(true);
+    assert.equal(m.bbCanApply(PREVIEW(), true), true);
+    await m.bbPreviewStatement();
+    assert.match(m.bbPreviewHtml(PREVIEW()), /onclick="bbApply\(\)" disabled/);
+  });
+  test("the diff, changes and control totals sit in the panel body, never inside a details", async () => {
+    m.bbSetText("statement text"); m.bbSetAccount("Brokerage");
+    await m.bbPreviewStatement();
+    const html = m.renderSalesBroker1099b();
+    assert.doesNotMatch(html, /<details/);
+    assert.match(html, /Difference report for 2025/);
+    assert.match(html, /Control totals tie/);
+    assert.match(html, /aria-current="step"[^>]*><strong>2 Preview<\/strong>/);
+  });
+  test("a failed apply keeps nothing applied: unticked apply posts nothing; replace confirm still asked after ticking", async () => {
+    globalThis.api = ((orig) => async (url, opts) => (url === "/api/sales/1099b/preview" ? (calls.push([url]), PREVIEW({ supersedes: { statement_id: 2, line_count: 1 } })) : orig(url, opts)))(globalThis.api);
+    m.bbSetText("statement text"); m.bbSetAccount("Brokerage");
+    await m.bbPreviewStatement();
+    calls.length = 0;
+    await m.bbApply();
+    assert.equal(calls.length, 0);
+    m.bbMarkViewed(true);
+    confirmAnswer = false;
+    await m.bbApply();
+    assert.equal(calls.length, 0);
+  });
+  test("after a successful apply the next-step links show", async () => {
+    globalThis.slNextStepHtml = (r) => `<nav class="sl-next">${r && r.wash ? "WASH" : ""}</nav>`;
+    m.bbSetText("statement text"); m.bbSetAccount("Brokerage");
+    await m.bbPreviewStatement();
+    m.bbMarkViewed(true);
+    await m.bbApply();
+    assert.match(m.renderSalesBroker1099b(), /WASH/);
+    delete globalThis.slNextStepHtml;
+  });
+  test("the shell state text names a pending preview", async () => {
+    m.bbSetText("statement text"); m.bbSetAccount("Brokerage");
+    await m.bbPreviewStatement();
+    assert.match(m.bbStateText(), /Preview ready/);
   });
 });
