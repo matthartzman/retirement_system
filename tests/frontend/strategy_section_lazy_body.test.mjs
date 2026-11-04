@@ -319,12 +319,12 @@ describe("STEPS wiring for the four Strategy screens (ticket 323 + Workbench)", 
   const NEW_STEPS = ["strategy_optimize", "strategy_stress", "strategy_scenarios", "strategy_workbench"];
   const stepById = (id) => sandbox.window.STEPS.find((s) => s.id === id);
 
-  test("each new step is a Strategy-group nav entry with a registry summary", () => {
-    const titles = { strategy_optimize: "Optimize", strategy_stress: "Stress Test", strategy_scenarios: "Scenarios", strategy_workbench: "Workbench" };
+  test("each new step is a Analyze-group nav entry with a registry summary", () => {
+    const titles = { strategy_optimize: "Optimize", strategy_stress: "Stress Test", strategy_scenarios: "Scenarios", strategy_workbench: "Planning Workbench" };
     for (const id of NEW_STEPS) {
       const step = stepById(id);
       assert.ok(step, `missing STEPS entry for ${id}`);
-      assert.equal(step.group, "Strategy", id);
+      assert.equal(step.group, "Analyze", id);
       assert.equal(step.title, titles[id], id);
       assert.ok(HELP_PAGES[id]?.summary, `${id} missing registry summary (nav desc)`);
       assert.equal(step.intro, undefined, `${id} still carries intro prose`);
@@ -336,7 +336,7 @@ describe("STEPS wiring for the four Strategy screens (ticket 323 + Workbench)", 
     const positions = NEW_STEPS.map((id) => ids.indexOf(id));
     assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
     const between = sandbox.window.STEPS.slice(positions[0], positions[positions.length - 1] + 1);
-    assert.equal(between.filter((s) => s.group === "Strategy").length, positions.length);
+    assert.equal(between.filter((s) => s.group === "Analyze").length, positions.length);
   });
 
   test("the superseded steps are retired (WP1.1); their ids live on as redirects", () => {
@@ -349,11 +349,11 @@ describe("STEPS wiring for the four Strategy screens (ticket 323 + Workbench)", 
     assert.ok(sandbox.window.STEPS.every((s) => s.group !== "Stress Tests"));
   });
 
-  test("strategy_workbench is a Strategy-group nav entry with a registry summary", () => {
+  test("strategy_workbench is a Analyze-group nav entry with a registry summary", () => {
     const step = stepById("strategy_workbench");
     assert.ok(step, "missing STEPS entry for strategy_workbench");
-    assert.equal(step.group, "Strategy");
-    assert.equal(step.title, "Workbench");
+    assert.equal(step.group, "Analyze");
+    assert.equal(step.title, "Planning Workbench");
     assert.ok(HELP_PAGES.strategy_workbench?.summary, "strategy_workbench missing registry summary");
     assert.equal(step.intro, undefined);
   });

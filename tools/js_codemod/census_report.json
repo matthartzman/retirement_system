@@ -1007,6 +1007,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "searchText",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "planSource",
       "file": "frontend/js/dashboard_decomp_assets_other.js",
       "kind": "read",
@@ -3191,6 +3197,78 @@
       "scope": "inside-function"
     },
     {
+      "name": "moduleGates",
+      "file": "frontend/js/dashboard_decomp_nav_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleGates",
+      "file": "frontend/js/dashboard_decomp_nav_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleGates",
+      "file": "frontend/js/dashboard_decomp_nav_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sectionFlagEnabled",
+      "file": "frontend/js/dashboard_decomp_nav_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sectionFlagEnabled",
+      "file": "frontend/js/dashboard_decomp_nav_features.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "STEPS",
+      "file": "frontend/js/dashboard_decomp_nav_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "STEPS",
+      "file": "frontend/js/dashboard_decomp_nav_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleStatus",
+      "file": "frontend/js/dashboard_decomp_nav_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleStatus",
+      "file": "frontend/js/dashboard_decomp_nav_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleStatus",
+      "file": "frontend/js/dashboard_decomp_nav_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/dashboard_decomp_nav_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/dashboard_decomp_nav_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "dirty",
       "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
       "kind": "read",
@@ -3684,6 +3762,12 @@
     },
     {
       "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
@@ -4565,6 +4649,18 @@
       "scope": "inside-function"
     },
     {
+      "name": "planLoaded",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "navSearchText",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -4590,6 +4686,12 @@
     },
     {
       "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
@@ -7122,12 +7224,6 @@
     },
     {
       "name": "rows",
-      "file": "frontend/js/dashboard_decomp_sales_bulk.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
       "file": "frontend/js/dashboard_decomp_sales_queue.js",
       "kind": "read",
       "scope": "inside-function"
@@ -8388,13 +8484,13 @@
     },
     {
       "name": "rows",
-      "file": "frontend/js/dashboard_decomp_transactions.js",
+      "file": "frontend/js/dashboard_decomp_transactions_log.js",
       "kind": "read",
       "scope": "inside-function"
     },
     {
       "name": "rows",
-      "file": "frontend/js/dashboard_decomp_transactions.js",
+      "file": "frontend/js/dashboard_decomp_transactions_log.js",
       "kind": "read",
       "scope": "inside-function"
     },

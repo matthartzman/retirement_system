@@ -11,6 +11,9 @@ let csrfToken = "";
 window.__retirementCsrfToken = csrfToken;
 /* Retirement Planner dashboard behavior.
    First-class static asset loaded by the dashboard shell. */
+// Left-nav structure (2026-11-04 redesign): eight headings; STEPS array order is nav order
+// (renderSteps groups contiguous runs of the same `group`). Group/step homes are identical in
+// Set up and Maintain modes; only emphasis changes (see dashboard_decomp_nav_features.js).
 const STEPS = [
   {
     id: "start",
@@ -18,152 +21,141 @@ const STEPS = [
     title: "Plan Status",
   },
   {
-    // #332 W-F F5: "People and Income" splits into "Household" (utility) and "Income & Benefits" (Topic, below).
     id: "household_people",
-    group: "Household",
+    group: "Household & Cash Flow",
     title: "Household & People",
   },
   {
     id: "income_work",
-    group: "Income & Benefits",
+    group: "Household & Cash Flow",
     title: "Work Income",
     helpLink: { id: "roth_conversion", label: "Open Taxes → Roth Conversion" },
   },
   {
     id: "income_retirement",
-    group: "Income & Benefits",
-    title: "SS, Pensions, & Annuities",
-    helpLink: { id: "roth_conversion", label: "Open Taxes → Roth Conversion (Asset Allocation is on Strategy → Optimize)" },
+    group: "Household & Cash Flow",
+    title: "Social Security & Pensions",
+    helpLink: { id: "roth_conversion", label: "Open Taxes → Roth Conversion (Asset Allocation is on Analyze → Optimize)" },
   },
   {
     id: "spending_core",
-    group: "Spending",
+    group: "Household & Cash Flow",
     title: "Spending Model",
   },
-  { id: "cash_accounts", group: "Investments & Property", title: "Checking & Savings Accts" },
+  {
+    id: "cash_accounts",
+    group: "Accounts & Property",
+    title: "Checking & Savings",
+  },
   {
     id: "holdings",
-    group: "Investments & Property",
+    group: "Accounts & Property",
     title: "Investment Holdings",
   },
+  // WP12.6: Rental Properties; gated by rental_property_income.
   {
-    id: "assets_home_cash",
-    group: "Investments & Property",
-    title: "Reserve Requirements",
+    id: "rental_properties",
+    group: "Accounts & Property",
+    title: "Rental Properties",
   },
+  // #338 W-E: HELOC is a liability held against an asset; gated by its own plan flag (heloc_enabled).
   {
-    id: "assets_special",
-    group: "Investments & Property",
-    title: "Other Assets and Liabilities",
-  },
-  {
-    // #329 O11 / #330 §4.3 (W9): moved out of Strategy -- HELOC is a
-    // liability held against an asset, not an optimizer. No longer
-    // hidden/embedded inside Optimize's strategySection list: it is a direct
-    // nav entry.
-    // #338 W-E (design 2026-09-24 §2/§6): Investments & Property, beside
-    // home value on Other Assets. A legal join under §1.4 -- HELOC's topic
-    // is Housing & Property, which that group label names. Still gated by
-    // its own plan flag (heloc_enabled), not by the Next Housing Move
-    // switch. Plan Features keeps listing the switch under Housing &
-    // Property. The Other Assets page keeps its HELOC summary and link here.
     id: "heloc_strategy",
-    group: "Investments & Property",
+    group: "Accounts & Property",
     title: "Home Equity Line",
   },
   {
-    // WP12.6: Rental Properties (design 2026-10-05 section 6); gated by rental_property_income.
-    id: "rental_properties",
-    group: "Investments & Property",
-    title: "Rental Properties",
+    id: "assets_special",
+    group: "Accounts & Property",
+    title: "Other Assets & Debts",
   },
   {
-    // #332 W-F F1: "Assets & Protection" splits by Topic -- annuities/insurance are Insurance & Care.
+    id: "assets_home_cash",
+    group: "Accounts & Property",
+    title: "Cash Reserves",
+  },
+  // #330 P8 / Q6 (W13): no page of its own -- a second way in to rows that live on Other Assets.
+  {
+    id: "family_business",
+    group: "Accounts & Property",
+    title: "529 & Equity Compensation",
+  },
+  {
     id: "annuity_death_benefits",
-    group: "Insurance & Care",
+    group: "Protection & Legacy",
     title: "Insurance",
   },
   {
-    // #332 W-F F1: "Assets & Protection" splits by Topic -- estate inputs are Estate & Legacy.
     id: "estate",
-    group: "Estate & Legacy",
+    group: "Protection & Legacy",
     title: "Estate Inputs",
   },
   {
-    // Ticket 286 embedded this in the Strategy decide box with no nav entry.
-    // #330 P8 / Q6 (W13): it gets one back, in the new Taxes group -- §4.3's
-    // "sharpest finding of the inventory" is that the left nav had no tax
-    // group at all. W9's HELOC move applied to the tax levers; see the notes
-    // doc for why promotion is a group change, not a new page.
+    id: "account_tax_basis",
+    group: "Taxes",
+    title: "Account Tax Basis",
+  },
+  {
     id: "roth_conversion",
     group: "Taxes",
     title: "Roth Conversion",
   },
+  // `charitable_giving`'s domain is TAXES; its page also holds the DAF and QCD plan-flag rows.
   {
-    // #330 P8 / Q6 (W13): joins Roth Conversion in the Taxes group.
-    // `charitable_giving`'s declared domain is TAXES, and its page also
-    // holds the DAF and QCD plan-flag rows W12 stopped hiding.
     id: "entity_charitable",
     group: "Taxes",
     title: "Charitable Giving",
   },
-  { id: "account_tax_basis", group: "Taxes", title: "Account Tax Basis" },
-  {
-    // #330 P8 / Q6 (W13): the Family & Business nav group. Its features own
-    // no page of their own -- their inputs are row GROUPS on Other Assets
-    // and Liabilities -- so this step is a second way in to rows that keep
-    // their existing home, W9's socialSecurityOptimizePanelHtml() pattern,
-    // not a data move. Business entity choice stays on Work Income.
-    id: "family_business",
-    group: "Family & Business",
-    title: "Education & Equity Comp",
-  },
   {
     id: "strategy_optimize",
-    group: "Strategy",
+    group: "Analyze",
     title: "Optimize",
   },
   {
     id: "strategy_stress",
-    group: "Strategy",
+    group: "Analyze",
     title: "Stress Test",
   },
   {
     id: "strategy_scenarios",
-    group: "Strategy",
+    group: "Analyze",
     title: "Scenarios",
   },
   {
     id: "strategy_workbench",
-    group: "Strategy",
-    title: "Workbench",
+    group: "Analyze",
+    title: "Planning Workbench",
   },
   {
     id: "reports_and_review",
-    group: "Reports & Review",
+    group: "Analyze",
     title: "Build & Results",
   },
   {
-    id: "actual_spending",
-    group: "Reports & Review",
-    title: "Actual Spending",
-  },
-  {
-    id: "monarch_reconciliation",
-    group: "Reports & Review",
-    title: "Account Reconciliation",
-  },
-  { id: "sales_ledger", group: "Reports & Review", title: "Investment Sales Ledger" }, { id: "year_end", group: "Reports & Review", title: "Year-End Transition" },
-  {
     id: "detailed_results",
-    group: "Reports & Review",
+    group: "Analyze",
     title: "Results",
     hidden: true,
   },
   {
-    id: "economic_tax_assumptions",
-    group: "Settings",
-    title: "Economic & Tax Assumptions",
+    id: "actual_spending",
+    group: "Track & Reconcile",
+    title: "Actual Spending",
+  },
+  {
+    id: "monarch_reconciliation",
+    group: "Track & Reconcile",
+    title: "Account Reconciliation",
+  },
+  {
+    id: "sales_ledger",
+    group: "Track & Reconcile",
+    title: "Investment Sales Ledger",
+  },
+  {
+    id: "year_end",
+    group: "Track & Reconcile",
+    title: "Year-End Transition",
   },
   {
     id: "optional_functions",
@@ -171,9 +163,14 @@ const STEPS = [
     title: "Plan Features",
   },
   {
+    id: "economic_tax_assumptions",
+    group: "Settings",
+    title: "Economic & Tax Assumptions",
+  },
+  {
     id: "all_assumptions",
     group: "Settings",
-    title: "Field Finder",
+    title: "Find a Field",
   },
   {
     id: "workbook_formatting",
@@ -183,7 +180,7 @@ const STEPS = [
   {
     id: "system_configuration",
     group: "Settings",
-    title: "Data & Maintenance",
+    title: "Data & Backups",
   },
 ];
 // The nav one-liner is the page's help summary (help_registry.js HELP_PAGES), not stored on STEPS.
@@ -1978,7 +1975,7 @@ function renderAssetsCashReserves() {
   if (searchText.trim())
     return renderFields("assets_home_cash") + renderLiquidityBuffers();
   let html =
-    '<div class="section-note" data-kind="state">Home value and mortgage are on <a href="#" onclick="navigateTo(\'assets_special\');return false">Other Assets and Liabilities</a>; home sale is in <a href="#" onclick="navigateTo(\'strategy_optimize\');return false">Optimize → Next Housing Move</a>.</div>';
+    '<div class="section-note" data-kind="state">Home value and mortgage are on <a href="#" onclick="navigateTo(\'assets_special\');return false">Other Assets & Debts</a>; home sale is in <a href="#" onclick="navigateTo(\'strategy_optimize\');return false">Optimize → Next Housing Move</a>.</div>';
   html += renderLiquidityBuffers();
   return html;
 }
@@ -3009,9 +3006,9 @@ let renderMain = function() {
   }
   const st = STEPS.find((s) => s.id === activeStep) || STEPS[0];
   const _stIdx = visibleSteps().findIndex((x) => x.id === st.id) + 1;
-  const _eyebrow = ["Reports & Review", "Settings"].includes(
+  const _eyebrow = ["Track & Reconcile", "Settings", "Analyze"].includes(
     st.group,
-  )
+  ) && !/^strategy_/.test(st.id)
     ? st.group
     : st.group === null
       ? "Compare & Decide"

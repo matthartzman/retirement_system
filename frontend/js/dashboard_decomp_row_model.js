@@ -98,26 +98,29 @@ export function visibleSteps() {
 // all. Moving them out is also what pays for W13's new lines under
 // tests/test_frontend_size_ratchet.py's DASHBOARD_JS_MAX_LINES.
 export const SUGGESTED_NEXT = {
+  // Set up chain, in nav order (2026-11-04 redesign): Household & Cash Flow, then Accounts & Property,
+  // Protection & Legacy, Taxes, Analyze. Targets that are module-gated are dropped by suggestedNext() below.
   household_people: "income_work",
   income_work: "income_retirement",
-  income_retirement: "holdings",
+  income_retirement: "spending_core",
+  spending_core: "cash_accounts",
+  cash_accounts: "holdings",
   holdings: "assets_home_cash",
-  assets_home_cash: "spending_core",
-  spending_core: "reports_and_review",
-  // W13: the Taxes group, in nav order. Both targets are module-gated, so
-  // the guard in suggestedNext() below drops the footer rather than pointing
-  // at a step the nav is not showing.
+  assets_home_cash: "assets_special",
+  assets_special: "annuity_death_benefits",
+  annuity_death_benefits: "estate",
+  estate: "roth_conversion",
   roth_conversion: "entity_charitable",
   entity_charitable: "strategy_optimize",
   strategy_optimize: "strategy_stress",
   strategy_stress: "reports_and_review",
-  // lifestyle_spending and ytd_transactions removed: both now redirect onto
-  // spending_core before activeStep is ever set to them (navigation.js's
-  // WORKSPACE_TAB_REDIRECTS), and suggestedNext() below is only ever called
-  // with the literal activeStep -- these entries could never be looked up.
+  // lifestyle_spending and ytd_transactions removed: both redirect onto spending_core before
+  // activeStep is set (navigation.js WORKSPACE_TAB_REDIRECTS), so they could never be looked up.
 };
 export function suggestedNext(stepId) {
-  const nextId = SUGGESTED_NEXT[stepId];
+  const nav = window.RPNav;
+  const maintain = nav && nav.currentMode(overallStats().missing.length, planLoaded) === "maintain";
+  const nextId = maintain ? nav.maintainNext(stepId) : SUGGESTED_NEXT[stepId];
   const st = STEPS.find((s) => s.id === nextId);
   // W13: a suggestion pointing at a module-gated step whose module is off is
   // a link to a page the nav does not show -- the dead end this workstream's
@@ -1511,7 +1514,7 @@ export function rowIsMonteCarlo(r) {
 // #323: the three Strategy screens (strategy_optimize/strategy_stress/
 // strategy_scenarios) are STEPS entries with no case of their own below --
 // every plan row still routes to the legacy shell id it always did (that
-// switch is deliberately untouched; row routing for the Field Finder, the
+// switch is deliberately untouched; row routing for the Find a Field, the
 // build change summary, and every source-jump button in the app all key off
 // the shell ids directly, see spec S1). Without this aggregation,
 // rawRowsForStep() falls through the switch's `default: return false` for
@@ -1665,7 +1668,7 @@ export function rawRowsForStep(id) {
       // second hand-kept list. This is ADDITIVE: the rows keep their home on
       // assets_special above, and BUILD_IMPACT_SOURCE_STEP_IDS deliberately
       // does not list family_business, so sourceStepForRow() still answers
-      // "Other Assets and Liabilities" for every one of them and no other
+      // "Other Assets & Debts" for every one of them and no other
       // surface sees the new step at all.
       case "family_business":
         return ["Education Funding", "Equity Compensation"].includes(sec);
@@ -2468,12 +2471,12 @@ export function renderSteps() {
   document.getElementById("progressBar").style.width = pct + "%";
   const _mpb = document.getElementById("mobileProgressBar");
   if (_mpb) _mpb.style.width = pct + "%";
-  document.getElementById("progressLabel").textContent = planLoaded
-    ? `${pct}% complete`
-    : "Open local plan";
-  document.getElementById("requiredLabel").textContent = planLoaded
-    ? `${stats.missing.length} required missing`
-    : "";
+  const navMode = window.RPNav ? window.RPNav.currentMode(stats.missing.length, planLoaded) : "setup";
+  const progressText = window.RPNav
+    ? window.RPNav.progressTexts(navMode, pct, stats.missing.length, planLoaded)
+    : { progress: planLoaded ? `${pct}% complete` : "Open local plan", required: planLoaded ? `${stats.missing.length} required missing` : "" };
+  document.getElementById("progressLabel").textContent = progressText.progress;
+  document.getElementById("requiredLabel").textContent = progressText.required;
   const q = String(navSearchText || "")
     .trim()
     .toLowerCase();
@@ -2531,7 +2534,21 @@ export function renderSteps() {
     }
     cg.steps.push(s);
   });
-  groups.forEach((g) => {
+  const orderedGroups = window.RPNav ? window.RPNav.orderGroups(groups, navMode) : groups;
+  if (window.RPNav && !q)
+    window.RPNav.seedOpenGroup(
+      navGroupsOpenedByUser,
+      orderedGroups,
+      navMode,
+      (g) => g.steps.reduce((n, s) => n + statsOf(s.id).missing.length, 0),
+      planLoaded,
+    );
+  orderedGroups.forEach((g) => {
+    // Plan Status is a pinned link, not a one-page heading.
+    if (g.name === "Plan Status") {
+      html += g.steps.map(stepButton).join("");
+      return;
+    }
     const isActive = g.steps.some((s) => s.id === activeStep);
     const gMissing = g.steps.reduce(
       (n, s) => n + statsOf(s.id).missing.length,
@@ -2539,7 +2556,7 @@ export function renderSteps() {
     );
     const badge = gMissing ? `<span class="badge bad">${gMissing}</span>` : "";
     const open = isActive || navGroupsOpenedByUser.has(g.name) ? "open" : "";
-    html += `<details class="nav-group" data-group="${esc(g.name)}" ${open}><summary class="nav-group-summary">${esc(g.name)}${badge}</summary><div class="nav-group-steps">`;
+    html += `<details class="nav-group" data-group="${esc(g.name)}" ${open}><summary class="nav-group-summary"><span class="nav-group-name">${esc(g.name)}${badge}</span>${window.RPNav ? window.RPNav.iconHtml(g.name) : ""}</summary><div class="nav-group-steps">`;
     g.steps.forEach((s) => {
       html += stepButton(s);
       // Workspace tabs (e.g. Actual Spending's This year / Analysis) are
@@ -2554,6 +2571,7 @@ export function renderSteps() {
     html += `</div></details>`;
   });
   box.innerHTML = html;
+  if (window.RPNav) window.RPNav.afterRender(navMode);
   if (focusedStepId && box.querySelector) {
     const again = box.querySelector('[data-step-id="' + focusedStepId + '"]');
     if (again && again.focus) again.focus({ preventScroll: true });

@@ -413,7 +413,7 @@
     updateSearchToggle(ctx);
     if(nextScope==='page')safeCall(ctx.renderMain);else safeCall(ctx.renderSteps);
   }
-  // #223: Page-scope search re-renders the whole main pane (Field Finder's
+  // #223: Page-scope search re-renders the whole main pane (Find a Field's
   // "all_assumptions" page alone groups/sorts/labels 600+ rows) -- doing that
   // synchronously on every keystroke is what made typing feel laggy. Debounce
   // the expensive render; the native input itself never blocked on its own.

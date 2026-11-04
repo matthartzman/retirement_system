@@ -36,11 +36,11 @@ test('rental properties page: add, edit, advanced fields, convert, duplicate, re
     // Off with nothing entered: the page is not in the nav.
     await expect(navEntry(page)).toHaveCount(0);
 
-    // The Advanced tier switches the feature on; the nav entry appears under Investments & Property.
+    // The Advanced tier switches the feature on; the nav entry appears under Accounts & Property.
     await post(page, '/api/plan/tier', { tier: 'advanced' });
     await openCurrentPlan(page);
     await expect(navEntry(page)).toHaveCount(1);
-    await expect(navEntry(page).locator('xpath=ancestor::details//summary')).toContainText('Investments & Property');
+    await expect(navEntry(page).locator('xpath=ancestor::details//summary')).toContainText('Accounts & Property');
     await navigateToStep(page, 'rental_properties', 'Rental Properties');
     const pane = page.locator('#mainPane');
     await expect(pane).toContainText('No rental properties yet');

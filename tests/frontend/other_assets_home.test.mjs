@@ -1,7 +1,7 @@
 // #338 W-E (Task E3), design 2026-09-24 §6: home value and the mortgage
 // balance are always in effect, so they live on Other Assets and Liabilities
 // as a "Primary home" group -- regardless of the Next Housing Move switch.
-// HELOC keeps its own plan-flag gating and moves to Investments & Property.
+// HELOC keeps its own plan-flag gating and moves to Accounts & Property.
 
 import { test, describe, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -57,10 +57,10 @@ describe("Other Assets and Liabilities: Primary home", () => {
 });
 
 describe("HELOC nav group", () => {
-  test('heloc_strategy.group === "Investments & Property"', () => {
+  test('heloc_strategy.group === "Accounts & Property"', () => {
     const src = fs.readFileSync("frontend/js/dashboard.js", "utf8");
     const entry = /id: "heloc_strategy",\s*group: "([^"]+)"/.exec(src);
     assert.ok(entry, "heloc_strategy STEPS entry not found");
-    assert.equal(entry[1], "Investments & Property");
+    assert.equal(entry[1], "Accounts & Property");
   });
 });

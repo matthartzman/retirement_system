@@ -32,7 +32,8 @@ def test_dashboard_top_level_groups():
     # #332 W-F Task F5 (design 2026-09-24 §9.2): "People and Income" splits
     # into "Household" (utility group: Household & People only) and
     # "Income & Benefits" (Topic group: Work Income, SS/Pensions/Annuities).
-    assert groups == ["Plan Status", "Household", "Income & Benefits", "Spending", "Investments & Property", "Insurance & Care", "Estate & Legacy", "Taxes", "Family & Business", "Strategy", "Reports & Review", "Settings"]
+    # 2026-11-04 left-nav redesign: twelve headings became eight (spec left-nav-redesign-design.md section 4).
+    assert groups == ["Plan Status", "Household & Cash Flow", "Accounts & Property", "Protection & Legacy", "Taxes", "Analyze", "Track & Reconcile", "Settings"]
     assert "Advanced Options" not in re.search(r"function renderSteps\(\).*?box\.innerHTML", js, re.S).group(0)
     # WP1.1: Housing and Wellness (and the other hidden redirect steps) are
     # retired from STEPS; their ids survive only as navigation.js redirects.

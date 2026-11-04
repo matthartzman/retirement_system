@@ -40,9 +40,9 @@ test("empty and error states", () => {
   assert.match(m.caHtml(DATA, EMPTY, { text: "bad", error: true }), /field-error" role="status">bad/);
 });
 
-test("wired into the nav first under Investments & Property, and into index.html", () => {
+test("wired into the nav first under Accounts & Property, and into index.html", () => {
   const dash = fs.readFileSync("frontend/js/dashboard.js", "utf8");
-  assert.match(dash, /id: "cash_accounts", group: "Investments & Property", title: "Checking & Savings Accts" \},\s+\{\s+id: "holdings"/);
+  assert.match(dash, /id: "cash_accounts",\s+group: "Accounts & Property",\s+title: "Checking & Savings",\s+\},\s+\{\s+id: "holdings"/);
   assert.match(dash, /activeStep === "cash_accounts"\) content \+= renderCashAccounts\(\)/);
   assert.match(fs.readFileSync("frontend/index.html", "utf8"), /js\/dashboard_decomp_cash_accounts\.js\?v=1/);
 });

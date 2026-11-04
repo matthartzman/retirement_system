@@ -59,12 +59,12 @@ const dash = loadDashboardSandbox();
 const run = (code) => vm.runInContext(code, dash);
 
 describe("Actual Spending step (#338 C5)", () => {
-  test("visible Reports & Review group is exactly Build & Results, Actual Spending, Account Reconciliation, Investment Sales Ledger, Year-End Transition", () => {
+  test("visible Track & Reconcile group is exactly Actual Spending, Account Reconciliation, Investment Sales Ledger, Year-End Transition", () => {
     run("planLoaded = true; activeStep = 'spending_core';");
     const titles = run(
-      "visibleSteps().filter((s) => s.group === 'Reports & Review').map((s) => s.title).join('|')",
+      "visibleSteps().filter((s) => s.group === 'Track & Reconcile').map((s) => s.title).join('|')",
     );
-    assert.equal(titles, "Build & Results|Actual Spending|Account Reconciliation|Investment Sales Ledger|Year-End Transition");
+    assert.equal(titles, "Actual Spending|Account Reconciliation|Investment Sales Ledger|Year-End Transition");
   });
 
   test("actual_spending has the two tabs, This year first", () => {
@@ -93,12 +93,12 @@ describe("Actual Spending step (#338 C5)", () => {
 });
 
 describe("one reports group (#338 C5)", () => {
-  test("no STEPS entry is in a 'Reports' group; hub sub-pages are Reports & Review", () => {
+  test("no STEPS entry is in a 'Reports' group; hub sub-pages are in Analyze", () => {
     const groups = JSON.parse(run("JSON.stringify(Object.fromEntries(STEPS.map((s) => [s.id, s.group])))"));
     assert.ok(!Object.values(groups).includes("Reports"));
     // review/build_impact/plan_data_report/spending_dashboard were retired (WP1.1) and now redirect.
     for (const id of ["detailed_results"]) {
-      assert.equal(groups[id], "Reports & Review", id);
+      assert.equal(groups[id], "Analyze", id);
     }
   });
 
@@ -112,9 +112,9 @@ describe("one reports group (#338 C5)", () => {
     assert.equal(dash.fieldFinderCategoryName("Reports"), "Reports");
   });
 
-  test("the pane eyebrow list is just Reports & Review and Settings", () => {
+  test("the pane eyebrow list is Track & Reconcile, Settings and Analyze", () => {
     const src = fs.readFileSync(path.join(JS, "dashboard.js"), "utf8");
-    assert.match(src, /\["Reports & Review", "Settings"\]\.includes\(/);
+    assert.match(src, /\["Track & Reconcile", "Settings", "Analyze"\]\.includes\(/);
     assert.doesNotMatch(src, /\["Reports", "Reports & Review", "Settings"\]/);
   });
 

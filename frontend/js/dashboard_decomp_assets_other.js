@@ -367,7 +367,7 @@ export function familyBusinessGroupsHtml(rsAll, only) {
 }
 
 // #330 P8 / Q6 (W13): the Family & Business nav group's page. These rows keep
-// their existing home on Other Assets and Liabilities -- nothing moved, and
+// their existing home on Other Assets & Debts -- nothing moved, and
 // sourceStepForRow() still attributes them there, so Build Impact, the Field
 // Finder and the closeout checklist are untouched. This is a second way IN,
 // the same shape as W9's socialSecurityOptimizePanelHtml() (Social Security
@@ -380,7 +380,7 @@ export function renderFamilyBusiness() {
   const html = familyBusinessGroupsHtml(
     rowsForStep("assets_special", { includeInactive: true }),
   );
-  const note = `<div class="field-list"><div class="section-note" data-kind="state" data-help-section="assets_special.family_business">Also editable in place on <button class="btn linklike" type="button" data-step-id="assets_special">Other Assets and Liabilities</button>. ${(window.RPHelp?.sectionButtonHtml("assets_special.family_business") || "")}</div></div>`;
+  const note = `<div class="field-list"><div class="section-note" data-kind="state" data-help-section="assets_special.family_business">Also editable in place on <button class="btn linklike" type="button" data-step-id="assets_special">Other Assets & Debts</button>. ${(window.RPHelp?.sectionButtonHtml("assets_special.family_business") || "")}</div></div>`;
   return note + (html || '<div class="field-list"><p>No fields in this step.</p></div>');
 }
 

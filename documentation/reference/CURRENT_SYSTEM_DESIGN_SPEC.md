@@ -519,9 +519,9 @@ preservation across the replace. Server communication is plain `fetch`/
 ### 7.3 Navigation model
 
 Guided steps are grouped (in `STEPS`, `frontend/js/dashboard.js`): Plan
-Status, Household, Income & Benefits, Spending, Investments & Property,
-Insurance & Care, Estate & Legacy, Taxes, Family & Business, Strategy,
-Reports & Review and Settings, plus the cross-cutting Planning Workbench (no
+Status, Household & Cash Flow, Accounts & Property, Protection & Legacy,
+Taxes, Analyze, Track & Reconcile
+and Settings, plus the cross-cutting Planning Workbench (no
 group). The former Housing & Property group was dissolved in #338: housing
 costs are edited in Spending Model's Housing accordion, home value and
 mortgage balance on Other Assets and Liabilities, and sale / next steps /
@@ -562,6 +562,8 @@ into one dated row per year and never annualizes.
 
 ## 8. Reporting/output architecture
 
+
+Two nav aids sit on top of the groups (`frontend/js/dashboard_decomp_nav_features.js`, design `documentation/future/superpowers/specs/2026-11-04-left-nav-redesign-design.md`). A **Set up | Maintain** switch changes emphasis only: Maintain lifts Track & Reconcile to the top, hides step numbers, opens Track & Reconcile by default, uses the Actual Spending to Reconciliation to Sales Ledger to Build & Results suggested-next chain and shows items needing attention instead of percent complete. The default is automatic (Set up while a required item is missing, otherwise Maintain) and a pick is remembered in browser storage. A per-heading **Features** icon opens a popover with Not enabled, Enabled and Always on sections. Each feature is listed under the group of the page where its inputs appear (`FEATURE_HOST`; a test fails when a catalog feature has no host), with its catalog domain as a topic tag. Its switch writes through the same setter as Plan Features (`setPlanFeatureSwitch`), and turning a feature off only hides it: saved entries are kept.
 ### 8.1 Orchestration
 
 Entry point: `src/reporting/workbook_builder.py::main()`. Flow: load active

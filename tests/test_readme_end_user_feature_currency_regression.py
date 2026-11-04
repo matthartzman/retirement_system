@@ -28,7 +28,7 @@ FEATURE_MARKERS = [
 ]
 
 # DOC-003: menu names the README tells the reader to click must exist on screen.
-SCREEN_NAMES = ["Data & Maintenance", "Plan Features", "Account Reconciliation", "Build & Results"]
+SCREEN_NAMES = ["Data & Backups", "Plan Features", "Account Reconciliation", "Build & Results"]
 CARD_TEXT = [
     ("dashboard_decomp_monarch_autoupdate.js", "Third-party import auto-update"),
     ("dashboard_decomp_monarch_autoupdate.js", "Enable daily auto-update"),
