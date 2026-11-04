@@ -669,7 +669,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 sales-ledger redesign: +54 (Task 6 alert strip, markers, live region, slGo)
 # 2026-11-03 sales-ledger redesign: +87 (Task 7 collapsible section shell)
 # 2026-11-03 sales-ledger redesign: +3 (Task 7 fix: tone-gated alert count)
-TOTAL_JS_MAX_LINES = 42_942
+# 2026-11-03 sales-ledger redesign: +48 (Task 8 log health, managed chips, start prompt)
+TOTAL_JS_MAX_LINES = 42_990
 
 
 

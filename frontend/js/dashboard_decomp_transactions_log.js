@@ -9,25 +9,63 @@ let tlEdit = null; // txn_id being revised, or null when adding
 let tlForm = { txn_date: "", account: "", type: "buy", symbol: "", shares: "", price: "" };
 let tlXfer = { from_account: "", to_account: "", symbol: "", txn_date: "", picks: {} };
 let tlMessage = null;
+let tlHealthAll = false; // health list: false shows the first TL_HEALTH_MAX rows
+let tlFocus = null; // {account, symbol, purchase_date} chosen from a health row; Task 9 filters the log by it
+let tlSlotStarted = null; // started state last painted into the health slot
+const TL_HEALTH_MAX = 5;
 
 const tlNum = (v) => esc(String(Math.round(Number(v) * 1e6) / 1e6));
 const tlAccounts = (log) => [...new Set([...(log.rows || []).map((r) => r.account), ...(log.open || []).map((l) => l.account)])].sort();
 const tlSelect = (id, opts, cur, fn) => `<select id="${id}" onchange="${fn}(this.value)">${opts.map(([v, t]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
 
-export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit) {
+const tlJs = (v) => esc(String(v).replace(/[\\']/g, "\\$&"));
+const tlNotStartedHtml = (msg) => `<h3>Transaction log</h3>${msg}<p class="muted">The log is not started. Starting builds it from your broker imports and holdings; the holdings are not changed.</p>` +
+  `<button type="button" class="btn" onclick="tlStart()">Start the transaction log</button>`;
+const tlManagedListHtml = (log, accts) => {
+  const managed = new Set((log.managed || []).map((a) => a.toLowerCase()));
+  return `<p class="muted">A managed account's holdings are written by this log; edit it here, not in Holdings. Turning it off leaves the last holdings as they are.</p><ul class="tl-managed">` +
+    accts.map((a) => `<li><label><input type="checkbox" data-managed="${esc(a)}"${managed.has(a.toLowerCase()) ? " checked" : ""} onchange="tlSetManaged('${esc(a)}',this.checked)"> ${esc(accountDisplayLabel(a))}</label></li>`).join("") + `</ul>`;
+};
+
+export function tlHealthHtml(log) {
+  const drift = (log && log.drift) || [];
+  if (!drift.length) return `<p class="muted">The log agrees with the holdings.</p>`;
+  const shown = tlHealthAll ? drift : drift.slice(0, TL_HEALTH_MAX);
+  return `<div role="alert"><b>The log and the holdings differ:</b><ul>` + shown.map((d) =>
+    `<li>${esc(accountDisplayLabel(d.account))} ${esc(d.symbol)} ${esc(d.purchase_date)}: holdings ${tlNum(d.holdings_shares)}, log ${tlNum(d.log_shares)}. ${esc(d.reason)} ` +
+    `<button type="button" class="btn" onclick="tlFocusRow('${tlJs(d.account)}','${tlJs(d.symbol)}','${tlJs(d.purchase_date)}')">Show in log</button></li>`).join("") + `</ul>` +
+    (drift.length > TL_HEALTH_MAX ? `<button type="button" class="btn" onclick="tlShowAllHealth(${!tlHealthAll})">${tlHealthAll ? "Show fewer" : `Show all ${drift.length}`}</button>` : "") + `</div>`;
+}
+
+export function tlManagedChipsHtml(log) {
+  const managed = (log && log.managed) || [];
+  return `<div class="tl-managed-chips"><b>Managed accounts (${managed.length}):</b> ` +
+    (managed.length ? managed.map((a) => `<span class="sl-sec-badge sl-tone-none">${esc(accountDisplayLabel(a))} · managed</span>`).join(" ") : "none") +
+    ` <details class="tl-managed-edit"><summary>Edit…</summary>${tlManagedListHtml(log, tlAccounts(log))}</details></div>`;
+}
+
+const tlHealthInner = () => !tlLog ? `<p class="muted">Loading…</p>` : !tlLog.started ? tlNotStartedHtml("") : tlHealthHtml(tlLog);
+export function renderLogHealth() {
+  if (tlLog === null) setTimeout(tlLoad, 0);
+  return `<div id="tlHealthRoot">${tlHealthInner()}</div>`;
+}
+export const tlStarted = () => !(tlLog && tlLog.started === false); // false only once the log is known to be not started
+
+export function tlFocusRow(account, symbol, purchase_date) {
+  tlFocus = { account, symbol, purchase_date };
+  if (typeof window.slGo === "function") window.slGo("fix", "log");
+}
+export function tlShowAllHealth(on) { tlHealthAll = !!on; tlPaint(); }
+
+export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit, opts = { health: true }) {
   const msg = tlMessage ? `<p role="status" class="${tlMessage.error ? "error" : "muted"}">${esc(tlMessage.text)}</p>` : "";
   if (!log) return `<h3>Transaction log</h3>${msg}<p class="muted">Loading…</p>`;
-  if (!log.started) {
-    return `<h3>Transaction log</h3>${msg}<p class="muted">The log is not started. Starting builds it from your broker imports and holdings; the holdings are not changed.</p>` +
-      `<button type="button" onclick="tlStart()">Start the transaction log</button>`;
-  }
-  const drift = (log.drift || []).length ? `<div role="alert" class="error"><b>The log and the holdings differ:</b><ul>` +
-    log.drift.map((d) => `<li>${esc(accountDisplayLabel(d.account))} ${esc(d.symbol)} ${esc(d.purchase_date)}: holdings ${tlNum(d.holdings_shares)}, log ${tlNum(d.log_shares)}. ${esc(d.reason)}</li>`).join("") + `</ul></div>` : `<p class="muted">The log agrees with the holdings.</p>`;
+  if (!log.started) return opts.health ? tlNotStartedHtml(msg) : `<h3>Transaction log</h3>${msg}<p class="muted">The log is not started. Start it in the log health section.</p>`;
+  const drift = opts.health ? (log.drift || []).length ? `<div role="alert" class="error"><b>The log and the holdings differ:</b><ul>` +
+    log.drift.map((d) => `<li>${esc(accountDisplayLabel(d.account))} ${esc(d.symbol)} ${esc(d.purchase_date)}: holdings ${tlNum(d.holdings_shares)}, log ${tlNum(d.log_shares)}. ${esc(d.reason)}</li>`).join("") + `</ul></div>` : `<p class="muted">The log agrees with the holdings.</p>` : "";
   const accts = tlAccounts(log);
   const acctOpts = [["", "Account"], ...accts.map((a) => [a, accountDisplayLabel(a)])];
-  const managed = new Set((log.managed || []).map((a) => a.toLowerCase()));
-  const managedBox = `<h4>Managed accounts</h4><p class="muted">A managed account's holdings are written by this log; edit it here, not in Holdings. Turning it off leaves the last holdings as they are.</p><ul class="tl-managed">` +
-    accts.map((a) => `<li><label><input type="checkbox" data-managed="${esc(a)}"${managed.has(a.toLowerCase()) ? " checked" : ""} onchange="tlSetManaged('${esc(a)}',this.checked)"> ${esc(accountDisplayLabel(a))}</label></li>`).join("") + `</ul>`;
+  const managedBox = opts.health ? `<h4>Managed accounts</h4>${tlManagedListHtml(log, accts)}` : tlManagedChipsHtml(log);
   const rows = (log.rows || []).slice().reverse().map((r) => `<tr><td>${esc(r.txn_date)}</td><td>${esc(accountDisplayLabel(r.account))}</td><td>${esc(TL_LABEL[r.type] || r.type)}</td><td>${esc(r.symbol)}</td>` +
     `<td class="rc-num">${tlNum(r.shares)}</td><td class="rc-num">${r.price == null ? "" : tlNum(r.price)}</td><td>${esc(r.source)}</td><td>${esc(r.note || "")}</td>` +
     `<td><button type="button" onclick="tlEditRow(${Number(r.txn_id)})">Edit</button> <button type="button" onclick="tlVoid(${Number(r.txn_id)})">Void</button></td></tr>`).join("");
@@ -52,7 +90,7 @@ export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit) {
 
 export function renderTransactionLog() {
   if (tlLog === null) setTimeout(tlLoad, 0);
-  return `<div class="sl-import" id="tlRoot">${tlHtml(tlLog)}</div>`;
+  return `<div class="sl-import" id="tlRoot">${tlHtml(tlLog, undefined, undefined, undefined, { health: false })}</div>`;
 }
 
 export function tlSummary() {
@@ -63,7 +101,12 @@ export function tlSummary() {
 
 function tlPaint() {
   const root = document.getElementById("tlRoot");
-  if (root) root.innerHTML = tlHtml(tlLog);
+  if (root) root.innerHTML = tlHtml(tlLog, undefined, undefined, undefined, { health: false });
+  const slot = document.getElementById("tlHealthSlot"), hroot = document.getElementById("tlHealthRoot");
+  const started = tlStarted();
+  if (slot && window.slHealthSlotHtml && started !== tlSlotStarted) slot.innerHTML = window.slHealthSlotHtml(); // shell <-> bare prompt only when the started state flips
+  else if (hroot) hroot.innerHTML = tlHealthInner();
+  tlSlotStarted = started;
   if (window.slPublish) { const s = tlSummary(); window.slPublish("health", s.health); window.slPublish("log", s.log); }
 }
 
@@ -117,5 +160,5 @@ export function tlTransfer() {
   return tlPost("/api/transactions/transfer", { from_account: tlXfer.from_account, to_account: tlXfer.to_account, symbol: tlXfer.symbol, txn_date: tlXfer.txn_date, allocation }, "Shares transferred.");
 }
 
-Object.assign(window, { tlSummary, renderTransactionLog, tlHtml, tlLoad, tlStart, tlSetManaged, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlVoid,
+Object.assign(window, { tlHealthHtml, tlManagedChipsHtml, renderLogHealth, tlStarted, tlFocusRow, tlShowAllHealth, tlSummary, renderTransactionLog, tlHtml, tlLoad, tlStart, tlSetManaged, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlVoid,
   tlSetXfer, tlSetXferFrom, tlSetXferTo, tlPick, tlTransfer });

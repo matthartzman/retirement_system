@@ -133,6 +133,11 @@ function slSection(key, title, fn) {
   const open = window.slSecWantOpen(window.slUiLoad(), key, window.slAlertCountOf(sum));
   return window.slSecHtml({ key, title, badges, alertCount: window.slAlertCountOf(sum), open, body: window[fn]() });
 }
+// Log health: a collapsible section once the log is started; the bare Start prompt (never inside a collapsible) before that.
+export function slHealthSlotHtml() {
+  const bare = window.tlStarted && window.tlStarted() === false && window.renderLogHealth;
+  return `<div id="tlHealthSlot">${bare ? window.renderLogHealth() : slSection("health", "Log health", "renderLogHealth")}</div>`;
+}
 function slPaintTabs() { // repaint the strip and tab bar without losing keyboard focus inside the tab bar
   const act = typeof document !== "undefined" && document.activeElement;
   const id = act && act.id;
@@ -156,7 +161,7 @@ function slBodyHtml() {
   }
   const active = window.slUiLoad().tab;
   const panel = (id, body) => window.slTabPanelHtml(id, body, active);
-  const fix = slSection("queue", "Sales waiting for lots", "renderSalesQueue") + slSection("log", "Transaction log", "renderTransactionLog") +
+  const fix = slSection("queue", "Sales waiting for lots", "renderSalesQueue") + slHealthSlotHtml() + slSection("log", "Transaction log", "renderTransactionLog") +
     slPanels(["renderCashInvestment", "renderTransactions"]);
   const ledger = `<div id="slFormRoot">${slFormHtml()}</div><div id="slCsvRoot">${slImportHtml()}</div>` +
     `<h3>Ledger</h3><div id="slListRoot">${slListHtml()}</div>`;
@@ -284,5 +289,5 @@ export async function slImportCommit() {
 
 Object.assign(window, {
   slMoney, slGainHtml, slRowHtml, slTableHtml, slTotalsHtml, slPreviewHtml, renderSalesLedger, slHashTarget, loadSalesLedger, slSubmit, slVoid, slUnvoid,
-  slSetYear, slSetShowVoided, slCsvFile, slImportPreview, slImportCommit, slEdit, slCancelEdit, slRequeue, slDraftSet,
+  slSetYear, slSetShowVoided, slCsvFile, slImportPreview, slImportCommit, slEdit, slCancelEdit, slRequeue, slDraftSet, slHealthSlotHtml,
 });

@@ -93,3 +93,60 @@ test("summary: health counts drifting accounts, log counts rows, not started is 
   await assert.doesNotReject(m.tlLoad());
   globalThis.api = orig;
 });
+
+const DRIFT7 = Array.from({ length: 7 }, (_, i) => ({ account: "Member_1_IRA", symbol: "S" + i, purchase_date: "2024-06-0" + (i + 1), holdings_shares: 9, log_shares: 7, reason: "differs" }));
+
+test("health: 7 drift items show 5 rows and Show all 7; show all reveals every row", async () => {
+  const h = m.tlHealthHtml({ ...LOG, drift: DRIFT7 });
+  assert.match(h, /The log and the holdings differ/);
+  assert.equal((h.match(/<li>/g) || []).length, 5);
+  assert.match(h, /Show all 7/);
+  assert.match(h, /tlFocusRow\(/);
+  m.tlShowAllHealth(true);
+  assert.equal((m.tlHealthHtml({ ...LOG, drift: DRIFT7 }).match(/<li>/g) || []).length, 7);
+  m.tlShowAllHealth(false);
+  assert.match(m.tlHealthHtml({ ...LOG, drift: [] }), /agrees with the holdings/);
+});
+
+test("managed chips mark managed accounts and keep the checkbox list in an Edit details", () => {
+  const h = m.tlManagedChipsHtml({ ...LOG, managed: ["Member_1_IRA"] });
+  assert.match(h, /Managed accounts \(1\)/);
+  assert.match(h, /Matt's IRA[^<]*<\/span>|Matt's IRA · managed|managed/);
+  assert.match(h, /· managed/);
+  assert.match(h, /<details/);
+  assert.match(h, /data-managed="Member_1_IRA" checked/);
+  assert.doesNotMatch(m.tlManagedChipsHtml({ ...LOG, managed: [] }), /· managed/);
+});
+
+test("not-started health render has the Start button and no details; started shows drift only", async () => {
+  const orig = globalThis.api;
+  globalThis.api = async () => ({ started: false, rows: [], open: [], drift: [] });
+  await m.tlLoad();
+  const h = m.renderLogHealth();
+  assert.match(h, /Start the transaction log/);
+  assert.match(h, /The log is not started/);
+  assert.doesNotMatch(h, /<details/);
+  globalThis.api = orig;
+  await m.tlLoad();
+  const s = m.renderLogHealth();
+  assert.match(s, /id="tlHealthRoot"/);
+  assert.match(s, /The log and the holdings differ/);
+});
+
+test("tlHtml default keeps drift and managed; health:false omits the drift block", () => {
+  const withManaged = { ...LOG, managed: ["Member_1_IRA"] };
+  assert.match(m.tlHtml(withManaged), /The log and the holdings differ/);
+  const h = m.tlHtml(withManaged, undefined, undefined, undefined, { health: false });
+  assert.doesNotMatch(h, /The log and the holdings differ/);
+  assert.doesNotMatch(h, /agrees with the holdings/);
+  assert.match(h, /Add transaction/);
+});
+
+test("tlFocusRow goes to the log via slGo when defined and is safe when not", () => {
+  const seen = [];
+  globalThis.slGo = (...a) => seen.push(a);
+  m.tlFocusRow("Member_1_IRA", "ZZZ", "2024-06-01");
+  assert.deepEqual(seen[0], ["fix", "log"]);
+  delete globalThis.slGo;
+  assert.doesNotThrow(() => m.tlFocusRow("Member_1_IRA", "ZZZ", "2024-06-01"));
+});

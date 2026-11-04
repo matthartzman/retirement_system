@@ -126,7 +126,7 @@ export function slAnnounce(text, assertive = false) {
   if (el) el.textContent = String(text);
 }
 
-const SL_SEC_META = { queue: ["Sales waiting for lots", true], health: ["Health", false], log: ["Transaction log", true], cash: ["Cash in investment", false],
+const SL_SEC_META = { queue: ["Sales waiting for lots", true], health: ["Log health", true], log: ["Transaction log", true], cash: ["Cash in investment", false],
   ledger: ["Sales ledger", true], wash: ["Realized gains & wash sales", true], cf: ["Carryforward", false], imports: ["Broker imports", false], b1099: ["Broker 1099-B", false] };
 const SL_TAB_SECS = { fix: ["queue", "health", "log", "cash"], ledger: ["ledger"], tax: ["wash", "cf"], import: ["imports", "b1099"] };
 // Only real alerts (same predicate as the strip) count; informational counts such as row totals never open or pin a section.
