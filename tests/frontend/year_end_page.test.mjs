@@ -37,6 +37,39 @@ test("only_personal_numbers_offers_a_confirmation_and_it_toggles", () => {
   assert.match(done, /Undo confirmation/);
 });
 
+test("tie_1099b_offers_its_own_confirmation_and_posts_its_step (task 15b)", async () => {
+  const tie = { id: "tie_1099b", title: "Apply and tie the broker 1099-B", link: "sales_ledger", state: "open", detail: "x", hash: "#sales_ledger?tab=import&sec=b1099" };
+  const h = m.yeHtml({ ...DATA, steps: [...DATA.steps, tie] });
+  assert.match(h, /yeConfirm\(2026, true, &quot;tie_1099b&quot;\)/);
+  assert.match(h, /I have tied each 1099-B/);
+  const done = m.yeHtml({ ...DATA, steps: [{ ...tie, state: "done" }] });
+  assert.match(done, /yeConfirm\(2026, false, &quot;tie_1099b&quot;\)/);
+  assert.match(done, /Undo confirmation/);
+  assert.doesNotMatch(m.yeHtml({ ...DATA, steps: [{ ...tie, state: "na" }] }), /yeConfirm/);
+  globalThis.document = { getElementById: () => null };
+  const calls = [];
+  globalThis.api = async (url, opts) => { calls.push([url, JSON.parse(opts.body)]); return { ...DATA, steps: [] }; };
+  await m.yeConfirm(2026, true, "tie_1099b");
+  await m.yeConfirm(2026, true);
+  assert.deepEqual(calls.map((c) => c[1].step), ["tie_1099b", "personal_numbers"]);
+});
+
+test("a_step_with_a_hash_deep_links_before_navigating_and_others_just_navigate (task 14)", () => {
+  const steps = [...DATA.steps, { id: "run_wash_check", title: "Run the wash-sale check", link: "sales_ledger", state: "open", detail: "x", hash: "#sales_ledger?tab=tax&sec=wash" }];
+  const h = m.yeHtml({ ...DATA, steps });
+  assert.match(h, /yeGo\(&quot;sales_ledger&quot;, &quot;#sales_ledger\?tab=tax&amp;sec=wash&quot;\)/);
+  assert.match(h, /setStep\(&quot;household_people&quot;\)/);
+  const seen = [];
+  globalThis.setStep = (id) => seen.push(["step", id, globalThis.location && globalThis.location.hash]);
+  globalThis.location = { hash: "" };
+  m.yeGo("sales_ledger", "#sales_ledger?tab=tax&sec=wash");
+  assert.deepEqual(seen.pop(), ["step", "sales_ledger", "#sales_ledger?tab=tax&sec=wash"]);
+  delete globalThis.location;
+  assert.doesNotThrow(() => m.yeGo("sales_ledger", "#sales_ledger?tab=fix&sec=queue"));
+  assert.deepEqual(seen.pop(), ["step", "sales_ledger", undefined]);
+  delete globalThis.setStep;
+});
+
 test("page_shows_loading_then_errors", () => {
   assert.match(m.yeHtml(null), /Loading/);
 });

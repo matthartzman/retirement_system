@@ -16,6 +16,7 @@ before(async () => {
     if (url === "/api/sales/broker/commit") return { success: true, rows_new: 3, lots_added: 1, confirmed: [1], queued: [] };
     return { success: true };
   };
+  await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
   sl = await import("../../frontend/js/dashboard_decomp_sales_ledger.js");
   m = await import("../../frontend/js/dashboard_decomp_broker_import.js");
 });
@@ -124,6 +125,13 @@ describe("ledger row actions", () => {
     await sl.slRequeue(7);
     assert.equal(calls[0][0], "/api/sales/7/requeue");
   });
+  test("after requeue the active tab is fix", async () => {
+    const seen = [];
+    globalThis.slGo = (t, k) => seen.push([t, k]);
+    await sl.slRequeue(7);
+    delete globalThis.slGo;
+    assert.deepEqual(seen, [["fix", "queue"]]);
+  });
 });
 
 describe("account in file", () => {
@@ -197,5 +205,56 @@ describe("panel wording", () => {
   test("the panel renders the file picker and no income check", () => {
     assert.match(m.renderBrokerImport(), /Broker file<input type="file"/);
     assert.doesNotMatch(m.renderBrokerImport(), /Income check/);
+  });
+});
+
+describe("summary publish", () => {
+  test("imports count is published with tone ''; no slPublish does not throw", async () => {
+    const pub = [];
+    globalThis.slPublish = (k, s) => pub.push([k, s]);
+    const orig = globalThis.api;
+    globalThis.api = async () => ({ success: true, imports: [{ import_id: 1 }, { import_id: 2 }], accounts: [] });
+    await m.biLoadImports();
+    assert.deepEqual(pub.at(-1), ["imports", { count: 2, tone: "", text: "2 imports" }]);
+    delete globalThis.slPublish;
+    await assert.doesNotReject(m.biLoadImports());
+    globalThis.api = orig;
+  });
+});
+
+describe("skeleton and next steps (Task 15)", () => {
+  test("step 1 before a preview, step 2 once one exists, back to 1 after commit", async () => {
+    await m.biLoadImports();
+    assert.match(m.renderBrokerImport(), /aria-current="step"[^>]*><strong>1 Source<\/strong>/);
+    globalThis.api = ((orig) => async (url, opts) => (url === "/api/sales/broker/preview" ? PREVIEW : orig(url, opts)))(globalThis.api);
+    await m.biPreviewFile();
+    assert.match(m.renderBrokerImport(), /aria-current="step"[^>]*><strong>2 Preview<\/strong>/);
+    await m.biCommit();
+    assert.match(m.renderBrokerImport(), /aria-current="step"[^>]*><strong>1 Source<\/strong>/);
+  });
+  test("after a commit the next-step links are rendered; the imports history markup is unchanged", async () => {
+    const ui = await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
+    ui.slPublish("queue", { count: 2, tone: "warn", text: "2 waiting" });
+    globalThis.api = ((orig) => async (url, opts) => (url === "/api/sales/broker/imports" ? { imports: [{ import_id: 1, imported_at: "2026-10-30T12:00:00" }], accounts: [] } : orig(url, opts)))(globalThis.api);
+    await m.biCommit();
+    const h = m.renderBrokerImport();
+    assert.match(h, /2 sales waiting → Fix lots/);
+    assert.match(h, /<details\s+ontoggle/);
+    assert.equal(m.biStateText(), "Last import 2026-10-30 · 1 imports");
+    ui.slPublish("queue", { count: 0, tone: "", text: "" });
+  });
+});
+
+describe("shell state follows the panel (Task 15 fix)", () => {
+  test("the imports state text updates after a commit reloads the list", async () => {
+    const el = { textContent: "old" };
+    const prev = globalThis.document;
+    globalThis.document = { getElementById: (id) => (id === "sl-sec-state-imports" ? el : null) };
+    const orig = globalThis.api;
+    globalThis.api = async (url, o) => (url === "/api/sales/broker/imports" ? { imports: [{ import_id: 1, imported_at: "2026-11-01T00:00:00" }, { import_id: 2, imported_at: "2026-11-02T00:00:00" }], accounts: [] } : orig(url, o));
+    try {
+      await m.biCommit();
+      assert.equal(el.textContent, "Last import 2026-11-02 · 2 imports");
+    } finally { globalThis.document = prev; globalThis.api = orig; }
   });
 });

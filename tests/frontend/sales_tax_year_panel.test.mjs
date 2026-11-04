@@ -90,3 +90,81 @@ describe("load", () => {
     assert.equal(calls[0][0], "/api/sales/tax-year?year=2025");
   });
 });
+
+describe("summary publish", () => {
+  test("clean wash and unsaved carryforward are neutral; flagged is bad; no data is neutral", async () => {
+    assert.deepEqual(m.stSummary(), { wash: { count: 0, tone: "", text: "" }, cf: { count: 0, tone: "", text: "" } });
+    const pub = {};
+    globalThis.slPublish = (k, s) => { pub[k] = s; };
+    await m.loadSalesTaxYear(2026);
+    assert.deepEqual(pub.wash, { count: 0, tone: "", text: "" });
+    assert.deepEqual(pub.cf, { count: 0, tone: "", text: "" });
+    const orig = globalThis.api;
+    globalThis.api = async () => SUMMARY({ carryforward_in: { short: 0, long: 0, entered: true }, wash: { count: 2, flagged_loss: 50, rows: [] } });
+    await m.loadSalesTaxYear(2026);
+    assert.deepEqual(m.stSummary().wash, { count: 2, tone: "bad", text: "2 flagged" });
+    assert.deepEqual(pub.cf, { count: 0, tone: "", text: "" });
+    delete globalThis.slPublish;
+    await assert.doesNotReject(m.loadSalesTaxYear(2026));
+    globalThis.api = orig;
+  });
+
+  test("wash last-run marker (task 14): never run and stale warn; flagged wins; old servers stay neutral", async () => {
+    const orig = globalThis.api;
+    const wash = async (w) => { globalThis.api = async () => SUMMARY({ wash: { count: 0, flagged_loss: 0, rows: [], ...w } }); await m.loadSalesTaxYear(2026); return m.stSummary().wash; };
+    assert.deepEqual(await wash({ last_run: null, never_run: true, stale: false }), { count: 0, tone: "warn", text: "never run" });
+    assert.deepEqual(await wash({ last_run: "2026-11-03T10:00:00+00:00", never_run: false, stale: true }), { count: 0, tone: "warn", text: "stale" });
+    assert.deepEqual(await wash({ last_run: "2026-11-03T10:00:00+00:00", never_run: false, stale: false }), { count: 0, tone: "", text: "" });
+    assert.deepEqual(await wash({ count: 3, never_run: true, stale: true }), { count: 3, tone: "bad", text: "3 flagged" });
+    assert.deepEqual(await wash({}), { count: 0, tone: "", text: "" });
+    globalThis.api = orig;
+  });
+});
+
+describe("tax tab layout (task 13)", () => {
+  const TAXED = { available: true, ordinary_tax: 1, ltcg_tax: 2, niit: 0, state_tax: 0, total: 742, note: "n" };
+  test("tiles: ST net, LT net, estimated tax, carryforward out with signs", () => {
+    const html = m.stTilesHtml(SUMMARY({ realized_tax: TAXED, netting: { net_st: -505, net_lt: 4950, carryforward_st: 10, carryforward_lt: 5 } }));
+    assert.match(html, /sl-tiles/);
+    assert.equal((html.match(/class="tile sl-tile"/g) || []).length, 4);
+    assert.match(html, /Short-term net[\s\S]*-\$505\.00/);
+    assert.match(html, /Long-term net[\s\S]*\$4,950\.00/);
+    assert.match(html, /Estimated tax[\s\S]*\$742\.00/);
+    assert.match(html, /Carryforward out[\s\S]*\$15\.00/);
+  });
+  test("tiles never show NaN with zero or missing data", () => {
+    for (const s of [{ year: 2026 }, SUMMARY({ totals: { count: 0 }, netting: undefined }), SUMMARY({ realized_tax: { available: false } })]) {
+      const html = m.stTilesHtml(s);
+      assert.doesNotMatch(html, /NaN|undefined/);
+      assert.equal((html.match(/class="tile sl-tile"/g) || []).length, 4);
+    }
+    assert.match(m.stTilesHtml({ year: 2026 }), /Estimated tax[\s\S]*—/);
+  });
+  test("body: scope title, two-column wrapper, carryforward ids once", async () => {
+    await m.loadSalesTaxYear(2026);
+    const html = m.renderSalesTaxYear();
+    assert.match(html, /Tax year 2026 · sales dated 1\/1–12\/31/);
+    assert.match(html, /class="sl-tax-cols"/);
+    assert.equal((html.match(/id="stCfShort"/g) || []).length, 1);
+    assert.equal((html.match(/id="stCfLong"/g) || []).length, 1);
+  });
+  test("1099-B row: neutral and warn", () => {
+    assert.match(m.st1099bStatusRowHtml(undefined), /1099-B: No 1099-B differences recorded/);
+    assert.match(m.st1099bStatusRowHtml({ count: 2, tone: "warn", text: "x" }), /1099-B: 2 accounts not tied/);
+    assert.match(m.st1099bStatusRowHtml({ count: 1, tone: "bad" }), /slGo\('import','b1099'\)/);
+    assert.match(m.st1099bStatusRowHtml({ count: 0, tone: "" }), /No 1099-B differences/);
+  });
+  test("year-end link text and fetch handling", async () => {
+    assert.match(m.stYearEndLinkHtml(2, 9, 2026), /Year-end steps \(2026\): 2 of 9 open → Year-End Transition/);
+    assert.match(m.stYearEndLinkHtml(2, 9, 2026), /setStep\('year_end'\)/);
+    assert.equal(m.stYearEndLinkHtml(0, 0, 2026), "");
+    const orig = globalThis.api;
+    globalThis.api = async (url) => (url === "/api/year-end" ? { year: 2026, steps: [{ state: "open" }, { state: "done" }, { state: "open" }] } : SUMMARY());
+    await m.loadSalesTaxYear(2026);
+    assert.match(m.renderSalesTaxYear(), /Year-end steps \(2026\): 2 of 3 open/);
+    globalThis.api = async (url) => { if (url === "/api/year-end") throw new Error("down"); return SUMMARY(); };
+    await m.loadSalesTaxYear(2026);
+    assert.doesNotMatch(m.renderSalesTaxYear(), /Year-end steps/);
+    globalThis.api = orig;
+  });
+});

@@ -1,17 +1,24 @@
 // "Year-End Transition" page (year-end transition Phase 2): an ordered checklist for moving from one calendar year to the next.
-// Step state is derived server-side (src/year_end.py, GET /api/year-end); only "Update personal numbers" is a stored
-// confirmation. Each step links to the screen that does it. Helpers are bare globals.
+// Step state is derived server-side (src/year_end.py, GET /api/year-end); "Update personal numbers" and "tie the 1099-B" are stored
+// confirmations. Each step links to the screen that does it. Helpers are bare globals.
 
 const YE_STATE = { done: "Done", open: "Open", na: "Not applicable" };
+const YE_CONFIRM = { personal_numbers: "I have reviewed these", tie_1099b: "I have tied each 1099-B" };
 let yeData = null, yeError = "";
 
 export function yeHtml(data) {
   if (!data) return `<h2>Year-End Transition</h2><p class="muted">${yeError ? "" : "Loading…"}</p>${yeError ? `<p role="alert" class="error">${esc(yeError)}</p>` : ""}`;
   const items = data.steps.map((s, i) => `<li data-step="${esc(s.id)}" data-state="${esc(s.state)}"><b>${i + 1}. ${esc(s.title)}</b> <span class="muted">${esc(YE_STATE[s.state] || s.state)}</span><br>` +
-    `${esc(s.detail)} <a href="#" onclick="setStep(${esc(JSON.stringify(s.link))});return false">Go to this step</a>` +
-    (s.id === "personal_numbers" ? ` <button class="btn" type="button" onclick="yeConfirm(${data.year}, ${s.state === "done" ? "false" : "true"})">${s.state === "done" ? "Undo confirmation" : "I have reviewed these"}</button>` : "") + `</li>`).join("");
+    `${esc(s.detail)} <a href="#" onclick="${s.hash ? `yeGo(${esc(JSON.stringify(s.link))}, ${esc(JSON.stringify(s.hash))})` : `setStep(${esc(JSON.stringify(s.link))})`};return false">Go to this step</a>` +
+    (YE_CONFIRM[s.id] && s.state !== "na" ? ` <button class="btn" type="button" onclick="yeConfirm(${data.year}, ${s.state === "done" ? "false" : "true"}${s.id === "personal_numbers" ? "" : `, ${esc(JSON.stringify(s.id))}`})">${s.state === "done" ? "Undo confirmation" : YE_CONFIRM[s.id]}</button>` : "") + `</li>`).join("");
   return `<h2>Year-End Transition</h2><p>Closing ${esc(String(data.year))}${data.closed ? " (cash year closed)" : ""}. Each step's state comes from your data; nothing here changes the plan's tax numbers.</p>` +
     `${yeError ? `<p role="alert" class="error">${esc(yeError)}</p>` : ""}<ol class="ye-steps">${items}</ol>`;
+}
+
+// A step with a deep link sets the hash first (the Sales Ledger reads tab/section from it); location may not exist (node tests).
+export function yeGo(link, hash) {
+  try { if (hash && typeof location !== "undefined" && location) location.hash = hash; } catch (e) { /* navigate anyway */ }
+  setStep(link);
 }
 
 export function renderYearEnd() {
@@ -24,8 +31,8 @@ export async function yeLoad() {
   try { yeData = await api("/api/year-end"); yeError = ""; } catch (e) { yeError = e.message; }
   yePaint();
 }
-export async function yeConfirm(year, confirmed) {
-  try { yeData = await api("/api/year-end/confirm", { method: "POST", body: JSON.stringify({ year, step: "personal_numbers", confirmed }) }); yeError = ""; } catch (e) { yeError = e.message; }
+export async function yeConfirm(year, confirmed, step = "personal_numbers") {
+  try { yeData = await api("/api/year-end/confirm", { method: "POST", body: JSON.stringify({ year, step, confirmed }) }); yeError = ""; } catch (e) { yeError = e.message; }
   yePaint();
 }
 
@@ -36,4 +43,4 @@ export function renderYearEndBanner(now = new Date()) {
     ? `<div class="section-note" data-kind="state"><b>Year-end:</b> a checklist is ready. <a href="#" onclick="setStep('year_end');return false">Open Year-End Transition</a></div>` : "";
 }
 
-Object.assign(window, { renderYearEnd, yeHtml, yeLoad, yeConfirm, renderYearEndBanner });
+Object.assign(window, { renderYearEnd, yeHtml, yeGo, yeLoad, yeConfirm, renderYearEndBanner });

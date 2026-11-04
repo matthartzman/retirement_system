@@ -15,8 +15,11 @@ let bbPdf = ""; // base64 of an uploaded PDF; wins over pasted text
 let bbFile = "";
 let bbAccounts = null; // null = not loaded yet
 let bbPreview = null;
+let bbPreviewKey = ""; // the request body the current preview was built from; Apply refuses any other
 let bbMessage = null; // { text, error }
 let bbBusy = false;
+let bbViewed = false; // the user ticked "I have reviewed this difference report" for the current preview
+let bbDone = null; // set after a successful apply: drives the next-step links
 
 const bbMoney = (v) => (Number(v) < 0 ? "-$" : "$") + Math.abs(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const bbQty = (v) => esc(String(Math.round(Number(v) * 1e3) / 1e3));
@@ -73,6 +76,17 @@ export function bbChangesHtml(p) {
     `Applying this one replaces it: the earlier corrections are undone first.</p>${rows ? `<p>Changes since that import:</p><ul>${rows}</ul>` : `<p>No line changed since that import.</p>`}</div>`;
 }
 
+// Apply needs what the server already requires (can_apply: clean statement, control totals tie) plus the user's review.
+export const bbCanApply = (preview, viewed) => !!(preview && preview.can_apply) && !!viewed;
+const bbReason = (p, v) => (bbCanApply(p, v) ? "" : "Review the differences and tick the box; totals must tie.");
+export function bbMarkViewed(on) { // in place: repainting the root would drop keyboard focus from the checkbox
+  bbViewed = !!on;
+  const btn = document.getElementById("bbApplyBtn");
+  const why = document.getElementById("bbApplyReason");
+  if (btn) btn.disabled = !bbCanApply(bbPreview, bbViewed) || bbBusy;
+  if (why) why.textContent = bbReason(bbPreview, bbViewed);
+}
+
 export function bbPreviewHtml(p) {
   const errs = (p.errors || []).map((e) => `<li>${e.line ? `Line ${Number(e.line)}: ` : ""}${esc(e.error)}</li>`).join("");
   const warns = (p.warnings || []).map((w) => `<li>${esc(w)}</li>`).join("");
@@ -81,15 +95,17 @@ export function bbPreviewHtml(p) {
     `${meta.corrected ? ` <strong>(CORRECTED statement${meta.statement_date ? ` dated ${esc(meta.statement_date)}` : ""})</strong>` : ""}.</p>`;
   return `<div class="sl-preview bb-preview">${head}${errs ? `<ul class="field-error">${errs}</ul>` : ""}${warns ? `<ul class="field-warning">${warns}</ul>` : ""}` +
     `${bbControlHtml(p.control_totals)}${bbChangesHtml(p)}${bbReportHtml(p.report)}` +
+    `<label class="bb-viewed"><input type="checkbox" ${bbViewed ? "checked" : ""} onchange="bbMarkViewed(this.checked)"> I have reviewed this difference report</label>` +
     `<div class="bb-actions"><button class="btn" type="button" onclick="bbExportCsv()">Export report CSV</button> ` +
-    `<button class="btn primary" type="button" onclick="bbApply()" ${p.can_apply && !bbBusy ? "" : "disabled"}>${p.supersedes ? "Replace earlier import and apply" : "Apply official numbers"}</button>` +
-    `${p.can_apply ? "" : ` <span class="muted">Apply is off until the statement reads cleanly and its control totals tie.</span>`}</div></div>`;
+    `<button class="btn primary" type="button" id="bbApplyBtn" aria-describedby="bbApplyReason" onclick="bbApply()" ${bbCanApply(p, bbViewed) && !bbBusy ? "" : "disabled"}>${p.supersedes ? "Replace earlier import and apply" : "Apply official numbers"}</button>` +
+    ` <span class="muted" id="bbApplyReason">${bbReason(p, bbViewed)}</span></div></div>`;
 }
 
 function bbBodyHtml() {
   const accounts = bbAccounts || [];
   const msg = bbMessage ? `<p class="${bbMessage.error ? "field-error" : "muted"}" role="status">${esc(bbMessage.text)}</p>` : "";
-  return `<h3>Import a broker 1099-B</h3><p class="muted">Paste the statement text or choose the file (text or PDF with a text layer). Preview never changes the ledger; ` +
+  const steps = window.slStepsHtml ? window.slStepsHtml(bbPreview ? 2 : 1) : "";
+  return `${steps}<h3>Import a broker 1099-B</h3><p class="muted">Paste the statement text or choose the file (text or PDF with a text layer). Preview never changes the ledger; ` +
     `applying writes the broker's official numbers and keeps the earlier values in an audit trail.</p>` +
     `<div class="field-grid"><label>Broker<select aria-label="1099-B broker" onchange="bbSetBroker(this.value)">${BB_BROKERS.map(([v, l]) => `<option value="${v}" ${v === bbBroker ? "selected" : ""}>${l}</option>`).join("")}</select></label>` +
     `<label>Planner account<select aria-label="1099-B Planner account" onchange="bbSetAccount(this.value)"><option value="">Choose…</option>` +
@@ -97,7 +113,7 @@ function bbBodyHtml() {
     `<label>Statement file<input type="file" accept=".txt,.csv,.pdf,text/plain,application/pdf" aria-label="1099-B statement file" onchange="bbFileChosen(this)"></label></div>` +
     `<label>Or paste the statement text<textarea id="bbText" rows="4" aria-label="1099-B statement text" oninput="bbSetText(this.value)">${esc(bbPdf ? "" : bbText)}</textarea></label>` +
     `${bbFile ? `<p class="muted">File: ${esc(bbFile)}</p>` : ""}` +
-    `<button class="btn" type="button" onclick="bbPreviewStatement()" ${bbBusy ? "disabled" : ""}>Preview</button>${msg}${bbPreview ? bbPreviewHtml(bbPreview) : ""}`;
+    `<button class="btn" type="button" onclick="bbPreviewStatement()" ${bbBusy ? "disabled" : ""}>Preview</button>${msg}${bbPreview ? bbPreviewHtml(bbPreview) : ""}${bbDone && window.slNextStepHtml ? window.slNextStepHtml(bbDone) : ""}`;
 }
 
 export function renderSalesBroker1099b() {
@@ -105,7 +121,13 @@ export function renderSalesBroker1099b() {
   return `<div class="sl-import bb-panel" id="bbRoot">${bbBodyHtml()}</div>`;
 }
 
+// The panel holds no per-account "tied" data yet, so nothing is reported as untied.
+export const bbStateText = () => (bbPreview ? `Preview ready · tax year ${bbPreview.tax_year}` : "");
+export const bbSummary = () => ({ count: 0, tone: "", text: "" });
+
 function bbPaint() {
+  if (window.slPublish) window.slPublish("b1099", bbSummary());
+  if (window.slSecSetState) window.slSecSetState("b1099", bbStateText());
   const root = document.getElementById("bbRoot");
   if (!root) return;
   const old = root.querySelector('input[type="file"]');
@@ -123,9 +145,9 @@ export async function bbLoadAccounts() {
   bbPaint();
 }
 
-export function bbSetBroker(v) { bbBroker = v; bbPreview = null; bbPaint(); }
-export function bbSetAccount(v) { bbAccount = v; bbPreview = null; bbPaint(); }
-export function bbSetText(v) { bbText = v; bbPdf = ""; bbFile = ""; bbPreview = null; }
+export function bbSetBroker(v) { bbBroker = v; bbPreview = null; bbDone = null; bbPaint(); }
+export function bbSetAccount(v) { bbAccount = v; bbPreview = null; bbDone = null; bbPaint(); }
+export function bbSetText(v) { bbText = v; bbPdf = ""; bbFile = ""; bbPreview = null; bbDone = null; }
 
 export function bbFileChosen(input) {
   const file = input.files && input.files[0];
@@ -134,7 +156,7 @@ export function bbFileChosen(input) {
   const pdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
   reader.onload = () => {
     const out = String(reader.result || "");
-    bbFile = file.name; bbPreview = null;
+    bbFile = file.name; bbPreview = null; bbDone = null;
     if (pdf) { bbPdf = out.slice(out.indexOf(",") + 1); bbText = ""; } else { bbText = out; bbPdf = ""; }
     bbPaint();
   };
@@ -146,23 +168,27 @@ const bbBody = () => ({ broker: bbBroker, account: bbAccount, ...(bbPdf ? { pdf_
 export async function bbPreviewStatement() {
   if (!bbAccount) { bbMessage = { text: "Choose the Planner account this statement belongs to.", error: true }; return bbPaint(); }
   if (!bbText && !bbPdf) { bbMessage = { text: "Paste the statement text or choose a file first.", error: true }; return bbPaint(); }
-  bbBusy = true; bbMessage = { text: "Previewing…", error: false }; bbPaint();
+  bbBusy = true; bbViewed = false; bbDone = null; bbMessage = { text: "Previewing…", error: false }; bbPaint();
+  const key = JSON.stringify(bbBody()); // the account, broker or statement may change while the request is in flight
   try {
-    bbPreview = await api("/api/sales/1099b/preview", { method: "POST", body: JSON.stringify(bbBody()) });
-    bbMessage = null;
+    const out = await api("/api/sales/1099b/preview", { method: "POST", body: key });
+    if (JSON.stringify(bbBody()) !== key) bbMessage = null; // a preview of other inputs: drop it
+    else { bbPreview = out; bbPreviewKey = key; bbMessage = null; bbViewed = false; }
   } catch (e) { bbPreview = null; bbMessage = { text: e.message, error: true }; }
   bbBusy = false; bbPaint();
 }
 
 export async function bbApply() {
-  if (!bbPreview || !bbPreview.can_apply) return;
+  if (!bbCanApply(bbPreview, bbViewed)) return;
+  if (JSON.stringify(bbBody()) !== bbPreviewKey) { bbMessage = { text: "The inputs changed after this preview — preview again.", error: true }; return bbPaint(); }
   const replace = !!bbPreview.supersedes;
   if (replace && !(window.confirm && window.confirm("An earlier statement for this account and year was imported. Replace it with this one?"))) return;
   bbBusy = true; bbPaint();
   try {
     const out = await api("/api/sales/1099b/apply", { method: "POST", body: JSON.stringify({ ...bbBody(), replace }) });
     bbMessage = { text: `Applied: ${out.corrected} ledger row(s) corrected, ${out.added} added${out.superseded ? `, earlier statement ${out.superseded} replaced` : ""}.`, error: false };
-    bbPreview = null;
+    bbPreview = null; bbViewed = false;
+    bbDone = { wash: true };
   } catch (e) { bbMessage = { text: e.message, error: true }; }
   bbBusy = false; bbPaint();
   if (window.loadSalesLedger) window.loadSalesLedger();
@@ -182,6 +208,7 @@ export function bbExportCsv() {
 }
 
 Object.assign(window, {
+  bbSummary, bbCanApply, bbMarkViewed, bbStateText,
   bbSuggestionsHtml, bbReportRowHtml, bbTotalsHtml, bbReportHtml, bbControlHtml, bbChangesHtml, bbPreviewHtml, renderSalesBroker1099b, bbLoadAccounts,
   bbSetBroker, bbSetAccount, bbSetText, bbFileChosen, bbPreviewStatement, bbApply, bbExportCsv,
 });

@@ -659,7 +659,31 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 (nav search typing fix: +2 in dashboard_decomp_row_model.js for the per-render step-stats memo, +1 in navigation.js so the search box
 # keeps what is being typed; dashboard.js did not grow): raised to the measured 42,579.
 # 2026-11-03 (Account Tax Basis page: renderAccountTaxBasis, help entry, glossary terms, row routing; +1 in dashboard.js): raised to 42,609, the old ceiling plus both changes.
-TOTAL_JS_MAX_LINES = 42_609
+# 2026-11-03 sales-ledger redesign: +52 (new module dashboard_decomp_sales_ledger_ui.js; dashboard.js did not grow)
+# 2026-11-03 sales-ledger redesign: +37 (Task 2 tab bar/panel builders)
+# 2026-11-03 sales-ledger redesign: +21 (Task 3 scoped repaint, drafts, header)
+# 2026-11-03 sales-ledger redesign: +18 (Task 4 four tabs, hash deep link, draft fixes)
+# 2026-11-03 sales-ledger redesign: +6 (Task 4 fix: deep-link tab applied once)
+# 2026-11-03 sales-ledger redesign: +56 (Task 5 panel summaries and publish hook)
+# 2026-11-03 sales-ledger redesign: -1 (Task 5 fix: neutral wash and carryforward summaries)
+# 2026-11-03 sales-ledger redesign: +54 (Task 6 alert strip, markers, live region, slGo)
+# 2026-11-03 sales-ledger redesign: +87 (Task 7 collapsible section shell)
+# 2026-11-03 sales-ledger redesign: +3 (Task 7 fix: tone-gated alert count)
+# 2026-11-03 sales-ledger redesign: +48 (Task 8 log health, managed chips, start prompt)
+# 2026-11-03 sales-ledger redesign: +55 (Task 9 log drawers, filters, pagination)
+# 2026-11-03 sales-ledger redesign: +3 (Task 10 confirmations, log filter/Esc fixes)
+# 2026-11-03 sales-ledger redesign: +32 (Task 11 Transactions merged into the log: History & held lots mode)
+# 2026-11-03 sales-ledger redesign: +13 (Task 11 fix: history without a started log, latest request wins, history parity)
+# 2026-11-03 sales-ledger redesign: +30 (Task 12 ledger toolbar, drawer, accessible table, void confirm)
+# 2026-11-03 sales-ledger redesign: +31 (Task 13 tax tab tiles, columns, 1099-B and year-end rows)
+# 2026-11-03 sales-ledger redesign: +9 (Task 14 wash last-run summary, year-end step deep links)
+# 2026-11-03 sales-ledger redesign: +41 (Task 15 import tab skeleton, 1099-B apply gating, CTAs, CSV import move)
+# 2026-11-03 sales-ledger redesign: +19 (Task 15 fix: CSV box feedback, live shell state text, focus-safe review box)
+# 2026-11-03 sales-ledger redesign: +1 (Task 15b tie-1099-B confirm map)
+# 2026-11-03 sales-ledger redesign: +19 (Task 16a real-DOM fixes: single health slot, closed empty sections, count-0 tab marker, deep-link consume + sec)
+# 2026-11-03 sales-ledger redesign: +24 (Task 16b density toggle, help text)
+# 2026-11-03 sales-ledger redesign: +31 (final-review fixes: Esc scope, in-memory tab, cash alert landing, 1099-B stale preview)
+TOTAL_JS_MAX_LINES = 43_298
 
 
 

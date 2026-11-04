@@ -73,3 +73,18 @@ describe("flow", () => {
     assert.equal(calls[0][0], "/api/sales/candidates/3/undo");
   });
 });
+
+describe("summary publish", () => {
+  test("3 unmatched publishes {3,bad,'3 waiting'}; no slPublish does not throw", async () => {
+    const pub = [];
+    globalThis.slPublish = (k, s) => pub.push([k, s]);
+    const orig = globalThis.api;
+    globalThis.api = async () => ({ success: true, candidates: [], counts: { unmatched: 3 } });
+    await m.loadSalesQueue();
+    assert.deepEqual(pub.at(-1), ["queue", { count: 3, tone: "bad", text: "3 waiting" }]);
+    assert.deepEqual(m.sqSummary(), { count: 3, tone: "bad", text: "3 waiting" });
+    delete globalThis.slPublish;
+    await assert.doesNotReject(m.loadSalesQueue());
+    globalThis.api = orig;
+  });
+});
