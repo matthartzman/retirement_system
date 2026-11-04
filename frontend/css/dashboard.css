@@ -1327,6 +1327,13 @@ header :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{o
 .sl-page .rc-scroll .rc-table th,.sl-page .tl-table-wrap .rc-table th{font-size:11px;text-transform:uppercase;color:var(--muted);background:#fbfaf7}
 .sl-page .rc-scroll .rc-table button,.sl-page .tl-table-wrap .rc-table button{min-height:24px;padding:1px 8px}
 @media (pointer:coarse){.sl-sec>summary,.sl-secctl .btn{min-height:44px}}
+/* Task 16b: row density (comfortable | compact); the control is for mouse users only */
+.sl-density{display:inline-flex;align-items:center;gap:4px;margin-left:12px;font-size:12px;color:var(--muted)}
+.sl-density .btn{min-height:24px;padding:1px 8px;font-size:12px}
+.sl-density .btn[aria-pressed="true"]{background:var(--soft);border-color:var(--accent);color:var(--ink);font-weight:700}
+.sl-page.sl-compact{--sl-row:24px}
+.sl-page.sl-compact .rc-scroll .rc-table th,.sl-page.sl-compact .rc-scroll .rc-table td,.sl-page.sl-compact .tl-table-wrap .rc-table th,.sl-page.sl-compact .tl-table-wrap .rc-table td{padding:2px 8px}
+@media (pointer:coarse){.sl-density{display:none}}
 @media (prefers-reduced-motion:reduce){.sl-sec-chev{transition:none}}
 
 .tl-drawers{display:grid;grid-template-columns:1fr;gap:10px;margin:10px 0}

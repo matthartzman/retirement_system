@@ -670,3 +670,29 @@ describe("CSV box feedback and shell state (Task 15 fix)", () => {
     globalThis.document = prev;
   });
 });
+
+describe("density control (Task 16b)", () => {
+  const memStore = (init) => { const d = init ? { "salesLedger.ui.v1": JSON.stringify(init) } : {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); } }; };
+  const run = (store, coarse, fn) => {
+    globalThis.localStorage = store;
+    globalThis.matchMedia = () => ({ matches: coarse });
+    try { fn(); } finally { delete globalThis.localStorage; delete globalThis.matchMedia; }
+  };
+  test("stored compact adds sl-compact to the root and presses Compact", () => run(memStore({ density: "compact" }), false, () => {
+    const html = m.renderSalesLedger();
+    assert.match(html, /^<div class="field-list sl-page sl-compact" id="slRoot">/);
+    assert.match(html, /id="slDensityCompact"[^>]*aria-pressed="true"/);
+    assert.match(html, /id="slDensityComfort"[^>]*aria-pressed="false"/);
+  }));
+  test("default is comfortable; the group sits in the head root, ids unique", () => run(memStore(), false, () => {
+    const html = m.renderSalesLedger();
+    assert.match(html, /^<div class="field-list sl-page" id="slRoot">/);
+    assert.match(html, /id="slDensityComfort"[^>]*aria-pressed="true"/);
+    assert.match(html, /role="group" aria-label="Row density"/);
+    assert.ok(html.indexOf('id="slDensityComfort"') < html.indexOf('id="slStripRoot"'));
+    for (const id of ["slDensityComfort", "slDensityCompact"]) assert.equal((html.match(new RegExp(`id="${id}"`, "g")) || []).length, 1);
+  }));
+  test("coarse pointer ignores a stored compact", () => run(memStore({ density: "compact" }), true, () => {
+    assert.match(m.renderSalesLedger(), /^<div class="field-list sl-page" id="slRoot">/);
+  }));
+});

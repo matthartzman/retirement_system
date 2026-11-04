@@ -32,18 +32,18 @@ const biAcct = (rows, on) => (on ? `<td>${esc(accountDisplayLabel(rows.account |
 
 export function biLotsHtml(lots, multi) {
   if (!lots.length) return `<p class="muted">No new buys or reinvestments.</p>`;
-  return `<table class="rc-table"><thead><tr>${multi ? "<th>Account</th>" : ""}<th>Date</th><th>Type</th><th>Symbol</th><th class="rc-num">Shares</th><th class="rc-num">Price</th><th>Result</th></tr></thead><tbody>` +
+  return `<div class="rc-scroll"><table class="rc-table"><thead><tr>${multi ? "<th>Account</th>" : ""}<th>Date</th><th>Type</th><th>Symbol</th><th class="rc-num">Shares</th><th class="rc-num">Price</th><th>Result</th></tr></thead><tbody>` +
     lots.map((l) => `<tr>${biAcct(l, multi)}<td>${esc(l.run_date)}</td><td>${esc(BI_KIND[l.kind] || l.kind)}</td><td>${esc(l.symbol)}</td><td class="rc-num">${biNum(l.shares)}</td>` +
       `<td class="rc-num">${biMoney(l.price)}</td><td>${l.action === "add" ? "New lot" :
-        `Already in holdings (${esc(l.lot_date)}${l.price_diff ? `, price differs by ${biMoney(l.price_diff)}` : ""})`}</td></tr>`).join("") + `</tbody></table>`;
+        `Already in holdings (${esc(l.lot_date)}${l.price_diff ? `, price differs by ${biMoney(l.price_diff)}` : ""})`}</td></tr>`).join("") + `</tbody></table></div>`;
 }
 
 export function biOrdersHtml(orders, multi) {
   if (!orders.length) return `<p class="muted">No new sales.</p>`;
   const lots = (o) => (o.lots || []).map((l) => `${biNum(l.shares)} from ${esc(l.purchase_date || "undated")}${l.origin === "import" ? " (new)" : ""}`).join("; ");
-  return `<table class="rc-table"><thead><tr>${multi ? "<th>Account</th>" : ""}<th>Trade date</th><th>Symbol</th><th class="rc-num">Shares</th><th class="rc-num">Proceeds</th><th>Lots</th><th>Status</th></tr></thead><tbody>` +
+  return `<div class="rc-scroll"><table class="rc-table"><thead><tr>${multi ? "<th>Account</th>" : ""}<th>Trade date</th><th>Symbol</th><th class="rc-num">Shares</th><th class="rc-num">Proceeds</th><th>Lots</th><th>Status</th></tr></thead><tbody>` +
     orders.map((o) => `<tr>${biAcct(o, multi)}<td>${esc(o.trade_date)}</td><td>${esc(o.symbol)}</td><td class="rc-num">${biNum(o.shares)}</td><td class="rc-num">${biMoney(o.proceeds)}</td>` +
-      `<td>${lots(o) || "—"}</td><td>${esc(BI_STATUS[o.status] || o.status)}${o.status === "short" ? ` (${biNum(o.lots_short)} short)` : ""}</td></tr>`).join("") + `</tbody></table>`;
+      `<td>${lots(o) || "—"}</td><td>${esc(BI_STATUS[o.status] || o.status)}${o.status === "short" ? ` (${biNum(o.lots_short)} short)` : ""}</td></tr>`).join("") + `</tbody></table></div>`;
 }
 
 const biBrokerName = (id) => esc((BI_BROKERS.find(([v]) => v === id) || [id, id])[1]);
@@ -89,11 +89,11 @@ export function biImportsHtml(list) {
   const { key, dir } = biSort;
   const val = (i) => (key === "account" ? accountDisplayLabel(i.account) : i[key]);
   const rows = [...list].sort((x, y) => (val(x) > val(y) ? 1 : val(x) < val(y) ? -1 : 0) * dir);
-  return `<table class="rc-table"><thead><tr>` + BI_COLS.map(([k, l, c]) => `<th class="${c || ""}" aria-sort="${k === key ? (dir > 0 ? "ascending" : "descending") : "none"}">` +
+  return `<div class="rc-scroll"><table class="rc-table"><thead><tr>` + BI_COLS.map(([k, l, c]) => `<th class="${c || ""}" aria-sort="${k === key ? (dir > 0 ? "ascending" : "descending") : "none"}">` +
     `<button type="button" class="th-sort" onclick="biSortBy('${k}')">${l}${k === key ? (dir > 0 ? " ▲" : " ▼") : ""}</button></th>`).join("") + `<th></th></tr></thead><tbody>` +
     rows.map((i) => `<tr><td>${Number(i.import_id)}</td><td>${esc(accountDisplayLabel(i.account))}</td><td>${esc(i.date_from || "")} to ${esc(i.date_to || "")}</td>` +
       `<td class="rc-num">${Number(i.rows_new)}</td><td>${esc(i.status)}</td><td>${i.status === "applied" ?
-        `<button class="btn" type="button" onclick="biRevert(${Number(i.import_id)})">Revert</button>` : ""}</td></tr>`).join("") + `</tbody></table>`;
+        `<button class="btn" type="button" onclick="biRevert(${Number(i.import_id)})">Revert</button>` : ""}</td></tr>`).join("") + `</tbody></table></div>`;
 }
 export function biSortBy(k) { biSort = { key: k, dir: biSort.key === k ? -biSort.dir : 1 }; biPaint(); }
 export function biToggleImports(open) { biImportsOpen = !!open; }

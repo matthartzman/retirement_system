@@ -25,6 +25,22 @@ export function slUiSave(state, storage = globalThis.localStorage) {
   try { storage.setItem(SL_UI_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable: UI state is a convenience only */ }
 }
 
+// Row density: "" (comfortable) or "compact". Touch devices always get comfortable rows, so coarse pointers neither apply nor store it.
+const slCoarse = () => { try { return !!(globalThis.matchMedia && globalThis.matchMedia("(pointer:coarse)").matches); } catch (e) { return false; } };
+export const slIsCompact = (storage) => slUiLoad(storage).density === "compact" && !slCoarse();
+export function slSetDensity(d, opts = {}) {
+  if ((d !== "" && d !== "compact") || slCoarse()) return;
+  slUiSave({ ...slUiLoad(opts.storage), density: d }, opts.storage);
+  const doc = globalThis.document;
+  if (!doc) return;
+  const root = doc.getElementById("slRoot");
+  if (root && root.classList) root.classList.toggle("sl-compact", d === "compact");
+  for (const [id, on] of [["slDensityComfort", d === ""], ["slDensityCompact", d === "compact"]]) {
+    const b = doc.getElementById(id);
+    if (b) b.setAttribute("aria-pressed", String(on));
+  }
+}
+
 export const slUiSetTab = (state, id) => (slTabOk(id) ? { ...state, tab: id } : state);
 
 export const slUiRecordToggle = (state, key, open, alertCount) =>
@@ -234,4 +250,4 @@ export function slNextStepHtml(result) {
   return items.length ? `<p class="sl-next" role="status">Next: ${items.join(" · ")}</p>` : "";
 }
 
-Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSecHtml, slAlertCountOf, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecSetState, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown, slStepsHtml, slNextStepHtml });
+Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSetDensity, slIsCompact, slSecHtml, slAlertCountOf, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecSetState, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown, slStepsHtml, slNextStepHtml });

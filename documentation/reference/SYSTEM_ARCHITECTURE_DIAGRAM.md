@@ -335,7 +335,7 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 2. `js/dashboard_shared_helpers.js?v=2`
 3. `js/render_hooks.js?v=1`
 4. `js/text_size.js?v=1`
-5. `js/help_registry.js?v=1`
+5. `js/help_registry.js?v=2`
 6. `js/api_client.js?v=2`
 7. `js/app_store.js?v=2`
 8. `js/navigation.js?v=4`
@@ -375,13 +375,13 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 42. `js/dashboard_decomp_rental_properties.js?v=1`
 43. `js/dashboard_decomp_monarch_reconciliation.js?v=1`
 44. `js/dashboard_decomp_cash_accounts.js?v=1`
-45. `js/dashboard_decomp_sales_ledger_ui.js?v=11`
-46. `js/dashboard_decomp_sales_ledger.js?v=17`
+45. `js/dashboard_decomp_sales_ledger_ui.js?v=12`
+46. `js/dashboard_decomp_sales_ledger.js?v=18`
 47. `js/dashboard_decomp_sales_queue.js?v=2`
 48. `js/dashboard_decomp_sales_tax.js?v=5`
-49. `js/dashboard_decomp_broker_import.js?v=4`
+49. `js/dashboard_decomp_broker_import.js?v=5`
 50. `js/dashboard_decomp_sales_1099b.js?v=4`
-51. `js/dashboard_decomp_cash_investment.js?v=2`
+51. `js/dashboard_decomp_cash_investment.js?v=3`
 52. `js/dashboard_decomp_year_end.js?v=3`
 53. `js/dashboard_decomp_holdings_tree.js?v=1`
 54. `js/dashboard_decomp_transactions.js?v=2`

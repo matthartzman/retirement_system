@@ -383,3 +383,55 @@ describe("collapsible section shell (Task 7)", () => {
     delete globalThis.document;
   });
 });
+
+describe("slSetDensity (Task 16b)", () => {
+  const withMedia = (coarse, fn) => () => {
+    globalThis.matchMedia = (q) => ({ matches: coarse && q === "(pointer:coarse)" });
+    try { fn(); } finally { delete globalThis.matchMedia; }
+  };
+  test("persists compact and then comfortable", withMedia(false, () => {
+    const s = mem();
+    m.slSetDensity("compact", { storage: s });
+    assert.equal(m.slUiLoad(s).density, "compact");
+    assert.equal(m.slIsCompact(s), true);
+    m.slSetDensity("", { storage: s });
+    assert.equal(m.slUiLoad(s).density, "");
+  }));
+  test("rejects any other value", withMedia(false, () => {
+    const s = mem();
+    m.slSetDensity("compact", { storage: s });
+    for (const bad of ["dense", "COMPACT", null, undefined, 1]) m.slSetDensity(bad, { storage: s });
+    assert.equal(m.slUiLoad(s).density, "compact");
+  }));
+  test("keeps the other stored fields", withMedia(false, () => {
+    const s = mem(JSON.stringify({ tab: "tax", sections: { cf: { open: true, lastAlertCount: 0 } } }));
+    m.slSetDensity("compact", { storage: s });
+    const st = m.slUiLoad(s);
+    assert.equal(st.tab, "tax");
+    assert.equal(st.sections.cf.open, true);
+  }));
+  test("is ignored on coarse pointers: nothing stored, nothing applied", withMedia(true, () => {
+    const s = mem();
+    m.slSetDensity("compact", { storage: s });
+    assert.equal(s.raw, null);
+    assert.equal(m.slIsCompact(mem(JSON.stringify({ density: "compact" }))), false);
+  }));
+  test("a storage failure does not throw", withMedia(false, () => {
+    const bad = { getItem() { throw new Error("denied"); }, setItem() { throw new Error("full"); } };
+    assert.doesNotThrow(() => m.slSetDensity("compact", { storage: bad }));
+  }));
+  test("applies the class to #slRoot and updates pressed state in place", withMedia(false, () => {
+    const cls = new Set(); const attrs = {};
+    const els = { slRoot: { classList: { toggle: (c, on) => (on ? cls.add(c) : cls.delete(c)) } },
+      slDensityComfort: { setAttribute: (k, v) => { attrs.comfort = v; } }, slDensityCompact: { setAttribute: (k, v) => { attrs.compact = v; } } };
+    globalThis.document = { getElementById: (id) => els[id] || null };
+    try {
+      m.slSetDensity("compact", { storage: mem() });
+      assert.ok(cls.has("sl-compact"));
+      assert.deepEqual(attrs, { comfort: "false", compact: "true" });
+      m.slSetDensity("", { storage: mem() });
+      assert.ok(!cls.has("sl-compact"));
+      assert.deepEqual(attrs, { comfort: "true", compact: "false" });
+    } finally { delete globalThis.document; }
+  }));
+});

@@ -681,7 +681,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 sales-ledger redesign: +19 (Task 15 fix: CSV box feedback, live shell state text, focus-safe review box)
 # 2026-11-03 sales-ledger redesign: +1 (Task 15b tie-1099-B confirm map)
 # 2026-11-03 sales-ledger redesign: +19 (Task 16a real-DOM fixes: single health slot, closed empty sections, count-0 tab marker, deep-link consume + sec)
-TOTAL_JS_MAX_LINES = 43_243
+# 2026-11-03 sales-ledger redesign: +24 (Task 16b density toggle, help text)
+TOTAL_JS_MAX_LINES = 43_267
 
 
 

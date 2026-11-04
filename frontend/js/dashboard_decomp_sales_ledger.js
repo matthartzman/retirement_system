@@ -109,7 +109,15 @@ export const slHiddenVoidCount = () => slHiddenVoids;
 const slHiddenText = () => (slHiddenVoids > 0 ? ` (${slHiddenVoids} hidden)` : "");
 function slHeadHtml() {
   return `<label>Sale year <select id="slYear" onchange="slSetYear(this.value)">${slYearOptions()}</select></label> ` +
-    `<label><input type="checkbox" ${slShowVoided ? "checked" : ""} onchange="slSetShowVoided(this.checked)"> Show voided<span id="slVoidedCount">${slHiddenText()}</span></label>`;
+    `<label><input type="checkbox" ${slShowVoided ? "checked" : ""} onchange="slSetShowVoided(this.checked)"> Show voided<span id="slVoidedCount">${slHiddenText()}</span></label> ` +
+    slDensityHtml();
+}
+const slCompactNow = () => !!(window.slIsCompact && window.slIsCompact());
+function slDensityHtml() { // hidden on touch devices by CSS; the stored choice is applied to #slRoot on every render
+  const c = slCompactNow();
+  return `<span class="sl-density" role="group" aria-label="Row density">Density: ` +
+    `<button type="button" class="btn" id="slDensityComfort" aria-pressed="${!c}" onclick="slSetDensity('')">Comfortable</button>` +
+    `<button type="button" class="btn" id="slDensityCompact" aria-pressed="${c}" onclick="slSetDensity('compact')">Compact</button></span>`;
 }
 
 function slListHtml() {
@@ -202,7 +210,7 @@ function slBodyHtml() {
 export function renderSalesLedger() {
   slSubscribeSummaries();
   if (slData === null && !slLoading && !slError) setTimeout(loadSalesLedger, 0);
-  return `<div class="field-list sl-page" id="slRoot">${slBodyHtml()}</div>`;
+  return `<div class="field-list sl-page${slCompactNow() ? " sl-compact" : ""}" id="slRoot">${slBodyHtml()}</div>`;
 }
 
 function slPaintInto(id, html) { const el = document.getElementById(id); if (el) el.innerHTML = html(); }
