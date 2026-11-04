@@ -122,15 +122,30 @@ export function slHashTarget() {
   return { tab: p.tab, sec: SL_SECS.includes(p.sec) ? p.sec : null };
 }
 
-const slTabsHtml = (active) => window.slTabBarHtml(active, window.slMarkers(window.slSummaries()));
+const slTabsHtml = (active) => window.slTabBarHtml(active, window.slMarkers(window.slSummaries())) +
+  `<div class="sl-secctl"><button type="button" class="btn" id="slExpandAll" onclick="slSecAll(window.slUiLoad().tab,true)">Expand all</button> ` +
+  `<button type="button" class="btn" id="slCollapseAll" onclick="slSecAll(window.slUiLoad().tab,false)">Collapse all</button></div>`;
+// Wrap a panel in the collapsible section shell; the panel's own markup is passed through untouched.
+function slSection(key, title, fn) {
+  if (!window[fn]) return "";
+  const sum = window.slSummaries()[key] || {};
+  const badges = sum.text ? [{ text: sum.text, tone: sum.tone || "none" }] : [];
+  const open = window.slSecWantOpen(window.slUiLoad(), key, sum.count);
+  return window.slSecHtml({ key, title, badges, alertCount: sum.count || 0, open, body: window[fn]() });
+}
+function slPaintTabs() { // repaint the strip and tab bar without losing keyboard focus inside the tab bar
+  const act = typeof document !== "undefined" && document.activeElement;
+  const id = act && act.id;
+  slPaintInto("slStripRoot", () => window.slStripHtml(window.slSummaries()));
+  slPaintInto("slTabsRoot", () => slTabsHtml(window.slUiLoad().tab));
+  const el = id && document.getElementById(id);
+  if (el && el !== document.activeElement && el.focus) el.focus();
+}
 let slSumSub = false;
 function slSubscribeSummaries() { // repaint only the strip and tab bar; panels keep their state
   if (slSumSub || !window.slOnSummary) return;
   slSumSub = true;
-  window.slOnSummary(() => {
-    slPaintInto("slStripRoot", () => window.slStripHtml(window.slSummaries()));
-    slPaintInto("slTabsRoot", () => slTabsHtml(window.slUiLoad().tab));
-  });
+  window.slOnSummary(slPaintTabs);
 }
 
 function slBodyHtml() {
@@ -141,13 +156,14 @@ function slBodyHtml() {
   }
   const active = window.slUiLoad().tab;
   const panel = (id, body) => window.slTabPanelHtml(id, body, active);
-  const fix = slPanels(["renderSalesQueue", "renderTransactionLog", "renderCashInvestment", "renderTransactions"]);
+  const fix = slSection("queue", "Sales waiting for lots", "renderSalesQueue") + slSection("log", "Transaction log", "renderTransactionLog") +
+    slPanels(["renderCashInvestment", "renderTransactions"]);
   const ledger = `<div id="slFormRoot">${slFormHtml()}</div><div id="slCsvRoot">${slImportHtml()}</div>` +
     `<h3>Ledger</h3><div id="slListRoot">${slListHtml()}</div>`;
   return `<div id="slHeadRoot">${slHeadHtml()}</div>${window.slLiveHtml()}<div id="slStripRoot">${window.slStripHtml(window.slSummaries())}</div>` +
     `<div id="slTabsRoot">${slTabsHtml(active)}</div>` +
-    panel("fix", fix) + panel("ledger", ledger) + panel("tax", slPanels(["renderSalesTaxYear"])) +
-    panel("import", slPanels(["renderBrokerImport", "renderSalesBroker1099b"]));
+    panel("fix", fix) + panel("ledger", ledger) + panel("tax", slSection("wash", "Realized gains & wash sales", "renderSalesTaxYear")) +
+    panel("import", slSection("imports", "Broker imports", "renderBrokerImport") + slSection("b1099", "Broker 1099-B", "renderSalesBroker1099b"));
 }
 
 export function renderSalesLedger() {
@@ -227,8 +243,9 @@ export function slEdit(id) {
 
 export function slCancelEdit() { slEditId = null; slDraft = {}; slPaintForm(); }
 export async function slRequeue(id) {
-  const out = await slPost(`/api/sales/${Number(id)}/requeue`, null, "Sale sent back to the queue; its shares are back in their lots. Pick the lots again above.");
+  const out = await slPost(`/api/sales/${Number(id)}/requeue`, null, "Sale sent back to the queue; its shares are back in their lots. It is waiting on the Fix tab.");
   if (out && window.sqReload) window.sqReload();
+  if (out && window.slGo) window.slGo("fix", "queue");
 }
 
 export const slVoid = (id) => slPost(`/api/sales/${Number(id)}/void`, null, "Sale voided. Use Restore to bring it back.");

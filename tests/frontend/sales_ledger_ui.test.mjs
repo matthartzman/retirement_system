@@ -254,3 +254,95 @@ describe("alert strip, markers, live region, slGo (Task 6)", () => {
     delete globalThis.document; delete globalThis.history;
   });
 });
+
+describe("collapsible section shell (Task 7)", () => {
+  const store = () => { let v = null; return { writes: 0, getItem: () => v, setItem(_k, x) { v = x; this.writes++; } }; };
+  const setStore = (s) => Object.defineProperty(globalThis, "localStorage", { value: s, configurable: true, writable: true });
+  const secDoc = (keys) => {
+    const els = { slLive: { textContent: "" }, slAlert: { textContent: "" } };
+    for (const k of keys) {
+      els[`sl-sec-${k}`] = { open: false };
+      els[`sl-sec-badge-${k}`] = { textContent: "", className: "" };
+    }
+    els.focusCalls = 0;
+    for (const id of ["sl-p-fix", "sl-p-tax", "sl-t-fix", "sl-t-tax"]) els[id] = { hidden: false, focus() { els.focusCalls++; }, setAttribute() {} };
+    return { els, getElementById: (i) => els[i] || null };
+  };
+  const tick = () => new Promise((r) => setTimeout(r, 5));
+
+  test("slSecHtml: details shell, text badge, aria-hidden chevron, no ontoggle", () => {
+    const h = m.slSecHtml({ key: "queue", title: "Sales waiting for lots", badges: [{ text: "3 waiting", tone: "warn" }], state: "Needs review", alertCount: 3, open: false, body: "<p>x</p>" });
+    assert.match(h, /<details class="sl-sec" id="sl-sec-queue" data-key="queue"(?![^>]*\sopen)/);
+    assert.match(h, /<summary id="sl-sec-sum-queue" onclick="slOnSummaryClick\('queue'\)"/);
+    assert.match(h, /aria-hidden="true"/);
+    assert.match(h, /<h3 class="sl-sec-title">Sales waiting for lots<\/h3>/);
+    assert.match(h, /<span class="sl-sec-badge sl-tone-warn" id="sl-sec-badge-queue">3 waiting<\/span>/);
+    assert.match(h, /<div class="sl-sec-body"><p>x<\/p><\/div>/);
+    assert.ok(!/ontoggle/.test(h));
+    assert.match(m.slSecHtml({ key: "log", title: "T", open: true, body: "" }), /data-key="log" open/);
+  });
+  test("a programmatic open change does not write the store", () => {
+    const s = store(); setStore(s); globalThis.document = secDoc(["queue"]);
+    m.slPublish("queue", { count: 2, tone: "warn", text: "2 waiting" });
+    assert.equal(s.writes, 0);
+    assert.equal(globalThis.document.els["sl-sec-queue"].open, true);
+    assert.equal(s.writes, 0);
+    delete globalThis.document;
+  });
+  test("click-recorded collapse at count 2 persists; count 3 reopens, announces, never focuses", async () => {
+    const s = store(); setStore(s); const d = secDoc(["queue"]); globalThis.document = d;
+    m.slSecUpdate("queue", { count: 2, tone: "warn", text: "2 waiting" });
+    m.slPublish("queue", { count: 2, tone: "warn", text: "2 waiting" });
+    d.els["sl-sec-queue"].open = false; // browser toggled it closed after the click
+    m.slOnSummaryClick("queue");
+    await tick();
+    assert.deepEqual(m.slUiLoad(s).sections.queue, { open: false, lastAlertCount: 2 });
+    m.slPublish("queue", { count: 2, tone: "warn", text: "2 waiting" });
+    assert.equal(d.els["sl-sec-queue"].open, false);
+    m.slPublish("queue", { count: 3, tone: "warn", text: "3 waiting" });
+    assert.equal(d.els["sl-sec-queue"].open, true);
+    assert.match(d.els.slLive.textContent, /3 waiting/);
+    assert.equal(d.els["sl-sec-badge-queue"].textContent, "3 waiting");
+    assert.match(d.els["sl-sec-badge-queue"].className, /sl-tone-warn/);
+    assert.equal(d.els.focusCalls, 0);
+    delete globalThis.document;
+  });
+  test("alert badge text is in the closed summary html", () => {
+    const h = m.slSecHtml({ key: "wash", title: "Realized gains & wash sales", badges: [{ text: "warning: drift 2", tone: "warn" }], open: false, body: "" });
+    assert.match(h, /<summary[\s\S]*warning: drift 2[\s\S]*<\/summary>/);
+  });
+  test("storage throwing never throws", async () => {
+    setStore({ getItem() { throw new Error("no"); }, setItem() { throw new Error("no"); } });
+    globalThis.document = secDoc(["queue"]);
+    assert.doesNotThrow(() => m.slSecUpdate("queue", { count: 1, tone: "warn", text: "1" }));
+    assert.doesNotThrow(() => m.slOnSummaryClick("queue"));
+    await tick();
+    assert.doesNotThrow(() => m.slSecAll("fix", false));
+    delete globalThis.document;
+  });
+  test("slSecAll collapse leaves alerting sections open; expand opens all", () => {
+    setStore(store()); const d = secDoc(["queue", "health", "log", "cash"]); globalThis.document = d;
+    for (const k of ["queue", "health", "log", "cash"]) d.els[`sl-sec-${k}`].open = true;
+    m.slPublish("queue", { count: 2, tone: "warn", text: "2 waiting" });
+    m.slPublish("health", { count: 0, tone: "", text: "" }); m.slPublish("log", { count: 0, tone: "", text: "" }); m.slPublish("cash", { count: 0, tone: "", text: "" });
+    m.slSecAll("fix", false);
+    assert.equal(d.els["sl-sec-queue"].open, true);
+    assert.equal(d.els["sl-sec-log"].open, false);
+    m.slSecAll("fix", true);
+    assert.equal(d.els["sl-sec-log"].open, true);
+    delete globalThis.document;
+  });
+  test("slGo rejects an unknown tab, tolerates no document, records the opened section", () => {
+    const s = store(); setStore(s); const d = secDoc(["wash"]); globalThis.document = d;
+    globalThis.history = { replaceState(_a, _b, u) { this.url = u; } };
+    m.slPublish("wash", { count: 0, tone: "", text: "" });
+    m.slGo("bogus", "wash");
+    assert.equal(globalThis.history.url, undefined);
+    d.els["sl-sec-wash"].querySelector = () => null;
+    m.slGo("tax", "wash");
+    assert.deepEqual(m.slUiLoad(s).sections.wash, { open: true, lastAlertCount: 0 });
+    delete globalThis.document;
+    assert.doesNotThrow(() => m.slGo("tax", "wash"));
+    delete globalThis.history;
+  });
+});

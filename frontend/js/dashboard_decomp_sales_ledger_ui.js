@@ -65,6 +65,7 @@ export const slTabPanelHtml = (id, bodyHtml, active) =>
 export function slSetTab(id, opts = {}) {
   if (!slTabOk(id)) return;
   const doc = globalThis.document;
+  if (!doc) return;
   for (const [tid] of SL_TABS) {
     const on = tid === id;
     const btn = doc.getElementById(`sl-t-${tid}`);
@@ -125,16 +126,85 @@ export function slAnnounce(text, assertive = false) {
   if (el) el.textContent = String(text);
 }
 
+const SL_SEC_META = { queue: ["Sales waiting for lots", true], health: ["Health", false], log: ["Transaction log", true], cash: ["Cash in investment", false],
+  ledger: ["Sales ledger", true], wash: ["Realized gains & wash sales", true], cf: ["Carryforward", false], imports: ["Broker imports", false], b1099: ["Broker 1099-B", false] };
+const SL_TAB_SECS = { fix: ["queue", "health", "log", "cash"], ledger: ["ledger"], tax: ["wash", "cf"], import: ["imports", "b1099"] };
+const slAlertCount = (key) => (slSums[key] && slSums[key].count > 0 ? slSums[key].count : 0);
+
 export function slGo(tab, sec) {
+  if (!slTabOk(tab)) return;
   slSetTab(tab);
-  const ok = ["queue", "health", "log", "wash", "cf", "b1099", "cash", "imports"].includes(sec) ? sec : null;
-  const el = ok && globalThis.document.getElementById(`sl-sec-${ok}`);
+  const doc = globalThis.document;
+  const ok = SL_SEC_META[sec] ? sec : null;
+  const el = ok && doc && doc.getElementById(`sl-sec-${ok}`);
   if (el) {
     el.open = true;
+    slUiSave(slUiRecordToggle(slUiLoad(), ok, true, slAlertCount(ok))); // navigating to a section is the user's choice to see it
     const sum = el.querySelector && el.querySelector("summary");
     if (sum && sum.focus) sum.focus();
   }
   try { globalThis.history.replaceState(null, "", `#sales_ledger?tab=${tab}${ok ? `&sec=${ok}` : ""}`); } catch (e) { /* no history API: the tab switch still happened */ }
 }
 
-Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown });
+// Collapsible section shell. `state` is the status text shown in the summary; badges are text, never colour alone.
+export function slSecHtml({ key, title, badges = [], state = "", alertCount = 0, open = false, body = "" }) {
+  const bs = badges.filter((b) => b && b.text).map((b, i) =>
+    `<span class="sl-sec-badge sl-tone-${slEsc(b.tone || "none")}"${i === 0 ? ` id="sl-sec-badge-${key}"` : ""}>${slEsc(b.text)}</span>`).join(" ");
+  const badge = bs || `<span class="sl-sec-badge sl-tone-none" id="sl-sec-badge-${key}"></span>`;
+  return `<details class="sl-sec" id="sl-sec-${key}" data-key="${key}"${open ? " open" : ""} data-alert="${Number(alertCount) || 0}">` +
+    `<summary id="sl-sec-sum-${key}" onclick="slOnSummaryClick('${key}')"><span class="sl-sec-chev" aria-hidden="true">&#9656;</span>` +
+    `<h3 class="sl-sec-title">${slEsc(title)}</h3> ${badge}${state ? ` <span class="sl-sec-state">${slEsc(state)}</span>` : ""}</summary>` +
+    `<div class="sl-sec-body">${body}</div></details>`;
+}
+
+// Whether a section should be open now: stored choice, except a new alert count (or any alert with no stored choice) opens it.
+export function slSecWantOpen(state, key, alertCount) {
+  const meta = SL_SEC_META[key];
+  const n = alertCount > 0 ? alertCount : 0;
+  if (n > 0 && !(state && state.sections && state.sections[key])) return true;
+  return slSecOpen(state, key, !!(meta && meta[1]), n);
+}
+
+// The only writer of section choices: runs from the summary click, after the browser has toggled `open`.
+export function slOnSummaryClick(key) {
+  setTimeout(() => {
+    const el = globalThis.document && globalThis.document.getElementById(`sl-sec-${key}`);
+    if (el) slUiSave(slUiRecordToggle(slUiLoad(), key, el.open, slAlertCount(key)));
+  }, 0);
+}
+
+// Patch a section in place when its panel publishes a summary; never re-renders, never moves focus, never writes the store.
+export function slSecUpdate(key, summary) {
+  const meta = SL_SEC_META[key];
+  const doc = globalThis.document;
+  if (!meta || !doc) return;
+  const b = doc.getElementById(`sl-sec-badge-${key}`);
+  if (b) {
+    b.textContent = String((summary && summary.text) || "");
+    b.className = `sl-sec-badge sl-tone-${(summary && summary.tone) || "none"}`;
+  }
+  const el = doc.getElementById(`sl-sec-${key}`);
+  if (!el) return;
+  const want = slSecWantOpen(slUiLoad(), key, summary && summary.count);
+  const was = !!el.open;
+  el.open = want;
+  if (want && !was) slAnnounce(`${meta[0]}: ${(summary && summary.text) || ""}`);
+}
+
+export function slSecAll(tab, open) {
+  const doc = globalThis.document;
+  if (!doc) return;
+  let st = slUiLoad();
+  for (const key of SL_TAB_SECS[tab] || []) {
+    const el = doc.getElementById(`sl-sec-${key}`);
+    if (!el) continue;
+    const want = !!open || slAlertCount(key) > 0;
+    el.open = want;
+    st = slUiRecordToggle(st, key, want, slAlertCount(key));
+  }
+  slUiSave(st);
+}
+
+slOnSummary((key, summary) => slSecUpdate(key, summary));
+
+Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSecHtml, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown });

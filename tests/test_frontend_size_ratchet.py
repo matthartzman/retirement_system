@@ -667,7 +667,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 sales-ledger redesign: +56 (Task 5 panel summaries and publish hook)
 # 2026-11-03 sales-ledger redesign: -1 (Task 5 fix: neutral wash and carryforward summaries)
 # 2026-11-03 sales-ledger redesign: +54 (Task 6 alert strip, markers, live region, slGo)
-TOTAL_JS_MAX_LINES = 42_852
+# 2026-11-03 sales-ledger redesign: +87 (Task 7 collapsible section shell)
+TOTAL_JS_MAX_LINES = 42_939
 
 
 
