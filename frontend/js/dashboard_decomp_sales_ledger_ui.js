@@ -96,4 +96,45 @@ export function slPublish(key, summary) {
 export function slOnSummary(cb) { slSubs.add(cb); return () => { slSubs.delete(cb); }; }
 export const slSummaries = () => Object.fromEntries(Object.entries(slSums).map(([k, v]) => [k, { ...v }]));
 
-Object.assign(window, { slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown });
+// Alert strip: one text badge per open item (warn/bad, stale/never run, or counted + toned), across all years.
+const SL_KEY_TAB = { queue: "fix", health: "fix", log: "fix", cash: "fix", wash: "tax", cf: "tax", b1099: "import", imports: "import" };
+const slEsc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const slIsAlert = (s) => !!s && (s.tone === "warn" || s.tone === "bad" || /^(stale|never run)$/i.test(String(s.text).trim()) || (s.count > 0 && s.tone !== ""));
+const slAlertItems = (sums) => Object.keys(SL_KEY_TAB).filter((k) => slIsAlert(sums && sums[k])).map((k) => [k, SL_KEY_TAB[k], sums[k]]);
+
+export function slStripHtml(summaries) {
+  const items = slAlertItems(summaries).map(([k, tab, s]) =>
+    `<a href="#sales_ledger?tab=${tab}&amp;sec=${k}" data-go="${tab}:${k}" class="sl-strip-item ${s.tone === "bad" ? "bad" : "warn"}" onclick="slGo('${tab}','${k}');return false">${slEsc(s.text || s.count)}</a>`);
+  return `<nav aria-label="Needs attention" class="sl-strip">${items.length ? items.join(" ") : "<span>No open items</span>"}</nav>`;
+}
+
+export function slMarkers(summaries) {
+  const out = {};
+  for (const [, tab, s] of slAlertItems(summaries)) {
+    const m = out[tab] || (out[tab] = { count: 0, tone: "warn" });
+    m.count += s.count;
+    if (s.tone === "bad") m.tone = "bad";
+  }
+  return out;
+}
+
+export const slLiveHtml = () => '<div id="slLive" class="sr-only" aria-live="polite" aria-atomic="true"></div><div id="slAlert" class="sr-only" role="alert"></div>';
+
+export function slAnnounce(text, assertive = false) {
+  const el = globalThis.document && globalThis.document.getElementById(assertive ? "slAlert" : "slLive");
+  if (el) el.textContent = String(text);
+}
+
+export function slGo(tab, sec) {
+  slSetTab(tab);
+  const ok = ["queue", "health", "log", "wash", "cf", "b1099", "cash", "imports"].includes(sec) ? sec : null;
+  const el = ok && globalThis.document.getElementById(`sl-sec-${ok}`);
+  if (el) {
+    el.open = true;
+    const sum = el.querySelector && el.querySelector("summary");
+    if (sum && sum.focus) sum.focus();
+  }
+  try { globalThis.history.replaceState(null, "", `#sales_ledger?tab=${tab}${ok ? `&sec=${ok}` : ""}`); } catch (e) { /* no history API: the tab switch still happened */ }
+}
+
+Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown });

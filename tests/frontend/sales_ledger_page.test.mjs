@@ -310,3 +310,19 @@ describe("four tabs (Task 4)", () => {
     assert.deepEqual(m.slHashTarget(), { tab: null, sec: null });
   }));
 });
+
+describe("summary change repaints only strip and tab bar roots (Task 6)", () => {
+  test("panel roots untouched", () => {
+    const mk = (id) => (globalThis.__roots[id] = { writes: 0, _h: "", get innerHTML() { return this._h; }, set innerHTML(v) { this.writes++; this._h = v; } });
+    for (const id of ["slStripRoot", "slTabsRoot", "slHeadRoot", "slFormRoot", "slCsvRoot", "slListRoot"]) mk(id);
+    globalThis.document = { getElementById: (id) => globalThis.__roots[id] || null };
+    const html = m.renderSalesLedger();
+    assert.ok(html.indexOf('id="slLive"') > -1 && html.indexOf('id="slStripRoot"') < html.indexOf('role="tablist"'));
+    window.slPublish("queue", { count: 2, tone: "bad", text: "2 waiting" });
+    const r = globalThis.__roots;
+    assert.ok(r.slStripRoot.writes >= 1 && r.slStripRoot.innerHTML.includes("2 waiting"));
+    assert.ok(r.slTabsRoot.writes >= 1 && /sl-tab-badge/.test(r.slTabsRoot.innerHTML));
+    for (const id of ["slHeadRoot", "slFormRoot", "slCsvRoot", "slListRoot"]) assert.equal(r[id].writes, 0, id);
+    for (const id of ["slStripRoot", "slTabsRoot", "slHeadRoot", "slFormRoot", "slCsvRoot", "slListRoot"]) delete globalThis.__roots[id];
+  });
+});

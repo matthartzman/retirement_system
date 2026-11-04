@@ -122,6 +122,17 @@ export function slHashTarget() {
   return { tab: p.tab, sec: SL_SECS.includes(p.sec) ? p.sec : null };
 }
 
+const slTabsHtml = (active) => window.slTabBarHtml(active, window.slMarkers(window.slSummaries()));
+let slSumSub = false;
+function slSubscribeSummaries() { // repaint only the strip and tab bar; panels keep their state
+  if (slSumSub || !window.slOnSummary) return;
+  slSumSub = true;
+  window.slOnSummary(() => {
+    slPaintInto("slStripRoot", () => window.slStripHtml(window.slSummaries()));
+    slPaintInto("slTabsRoot", () => slTabsHtml(window.slUiLoad().tab));
+  });
+}
+
 function slBodyHtml() {
   const hashTab = slHashTarget().tab;
   if (hashTab && hashTab !== slHashApplied) { // a deep link applies once; after that storage (slSetTab) decides
@@ -133,12 +144,14 @@ function slBodyHtml() {
   const fix = slPanels(["renderSalesQueue", "renderTransactionLog", "renderCashInvestment", "renderTransactions"]);
   const ledger = `<div id="slFormRoot">${slFormHtml()}</div><div id="slCsvRoot">${slImportHtml()}</div>` +
     `<h3>Ledger</h3><div id="slListRoot">${slListHtml()}</div>`;
-  return `<div id="slHeadRoot">${slHeadHtml()}</div>${window.slTabBarHtml(active, {})}` +
+  return `<div id="slHeadRoot">${slHeadHtml()}</div>${window.slLiveHtml()}<div id="slStripRoot">${window.slStripHtml(window.slSummaries())}</div>` +
+    `<div id="slTabsRoot">${slTabsHtml(active)}</div>` +
     panel("fix", fix) + panel("ledger", ledger) + panel("tax", slPanels(["renderSalesTaxYear"])) +
     panel("import", slPanels(["renderBrokerImport", "renderSalesBroker1099b"]));
 }
 
 export function renderSalesLedger() {
+  slSubscribeSummaries();
   if (slData === null && !slLoading && !slError) setTimeout(loadSalesLedger, 0);
   return `<div class="field-list sl-page" id="slRoot">${slBodyHtml()}</div>`;
 }

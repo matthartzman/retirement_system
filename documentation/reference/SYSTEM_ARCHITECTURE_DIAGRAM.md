@@ -375,8 +375,8 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 42. `js/dashboard_decomp_rental_properties.js?v=1`
 43. `js/dashboard_decomp_monarch_reconciliation.js?v=1`
 44. `js/dashboard_decomp_cash_accounts.js?v=1`
-45. `js/dashboard_decomp_sales_ledger_ui.js?v=3`
-46. `js/dashboard_decomp_sales_ledger.js?v=8`
+45. `js/dashboard_decomp_sales_ledger_ui.js?v=4`
+46. `js/dashboard_decomp_sales_ledger.js?v=9`
 47. `js/dashboard_decomp_sales_queue.js?v=2`
 48. `js/dashboard_decomp_sales_tax.js?v=3`
 49. `js/dashboard_decomp_broker_import.js?v=2`
