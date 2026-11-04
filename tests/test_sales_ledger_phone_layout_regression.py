@@ -49,8 +49,11 @@ def _top_level_rules(css: str) -> list[tuple[str, str]]:
 def test_sl_rules_have_no_fixed_pixel_widths():
     rules = [(s, b) for s, b in _top_level_rules(_css_text()) if any(p.strip().startswith(".sl-") for p in s.split(","))]
     assert rules, "no .sl-* rules found"
-    bad = [(s, b) for s, b in rules if re.search(r"(?<![-\w])(width|min-width)\s*:\s*\d+(\.\d+)?px", b)
-           and not re.search(r"(?<![-\w])(width|min-width)\s*:\s*(1[0-9]|2[0-4])px", b)]  # <=24px: badges/markers, not layout
+    bad = []
+    for sel, body in rules:
+        for prop, px in re.findall(r"(?<![-\w])((?:min-)?width)\s*:\s*(\d+(?:\.\d+)?)px", body):
+            if float(px) > 24:  # <=24px: badge/marker minimums, not layout
+                bad.append((sel, f"{prop}:{px}px"))
     assert not bad, f"fixed pixel width in a top-level .sl-* rule: {bad}"
 
 

@@ -1332,7 +1332,7 @@ header :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{o
 .sl-density .btn{min-height:24px;padding:1px 8px;font-size:12px}
 .sl-density .btn[aria-pressed="true"]{background:var(--soft);border-color:var(--accent);color:var(--ink);font-weight:700}
 .sl-page.sl-compact{--sl-row:24px}
-.sl-page.sl-compact .rc-scroll .rc-table th,.sl-page.sl-compact .rc-scroll .rc-table td,.sl-page.sl-compact .tl-table-wrap .rc-table th,.sl-page.sl-compact .tl-table-wrap .rc-table td{padding:2px 8px}
+.sl-page.sl-compact .rc-scroll .rc-table th,.sl-page.sl-compact .rc-scroll .rc-table td,.sl-page.sl-compact .tl-table-wrap .rc-table th,.sl-page.sl-compact .tl-table-wrap .rc-table td{padding:0 8px}
 @media (pointer:coarse){.sl-density{display:none}}
 @media (prefers-reduced-motion:reduce){.sl-sec-chev{transition:none}}
 

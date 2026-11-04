@@ -418,7 +418,12 @@ describe("slSetDensity (Task 16b)", () => {
   }));
   test("a storage failure does not throw", withMedia(false, () => {
     const bad = { getItem() { throw new Error("denied"); }, setItem() { throw new Error("full"); } };
-    assert.doesNotThrow(() => m.slSetDensity("compact", { storage: bad }));
+    const cls = new Set();
+    globalThis.document = { getElementById: (id) => (id === "slRoot" ? { classList: { toggle: (c, on) => (on ? cls.add(c) : cls.delete(c)) } } : null) };
+    try {
+      assert.doesNotThrow(() => m.slSetDensity("compact", { storage: bad }));
+      assert.ok(cls.has("sl-compact"));
+    } finally { delete globalThis.document; }
   }));
   test("applies the class to #slRoot and updates pressed state in place", withMedia(false, () => {
     const cls = new Set(); const attrs = {};
