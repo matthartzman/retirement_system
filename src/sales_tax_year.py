@@ -91,7 +91,11 @@ def tax_year_summary(input_dir: str | Path, year: int, *, filing: str | None = N
     with active_plan.workspace_store(_base(input_dir)) as store:
         sales = store.sales.list_sales()
         adjustments = _adjustments(store)
-        run = wash_run_status(store, sales)
+        try:
+            run = wash_run_status(store, sales)
+        except Exception:  # noqa: BLE001 - the marker is advisory; it must not break the tax-year response
+            log.exception("wash last-run status failed; showing it as unknown")
+            run = {"last_run": None, "never_run": False, "stale": False}
     by_year = net_realized_by_year(terms_from_ledger_rows(sales), adjustments, filing, through_year=year)
     prev = by_year.get(year - 1)
     entered = year in adjustments

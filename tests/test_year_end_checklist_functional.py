@@ -45,9 +45,18 @@ def test_route_carries_the_five_tax_filing_steps_with_derived_states(client):
     tax = ["clear_sales_queue", "resolve_log_drift", "run_wash_check", "tie_1099b", "confirm_carryforward"]
     assert all(k in steps for k in tax)
     assert all(steps[k]["link"] == "sales_ledger" and steps[k]["hash"].startswith("#sales_ledger?") for k in tax)
-    assert steps["clear_sales_queue"]["state"] == "done" and steps["tie_1099b"]["state"] == "done"
+    assert steps["clear_sales_queue"]["state"] == "done"
+    assert steps["tie_1099b"]["state"] == "open" and "Not verified automatically" in steps["tie_1099b"]["detail"]  # no tie data yet
+    assert steps["resolve_log_drift"]["state"] == "na" and steps["resolve_log_drift"]["detail"] == "The transaction log is not in use."
     assert steps["run_wash_check"]["state"] == "done"          # the broker import ran the automatic scan
     assert steps["confirm_carryforward"]["state"] == "open"
+
+
+def test_drift_step_reads_the_started_log(client, tmp_path):
+    from src import transactions
+    transactions.start_log(tmp_path / "ws" / "input")
+    s = by_id(client.get("/api/year-end?year=2026"))["resolve_log_drift"]
+    assert s["state"] in ("done", "open") and s["detail"] != "The transaction log is not in use."
 
 
 def test_wash_step_reopens_when_the_inputs_change_without_a_rescan(client, tmp_path):
@@ -60,11 +69,12 @@ def test_wash_step_reopens_when_the_inputs_change_without_a_rescan(client, tmp_p
     assert s["state"] == "open" and "since the ledger changed" in s["detail"]
 
 
-def test_a_failing_gather_falls_back_to_the_safe_default(client, monkeypatch, caplog):
+def test_a_failing_gather_shows_the_step_open_not_done(client, monkeypatch, caplog):
     from src import transactions
     monkeypatch.setattr(transactions, "started", lambda store: (_ for _ in ()).throw(RuntimeError("boom")))
     r = client.get("/api/year-end?year=2026")
-    assert r.status_code == 200 and by_id(r)["resolve_log_drift"]["state"] == "done"
+    s = by_id(r)["resolve_log_drift"]
+    assert r.status_code == 200 and s["state"] == "open" and s["detail"].startswith("Could not check")
     assert "boom" in caplog.text
 
 

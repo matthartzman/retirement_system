@@ -104,6 +104,21 @@ def test_tie_1099b_open_while_accounts_are_untied(jan_2027):
     assert s["state"] == "open" and "1" in s["detail"]
 
 
+@pytest.mark.parametrize("key,sid,words", [
+    ("queue_waiting", "clear_sales_queue", "Could not check"), ("drift_accounts", "resolve_log_drift", "Could not check"),
+    ("untied_1099b", "tie_1099b", "Not verified automatically")])
+def test_an_unknown_count_is_open_never_done(jan_2027, key, sid, words):
+    s = steps(tax_filing={**CLEAN, key: None})[1][sid]
+    assert s["state"] == "open" and s["detail"].startswith(words)
+    assert steps(tax_filing={**CLEAN, key: 0})[1][sid]["state"] == "done"
+
+
+def test_drift_is_not_applicable_when_the_log_is_not_in_use(jan_2027):
+    s = steps(tax_filing={**CLEAN, "log_in_use": False})[1]["resolve_log_drift"]
+    assert (s["state"], s["detail"]) == ("na", "The transaction log is not in use.")
+    assert steps(tax_filing={**CLEAN, "log_in_use": True})[1]["resolve_log_drift"]["state"] == "done"
+
+
 def test_confirm_carryforward_done_once_saved(jan_2027):
     assert steps(tax_filing={**CLEAN, "carryforward_saved": False})[1]["confirm_carryforward"]["state"] == "open"
 

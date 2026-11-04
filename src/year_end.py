@@ -57,6 +57,7 @@ def _step(sid: str, title: str, link: str, state: str, detail: str, hash: str | 
 
 _WASH_DETAIL = {"clean": "No possible wash sales are flagged.", "flagged": "Possible wash sales are flagged — review them.",
                 "stale": "The check has not run since the ledger changed.", "never": "The check has never run."}
+_COULD_NOT_CHECK = "Could not check — open the Sales Ledger page to see it."
 
 
 def _tax_filing_steps(year: int, tf: Mapping[str, Any] | None) -> list[dict[str, str]]:
@@ -65,18 +66,24 @@ def _tax_filing_steps(year: int, tf: Mapping[str, Any] | None) -> list[dict[str,
         return _step(sid, title, "sales_ledger", "na" if tf is None else "done" if done else "open",
                      "Not checked." if tf is None else detail, f"#sales_ledger?{hash_}")
     tf_ = tf or {}
-    q, d, u = int(tf_.get("queue_waiting") or 0), int(tf_.get("drift_accounts") or 0), int(tf_.get("untied_1099b") or 0)
+    # None means "unknown" (a gather failed, or no data source yet): shown open with an honest detail, never done.
+    q, d, u = (None if tf_.get(k) is None else int(tf_[k]) for k in ("queue_waiting", "drift_accounts", "untied_1099b"))
     wash = str(tf_.get("wash_state") or "never")
     saved = bool(tf_.get("carryforward_saved"))
+    drift = step("resolve_log_drift", "Resolve log drift", "tab=fix&sec=health", d == 0,
+                 _COULD_NOT_CHECK if d is None else f"The transaction log and the holdings differ in {d} account(s)." if d
+                 else "The transaction log agrees with the holdings.")
+    if tf is not None and tf_.get("log_in_use") is False:
+        drift = {**drift, "state": "na", "detail": "The transaction log is not in use."}
     return [
         step("clear_sales_queue", "Clear the sales waiting for lots", "tab=fix&sec=queue", q == 0,
-             f"{q} sale(s) are waiting for lots." if q else "No sales are waiting for lots."),
-        step("resolve_log_drift", "Resolve log drift", "tab=fix&sec=health", d == 0,
-             f"The transaction log and the holdings differ in {d} account(s)." if d else "The transaction log agrees with the holdings."),
+             _COULD_NOT_CHECK if q is None else f"{q} sale(s) are waiting for lots." if q else "No sales are waiting for lots."),
+        drift,
         step("run_wash_check", "Run the wash-sale check", "tab=tax&sec=wash", wash == "clean",
              f"{_WASH_DETAIL.get(wash, _WASH_DETAIL['never'])} This app's accounts only."),
         step("tie_1099b", "Apply and tie the broker 1099-B", "tab=import&sec=b1099", u == 0,
-             f"{u} account(s) do not tie to the broker 1099-B." if u else f"No account is known to be untied from its {year} 1099-B."),
+             "Not verified automatically — compare each broker 1099-B on the Import tab." if u is None else
+             f"{u} account(s) do not tie to the broker 1099-B." if u else f"Every account ties to its {year} 1099-B."),
         step("confirm_carryforward", "Confirm the capital-loss carryforward", "tab=tax&sec=wash", saved,
              f"The carryforward into {year} is saved." if saved else
              f"Enter the capital-loss carryforward into {year} from the prior year's Schedule D (zero if none)."),
@@ -99,7 +106,8 @@ def build(year: int, *, store: Any, ledgers: Mapping[str, list[Mapping[str, Any]
           tax_filing: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """The checklist for closing ``year``. Inputs are plain data so the whole thing is testable without a plan file.
     ``tax_filing`` (``queue_waiting``, ``drift_accounts``, ``wash_state`` clean|flagged|stale|never, ``untied_1099b``,
-    ``carryforward_saved``) drives the Sales Ledger tax-filing steps; None leaves them not applicable."""
+    ``carryforward_saved``, optional ``log_in_use``) drives the Sales Ledger tax-filing steps; None leaves them not
+    applicable. A count of None means unknown and shows the step open; ``log_in_use`` False makes the drift step ``na``."""
     closed = cash_year_close.is_year_closed(store, year)
     st = cash_year_close.close_status(store, year, ledgers=ledgers, snapshots=snapshots)
     out = []
@@ -179,8 +187,10 @@ def _tax_filing(store: Any, year: int) -> dict[str, Any]:
     marker plus the year's flags, and the carryforward ``entered`` flag of ``/api/sales/tax-year``."""
     from . import sales_tax_year, transactions
 
-    def drift() -> int:
-        return len({d["account"] for d in transactions.reconcile(store)}) if transactions.started(store) else 0
+    in_use = _safe("whether the transaction log is in use", lambda: transactions.started(store), None)
+
+    def drift() -> int | None:
+        return None if in_use is None else len({d["account"] for d in transactions.reconcile(store)}) if in_use else 0
 
     def wash() -> str:
         sales = store.sales.list_sales()
@@ -189,11 +199,13 @@ def _tax_filing(store: Any, year: int) -> dict[str, Any]:
         run = sales_tax_year.wash_run_status(store, sales)
         return "never" if run["never_run"] else "stale" if run["stale"] else "clean"
 
-    return {"queue_waiting": _safe("the sales queue", lambda: len(store.sales.list_candidates(state="unmatched")), 0),
-            "drift_accounts": _safe("the log drift", drift, 0),
+    # A failed gather yields None (unknown -> the step shows open), never a 0 that would read as done.
+    return {"queue_waiting": _safe("the sales queue", lambda: len(store.sales.list_candidates(state="unmatched")), None),
+            "drift_accounts": _safe("the log drift", drift, None),
+            "log_in_use": in_use,
             "wash_state": _safe("the wash-sale check", wash, "never"),
             # TODO(Task 15): per-account 1099-B tie data does not exist yet; count untied accounts once it does.
-            "untied_1099b": 0,
+            "untied_1099b": None,
             "carryforward_saved": _safe("the carryforward", lambda: store.sales.adjustment(year) is not None, False)}
 
 

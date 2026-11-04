@@ -166,6 +166,15 @@ def test_the_scan_writing_its_own_flags_does_not_make_it_stale(input_dir):
     assert wash["count"] == 1 and wash["stale"] is False
 
 
+def test_a_failing_marker_status_does_not_break_the_tax_year_response(input_dir, monkeypatch, caplog):
+    _sale(input_dir, proceeds=2500.0, basis=1000.0)
+    monkeypatch.setattr(sales_tax_year, "wash_run_status", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("marker boom")))
+    out = sales_tax_year.tax_year_summary(input_dir, 2026)
+    assert out["netting"]["net_lt"] == 1500.0 and out["totals"]["count"] == 1
+    assert {k: out["wash"][k] for k in ("last_run", "never_run", "stale")} == {"last_run": None, "never_run": False, "stale": False}
+    assert "marker boom" in caplog.text
+
+
 def test_entering_a_carryforward_keeps_the_state_rate_override(input_dir):
     with active_plan.workspace_store(input_dir.parent, write=True) as store:
         store.sales.set_adjustment(2026, state_rate_override=0.04)
