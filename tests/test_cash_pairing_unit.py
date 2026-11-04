@@ -81,7 +81,7 @@ def test_reference_id_pairs_beyond_three_days():
 def test_different_reference_ids_do_not_pair_on_amount():
     out = _pair(etrade_1111=[_b(run_date="2026-03-01", amount=-1000.0, description="ACH WITHDRAWL  REFID:1;")],
                 fidelity_2222=[_b(run_date="2026-03-01", amount=1000.0, description="ACH DEPOSIT  REFID:2;")])
-    assert out[A][0]["pair_status"] == "external_withdrawal" and out[B][0]["pair_status"] == "unmatched"
+    assert out[A][0]["pair_status"] == "external_withdrawal" and out[B][0]["pair_status"] == "external_inflow"
 
 
 def test_external_withdrawal_stands_alone_without_a_partner():
@@ -97,10 +97,10 @@ def test_distribution_with_a_partner_in_another_plan_account_is_internal():
     assert out[B][0]["pair_status"] == out[A][0]["pair_status"] == "internal"
 
 
-def test_unmatched_inflow_and_unclassified_row_are_visible_never_guessed():
+def test_inflow_without_partner_is_external_and_unclassified_row_stays_visible():
     out = _pair(etrade_1111=[_b(run_date="2026-03-01", amount=300.0, description="ACH DEPOSIT"),
                              _b(action="Mystery", description="???", amount=-70.0)])
-    assert out[A][0]["pair_status"] == "unmatched"
+    assert out[A][0]["pair_status"] == "external_inflow"
     assert out[A][1]["pair_status"] == "unmatched" and out[A][1]["needs_review"] is True
 
 
@@ -122,21 +122,21 @@ def test_in_kind_rows_pair_for_visibility_and_stay_zero_cash_uncounted():
 def test_in_kind_and_cash_rows_never_pair_with_each_other():
     out = _pair(etrade_1111=[_b(symbol="TOTL", quantity=-10.0, amount=None)],
                 fidelity_2222=[_b(amount=10.0, description="TRANSFER")])
-    assert out[A][0]["pair_status"] == "unmatched" and out[B][0]["pair_status"] == "unmatched"
+    assert out[A][0]["pair_status"] == "unmatched" and out[B][0]["pair_status"] == "external_inflow"
 
 
 def test_in_kind_different_quantity_or_symbol_stays_unmatched():
     out = _pair(etrade_1111=[_b(symbol="TOTL", quantity=-10.0, amount=None)],
                 fidelity_2222=[_b(symbol="TOTL", quantity=9.0, amount=None), _b(symbol="EXMK", quantity=10.0, amount=None)])
     assert out[A][0]["pair_status"] == "unmatched"
-    assert {r["pair_status"] for r in out[B]} == {"unmatched"}
+    assert {r["pair_status"] for r in out[B]} == {"external_in_kind"}
 
 
 def test_return_of_excess_contribution_is_not_a_transfer_and_not_external():
     out = _pair(fidelity_2222=[_b(action="RETURN EXCESS CONTR HSA", amount=-100.0)],
                 etrade_1111=[_b(amount=100.0, description="ACH DEPOSIT")])
     assert out[B][0]["class"] == "excess_return" and out[B][0]["pair_status"] == "unpaired"
-    assert out[A][0]["pair_status"] == "unmatched"
+    assert out[A][0]["pair_status"] == "external_inflow"
 
 
 def test_journals_are_never_paired():
@@ -146,10 +146,10 @@ def test_journals_are_never_paired():
     assert out[B][0]["pair_status"] == "unpaired" and not out[B][0].get("pair_id")
 
 
-def test_rollover_without_a_partner_is_unmatched_not_internal_and_keeps_its_marker():
+def test_rollover_without_a_partner_is_external_not_internal_and_keeps_its_marker():
     out = _pair(vanguard_3333=[_b(action="Rollover (incoming)", symbol="CASH", amount=5000.0)])
     r = out[C][0]
-    assert r["pair_status"] == "unmatched" and r["rollover"] is True
+    assert r["pair_status"] == "external_inflow" and r["rollover"] is True
 
 
 def test_non_transfer_rows_stay_unpaired_and_inputs_are_not_mutated():
@@ -187,3 +187,52 @@ def test_two_same_amount_contributions_for_one_outflow_stay_unmatched():
                 vanguard_3333=[_b(action="Contribution", amount=500.0)])
     assert out[B][0]["pair_status"] == "unmatched"
     assert out[A][0]["pair_status"] == out[C][0]["pair_status"] == "unpaired"
+
+
+def test_ambiguous_inflow_stays_unmatched_not_external():
+    out = _pair(etrade_1111=[_b(run_date="2026-03-01", amount=-100.0), _b(run_date="2026-03-01", amount=-100.0)],
+                fidelity_2222=[_b(run_date="2026-03-02", amount=100.0)])
+    assert out[B][0]["pair_status"] == "unmatched"
+
+
+def test_undescribed_withdrawal_and_matching_deposit_in_one_account_within_60_days_is_a_reversal():
+    out = _pair(vanguard_3333=[_b(run_date="2026-08-19", action="", amount=-1372.0), _b(run_date="2026-09-17", action="", amount=1372.0)])
+    o, i = out[C]
+    assert o["pair_status"] == i["pair_status"] == "reversal" and o["pair_id"] == i["pair_id"] and o["partner_account"] == C
+
+
+def test_described_withdrawal_is_not_called_a_reversal_and_the_deposit_stays_a_question():
+    out = _pair(vanguard_3333=[_b(run_date="2026-08-19", action="Withdrawal", description="WITHDRAWAL", amount=-1372.0),
+                               _b(run_date="2026-09-17", action="Deposit", description="ACH DEPOSIT", amount=1372.0)])
+    assert [r["pair_status"] for r in out[C]] == ["external_withdrawal", "unmatched"]
+
+
+def test_reversal_beyond_60_days_stays_unmatched():
+    out = _pair(vanguard_3333=[_b(run_date="2026-01-01", action="", amount=-50.0), _b(run_date="2026-04-01", action="", amount=50.0)])
+    assert [r["pair_status"] for r in out[C]] == ["unmatched", "unmatched"]
+
+
+def test_in_kind_arrival_from_outside_is_external_in_kind_and_zero_cash():
+    out = _pair(vanguard_3333=[_b(run_date="2026-03-01", symbol="IVV", quantity=57.0, amount=None, description="FROM NATIONAL FINANCIAL")])
+    r = out[C][0]
+    assert r["pair_status"] == "external_in_kind" and r["counts"] is False and r["amount"] == 0.0
+
+
+def test_same_account_in_out_in_of_same_shares_nets_to_reregistration_plus_one_arrival():
+    rows = [_b(run_date="2026-02-19", symbol="CVS", quantity=1200.0, amount=None),
+            _b(run_date="2026-02-20", symbol="CVS", quantity=-1200.0, amount=None),
+            _b(run_date="2026-02-20", symbol="CVS", quantity=1200.0, amount=None)]
+    out = _pair(vanguard_3333=rows)
+    st = sorted(r["pair_status"] for r in out[C])
+    assert st == ["external_in_kind", "reregistration", "reregistration"]
+    assert all(r["pair_id"] for r in out[C] if r["pair_status"] == "reregistration")
+
+
+def test_in_kind_outflow_without_partner_stays_unmatched():
+    out = _pair(vanguard_3333=[_b(symbol="TOTL", quantity=-10.0, amount=None, description="TFR TO ACCT")])
+    assert out[C][0]["pair_status"] == "unmatched"
+
+
+def test_inflow_with_a_same_amount_outflow_nearby_is_never_called_external():
+    out = _pair(etrade_1111=[_b(run_date="2026-03-01", amount=-1000.0)], fidelity_2222=[_b(run_date="2026-03-20", amount=1000.0)])
+    assert out[B][0]["pair_status"] == "unmatched"

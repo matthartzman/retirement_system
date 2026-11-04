@@ -5,7 +5,12 @@ on each transfer row (design section 4.3, owner decisions in section 8):
 
 - ``internal``: paired with exactly one opposite row of another plan account (``pair_id`` and ``partner_account`` set).
 - ``external_withdrawal``: a cash outflow with no partner in a plan account; it stands alone (decision 3).
-- ``unmatched``: anything else (an unpaired inflow, an ambiguous match, an unclassified or in-kind row with no partner).
+- ``external_inflow`` / ``external_in_kind``: cash, or shares, that arrived with no partner in a plan account (a rollover, a bank
+  deposit, an ACAT from another broker): the sender is outside the plan, so there is nothing to pair.
+- ``reversal``: an undescribed cash outflow and the same amount back into the SAME account within ``REVERSAL_DAYS`` (one candidate each way).
+- ``reregistration``: shares that came in, went out and came in again in one account; the out cancels the earliest arrival.
+- ``unmatched``: anything else (an ambiguous match, an inflow with a same-amount outflow within ``NEAR_DAYS``, an
+  unclassified row, shares leaving with no partner).
   Visible, never guessed.
 
 Contributions pair only when another plan account sent the money, and otherwise stay ``"unpaired"``. Rows that are not
@@ -20,6 +25,8 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Mapping, Sequence
 
+REVERSAL_DAYS = 60                   # a distribution put back within 60 days (HSA/IRA rule of thumb)
+NEAR_DAYS = 30                       # an inflow with a same-amount outflow this close stays unmatched
 WINDOW_DAYS = 3                      # the income check's tolerance
 _OUT_CLASSES = frozenset({"transfer_out", "distribution"})
 _IN_CLASSES = frozenset({"transfer_in", "contribution"})   # a contribution pairs only when another plan account sent it
@@ -96,10 +103,42 @@ def pair_transfers(ledgers: Mapping[str, Sequence[Mapping[str, Any]]]) -> dict[s
         n += 1
         _link(o, i, n)
 
-    # 3. what is left: a cash outflow stands alone as an external withdrawal; everything else stays visible as unmatched
+    # 2b. one account, undescribed cash out then the same amount back within REVERSAL_DAYS: a reversal (a returned distribution)
+    for o in [r for r in outs if r["pair_status"] != "internal" and r["needs_review"] and not r["in_kind"]]:
+        back = [i for i in ins if i["pair_status"] != "internal" and i["account"] == o["account"] and i["needs_review"]
+                and _same_thing(o, i) and 0 <= (_day(i) - _day(o)).days <= REVERSAL_DAYS]
+        outs_for = [p for p in outs if p["pair_status"] != "internal" and p["account"] == o["account"] and p["needs_review"]
+                    and back and _same_thing(p, back[0]) and 0 <= (_day(back[0]) - _day(p)).days <= REVERSAL_DAYS]
+        if len(back) == 1 and len(outs_for) == 1:
+            n += 1
+            pid = f"pair-{n}"
+            for r in (o, back[0]):
+                r["pair_status"], r["pair_id"], r["partner_account"] = "reversal", pid, o["account"]
+
+    # 2c. one account, shares in, out, in again (a re-registration): the out cancels the earliest same-size arrival
+    for o in [r for r in outs if r["pair_status"] != "internal" and r["in_kind"]]:
+        back = sorted((i for i in ins if i["pair_status"] != "internal" and i["account"] == o["account"] and i["in_kind"]
+                       and _same_thing(o, i) and 0 <= (_day(o) - _day(i)).days <= WINDOW_DAYS), key=_day)
+        if back:
+            n += 1
+            pid = f"pair-{n}"
+            for r in (o, back[0]):
+                r["pair_status"], r["pair_id"], r["partner_account"] = "reregistration", pid, o["account"]
+
+    # 3. what is left: a cash outflow stands alone as an external withdrawal, a clean inflow or arriving shares as an external
+    #    inflow (the sender is outside the plan); everything else (ambiguous, unclassified, shares leaving) stays visible as unmatched
+    for i in ins:        # a same-amount outflow within NEAR_DAYS (any account, paired or not) makes an inflow a question, not a fact
+        if i["pair_status"] not in ("internal", "reversal", "reregistration") and any(
+                _same_thing(p, i) and abs((_day(i) - _day(p)).days) <= NEAR_DAYS
+                and not (i["ref_id"] and p["ref_id"] and i["ref_id"] != p["ref_id"]) for p in outs if p["pair_status"] not in ("reversal", "reregistration")):
+            ambiguous.add(id(i))
     for r in outs + ins:
-        if r["pair_status"] == "internal" or r["class"] == "contribution":
+        if r["pair_status"] in ("internal", "reversal", "reregistration") or r["class"] == "contribution":
             continue                       # a contribution with no partner is simply a contribution (from outside the plan)
-        alone = _is_out(r) and not r["in_kind"] and not r["needs_review"] and id(r) not in ambiguous
-        r["pair_status"] = "external_withdrawal" if alone else "unmatched"
+        if _is_out(r):
+            alone = not r["in_kind"] and not r["needs_review"] and id(r) not in ambiguous
+            r["pair_status"] = "external_withdrawal" if alone else "unmatched"
+        else:
+            clean = not r["needs_review"] and id(r) not in ambiguous
+            r["pair_status"] = ("external_in_kind" if r["in_kind"] else "external_inflow") if clean else "unmatched"
     return out
