@@ -1,5 +1,5 @@
 {
-  "stepCount": 29,
+  "stepCount": 30,
   "steps": [
     {
       "stepId": "start",
@@ -52,6 +52,12 @@
     {
       "stepId": "assets_special",
       "heading": "Other Assets and Liabilities",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "account_tax_basis",
+      "heading": "Account Tax Basis",
       "hasContent": true,
       "errors": 0
     },
