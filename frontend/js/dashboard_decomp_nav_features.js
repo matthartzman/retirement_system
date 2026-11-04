@@ -7,6 +7,8 @@
 // disagree. Turning a feature off only hides it; the saved entries are kept.
 // The pure functions take their inputs as arguments so node tests can drive them without a browser.
 
+import { STRATEGY_SECTION_REGISTRY } from "./dashboard_decomp_strategy_workspace.js";
+
 // ── Set up / Maintain flow switch ───────────────────────────────────────────
 const MODE_KEY = "rp_nav_mode";
 export const MAINTAIN_FIRST_GROUP = "Track & Reconcile";
@@ -149,11 +151,10 @@ const DISPLAY_NAME = {
   retirement_strategy: "Withdrawal Sequencing",
 };
 
-// Ungated sections that always exist on a page (listed under "Always on").
-export const ALWAYS_ON_SECTIONS = {
-  strategy_optimize: ["Asset Allocation"],
-  strategy_workbench: ["Strategy Levers", "Unified Comparison Matrix", "Decision", "Saved Planning Cases"],
-};
+// "Always on" sections: the strategy workspace's section registry, gate null = always on (no second list).
+export function alwaysOnSections(stepId, registry = STRATEGY_SECTION_REGISTRY) {
+  return registry.filter((r) => r.stepId === stepId && r.gate == null).map((r) => r.title);
+}
 // Pages whose gate is hand-written in stepGatedByOptionalModule rather than in moduleGates.
 const HAND_GATED_STEPS = ["strategy_stress", "entity_charitable", "family_business", "rental_properties"];
 
@@ -200,6 +201,12 @@ export function featureHome(key, steps) {
   return { group, hostStepId: st ? st.id : "", hostTitle: st ? st.title : "", kind };
 }
 
+// Dependencies that are currently off: needsOff (strong, "Needs X") and softOff ("Works best with X").
+export function dependencyNotes(meta, deps) {
+  const off = (list) => (list || []).filter((d) => !deps.isOn(d.key)).map((d) => d.name || d.key);
+  return { needsOff: off(meta.needs), softOff: off(meta.degrades_without) };
+}
+
 // Everything a group's popover shows. deps: { taxonomy, steps, isOn(key), status(key), keptLabel(key), gatedStepIds }.
 export function groupFeatures(group, deps) {
   const modules = (deps.taxonomy || {}).modules || {};
@@ -229,6 +236,7 @@ export function groupFeatures(group, deps) {
       forced: !!(status && status.forced),
       follows,
       kept: !on && deps.keptLabel ? deps.keptLabel(key) : "",
+      ...dependencyNotes(meta, deps),
     });
   });
   const byDemand = (a, b) => a.rank - b.rank || a.name.localeCompare(b.name);
@@ -239,7 +247,7 @@ export function groupFeatures(group, deps) {
     .filter((s) => s.group === group && !s.hidden && !gated.has(s.id))
     .forEach((s) => {
       always.push({ name: s.title, stepId: s.id, hostTitle: s.title });
-      (ALWAYS_ON_SECTIONS[s.id] || []).forEach((sec) => always.push({ name: sec, stepId: s.id, hostTitle: s.title, section: true }));
+      alwaysOnSections(s.id).forEach((sec) => always.push({ name: sec, stepId: s.id, hostTitle: s.title, section: true }));
     });
   // A gated page whose gate is hand-written still lists through its feature rows, never as "always on".
   return {
@@ -277,11 +285,15 @@ function rowHtml(f, planOpen) {
     ? `<button type="button" class="nf-link" data-nf-open="${esc(f.hostStepId)}">${esc(f.name)}</button>`
     : `<span class="nf-name">${esc(f.name)}</span>`;
   const follows = !f.hasSwitch && f.follows.length ? `<span class="nf-note">Follows ${esc(f.follows.join(" or "))}</span>` : "";
+  const needs = (f.needsOff || []).length ? `<span class="nf-note nf-needs">Needs ${esc(f.needsOff.join(" and "))}</span>` : "";
+  const soft = (f.softOff || []).length ? `<span class="nf-note nf-soft">Works best with ${esc(f.softOff.join(" and "))}</span>` : "";
   return (
     `<li class="nf-row" data-nf-row="${esc(f.key)}"><div class="nf-main">${open}${f.tag ? `<span class="nf-tag">${esc(f.tag)}</span>` : ""}` +
     `<div class="nf-desc">${esc(f.adds)}.${f.desc ? " " + esc(f.desc) : ""}</div>` +
     (f.kept ? `<span class="nf-note">${esc(f.kept)}</span>` : "") +
     follows +
+    needs +
+    soft +
     `</div>${switchHtml}</li>`
   );
 }

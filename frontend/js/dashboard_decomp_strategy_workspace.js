@@ -285,6 +285,27 @@ function socialSecurityOptimizePanelHtml() {
   return `<div class="field-list" data-help-section="strategy_optimize.social_security">${sortRowsByDependency(rows).map(fieldHtml).join("")}</div>`;
 }
 
+// Section registry (data only): the one list of Optimize and Planning Workbench sections' key, title and gate.
+// The renderers below take key/title/gate from here via sectionMeta(), and the left-nav Features popover reads it
+// (gate null = always on), so the two cannot drift apart.
+export const STRATEGY_SECTION_REGISTRY = [
+  { stepId: "strategy_optimize", key: "hsa_drawdown", title: "HSA Drawdown", gate: "hsa_drawdown" },
+  { stepId: "strategy_optimize", key: "asset_allocation", title: "Asset Allocation", gate: null },
+  { stepId: "strategy_optimize", key: "withdrawal_sequencing", title: "Withdrawal Sequencing", gate: "withdrawal_sequencing" },
+  { stepId: "strategy_optimize", key: "social_security", title: "Social Security", gate: "social_security" },
+  { stepId: "strategy_optimize", key: "housing", title: "Next Housing Move", gate: "housing_location_search" },
+  { stepId: "strategy_optimize", key: "harvesting", title: "Harvesting", gate: "harvesting" },
+  { stepId: "strategy_workbench", key: "levers", title: "Strategy Levers", gate: null },
+  { stepId: "strategy_workbench", key: "change_sets", title: "Change Set Builder", gate: null },
+  { stepId: "strategy_workbench", key: "comparison", title: "Unified Comparison Matrix", gate: null },
+  { stepId: "strategy_workbench", key: "decision", title: "Decision", gate: null },
+  { stepId: "strategy_workbench", key: "saved_cases", title: "Saved Planning Cases", gate: null },
+];
+function sectionMeta(stepId, key) {
+  const r = STRATEGY_SECTION_REGISTRY.find((x) => x.stepId === stepId && x.key === key);
+  return { key: r.key, title: r.title, gate: r.gate };
+}
+
 export function renderStrategyOptimize() {
   return renderStrategyScreen([
     // #330 P8 / Q6 (W13): Roth Conversion and Charitable Giving left this
@@ -301,9 +322,7 @@ export function renderStrategyOptimize() {
     // Order tab already renders (dashboard.js's hsaWithdrawalPolicyBlock()),
     // not a new renderer.
     {
-      key: "hsa_drawdown",
-      title: "HSA Drawdown",
-      gate: "hsa_drawdown",
+      ...sectionMeta("strategy_optimize", "hsa_drawdown"),
       body: () => {
         const html = hsaWithdrawalPolicyBlock(withdrawalOtherRows());
         return (
@@ -313,9 +332,7 @@ export function renderStrategyOptimize() {
       },
     },
     {
-      key: "asset_allocation",
-      title: "Asset Allocation",
-      gate: null,
+      ...sectionMeta("strategy_optimize", "asset_allocation"),
       body: () =>
         analysisFrame(renderAllocationRecommendation(), "strategy") +
         `<details class="decide-embed-sub" open><summary>Allocation policy settings</summary>${renderAllocationPolicy()}</details>`,
@@ -324,27 +341,21 @@ export function renderStrategyOptimize() {
     // table and the misc funding/rollover settings the Withdrawal Order tab
     // already renders.
     {
-      key: "withdrawal_sequencing",
-      title: "Withdrawal Sequencing",
-      gate: "withdrawal_sequencing",
+      ...sectionMeta("strategy_optimize", "withdrawal_sequencing"),
       body: () => {
         const other = withdrawalOtherRows();
         return renderWithdrawalOrderTable() + withdrawalMiscBlock(other);
       },
     },
     {
-      key: "social_security",
-      title: "Social Security",
-      gate: "social_security",
+      ...sectionMeta("strategy_optimize", "social_security"),
       body: () => socialSecurityOptimizePanelHtml(),
     },
     {
-      key: "housing",
-      title: "Next Housing Move",
+      ...sectionMeta("strategy_optimize", "housing"),
       // #330 §3.2's "the UI panel is hidden" for Housing "Where to live",
       // now that the module exists to gate on. Collapsed-with-note, not
       // Hidden: see 2026-09-23-housing-location-search-catalog-notes.md.
-      gate: "housing_location_search",
       // Not analysisFrame-wrapped, unlike its siblings above: this is a
       // self-contained search tool with its own Run button and results
       // table, not a "set inputs, preview impact against the baseline"
@@ -364,9 +375,7 @@ export function renderStrategyOptimize() {
     // #329 §3.3 (W9): "add, as one panel" -- TLH and Gain Harvest together,
     // reusing the Withdrawal Order tab's own two blocks.
     {
-      key: "harvesting",
-      title: "Harvesting",
-      gate: "harvesting",
+      ...sectionMeta("strategy_optimize", "harvesting"),
       body: () => {
         const other = withdrawalOtherRows();
         const html = taxLossHarvestingBlock(other) + gainHarvestBlock(other);
@@ -443,30 +452,22 @@ export function renderStrategyWorkbench() {
     '<div class="workbench-model" data-help-section="strategy_workbench.model"><h3 class="group-title">Planning Workbench model ' + (window.RPHelp ? window.RPHelp.sectionButtonHtml("strategy_workbench.model") : "") + '</h3></div>' +
     renderStrategyScreen([
       {
-        key: "levers",
-        title: "Strategy Levers",
-        gate: null,
+        ...sectionMeta("strategy_workbench", "levers"),
         body: () => renderPlanningLevers(),
       },
       {
-        key: "change_sets",
-        title: "Change Set Builder",
-        gate: null,
+        ...sectionMeta("strategy_workbench", "change_sets"),
         body: () =>
           W.sourceButtons() +
           "<h4>Currently staged manual edits</h4>" +
           W.overrideTable(ctx, W.currentManualOverrideItems(ctx), "No unsaved field edits are currently staged."),
       },
       {
-        key: "comparison",
-        title: "Unified Comparison Matrix",
-        gate: null,
+        ...sectionMeta("strategy_workbench", "comparison"),
         body: () => W.matrixHtml(ctx, cases),
       },
       {
-        key: "decision",
-        title: "Decision",
-        gate: null,
+        ...sectionMeta("strategy_workbench", "decision"),
         body: () =>
           W.forwardLookingHtml(ctx) +
           '<div class="feature-grid">' +
@@ -478,9 +479,7 @@ export function renderStrategyWorkbench() {
           "</div></div>",
       },
       {
-        key: "saved_cases",
-        title: "Saved Planning Cases",
-        gate: null,
+        ...sectionMeta("strategy_workbench", "saved_cases"),
         body: () => W.cardsHtml(ctx, cases, active),
       },
     ])
@@ -492,7 +491,7 @@ export function renderStrategyWorkbench() {
 // ontoggle="..." handlers, which always resolve through window regardless of
 // module scoping. New code should prefer `import` from this module; this
 // bridge exists only for callers that cannot move to import in the same pass.
-Object.assign(window, {
+if (typeof window !== "undefined") Object.assign(window, {
   strategySectionOpenMap,
   strategySectionResetOpenCache,
   strategySectionSetOpen,

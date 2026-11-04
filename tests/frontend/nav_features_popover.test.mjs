@@ -3,6 +3,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import * as nf from "../../frontend/js/dashboard_decomp_nav_features.js";
+import { STRATEGY_SECTION_REGISTRY } from "../../frontend/js/dashboard_decomp_strategy_workspace.js";
 
 const STEPS = [
   { id: "start", group: "Plan Status", title: "Plan Status" },
@@ -114,6 +115,31 @@ describe("Features popover data", () => {
     assert.ok(![...d.on, ...d.off].map((f) => f.key).includes("net_worth"));
     assert.deepEqual(nf.groupFeatures("Taxes", deps(new Set())).always.map((a) => a.name), ["Account Tax Basis"]);
   });
+  test("Always on sections come from the strategy section registry (gate null only), with no second list", () => {
+    const reg = [
+      { stepId: "strategy_optimize", key: "a", title: "Ungated A", gate: null },
+      { stepId: "strategy_optimize", key: "b", title: "Gated B", gate: "hsa_drawdown" },
+      { stepId: "strategy_workbench", key: "c", title: "Ungated C", gate: null },
+    ];
+    assert.deepEqual(nf.alwaysOnSections("strategy_optimize", reg), ["Ungated A"]);
+    assert.deepEqual(nf.alwaysOnSections("estate", reg), []);
+    const live = nf.alwaysOnSections("strategy_optimize");
+    assert.ok(live.includes("Asset Allocation"));
+    ["HSA Drawdown", "Withdrawal Sequencing", "Social Security", "Next Housing Move", "Harvesting"].forEach((t) =>
+      assert.ok(!live.includes(t), `${t} is gated`));
+    assert.ok(nf.alwaysOnSections("strategy_workbench").includes("Change Set Builder"));
+    assert.ok(!fs.readFileSync("frontend/js/dashboard_decomp_nav_features.js", "utf8").includes("ALWAYS_ON_SECTIONS"));
+  });
+  test("every ungated registry entry appears under Always on of its page's group, no gated one does", () => {
+    const steps = [
+      { id: "strategy_optimize", group: "Analyze", title: "Optimize" },
+      { id: "strategy_workbench", group: "Analyze", title: "Planning Workbench" },
+    ];
+    const always = nf.groupFeatures("Analyze", { ...deps(new Set()), steps }).always.map((a) => a.name);
+    for (const r of STRATEGY_SECTION_REGISTRY) {
+      assert.equal(always.includes(r.title), r.gate == null, r.title);
+    }
+  });
   test("a group with nothing toggleable gets no icon", () => {
     assert.equal(nf.iconHtml("Settings", nf.groupFeatures("Settings", deps(new Set())), false), "");
   });
@@ -152,5 +178,33 @@ describe("shared setter", () => {
     const src = fs.readFileSync("frontend/js/dashboard_decomp_nav_features.js", "utf8");
     assert.match(src, /window\.setPlanFeatureSwitch\(key, turnOn\)/);
     assert.doesNotMatch(src, /api\(["']\/api\/plan\/feature/, "no second writer");
+  });
+});
+
+describe("dependency text on rows", () => {
+  const withDeps = {
+    ...TAXONOMY,
+    modules: {
+      ...TAXONOMY.modules,
+      roth_conversion_plan: M("Roth Conversion", {
+        demand: "high",
+        needs: [{ key: "lifetime_tax_projection", name: "Lifetime Taxes" }],
+        degrades_without: [{ key: "hsa_drawdown", name: "HSA Drawdown", loses: "x" }],
+      }),
+    },
+  };
+  const row = (on) => {
+    const d = nf.groupFeatures("Taxes", { ...deps(new Set(on)), taxonomy: withDeps });
+    return nf.popoverHtml("Taxes", d, {});
+  };
+  test("shows Needs and Works best with when the dependencies are off", () => {
+    const html = row([]);
+    assert.match(html, /Needs Lifetime Taxes/);
+    assert.match(html, /Works best with HSA Drawdown/);
+  });
+  test("shows nothing for a dependency that is on", () => {
+    const html = row(["lifetime_tax_projection", "hsa_drawdown"]);
+    assert.doesNotMatch(html, /Needs Lifetime Taxes/);
+    assert.doesNotMatch(html, /Works best with/);
   });
 });
