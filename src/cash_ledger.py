@@ -19,6 +19,7 @@ _TRADE_KINDS = frozenset({"buy", "sell", "reinvest"})
 _INCOME_KINDS = frozenset({"dividend", "interest", "cap_gain_short", "cap_gain_long", "foreign_tax", "return_of_capital"})
 _JOURNAL_PHRASES = ("CASH TO MARGIN", "MARGIN TO CASH")
 _ROLLOVER_WORDS = ("ROLLOVER",)
+_CORP_ACTION = re.compile(r"REDEMPTION OF MATURE|UNSOLICITED TRADE|\bEXCHANGE\s*$")
 _REF_ID = re.compile(r"REFID:\s*(\w+)", re.I)
 _DISTRIBUTION_WORDS = ("DISTRIBUTION", "WITHDRAWAL", "RETURN EXCESS")
 _FEE_WORDS = ("FEE", "MARGIN INTEREST")
@@ -51,7 +52,13 @@ def classify_other(r: Mapping[str, Any]) -> tuple[str, bool, bool, bool]:
     if any(p in text for p in _JOURNAL_PHRASES) or (r.get("action") or "").strip().upper() == "ADJUSTMENT":
         return "adjustment", False, False, False
     if symbol and symbol != "CASH" and r.get("quantity"):          # securities moved, no cash: the transaction log's
+        if _CORP_ACTION.search(text):                              # a maturity, warrant exchange or unsolicited buy is not a transfer
+            return "adjustment", False, True, False
         return _direction(float(r["quantity"])), False, True, False
+    if amount == 0:                                                # a zero-dollar detail line (Fidelity "TRANSFER - CURR YR"): the dollars sit in its description
+        return "adjustment", False, False, False
+    if "REDEMPTION" in text and r.get("quantity") and amount != 0:  # units redeemed for cash: sale proceeds, not a transfer
+        return "trade", True, False, False
     if "RETURN EXCESS" in text:
         return "excess_return", True, False, False
     if any(w in text for w in _DISTRIBUTION_WORDS):

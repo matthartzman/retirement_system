@@ -187,3 +187,25 @@ def test_rollover_rows_are_marked_and_in_kind_rows_keep_symbol_and_quantity():
                         [_imp(account="a")], [])
     assert rows[0]["rollover"] is True and rows[1]["rollover"] is False
     assert rows[1]["quantity"] == -10.0 and rows[1]["in_kind"] is True
+
+
+def _classify(**kw):
+    from src.cash_ledger import classify_other
+    return classify_other({"action": "", "description": "", "symbol": "", "quantity": None, "amount": 0.0, **kw})
+
+
+def test_zero_amount_cash_detail_line_is_an_informational_adjustment():
+    assert _classify(description="TY 2025 $ 5.30 TRANSFER - CURR YR; CREDIT CASH BALANCE") == ("adjustment", False, False, False)
+
+
+def test_bond_maturity_warrant_exchange_and_unsolicited_trade_are_not_transfers():
+    for d in ("STATE BANK IND 4600 REDEMPTION OF MATURE", "USA RARE EARTH INC WTS EXCHANGE", "SPDR PORTF S&P 500 GROWTH ETF UNSOLICITED TRADE"):
+        assert _classify(description=d, symbol="X1", quantity=-5.0)[0] == "adjustment"
+
+
+def test_fund_named_exchange_traded_is_still_a_transfer():
+    assert _classify(description="XYZ EXCHANGE TRADED FUND FROM NFS", symbol="XYZ", quantity=5.0)[0] == "transfer_in"
+
+
+def test_redemption_with_quantity_and_cash_is_sale_proceeds_not_a_review_row():
+    assert _classify(description="Redemption", quantity=54.0, amount=485.5) == ("trade", True, False, False)
