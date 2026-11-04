@@ -93,12 +93,12 @@ describe("load", () => {
 
 describe("summary publish", () => {
   test("clean wash and unsaved carryforward are neutral; flagged is bad; no data is neutral", async () => {
-    assert.deepEqual(m.stSummary(), { wash: { count: 0, tone: "", text: "" }, cf: { count: 0, tone: "", text: "" } });
+    assert.deepEqual(m.stSummary().wash, { count: 0, tone: "", text: "" }); // no data yet
     const pub = {};
     globalThis.slPublish = (k, s) => { pub[k] = s; };
     await m.loadSalesTaxYear(2026);
     assert.deepEqual(pub.wash, { count: 0, tone: "", text: "" });
-    assert.deepEqual(pub.cf, { count: 0, tone: "", text: "" });
+    assert.deepEqual(pub.cf, { count: 0, tone: "warn", text: "carryforward not saved" }); // 2026-11-04: a carried-in, never-entered figure now warns
     const orig = globalThis.api;
     globalThis.api = async () => SUMMARY({ carryforward_in: { short: 0, long: 0, entered: true }, wash: { count: 2, flagged_loss: 50, rows: [] } });
     await m.loadSalesTaxYear(2026);

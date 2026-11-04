@@ -118,25 +118,10 @@ test("summary: unmatched cash rows across accounts are a warn, worded like the c
   globalThis.api = orig;
 });
 
-test("the panel summary row shows the unmatched count only when there is one", () => {
-  const sum = (v) => m.ciHtml(v, null).match(/<summary>.*?<\/summary>/)[0];
-  assert.match(sum(VIEW), /Cash in investment accounts<\/h3> \(2\) · 2 unmatched<\/summary>/);
-  assert.match(sum({ ...VIEW, accounts: [VIEW.accounts[0]] }), /Cash in investment accounts<\/h3> \(1\)<\/summary>/);
-  assert.match(m.ciHtml(null, null), /<details ontoggle="ciToggle\(this\.open\)"><summary><h3 style="display:inline">Cash in investment accounts<\/h3><\/summary>/);
-});
-
-test("ciReveal opens the panel (kept open on repaint) and focuses its summary; no root is a no-op", () => {
-  const summary = { focus() { this.focused = true; } };
-  const details = { open: false, querySelector: (s) => (s === "summary" ? summary : null) };
-  const root = { innerHTML: "", querySelector: (s) => (s === "details" ? details : null) };
-  globalThis.document = { getElementById: (id) => (id === "ciRoot" ? root : null) };
-  m.ciReveal();
-  assert.equal(details.open, true);
-  assert.equal(summary.focused, true);
-  assert.match(m.ciHtml(VIEW, null), /^<details open ontoggle=/); // ciOpen is now true, so a repaint keeps it open
-  m.ciToggle(false);
-  globalThis.document = { getElementById: () => null };
-  assert.doesNotThrow(() => m.ciReveal());
-  m.ciToggle(false);
-  assert.equal(globalThis.ciReveal, m.ciReveal);
+test("the panel is a body only: the page's cash section shell supplies the summary, open memory and badge", () => {
+  const html = m.ciHtml(VIEW, null);
+  assert.doesNotMatch(html, /<details|<summary/); // 2026-11-04: shell moved to slSection("cash")
+  assert.match(html, /<table/);
+  assert.match(m.ciStateText(), /^(\d+ accounts?)?$/);
+  assert.equal(globalThis.ciReveal, undefined);
 });

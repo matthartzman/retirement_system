@@ -370,19 +370,13 @@ describe("collapsible section shell (Task 7)", () => {
     assert.equal(d.els["sl-sec-log"].open, true);
     delete globalThis.document;
   });
-  test("slGo('fix','cash') lands on the Cash panel: it has no section shell, so the panel reveals itself", () => {
-    setStore(store()); globalThis.document = secDoc([]);
-    delete globalThis.document.els["sl-sec-cash"];
-    let revealed = 0;
-    globalThis.ciReveal = () => { revealed++; };
+  test("slGo('fix','cash') opens and focuses the Cash section shell like any other section", () => {
+    setStore(store()); const d = secDoc(["cash"]); globalThis.document = d;
+    globalThis.history = { replaceState() {} };
     try {
       m.slGo("fix", "cash");
-      assert.equal(revealed, 1);
-      m.slGo("fix", "queue"); // other keys never call the cash panel
-      assert.equal(revealed, 1);
-      delete globalThis.ciReveal;
-      assert.doesNotThrow(() => m.slGo("fix", "cash")); // panel not loaded: just the tab switch
-    } finally { delete globalThis.ciReveal; delete globalThis.document; }
+      assert.equal(d.els["sl-sec-cash"].open, true);
+    } finally { delete globalThis.document; }
   });
   test("slGo rejects an unknown tab, tolerates no document, records the opened section", () => {
     const s = store(); setStore(s); const d = secDoc(["wash"]); globalThis.document = d;

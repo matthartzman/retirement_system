@@ -4,7 +4,7 @@
 
 const CI_COLS = [["account", "Account"], ["balance", "Balance"], ["as_of", "As of"], ["cash_lot", "CASH lot"], ["difference", "Difference"], ["anchor", "Anchor"], ["last_flow", "Last flow"], ["unmatched", "Unmatched"]];
 const CI_CLASS = { taxable: "Taxable", pre_tax: "Traditional", roth: "Roth", hsa: "HSA" };
-let ciView = null, ciLedger = null, ciError = "", ciOpen = false, ciSort = { key: "account", dir: 1 };
+let ciView = null, ciLedger = null, ciError = "", ciSort = { key: "account", dir: 1 };
 
 const ciMoney = (v) => (v == null ? "" : window.slMoney ? window.slMoney(v) : String(v));
 
@@ -55,9 +55,8 @@ export function ciHtml(view, ledger = ciLedger, sort = ciSort) {
     ledger.rows.map((l) => `<tr><td>${esc(l.date)}</td><td>${esc(l.class)}${l.needs_review ? " (review)" : ""}</td><td class="rc-num">${l.in_kind ? "in kind" : ciMoney(l.amount)}</td><td class="rc-num">${ciMoney(l.cash_balance)}</td>` +
       `<td>${esc(l.pair_status)}${l.partner_account ? " " + esc(accountDisplayLabel(l.partner_account)) : ""}</td><td>${esc(l.source)}</td></tr>`).join("") + `</tbody></table></div>` : `<p class="muted">No cash rows.</p>`) : "";
   const table = rows.length ? `<div class="rc-scroll"><table class="rc-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` : `<p class="muted">No broker imports yet.</p>`;
-  const un = ciUnmatched(view);
-  return `<details${ciOpen ? " open" : ""} ontoggle="ciToggle(this.open)"><summary><h3 style="display:inline">Cash in investment accounts</h3>${view ? ` (${rows.length})` : ""}${un > 0 ? ` · ${un} unmatched` : ""}</summary>` +
-    `${ciError ? `<p role="alert" class="error">${esc(ciError)}</p>` : ""}${table}${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${rep}${cmpHtml}${pastHtml}${stHtml}${closesHtml}${floorHtml}${led}</details>`;
+  // The body only: the Sales Ledger page wraps it in the "cash" section shell (open/closed memory, alert rule, summary badge).
+  return `${ciError ? `<p role="alert" class="error">${esc(ciError)}</p>` : ""}${table}${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${rep}${cmpHtml}${pastHtml}${stHtml}${closesHtml}${floorHtml}${led}`;
 }
 
 export function renderCashInvestment() {
@@ -70,19 +69,11 @@ export function ciSummary() {
   const n = ciUnmatched(ciView);
   return { count: n, tone: n > 0 ? "warn" : "", text: n > 0 ? `${n} unmatched cash row${n === 1 ? "" : "s"}` : "" };
 }
-// The page's "unmatched cash rows" alert lands here (the panel keeps its own <details>, not a section shell).
-export function ciReveal() {
-  ciToggle(true);
-  const root = document.getElementById("ciRoot");
-  const det = root && root.querySelector && root.querySelector("details");
-  if (!det) return;
-  det.open = true;
-  const sum = det.querySelector && det.querySelector("summary");
-  if (sum && sum.focus) sum.focus();
-}
+export const ciStateText = () => (ciView ? `${((ciView.accounts) || []).length} account${((ciView.accounts) || []).length === 1 ? "" : "s"}` : "");
 const ciPaint = () => {
   const el = document.getElementById("ciRoot");
   if (el) el.innerHTML = ciHtml(ciView);
+  if (window.slSecSetState) window.slSecSetState("cash", ciStateText());
   if (window.slPublish) window.slPublish("cash", ciSummary());
 };
 export async function ciLoad() {
@@ -108,6 +99,5 @@ export async function ciVerify(account, verified) {
   try { await api("/api/cash/verify-account", { method: "POST", body: JSON.stringify({ account, verified }) }); await ciLoad(); } catch (e) { ciError = e.message; ciPaint(); }
 }
 export function ciSortBy(key) { ciSort = { key, dir: ciSort.key === key ? -ciSort.dir : 1 }; ciPaint(); }
-export function ciToggle(open) { ciOpen = !!open; }
 
-Object.assign(window, { ciSummary, ciReveal, renderCashInvestment, ciHtml, ciLoad, ciShowLedger, ciSortBy, ciToggle, ciCloseYear, ciReopenYear, ciVerify });
+Object.assign(window, { ciSummary, ciStateText, renderCashInvestment, ciHtml, ciLoad, ciShowLedger, ciSortBy, ciCloseYear, ciReopenYear, ciVerify });

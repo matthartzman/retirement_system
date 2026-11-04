@@ -19,6 +19,7 @@ let tlHistView = null; // the history view loaded for tlHistKey
 let tlHistSeq = 0; // number of the latest history request
 let tlShown = TL_PAGE; // entries rows currently shown; reset to one page whenever a filter changes
 let tlDrawer = { add: false, xfer: false }; // drawers the user has open (kept across repaints)
+let tlLoadFailed = false; // the last log load failed: the state is unknown, so no alert is published for it
 let tlSlotStarted = null; // started state last painted into the health slot
 const TL_HEALTH_MAX = 5;
 
@@ -29,7 +30,7 @@ const tlSelect = (id, opts, cur, fn) => `<select id="${id}" onchange="${fn}(this
 const tlJs = (v) => esc(String(v).replace(/[\\']/g, "\\$&"));
 const tlMsgHtml = () => tlMessage ? `<p role="status" class="${tlMessage.error ? "error" : "muted"}">${esc(tlMessage.text)}</p>` : "";
 const tlNotStartedHtml = (msg) => `<h3>Transaction log</h3>${msg}<p class="muted">The log is not started. Starting builds it from your broker imports and holdings; the holdings are not changed.</p>` +
-  `<button type="button" class="btn" onclick="tlStart()">Start the transaction log</button>`;
+  `<button type="button" class="btn" id="tlStartBtn" onclick="tlStart()">Start the transaction log</button>`;
 const tlManagedListHtml = (log, accts) => {
   const managed = new Set((log.managed || []).map((a) => a.toLowerCase()));
   return `<p class="muted">A managed account's holdings are written by this log; edit it here, not in Holdings. Turning it off leaves the last holdings as they are.</p><ul class="tl-managed">` +
@@ -190,6 +191,7 @@ export function renderTransactionLog() {
 }
 
 export function tlSummary() {
+  if (tlLoadFailed) return { health: { count: 0, tone: "", text: "" }, log: { count: 0, tone: "", text: "" } }; // a transient failure is not "log not started"
   if (tlLog && !tlLog.started) return { health: { count: 1, tone: "bad", text: "log not started" }, log: { count: 0, tone: "", text: "" } };
   const n = new Set(((tlLog && tlLog.drift) || []).map((d) => d.account)).size;
   return { health: { count: n, tone: n > 0 ? "bad" : "", text: n > 0 ? `drift: ${n} accounts` : "" }, log: { count: tlLog ? (tlLog.rows || []).length : 0, tone: "", text: "" } };
@@ -210,7 +212,8 @@ function tlPaint() {
 }
 
 export async function tlLoad() {
-  try { tlLog = await api("/api/transactions/log"); } catch (e) { tlLog = { started: false, rows: [], open: [], drift: [] }; tlMessage = { text: e.message, error: true }; }
+  tlLoadFailed = false;
+  try { tlLog = await api("/api/transactions/log"); } catch (e) { tlLoadFailed = true; tlLog = { started: false, rows: [], open: [], drift: [] }; tlMessage = { text: e.message, error: true }; }
   tlPaint();
 }
 
