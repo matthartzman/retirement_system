@@ -1,7 +1,9 @@
 # Sales Ledger page redesign — design (v2, after peer review)
 
 Date: 2026-11-03 · Page: nav step `sales_ledger` ("Investment Sales Ledger", group *Reports & Review*; step id unchanged, so no nav change)
-Status: **PROPOSED v2.1 — three open questions resolved; awaiting Matt's acceptance of the whole design.** Nothing built. Reviewed by four peers (UX/IA, front-end feasibility, tax-workflow domain, accessibility/QA); all returned *Approve with changes*; every change is folded in below (§10 lists them).
+Status: approved
+
+Acceptance: Matt accepted the design on 2026-11-03 (v2.1, after four peer reviews and three resolved questions).
 
 ## 1. Intent and why
 The page is where lot/transaction data is maintained and sales are reviewed; every realized-gain figure rests on it. It grew by accretion: ten independently written panels concatenated into one column (`slBodyHtml()`, `frontend/js/dashboard_decomp_sales_ledger.js`). Goal: same capabilities, organised by workflow, compact, scannable.
