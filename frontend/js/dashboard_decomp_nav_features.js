@@ -200,6 +200,12 @@ export function featureHome(key, steps) {
   return { group, hostStepId: st ? st.id : "", hostTitle: st ? st.title : "", kind };
 }
 
+// Dependencies that are currently off: needsOff (strong, "Needs X") and softOff ("Works best with X").
+export function dependencyNotes(meta, deps) {
+  const off = (list) => (list || []).filter((d) => !deps.isOn(d.key)).map((d) => d.name || d.key);
+  return { needsOff: off(meta.needs), softOff: off(meta.degrades_without) };
+}
+
 // Everything a group's popover shows. deps: { taxonomy, steps, isOn(key), status(key), keptLabel(key), gatedStepIds }.
 export function groupFeatures(group, deps) {
   const modules = (deps.taxonomy || {}).modules || {};
@@ -229,6 +235,7 @@ export function groupFeatures(group, deps) {
       forced: !!(status && status.forced),
       follows,
       kept: !on && deps.keptLabel ? deps.keptLabel(key) : "",
+      ...dependencyNotes(meta, deps),
     });
   });
   const byDemand = (a, b) => a.rank - b.rank || a.name.localeCompare(b.name);
@@ -277,11 +284,15 @@ function rowHtml(f, planOpen) {
     ? `<button type="button" class="nf-link" data-nf-open="${esc(f.hostStepId)}">${esc(f.name)}</button>`
     : `<span class="nf-name">${esc(f.name)}</span>`;
   const follows = !f.hasSwitch && f.follows.length ? `<span class="nf-note">Follows ${esc(f.follows.join(" or "))}</span>` : "";
+  const needs = (f.needsOff || []).length ? `<span class="nf-note nf-needs">Needs ${esc(f.needsOff.join(" and "))}</span>` : "";
+  const soft = (f.softOff || []).length ? `<span class="nf-note nf-soft">Works best with ${esc(f.softOff.join(" and "))}</span>` : "";
   return (
     `<li class="nf-row" data-nf-row="${esc(f.key)}"><div class="nf-main">${open}${f.tag ? `<span class="nf-tag">${esc(f.tag)}</span>` : ""}` +
     `<div class="nf-desc">${esc(f.adds)}.${f.desc ? " " + esc(f.desc) : ""}</div>` +
     (f.kept ? `<span class="nf-note">${esc(f.kept)}</span>` : "") +
     follows +
+    needs +
+    soft +
     `</div>${switchHtml}</li>`
   );
 }

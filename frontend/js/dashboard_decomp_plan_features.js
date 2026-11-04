@@ -426,9 +426,27 @@ export function offFeaturesForPage(stepId, taxonomy) {
     const on = isFlag
       ? entryIsOn({ meta })
       : optionalFunctionEnabled(key);
-    if (!on) out.push({ key, name: meta.name || key });
+    if (on) return;
+    const follows = meta.gated_by ? [meta.gated_by] : meta.gated_by_any_flag || [];
+    const forced = typeof moduleStatus !== "undefined" && moduleStatus && (moduleStatus[key] || {}).forced;
+    out.push({
+      key,
+      name: meta.name || key,
+      hasSwitch: !follows.length && !forced,
+      follows: follows.map((k) => (modules[k] || {}).name || k),
+    });
   });
   return out;
+}
+
+// A feature with its own switch gets a "Turn on" button (the Plan Features writer); one that
+// follows another feature stays text with a "Follows X" hint.
+function offFeatureItemHtml(f) {
+  if (!f.hasSwitch) return esc(f.name) + (f.follows.length ? ` <span class="pf-follows">(Follows ${esc(f.follows.join(" or "))})</span>` : "");
+  return (
+    `${esc(f.name)} <button type="button" class="btn pf-turn-on" data-requires-app="1" aria-label="Turn on ${esc(f.name)}" ` +
+    `onclick="setPlanFeatureSwitch('${esc(escJs(f.key))}', true)">Turn on</button>`
+  );
 }
 
 // One compact line on a nav page: the optional features that are off and
@@ -439,7 +457,7 @@ export function offFeaturesLineHtml(stepId) {
   if (!off.length) return "";
   return (
     '<div class="section-note pf-off-features">Optional features not enabled that would appear here: ' +
-    off.map((f) => esc(f.name)).join(", ") +
+    off.map(offFeatureItemHtml).join(", ") +
     '. <a href="#" onclick="navigateTo(\'optional_functions\');return false">Turn on in Plan Features</a></div>'
   );
 }

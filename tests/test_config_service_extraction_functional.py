@@ -78,8 +78,9 @@ def test_module_taxonomy_serves_the_soft_dependency_relation_in_both_directions(
     modules = ConfigService._module_taxonomy()["modules"]
 
     # Forward: the dependent declares what it loses.
+    from src.module_catalog import CATALOG
     exec_summary = modules["executive_summary"]["degrades_without"]
-    assert {"key": "market_luck_stress_test",
+    assert {"key": "market_luck_stress_test", "name": CATALOG["market_luck_stress_test"].name,
             "loses": "the success-probability headline"} in exec_summary
 
     # Reverse: the module being switched off knows what it takes with it, and
@@ -95,6 +96,22 @@ def test_module_taxonomy_serves_the_soft_dependency_relation_in_both_directions(
     # A module nothing degrades without says so explicitly rather than being absent.
     assert modules["glossary"]["degraded_by"] == []
     assert modules["glossary"]["degrades_without"] == []
+
+
+def test_module_taxonomy_carries_hard_needs_with_names():
+    """Hard prerequisites the user can switch off are served as `needs`;
+    always-on base outputs (net worth, cash flow) are not."""
+    from src.module_catalog import CATALOG
+    from src.server_services.config_service import ConfigService
+
+    modules = ConfigService._module_taxonomy()["modules"]
+    assert modules["tax_capacity"]["needs"] == [
+        {"key": "lifetime_tax_projection", "name": CATALOG["lifetime_tax_projection"].name}
+    ]
+    assert modules["life_insurance_need"]["needs"][0]["key"] == "survivor_stress_test"
+    assert modules["glossary"]["needs"] == []
+    for m in modules.values():
+        assert all(modules[d["key"]]["optional"] for d in m["needs"])
 
 
 def test_module_taxonomy_carries_engine_participation():

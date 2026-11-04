@@ -685,7 +685,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 sales-ledger redesign: +31 (final-review fixes: Esc scope, in-memory tab, cash alert landing, 1099-B stale preview)
 # 2026-11-04 left-nav redesign: +322 (net-new feature code: dashboard_decomp_nav_features.js Set up / Maintain switch and Features popover, plus STEPS entries re-expanded to one field per line for the id-parsing tests; dashboard.js itself shrinks)
 # 2026-11-04 sales-ledger follow-ups: +103
-TOTAL_JS_MAX_LINES = 43_723
+# 2026-11-04 left-nav follow-ups C/D: +29 (popover dependency text; Turn on buttons on host-page notes)
+TOTAL_JS_MAX_LINES = 43_752
 
 
 

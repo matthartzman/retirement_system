@@ -350,6 +350,29 @@ describe("DAF / QCD / LTC-Life switches live only on Plan Features", () => {
     assert.equal(html.split("Plan Features").length - 1, 1);
     assert.equal(sandbox.offFeaturesLineHtml("optional_functions"), "");
   });
+
+  test("each off feature with its own switch gets a Turn on button using setPlanFeatureSwitch", () => {
+    const html = sandbox.offFeaturesLineHtml("entity_charitable");
+    assert.ok(html.includes("setPlanFeatureSwitch('daf_giving', true)"));
+    assert.ok(html.includes("setPlanFeatureSwitch('qcd_giving', true)"));
+  });
+
+  test("a feature that follows another has no button and shows its Follows hint", () => {
+    const real = sandbox.planModuleTaxonomy;
+    const tax = real();
+    sandbox.planModuleTaxonomy = () => ({
+      modules: { ...tax.modules, daf_giving: { ...tax.modules.daf_giving, gated_by: "qcd_giving" } },
+    });
+    try {
+      const html = sandbox.offFeaturesLineHtml("entity_charitable");
+      assert.ok(!html.includes("setPlanFeatureSwitch('daf_giving'"));
+      assert.ok(html.includes("DAF Giving"));
+      assert.ok(html.includes("Follows QCD Giving"));
+      assert.ok(html.includes("setPlanFeatureSwitch('qcd_giving'"));
+    } finally {
+      sandbox.planModuleTaxonomy = real;
+    }
+  });
 });
 
 describe("QCD section is one row per person with nickname labels", () => {
