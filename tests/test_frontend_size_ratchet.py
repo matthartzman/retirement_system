@@ -659,7 +659,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 (nav search typing fix: +2 in dashboard_decomp_row_model.js for the per-render step-stats memo, +1 in navigation.js so the search box
 # keeps what is being typed; dashboard.js did not grow): raised to the measured 42,579.
 # 2026-11-03 (Account Tax Basis page: renderAccountTaxBasis, help entry, glossary terms, row routing; +1 in dashboard.js): raised to 42,609, the old ceiling plus both changes.
-TOTAL_JS_MAX_LINES = 42_609
+# 2026-11-03 sales-ledger redesign: +52 (new module dashboard_decomp_sales_ledger_ui.js; dashboard.js did not grow)
+TOTAL_JS_MAX_LINES = 42_661
 
 
 
