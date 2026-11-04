@@ -19,6 +19,7 @@ before(async () => {
     if (url === "/api/sales/import/preview") return { success: true, received: 1, will_write: [{ symbol: "VXUS" }], duplicates: [], errors: [] };
     return { success: true };
   };
+  await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
   m = await import("../../frontend/js/dashboard_decomp_sales_ledger.js");
 });
 beforeEach(() => { calls.length = 0; });
@@ -114,16 +115,28 @@ describe("tax-year panel hook", () => {
 
 describe("scoped repaint keeps drafts (F10)", () => {
   const clearFields = () => { for (const k of Object.keys(globalThis.__fields)) delete globalThis.__fields[k]; };
+  const unesc = (t) => t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+  // Root stubs behave like the DOM: writing innerHTML re-creates the inputs, so their live value comes from the new markup.
   const mountRoots = () => {
     for (const id of ["slHeadRoot", "slFormRoot", "slCsvRoot", "slListRoot"]) {
-      globalThis.__roots[id] = { writes: 0, _h: "", get innerHTML() { return this._h; }, set innerHTML(v) { this.writes++; this._h = v; } };
+      globalThis.__roots[id] = { writes: 0, _h: "", get innerHTML() { return this._h; }, set innerHTML(v) {
+        this.writes++; this._h = v;
+        if (id === "slCsvRoot") {
+          const t = /<textarea id="slCsv"[^>]*>([\s\S]*?)<\/textarea>/.exec(v);
+          if (t) globalThis.__fields.slCsv = unesc(t[1]); else delete globalThis.__fields.slCsv;
+        }
+        if (id === "slFormRoot") {
+          for (const mt of v.matchAll(/<input id="(sl\w+)"[^>]*value="([^"]*)"/g)) globalThis.__fields[mt[1]] = unesc(mt[2]);
+        }
+      } };
     }
   };
+  const type = (id, v) => { globalThis.__fields[id] = v; m.slDraftSet(id, v); }; // what a keystroke does
   beforeEach(() => { clearFields(); mountRoots(); });
 
   test("a ledger load repaints only the list and keeps the form and CSV drafts", async () => {
-    m.slDraftSet("slSymbol", "VXUS");
-    m.slDraftSet("slCsv", "a,b\n1,2\n");
+    type("slSymbol", "VXUS");
+    type("slCsv", "a,b\n1,2\n");
     await m.loadSalesLedger();
     const r = globalThis.__roots;
     assert.ok(r.slListRoot.writes >= 1);
@@ -133,7 +146,7 @@ describe("scoped repaint keeps drafts (F10)", () => {
     calls.length = 0;
     await m.slSubmit();
     assert.equal(calls.find((c) => c[0] === "/api/sales" && c[1] === "POST")[2].symbol, "VXUS");
-    m.slDraftSet("slCsv", "a,b\n1,2\n");
+    type("slCsv", "a,b\n1,2\n");
     await m.slImportPreview();
     assert.deepEqual(calls.find((c) => c[0] === "/api/sales/import/preview")[2], { content: "a,b\n1,2\n" });
   });
@@ -145,9 +158,49 @@ describe("scoped repaint keeps drafts (F10)", () => {
     await m.slSetYear(String(new Date().getFullYear()));
   });
 
-  test("preview then commit posts the same CSV text", async () => {
-    m.slDraftSet("slCsv", "sale_date,symbol\n2026-01-02,VTI\n");
+  test("a successful action clears a stale preview and its Add button", async () => {
+    type("slCsv", "sale_date,symbol\n2026-01-02,VTI\n");
     await m.slImportPreview();
+    assert.match(globalThis.__roots.slCsvRoot.innerHTML, /slImportCommit/);
+    await m.slVoid(7);
+    assert.doesNotMatch(globalThis.__roots.slCsvRoot.innerHTML, /slImportCommit/);
+  });
+
+  test("typing during an in-flight save is kept; a failed save restores the sent draft", async () => {
+    const realApi = globalThis.api;
+    let release;
+    globalThis.api = async (url, opts) => {
+      if (url === "/api/sales" && opts && opts.method === "POST") { await new Promise((r) => { release = r; }); return { success: true }; }
+      return realApi(url, opts);
+    };
+    try {
+      type("slSymbol", "VTI");
+      const p = m.slSubmit();
+      await new Promise((r) => setTimeout(r, 0));
+      type("slShares", "5"); // typed while the save is in flight
+      release();
+      await p;
+      const html = m.renderSalesLedger();
+      assert.match(html, /id="slShares"[^>]*value="5"/);
+      assert.match(html, /id="slSymbol"[^>]*value=""/);
+      globalThis.api = async (url, opts) => {
+        if (url === "/api/sales" && opts && opts.method === "POST") throw new Error("nope");
+        return realApi(url, opts);
+      };
+      type("slSymbol", "BND");
+      await m.slSubmit();
+      assert.match(m.renderSalesLedger(), /id="slSymbol"[^>]*value="BND"/);
+    } finally {
+      globalThis.api = realApi;
+      m.slCancelEdit();
+    }
+  });
+
+  test("preview then commit posts the pasted CSV text even though the preview repaints the CSV box", async () => {
+    type("slCsv", "sale_date,symbol\n2026-01-02,VTI\n");
+    await m.slImportPreview();
+    assert.ok(globalThis.__roots.slCsvRoot.writes >= 1);
+    assert.equal(globalThis.__fields.slCsv, "sale_date,symbol\n2026-01-02,VTI\n"); // the repainted textarea still holds the text
     await m.slImportCommit();
     const bodies = calls.filter((c) => c[0] === "/api/sales/import/preview" || c[0] === "/api/sales/import/commit").map((c) => c[2].content);
     assert.deepEqual(bodies, ["sale_date,symbol\n2026-01-02,VTI\n", "sale_date,symbol\n2026-01-02,VTI\n"]);
@@ -167,4 +220,78 @@ describe("scoped repaint keeps drafts (F10)", () => {
       assert.equal(html.split(`id="${id}"`).length - 1, 1, id);
     }
   });
+});
+
+describe("four tabs (Task 4)", () => {
+  const stubs = { renderSalesQueue: "sq", renderTransactionLog: "tl", renderCashInvestment: "ci", renderTransactions: "tx",
+    renderSalesTaxYear: "stRoot", renderBrokerImport: "bi", renderSalesBroker1099b: "b1" };
+  const ids = (html) => [...html.matchAll(/\sid="([^"]*)"/g)].map((x) => x[1]);
+  const withStubs = (fn) => () => {
+    for (const [k, id] of Object.entries(stubs)) globalThis[k] = () => `<div id="${id}">${k}</div>`;
+    try { fn(); } finally { for (const k of Object.keys(stubs)) delete globalThis[k]; delete globalThis.location; }
+  };
+  const ORDER = ["fix", "ledger", "tax", "import"];
+
+  test("four tabpanels are direct children of the .field-list root, with stRoot inside", withStubs(() => {
+    const html = m.renderSalesLedger();
+    assert.match(html, /^<div class="field-list sl-page" id="slRoot">/);
+    assert.equal((html.match(/role="tabpanel"/g) || []).length, 4);
+    for (const id of ORDER) {
+      const before = html.slice(0, html.indexOf(`<div class="sl-tab" role="tabpanel" id="sl-p-${id}"`));
+      const depth = (before.match(/<div\b/g) || []).length - (before.match(/<\/div>/g) || []).length;
+      assert.equal(depth, 1, id); // only the page root is open
+    }
+    assert.match(html, /id="stRoot"/);
+    assert.ok(html.indexOf('id="slHeadRoot"') < html.indexOf('role="tablist"'));
+    assert.ok(html.indexOf('role="tablist"') < html.indexOf('id="sl-p-fix"'));
+  }));
+
+  test("panels land in their tabs", withStubs(() => {
+    const html = m.renderSalesLedger();
+    const inPanel = (panel, text) => {
+      const a = html.indexOf(`id="sl-p-${panel}"`);
+      const n = ORDER[ORDER.indexOf(panel) + 1];
+      const b = n ? html.indexOf(`id="sl-p-${n}"`) : html.length;
+      const i = html.indexOf(text);
+      return i > a && i < b;
+    };
+    for (const n of ["renderSalesQueue", "renderTransactionLog", "renderCashInvestment", "renderTransactions"]) assert.ok(inPanel("fix", n), n);
+    for (const t of ['id="slFormRoot"', 'id="slCsvRoot"', 'id="slListRoot"']) assert.ok(inPanel("ledger", t), t);
+    assert.ok(inPanel("tax", "renderSalesTaxYear"));
+    for (const n of ["renderBrokerImport", "renderSalesBroker1099b"]) assert.ok(inPanel("import", n), n);
+  }));
+
+  test("no id occurs twice", withStubs(() => {
+    const all = ids(m.renderSalesLedger());
+    assert.ok(all.length > 10);
+    assert.deepEqual(all.filter((x, i) => all.indexOf(x) !== i), []);
+  }));
+
+  test("fix is the default active tab", withStubs(() => {
+    const html = m.renderSalesLedger();
+    assert.match(html, /id="sl-t-fix"[^>]*aria-selected="true"/);
+    assert.doesNotMatch(html, /id="sl-p-fix"[^>]*hidden/);
+    for (const id of ["ledger", "tax", "import"]) assert.match(html, new RegExp(`id="sl-p-${id}"[^>]*hidden`));
+  }));
+
+  test("#sales_ledger?tab=import opens Import; an unknown tab or other hash is ignored", withStubs(() => {
+    globalThis.location = { hash: "#sales_ledger?tab=import" };
+    const html = m.renderSalesLedger();
+    assert.match(html, /id="sl-t-import"[^>]*aria-selected="true"/);
+    assert.doesNotMatch(html, /id="sl-p-import"[^>]*hidden/);
+    assert.match(html, /id="sl-p-fix"[^>]*hidden/);
+    globalThis.location = { hash: "#sales_ledger?tab=bogus" };
+    assert.match(m.renderSalesLedger(), /id="sl-t-fix"[^>]*aria-selected="true"/);
+    globalThis.location = { hash: "#other?tab=import" };
+    assert.match(m.renderSalesLedger(), /id="sl-t-fix"[^>]*aria-selected="true"/);
+  }));
+
+  test("sec is validated against the known section keys", withStubs(() => {
+    globalThis.location = { hash: "#sales_ledger?tab=fix&sec=wash" };
+    assert.deepEqual(m.slHashTarget(), { tab: "fix", sec: "wash" });
+    globalThis.location = { hash: "#sales_ledger?tab=fix&sec=nonsense" };
+    assert.deepEqual(m.slHashTarget(), { tab: "fix", sec: null });
+    delete globalThis.location;
+    assert.deepEqual(m.slHashTarget(), { tab: null, sec: null });
+  }));
 });

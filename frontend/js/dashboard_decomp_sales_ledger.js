@@ -109,11 +109,27 @@ function slListHtml() {
   return msg + (slError ? `<p class="field-error">${esc(slError)}</p>` : slData ? slTotalsHtml(slData.totals) + slTableHtml(slData.sales) : `<p class="muted">Loading…</p>`);
 }
 
+const SL_SECS = ["queue", "health", "log", "wash", "cf", "b1099", "cash", "imports"];
+const slPanels = (names) => names.map((n) => (window[n] ? window[n]() : "")).join("");
+
+// Deep link: #sales_ledger?tab=import&sec=b1099. Only read when the hash is ours; location may not exist (node tests).
+export function slHashTarget() {
+  let hash = "";
+  try { hash = (typeof location !== "undefined" && location && location.hash) || ""; } catch (e) { hash = ""; }
+  if (!hash.startsWith("#sales_ledger") || !window.slParseHash) return { tab: null, sec: null };
+  const p = window.slParseHash(hash);
+  return { tab: p.tab, sec: SL_SECS.includes(p.sec) ? p.sec : null };
+}
+
 function slBodyHtml() {
-  const panels = ["renderSalesQueue", "renderSalesTaxYear", "renderBrokerImport", "renderSalesBroker1099b", "renderCashInvestment", "renderTransactions", "renderTransactionLog"]
-    .map((n) => (window[n] ? window[n]() : "")).join("");
-  return `<div id="slHeadRoot">${slHeadHtml()}</div>${panels}<div id="slFormRoot">${slFormHtml()}</div><div id="slCsvRoot">${slImportHtml()}</div>` +
+  const active = slHashTarget().tab || window.slUiLoad().tab;
+  const panel = (id, body) => window.slTabPanelHtml(id, body, active);
+  const fix = slPanels(["renderSalesQueue", "renderTransactionLog", "renderCashInvestment", "renderTransactions"]);
+  const ledger = `<div id="slFormRoot">${slFormHtml()}</div><div id="slCsvRoot">${slImportHtml()}</div>` +
     `<h3>Ledger</h3><div id="slListRoot">${slListHtml()}</div>`;
+  return `<div id="slHeadRoot">${slHeadHtml()}</div>${window.slTabBarHtml(active, {})}` +
+    panel("fix", fix) + panel("ledger", ledger) + panel("tax", slPanels(["renderSalesTaxYear"])) +
+    panel("import", slPanels(["renderBrokerImport", "renderSalesBroker1099b"]));
 }
 
 export function renderSalesLedger() {
@@ -161,7 +177,7 @@ async function slPost(url, body, okText) {
   try {
     out = await api(url, { method: "POST", body: JSON.stringify(body || {}) });
     slMessage = { text: okText, error: false };
-    slPreview = null;
+    if (slPreview) { slPreview = null; slPaintCsv(); }
   } catch (e) {
     slMessage = { text: e.message, error: true };
   }
@@ -175,9 +191,11 @@ const SL_FORM = { slDate: "sale_date", slAccount: "account", slClass: "tax_class
 export async function slSubmit() {
   const body = Object.fromEntries(Object.entries(SL_FORM).map(([id, k]) => [k, val(id)]));
   const editing = slEditId;
+  const sent = slDraft;
+  slDraft = {}; // typing while the save is in flight lands in the fresh draft
   const out = await slPost(editing ? `/api/sales/${Number(editing)}/replace` : "/api/sales", body,
     editing ? "Sale updated; the old row is kept as voided." : "Sale recorded.");
-  if (out) { slEditId = null; slDraft = {}; slPaintForm(); }
+  if (out) { slEditId = null; slPaintForm(); } else slDraft = { ...sent, ...slDraft };
 }
 
 export function slEdit(id) {
@@ -229,6 +247,6 @@ export async function slImportCommit() {
 }
 
 Object.assign(window, {
-  slMoney, slGainHtml, slRowHtml, slTableHtml, slTotalsHtml, slPreviewHtml, renderSalesLedger, loadSalesLedger, slSubmit, slVoid, slUnvoid,
+  slMoney, slGainHtml, slRowHtml, slTableHtml, slTotalsHtml, slPreviewHtml, renderSalesLedger, slHashTarget, loadSalesLedger, slSubmit, slVoid, slUnvoid,
   slSetYear, slSetShowVoided, slCsvFile, slImportPreview, slImportCommit, slEdit, slCancelEdit, slRequeue, slDraftSet,
 });

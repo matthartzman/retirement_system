@@ -662,7 +662,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 sales-ledger redesign: +52 (new module dashboard_decomp_sales_ledger_ui.js; dashboard.js did not grow)
 # 2026-11-03 sales-ledger redesign: +37 (Task 2 tab bar/panel builders)
 # 2026-11-03 sales-ledger redesign: +21 (Task 3 scoped repaint, drafts, header)
-TOTAL_JS_MAX_LINES = 42_719
+# 2026-11-03 sales-ledger redesign: +18 (Task 4 four tabs, hash deep link, draft fixes)
+TOTAL_JS_MAX_LINES = 42_737
 
 
 
