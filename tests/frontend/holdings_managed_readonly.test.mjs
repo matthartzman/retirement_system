@@ -39,7 +39,7 @@ test("rendered rows of a managed account are readonly with a link; others stay e
   assert.match(ira, /data-managed="1"/);
   assert.match(ira, /readonly/);
   assert.doesNotMatch(ira, /oninput/);
-  assert.match(ira, /Managed in Transactions/);
+  assert.doesNotMatch(ira, /Managed in Transactions/);
   assert.doesNotMatch(hsa, /readonly/);
   assert.match(hsa, /oninput/);
 });
@@ -55,4 +55,18 @@ test("a cash-only account (one CASH lot) is hidden from the page (it lives on Ch
   assert.doesNotMatch(m.renderHoldings(), /Family.Checking/);
   assert.doesNotMatch(parts.find((x) => x.includes("BND")), /readonly/);
   assert.doesNotMatch(parts.find((x) => x.includes(",CASH") || x.includes('value="CASH"') && x.includes("Member_1_HSA")), /readonly/);
+});
+
+test("the CASH lot of a managed account stays editable (the log never writes it); its securities lots stay read-only", () => {
+  window.managedHoldingAccounts = ["Member_1_IRA"];
+  window.currentHoldingAccount = "ALL";
+  window.holdingsText = "account,symbol,purchase_date,shares,purchase_price,lot_type,note\nMember_1_IRA,VTI,2023-01-10,10,100,buy,\nMember_1_IRA,CASH,2026-10-30,2200.56,1,buy,";
+  window.holdingRowsCache = null;
+  const parts = m.renderHoldings().split("<tr data-hidx").slice(1);
+  const vti = parts.find((x) => x.includes("VTI"));
+  const cash = parts.find((x) => x.includes('value="CASH"'));
+  assert.match(vti, /readonly/);
+  assert.doesNotMatch(cash, /readonly/);
+  assert.doesNotMatch(cash, /data-managed/);
+  assert.match(cash, /oninput/);
 });
