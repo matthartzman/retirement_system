@@ -181,7 +181,9 @@ JS_DIR = ROOT / "frontend" / "js"
 # (with their two generated window accessors). Lowered to the measured 7,134.
 # 2026-10-21 (Contextual help panel Phase 2b: STEPS desc/intro/help, STEP_HELP and the center
 # question box removed; nav desc derives from HELP_PAGES). Lowered to the measured 6,476.
-DASHBOARD_JS_MAX_LINES = 6_476
+# 2026-11-03 (Account Tax Basis page: its STEPS entry, +1 in dashboard.js; the render branch and Build Impact id are folded into
+# existing lines). Raised to the measured 6,477.
+DASHBOARD_JS_MAX_LINES = 6_477
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
@@ -654,7 +656,8 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # its nav step, render branch and Plan Status banner hook folded into existing dashboard.js lines): raised to the measured 42,116.
 # 2026-11-03 (year-end transition Phase 4, floor-gate status and Mark verified control in the Cash panel, +6 in
 # dashboard_decomp_cash_investment.js; dashboard.js did not grow): raised to the measured 42,576.
-TOTAL_JS_MAX_LINES = 42_576
+# 2026-11-03 (Account Tax Basis page: renderAccountTaxBasis, help entry, glossary terms, row routing; +1 in dashboard.js): raised to the measured 42,606.
+TOTAL_JS_MAX_LINES = 42_606
 
 
 

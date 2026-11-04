@@ -384,6 +384,14 @@ export function renderFamilyBusiness() {
   return note + (html || '<div class="field-list"><p>No fields in this step.</p></div>');
 }
 
+// Account Tax Basis: where each account type stands for the (experimental, default OFF) cash pair-status tax, and the inputs
+// the Roth and HSA rules need. Pre-tax needs nothing; taxable is taxed through the Sales Ledger.
+export function renderAccountTaxBasis() {
+  if (searchText.trim()) return renderFields("account_tax_basis");
+  const note = `<div class="field-list"><div class="section-note" data-kind="state">Used only when Cash Pair Status Tax is on (off by default). Step Help lists what each account type needs.</div></div>`;
+  return note + renderFields("account_tax_basis");
+}
+
 export function renderAssetsSpecial() {
   if (searchText.trim()) return renderFields("assets_special");
   const rs = rowsForStep("assets_special");
@@ -695,6 +703,7 @@ Object.assign(window, {
   moduleGatedAssetGroup,
   familyBusinessGroupsHtml,
   renderFamilyBusiness,
+  renderAccountTaxBasis,
   renderAssetsSpecial,
   addEducation529Section,
   renderHELOCInputsOnOtherPage,

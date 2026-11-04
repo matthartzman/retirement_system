@@ -56,6 +56,7 @@ const STEPS = [
     group: "Investments & Property",
     title: "Other Assets and Liabilities",
   },
+  { id: "account_tax_basis", group: "Investments & Property", title: "Account Tax Basis" },
   {
     // #329 O11 / #330 §4.3 (W9): moved out of Strategy -- HELOC is a
     // liability held against an asset, not an optimizer. No longer
@@ -768,7 +769,7 @@ const BUILD_IMPACT_SOURCE_STEP_IDS = [
   "holdings",
   "assets_home_cash",
   "annuity_death_benefits",
-  "assets_special",
+  "assets_special", "account_tax_basis",
   "estate",
   "roth_conversion",
   "allocation_assets",
@@ -3063,7 +3064,7 @@ let renderMain = function() {
   else if (activeStep === "rental_properties") content += renderRentalProperties();
   else if (activeStep === "monarch_reconciliation") content += renderMonarchReconciliation();
   else if (activeStep === "sales_ledger") content += renderSalesLedger(); else if (activeStep === "year_end") content += window.renderYearEnd();
-  else if (activeStep === "family_business") content += renderFamilyBusiness();
+  else if (activeStep === "family_business") content += renderFamilyBusiness(); else if (activeStep === "account_tax_basis") content += renderAccountTaxBasis();
   // #329/#330 W9: HELOC moved from Strategy → Assets & Protection (a plan
   // input against a held asset, not an optimizer). Same content, same
   // analysisFrame wrapper it always had inside Optimize's strategySection --
