@@ -209,3 +209,9 @@ def test_fund_named_exchange_traded_is_still_a_transfer():
 
 def test_redemption_with_quantity_and_cash_is_sale_proceeds_not_a_review_row():
     assert _classify(description="Redemption", quantity=54.0, amount=485.5) == ("trade", True, False, False)
+
+
+def test_positive_distribution_paid_into_the_account_is_income_not_a_withdrawal():
+    assert _classify(description="Partnership Distribution", amount=2121.08)[0] == "income"
+    assert _classify(description="Partnership Distribution", amount=-500.0)[0] == "distribution"
+    assert _classify(action="Withdrawal", description="WITHDRAWAL", amount=100.0)[0] == "distribution"
