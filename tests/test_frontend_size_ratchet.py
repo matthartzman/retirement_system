@@ -686,7 +686,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-04 left-nav redesign: +322 (net-new feature code: dashboard_decomp_nav_features.js Set up / Maintain switch and Features popover, plus STEPS entries re-expanded to one field per line for the id-parsing tests; dashboard.js itself shrinks)
 # 2026-11-04 sales-ledger follow-ups: +103
 # 2026-11-04 left-nav follow-ups C/D: +29 (popover dependency text; Turn on buttons on host-page notes)
-TOTAL_JS_MAX_LINES = 43_752
+# 2026-11-04 cash rollover marks +8 (Mark as rollover button and handler in the Cash panel); editable CASH lot of a managed account +2
+TOTAL_JS_MAX_LINES = 43_762
 
 
 
