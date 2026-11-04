@@ -178,3 +178,12 @@ def test_engine_roth_earnings_drawn_and_taxed_only_when_not_qualified():
     assert nonq[0]["_pair_floor_draws"] == {"Member_1_Roth": 15000.0}
     assert nonq[0]["_account_withdrawals"]["Member_1_Roth"] >= 15000.0
     assert owner_age >= 60 and qual == base                      # 5 years met and owner >= 60: qualified, nothing changes
+
+
+def test_hsa_expense_bank_row_exists_only_with_an_hsa_account(monkeypatch, tmp_path):
+    from src.server import app_core
+    monkeypatch.setattr(app_core, "_all_account_ids_from_holdings", lambda d=None: ["Member_1_HSA", "Member_1_IRA"])
+    rows = app_core._hsa_expense_bank_ui_plan_data_rows(tmp_path)
+    assert [(r[0], r[1], r[2], r[3]) for r in rows] == [("HSA Policy", "Withdrawals", "hsa_expense_bank", "")]
+    monkeypatch.setattr(app_core, "_all_account_ids_from_holdings", lambda d=None: ["Member_1_IRA", "Family_Checking"])
+    assert app_core._hsa_expense_bank_ui_plan_data_rows(tmp_path) == []

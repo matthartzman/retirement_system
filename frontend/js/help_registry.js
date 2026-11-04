@@ -91,7 +91,10 @@ export const GLOSSARY = {
   "Tracking Type": "The top level of the spending list: income, expenses and so on. Beneath it are groups, then categories.",
   "Trust structure": "How a trust is set up: who holds the assets, who manages them, and who receives them.",
   "Vesting": "Earning full ownership over time. Stock awards from an employer often vest in stages, such as a quarter each year over four years.",
-  "529 plan": "A savings account for education costs. Growth is tax-free when the money is used for school."
+  "529 plan": "A savings account for education costs. Growth is tax-free when the money is used for school.",
+  "Contribution basis": "The money you put into a Roth account yourself, not conversions or earnings. It can come out first, tax-free.",
+  "5-year rule": "Roth earnings are tax-free only if the first Roth contribution was at least five tax years ago and you are 59½ or older.",
+  "Qualified expenses": "Medical costs an HSA can pay tax-free. A withdrawal above your saved qualified expenses is taxed."
 };
 
 // HELP_PAGES[stepId] = { title, summary, whatFor, connections, options, impact, terms }: one reviewed record per
@@ -223,6 +226,15 @@ export const HELP_PAGES = {
     options: "Choose how charitable gifts are funded. Donor-advised funds are most effective when contributed in a high-income year and granted over time. Qualified charitable distributions (QCDs) are available at age 70½ and satisfy required distributions tax-free; use them after RMD age where appropriate.",
     impact: "Qualified charitable distributions also reduce adjusted gross income, which can lower income-related Medicare surcharge tiers — model in combination with Roth Conversion. Charitable vehicle choice can lower taxes and increase legacy, but may reduce near-term liquidity.",
     terms: ["Donor-advised fund (DAF)", "Qualified charitable distribution (QCD)", "Adjusted gross income (AGI)", "Required distributions"],
+  },
+  "account_tax_basis": {
+    title: "Account Tax Basis",
+    summary: "The inputs the cash pair-status tax needs for Roth and HSA accounts, and its on/off switch.",
+    whatFor: "Collects the inputs for taxing cash you report withdrawn from an account: your own Roth contributions and first-contribution year, the HSA expense bank, and the Cash Pair Status Tax switch. Pre-tax accounts need no inputs. Taxable accounts are taxed through the Investment Sales Ledger, so there is nothing to enter for them.",
+    connections: "Only the first plan year is affected, and only when Cash Pair Status Tax is on (off by default). The forced draw replaces planned draws and is taxed as ordinary income.",
+    options: "Roth: enter total own contributions (not conversions or earnings) and the tax year of the first contribution to any Roth IRA. HSA: enter the qualified expenses still available; blank treats every withdrawal as qualified. Leave a field blank if you do not know it.",
+    impact: "The 10% early-withdrawal penalty on Roth earnings and the 20% pre-65 HSA penalty are not modelled. Review the worked example before turning the switch on.",
+    terms: ["Contribution basis", "5-year rule", "Qualified expenses"],
   },
   "family_business": {
     title: "Education & Equity Comp",

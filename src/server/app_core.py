@@ -447,6 +447,23 @@ def _account_titling_ui_plan_data_rows(target_dir: Path) -> list[list[str]]:
         )
     ]
 
+def _hsa_expense_bank_ui_plan_data_rows(target_dir: Path) -> list[list[str]]:
+    """The blank HSA expense-bank input (cash pair-status floor), only for a plan that has an HSA account. Blank = unlimited,
+    exactly as when the row is absent, so the engine result does not change."""
+    from ..core import ACCOUNT_TYPES, _infer_type
+
+    def is_hsa(acct: str) -> bool:
+        try:
+            return ACCOUNT_TYPES[_infer_type(acct)]["tax"] == "hsa"
+        except ValueError:
+            return False
+
+    if not any(is_hsa(acct) for acct in _all_account_ids_from_holdings(target_dir)):
+        return []
+    return [["HSA Policy", "Withdrawals", "hsa_expense_bank", "", "USD",
+             "Qualified medical expenses you can still withdraw tax-free. Leave blank to treat every HSA withdrawal as qualified. Used only by the experimental cash_pair_status_tax setting: a reported withdrawal above this amount is drawn from the HSA and taxed as ordinary income."]]
+
+
 def _roth_basis_ui_plan_data_rows(target_dir: Path) -> list[list[str]]:
     """Two blank per-account inputs for every Roth account (cash pair-status floor, Roth step). Blank = unknown, so a
     reported Roth withdrawal is not taxed automatically."""
@@ -609,6 +626,7 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     _BF.BackfillEntry(FORMER_SPOUSE_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Step-Up"))),
     _BF.BackfillEntry(_account_titling_ui_plan_data_rows),
     _BF.BackfillEntry(_roth_basis_ui_plan_data_rows),
+    _BF.BackfillEntry(_hsa_expense_bank_ui_plan_data_rows, _BF.after_last(_BF.subsection_is("Withdrawals"))),
     _BF.BackfillEntry(
         [["Economic Assumptions", "", "inflation_general", "2.50%", "pct", "General CPI inflation used when core_spending_growth_mode is cpi."]],
         _AFTER_ECONOMIC_ASSUMPTIONS,

@@ -1669,6 +1669,14 @@ export function rawRowsForStep(id) {
       // surface sees the new step at all.
       case "family_business":
         return ["Education Funding", "Equity Compensation"].includes(sec);
+      // Cash pair-status floor inputs. Roth Basis and the switch live only here; the HSA expense bank is a second way in
+      // (its home stays on assets_special, which sourceStepForRow() reaches first).
+      case "account_tax_basis":
+        return (
+          sec === "Roth Basis" ||
+          (sec === "Cashflow" && sub === "cash_tracking" && lbl === "cash_pair_status_tax") ||
+          (sec === "HSA Policy" && lbl === "hsa_expense_bank")
+        );
       case "estate":
         return sec === "Estate Planning" || sec === "Account Titling";
       case "annuity_death_benefits":
