@@ -226,9 +226,11 @@ describe("four tabs (Task 4)", () => {
   const stubs = { renderSalesQueue: "sq", renderTransactionLog: "tl", renderCashInvestment: "ci", renderTransactions: "tx",
     renderSalesTaxYear: "stRoot", renderBrokerImport: "bi", renderSalesBroker1099b: "b1" };
   const ids = (html) => [...html.matchAll(/\sid="([^"]*)"/g)].map((x) => x[1]);
+  const memStore = () => { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); } }; };
   const withStubs = (fn) => () => {
     for (const [k, id] of Object.entries(stubs)) globalThis[k] = () => `<div id="${id}">${k}</div>`;
-    try { fn(); } finally { for (const k of Object.keys(stubs)) delete globalThis[k]; delete globalThis.location; }
+    globalThis.localStorage = memStore();
+    try { fn(); } finally { for (const k of Object.keys(stubs)) delete globalThis[k]; delete globalThis.location; delete globalThis.localStorage; }
   };
   const ORDER = ["fix", "ledger", "tax", "import"];
 
@@ -280,10 +282,23 @@ describe("four tabs (Task 4)", () => {
     assert.match(html, /id="sl-t-import"[^>]*aria-selected="true"/);
     assert.doesNotMatch(html, /id="sl-p-import"[^>]*hidden/);
     assert.match(html, /id="sl-p-fix"[^>]*hidden/);
+  }));
+
+  test("an unknown tab or another page's hash is ignored", withStubs(() => {
     globalThis.location = { hash: "#sales_ledger?tab=bogus" };
     assert.match(m.renderSalesLedger(), /id="sl-t-fix"[^>]*aria-selected="true"/);
     globalThis.location = { hash: "#other?tab=import" };
     assert.match(m.renderSalesLedger(), /id="sl-t-fix"[^>]*aria-selected="true"/);
+  }));
+
+  test("a deep link applies once: a later tab click survives a full re-render", withStubs(() => {
+    globalThis.location = { hash: "#sales_ledger?tab=ledger" };
+    assert.match(m.renderSalesLedger(), /id="sl-t-ledger"[^>]*aria-selected="true"/);
+    const els = {};
+    globalThis.document = { getElementById: (id) => els[id] || null };
+    window.slSetTab("tax");
+    delete globalThis.document;
+    assert.match(m.renderSalesLedger(), /id="sl-t-tax"[^>]*aria-selected="true"/); // hash still says ledger
   }));
 
   test("sec is validated against the known section keys", withStubs(() => {

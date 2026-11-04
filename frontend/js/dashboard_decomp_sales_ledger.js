@@ -109,6 +109,7 @@ function slListHtml() {
   return msg + (slError ? `<p class="field-error">${esc(slError)}</p>` : slData ? slTotalsHtml(slData.totals) + slTableHtml(slData.sales) : `<p class="muted">Loading…</p>`);
 }
 
+let slHashApplied = null;
 const SL_SECS = ["queue", "health", "log", "wash", "cf", "b1099", "cash", "imports"];
 const slPanels = (names) => names.map((n) => (window[n] ? window[n]() : "")).join("");
 
@@ -122,7 +123,12 @@ export function slHashTarget() {
 }
 
 function slBodyHtml() {
-  const active = slHashTarget().tab || window.slUiLoad().tab;
+  const hashTab = slHashTarget().tab;
+  if (hashTab && hashTab !== slHashApplied) { // a deep link applies once; after that storage (slSetTab) decides
+    slHashApplied = hashTab;
+    window.slUiSave(window.slUiSetTab(window.slUiLoad(), hashTab));
+  }
+  const active = window.slUiLoad().tab;
   const panel = (id, body) => window.slTabPanelHtml(id, body, active);
   const fix = slPanels(["renderSalesQueue", "renderTransactionLog", "renderCashInvestment", "renderTransactions"]);
   const ledger = `<div id="slFormRoot">${slFormHtml()}</div><div id="slCsvRoot">${slImportHtml()}</div>` +

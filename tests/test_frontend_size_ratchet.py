@@ -663,7 +663,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 sales-ledger redesign: +37 (Task 2 tab bar/panel builders)
 # 2026-11-03 sales-ledger redesign: +21 (Task 3 scoped repaint, drafts, header)
 # 2026-11-03 sales-ledger redesign: +18 (Task 4 four tabs, hash deep link, draft fixes)
-TOTAL_JS_MAX_LINES = 42_737
+# 2026-11-03 sales-ledger redesign: +6 (Task 4 fix: deep-link tab applied once)
+TOTAL_JS_MAX_LINES = 42_743
 
 
 
