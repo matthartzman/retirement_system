@@ -106,6 +106,8 @@ def tax_year_summary(input_dir: str | Path, year: int, *, filing: str | None = N
     netting = by_year.get(year) or net_realized_year(0.0, 0.0, 0.0, 0.0, filing)
     live = _live_sales(sales, year)
     flagged = wash_flagged(live)
+    all_flagged = wash_flagged([x for x in sales if x["status"] == "confirmed" and x["tax_class"] == "taxable"
+                                and x["gain"] is not None])   # every year: the Sales Ledger strip counts across all years
     out = {
         "year": year, "filing": filing, "limit": capital_loss_ordinary_limit(filing), "netting": netting,
         "carryforward_in": {"short": cf_in[0] + 0.0, "long": cf_in[1] + 0.0, "entered": entered},
@@ -113,7 +115,7 @@ def tax_year_summary(input_dir: str | Path, year: int, *, filing: str | None = N
         "totals": {"count": len(live),
                    "st_gain": sum(s["gain"] for s in live if s["holding_period"] == "short") + 0.0,
                    "lt_gain": sum(s["gain"] for s in live if s["holding_period"] == "long") + 0.0},
-        "wash": {"count": len(flagged), "flagged_loss": sum(-s["gain"] for s in flagged) + 0.0,
+        "wash": {"count": len(flagged), "all_years_count": len(all_flagged), "flagged_loss": sum(-s["gain"] for s in flagged) + 0.0,
                  "rows": [{"sale_id": s["sale_id"], "symbol": s["symbol"], "sale_date": s["sale_date"],
                            "gain": s["gain"], "flag": s["wash_flag"], "note": s["wash_note"]} for s in flagged], **run},
     }

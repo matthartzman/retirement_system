@@ -190,7 +190,8 @@ export async function biCommit() {
   } catch (e) { biMessage = { text: e.message, error: true }; }
   await biLoadImports();
   if (window.loadSalesLedger) window.loadSalesLedger();
-  if (window.sqReload) window.sqReload();
+  if (window.sqReload) await window.sqReload(); // the queue summary publishes here; repaint so the next-step count is not stale
+  biPaint();
 }
 
 export async function biRevert(id) {

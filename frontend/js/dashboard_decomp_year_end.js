@@ -10,14 +10,18 @@ export function yeHtml(data) {
   if (!data) return `<h2>Year-End Transition</h2><p class="muted">${yeError ? "" : "Loading…"}</p>${yeError ? `<p role="alert" class="error">${esc(yeError)}</p>` : ""}`;
   const items = data.steps.map((s, i) => `<li data-step="${esc(s.id)}" data-state="${esc(s.state)}"><b>${i + 1}. ${esc(s.title)}</b> <span class="muted">${esc(YE_STATE[s.state] || s.state)}</span><br>` +
     `${esc(s.detail)} <a href="#" onclick="${s.hash ? `yeGo(${esc(JSON.stringify(s.link))}, ${esc(JSON.stringify(s.hash))})` : `setStep(${esc(JSON.stringify(s.link))})`};return false">Go to this step</a>` +
-    (YE_CONFIRM[s.id] && s.state !== "na" ? ` <button class="btn" type="button" onclick="yeConfirm(${data.year}, ${s.state === "done" ? "false" : "true"}${s.id === "personal_numbers" ? "" : `, ${esc(JSON.stringify(s.id))}`})">${s.state === "done" ? "Undo confirmation" : YE_CONFIRM[s.id]}</button>` : "") + `</li>`).join("");
+    (YE_CONFIRM[s.id] && s.state !== "na" && !(s.id === "tie_1099b" && s.state === "done" && s.count_known === true) ? ` <button class="btn" type="button" onclick="yeConfirm(${data.year}, ${s.state === "done" ? "false" : "true"}${s.id === "personal_numbers" ? "" : `, ${esc(JSON.stringify(s.id))}`})">${s.state === "done" ? "Undo confirmation" : YE_CONFIRM[s.id]}</button>` : "") + `</li>`).join("");
   return `<h2>Year-End Transition</h2><p>Closing ${esc(String(data.year))}${data.closed ? " (cash year closed)" : ""}. Each step's state comes from your data; nothing here changes the plan's tax numbers.</p>` +
     `${yeError ? `<p role="alert" class="error">${esc(yeError)}</p>` : ""}<ol class="ye-steps">${items}</ol>`;
 }
 
 // A step with a deep link sets the hash first (the Sales Ledger reads tab/section from it); location may not exist (node tests).
 export function yeGo(link, hash) {
-  try { if (hash && typeof location !== "undefined" && location) location.hash = hash; } catch (e) { /* navigate anyway */ }
+  try { // replace, never push: following a step must not add a history entry
+    if (hash && typeof location !== "undefined" && location) {
+      if (typeof history !== "undefined" && history.replaceState) history.replaceState(null, "", hash); else location.hash = hash;
+    }
+  } catch (e) { /* navigate anyway */ }
   setStep(link);
 }
 

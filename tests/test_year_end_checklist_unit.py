@@ -104,6 +104,12 @@ def test_tie_1099b_open_while_accounts_are_untied(jan_2027):
     assert s["state"] == "open" and "1" in s["detail"]
 
 
+def test_tie_1099b_reports_whether_the_untied_count_is_known(jan_2027):
+    """The page shows 'Undo confirmation' only while the count is unknown (a known count wins over the stored attestation)."""
+    assert steps(tax_filing=CLEAN)[1]["tie_1099b"]["count_known"] is True
+    assert steps(tax_filing={**CLEAN, "untied_1099b": None})[1]["tie_1099b"]["count_known"] is False
+
+
 @pytest.mark.parametrize("key,sid,words", [
     ("queue_waiting", "clear_sales_queue", "Could not check"), ("drift_accounts", "resolve_log_drift", "Could not check"),
     ("untied_1099b", "tie_1099b", "Not verified automatically")])

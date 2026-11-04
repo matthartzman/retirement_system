@@ -147,7 +147,13 @@ export async function bbLoadAccounts() {
 
 export function bbSetBroker(v) { bbBroker = v; bbPreview = null; bbDone = null; bbPaint(); }
 export function bbSetAccount(v) { bbAccount = v; bbPreview = null; bbDone = null; bbPaint(); }
-export function bbSetText(v) { bbText = v; bbPdf = ""; bbFile = ""; bbPreview = null; bbDone = null; }
+export function bbSetText(v) {
+  const hadDone = !!bbDone;
+  bbText = v; bbPdf = ""; bbFile = ""; bbPreview = null; bbDone = null;
+  const next = hadDone && typeof document !== "undefined" && document.getElementById("bbRoot");
+  const el = next && next.querySelector && next.querySelector(".sl-next");
+  if (el && el.remove) el.remove(); // drop the stale next-step links without repainting (a repaint would move the caret)
+}
 
 export function bbFileChosen(input) {
   const file = input.files && input.files[0];
