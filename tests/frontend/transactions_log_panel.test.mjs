@@ -339,3 +339,72 @@ test("health slot: one Start button when not started, none when started; repaint
   assert.equal(dom.els.tlHealthSlot.innerHTML, "untouched");
   dom.restore();
 });
+
+test("start asks to confirm: cancel makes no call, OK posts once", async () => {
+  const asked = [];
+  globalThis.confirm = (msg) => { asked.push(msg); return false; };
+  await m.tlStart();
+  assert.equal(calls.length, 0);
+  globalThis.confirm = (msg) => { asked.push(msg); return true; };
+  await m.tlStart();
+  assert.equal(calls.filter((c) => c[0] === "/api/transactions/backfill").length, 1);
+  assert.deepEqual(asked, Array(2).fill("Starting the log means holdings will now be written by the log."));
+});
+
+test("managed off asks to confirm: cancel posts nothing and repaints the checkbox as checked; OK posts once; turning on never asks", async () => {
+  await loadLog({ ...LOG, managed: ["Member_1_IRA"] });
+  const dom = fakeDom();
+  const asked = [];
+  globalThis.confirm = (msg) => { asked.push(msg); return false; };
+  calls.length = 0;
+  assert.equal(await m.tlSetManaged("Member_1_IRA", false), false);
+  assert.equal(calls.length, 0);
+  assert.match(dom.els.tlRoot.innerHTML, /data-managed="Member_1_IRA" checked/);
+  globalThis.confirm = (msg) => { asked.push(msg); return true; };
+  await m.tlSetManaged("Member_1_IRA", false);
+  assert.equal(calls.filter((c) => c[0].endsWith("/managed")).length, 1);
+  calls.length = 0; asked.length = 0;
+  await m.tlSetManaged("Member_1_IRA", true);
+  assert.equal(asked.length, 0);
+  dom.restore();
+});
+
+test("managed-off confirm text is exact", async () => {
+  const asked = [];
+  globalThis.confirm = (msg) => { asked.push(msg); return false; };
+  await m.tlSetManaged("Member_1_IRA", false);
+  assert.deepEqual(asked, ["Holdings freeze at their last state and the log stops updating them."]);
+});
+
+test("account filter select includes the active account even when no log row has it", async () => {
+  globalThis.confirm = () => true;
+  await loadLog(BIG(3));
+  m.tlSetFilter("account", "Member_1_Drift");
+  const h = m.tlHtml(BIG(3), ...PLAIN);
+  assert.match(h, /<option value="Member_1_Drift" selected>/);
+  m.tlSetFilter("account", "");
+});
+
+test("Esc only cancels with an edit or open add drawer, and ignores defaultPrevented", async () => {
+  await loadLog(BIG(3));
+  const dom = fakeDom();
+  m.tlCancel();
+  dom.els.tlRoot.innerHTML = "untouched";
+  m.tlOnKeydown({ key: "Escape" });
+  assert.equal(dom.els.tlRoot.innerHTML, "untouched");
+  m.tlDrawerToggle("add", true);
+  m.tlOnKeydown({ key: "Escape", defaultPrevented: true });
+  assert.equal(dom.els.tlRoot.innerHTML, "untouched");
+  m.tlOnKeydown({ key: "a" });
+  assert.equal(dom.els.tlRoot.innerHTML, "untouched");
+  m.tlOnKeydown({ key: "Escape" });
+  assert.notEqual(dom.els.tlRoot.innerHTML, "untouched");
+  assert.doesNotMatch(dom.els.tlRoot.innerHTML, /id="tlAddDrawer" open/);
+  dom.restore();
+});
+
+test("tlHtml(otherLog) renders otherLog's rows, not the module's", async () => {
+  await loadLog(BIG(3));
+  const other = { started: true, drift: [], open: [], rows: [{ txn_id: 99, txn_date: "2019-01-01", account: "Member_1_IRA", type: "buy", symbol: "OTHR", shares: 1, price: 1, source: "manual" }] };
+  assert.deepEqual(rowIds(m.tlHtml(other, ...PLAIN)), [99]);
+});

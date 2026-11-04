@@ -385,7 +385,7 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 52. `js/dashboard_decomp_year_end.js?v=1`
 53. `js/dashboard_decomp_holdings_tree.js?v=1`
 54. `js/dashboard_decomp_transactions.js?v=1`
-55. `js/dashboard_decomp_transactions_log.js?v=4`
+55. `js/dashboard_decomp_transactions_log.js?v=5`
 56. `js/dashboard_decomp_tax_assumptions.js?v=1`
 57. `js/dashboard_decomp_roth_guardrails.js?v=1`
 58. `js/dashboard_decomp_misc.js?v=1`

@@ -671,7 +671,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 sales-ledger redesign: +3 (Task 7 fix: tone-gated alert count)
 # 2026-11-03 sales-ledger redesign: +48 (Task 8 log health, managed chips, start prompt)
 # 2026-11-03 sales-ledger redesign: +55 (Task 9 log drawers, filters, pagination)
-TOTAL_JS_MAX_LINES = 43_045
+# 2026-11-03 sales-ledger redesign: +3 (Task 10 confirmations, log filter/Esc fixes)
+TOTAL_JS_MAX_LINES = 43_048
 
 
 

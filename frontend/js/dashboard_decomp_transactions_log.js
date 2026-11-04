@@ -65,10 +65,10 @@ export function tlPage(rows, shown) {
   return { rows: rows.slice(0, n), remaining: Math.max(0, rows.length - n) };
 }
 const tlRowId = (r) => `tlRow${Number(r.txn_id)}`;
-const tlNewestFirst = () => tlFilterRows(((tlLog && tlLog.rows) || []).slice().reverse(), tlFilter);
+const tlNewestFirst = (log) => tlFilterRows(((log && log.rows) || []).slice().reverse(), tlFilter);
 function tlEntriesHtml(log) {
   if (!(log.rows || []).length) return `<p class="muted">The log is empty.</p>`;
-  const f = tlNewestFirst(), pg = tlPage(f, tlShown);
+  const f = tlNewestFirst(log), pg = tlPage(f, tlShown);
   if (!f.length) return `<p class="muted">No transactions match.</p>`;
   const rows = pg.rows.map((r) => `<tr id="${tlRowId(r)}" tabindex="-1"><td>${esc(r.txn_date)}</td><td>${esc(accountDisplayLabel(r.account))}</td><td>${esc(TL_LABEL[r.type] || r.type)}</td><td>${esc(r.symbol)}</td>` +
     `<td class="rc-num">${tlNum(r.shares)}</td><td class="rc-num">${r.price == null ? "" : tlNum(r.price)}</td><td>${esc(r.source)}</td><td>${esc(r.note || "")}</td>` +
@@ -78,8 +78,9 @@ function tlEntriesHtml(log) {
 }
 const tlFilterBarHtml = (log, accts) => {
   const years = [...new Set((log.rows || []).map((r) => String(r.txn_date).slice(0, 4)).filter(Boolean))].sort().reverse();
+  const acctList = tlFilter.account && !accts.includes(tlFilter.account) ? [...accts, tlFilter.account] : accts; // keep the active filter selectable
   const sel = (id, label, opts, key) => `<label for="${id}">${label} ` + tlSelect(id, opts, tlFilter[key], `tlSetFilter.bind(null,'${key}')`) + `</label>`;
-  return `<div class="sl-filters tl-filters">` + sel("tlFAcct", "Account", [["", "All accounts"], ...accts.map((a) => [a, accountDisplayLabel(a)])], "account") +
+  return `<div class="sl-filters tl-filters">` + sel("tlFAcct", "Account", [["", "All accounts"], ...acctList.map((a) => [a, accountDisplayLabel(a)])], "account") +
     `<label for="tlFSym">Symbol <input id="tlFSym" size="7" value="${esc(tlFilter.symbol)}" onchange="tlSetFilter('symbol',this.value)"></label>` +
     sel("tlFYear", "Filter year", [["", "All years"], ...years.map((y) => [y, y])], "year") + sel("tlFType", "Type", [["", "All types"], ...Object.entries(TL_LABEL)], "type") + `</div>`;
 };
@@ -89,7 +90,7 @@ function tlPaintEntries() {
 }
 export function tlSetFilter(key, value) { tlFilter = { ...tlFilter, [key]: String(value || "") }; tlShown = TL_PAGE; tlPaintEntries(); }
 export function tlShowMore() {
-  const first = tlNewestFirst()[tlShown];
+  const first = tlNewestFirst(tlLog)[tlShown];
   tlShown += TL_PAGE; tlPaintEntries();
   const el = first && document.getElementById(tlRowId(first));
   if (el && el.focus) el.focus();
@@ -172,8 +173,9 @@ async function tlPost(url, body, done) {
   return true;
 }
 
-export const tlStart = () => tlPost("/api/transactions/backfill", {}, "The transaction log was started.");
-export const tlSetManaged = (account, on) => tlPost(`/api/transactions/accounts/${encodeURIComponent(account)}/managed`, { managed: !!on },
+const tlConfirmed = (msg) => !(typeof window !== "undefined" && typeof window.confirm === "function") || window.confirm(msg);
+export const tlStart = () => !tlConfirmed("Starting the log means holdings will now be written by the log.") ? Promise.resolve(false) : tlPost("/api/transactions/backfill", {}, "The transaction log was started.");
+export const tlSetManaged = (account, on) => !on && !tlConfirmed("Holdings freeze at their last state and the log stops updating them.") ? (tlPaint(), Promise.resolve(false)) : tlPost(`/api/transactions/accounts/${encodeURIComponent(account)}/managed`, { managed: !!on },
   on ? "The account is now managed by the log." : "The account is no longer managed; its holdings stay as they are.").then((ok) => {
   if (ok && window.loadManagedHoldingAccounts) window.loadManagedHoldingAccounts();
   if (!ok) tlLoad();
@@ -197,9 +199,10 @@ export function tlEditRow(id) {
   if (dr && dr.scrollIntoView) dr.scrollIntoView({ block: "start" });
   if (el && el.focus) el.focus();
 }
+export function tlOnKeydown(e) { if (e.key === "Escape" && !e.defaultPrevented && (tlEdit || tlDrawer.add)) tlCancel(); }
 export function tlCancel() { tlEdit = null; tlDrawer = { ...tlDrawer, add: false }; tlPaint(); }
 if (typeof document !== "undefined" && document.addEventListener) {
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && (tlEdit || tlDrawer.add)) tlCancel(); });
+  document.addEventListener("keydown", tlOnKeydown);
 }
 export function tlVoid(id) {
   if (typeof confirm === "function" && !confirm("Void this transaction? It stays in the history as voided.")) return Promise.resolve(false);
@@ -215,5 +218,5 @@ export function tlTransfer() {
   return tlPost("/api/transactions/transfer", { from_account: tlXfer.from_account, to_account: tlXfer.to_account, symbol: tlXfer.symbol, txn_date: tlXfer.txn_date, allocation }, "Shares transferred.");
 }
 
-Object.assign(window, { tlHealthHtml, tlManagedChipsHtml, renderLogHealth, tlStarted, tlFocusRow, tlShowAllHealth, tlSummary, renderTransactionLog, tlHtml, tlFilterRows, tlPage, tlSetFilter, tlShowMore, tlDrawerToggle, tlLoad, tlStart, tlSetManaged, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlVoid,
+Object.assign(window, { tlHealthHtml, tlManagedChipsHtml, renderLogHealth, tlStarted, tlFocusRow, tlShowAllHealth, tlSummary, renderTransactionLog, tlHtml, tlFilterRows, tlPage, tlSetFilter, tlShowMore, tlDrawerToggle, tlLoad, tlStart, tlSetManaged, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlOnKeydown, tlVoid,
   tlSetXfer, tlSetXferFrom, tlSetXferTo, tlPick, tlTransfer });
