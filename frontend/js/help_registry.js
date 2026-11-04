@@ -319,12 +319,12 @@ export const HELP_PAGES = {
   },
   "year_end": {
     title: "Year-End Transition",
-    summary: "Work through an ordered checklist for closing one calendar year and starting the next.",
-    whatFor: "Lists the steps for moving from one year to the next, such as updating personal numbers, reconciling accounts, tying each 1099-B and reviewing the year's sales. Each step shows Done, Open or Not applicable from your data and links to the page that does it.",
-    connections: "Step state is worked out from your data on Account Reconciliation and the Investment Sales Ledger. Two steps, updating personal numbers and tying the 1099-B, are confirmations you make here.",
-    options: "Follow Go to this step to open the page that does each step. Use the confirmation button on a step once you have reviewed it, and Undo confirmation if you need to reopen it.",
-    impact: "None on the projection. Nothing here changes the plan's tax numbers; it is a checklist of work done elsewhere.",
-    terms: ["Cost basis"],
+    summary: "Work through the new-year checklist: start the new year's tracking and close last year's cash reconciliation.",
+    whatFor: "Lists the steps for moving from one year to the next, in order: clear any overdue reference-constant items, start the new year's account tracking, update the personal numbers that changed, and close last year's cash reconciliation. Each step shows Done, Open or Not applicable from your data and links to the page that does it. Plan to do it in the first week of January.",
+    connections: "Starting tracking is on Actual Spending, Accounts & Sources: it copies each account's current value into Prior Year End Balance, dated 12/31 of the prior year. Closing the cash year is on the Sales Ledger, under Cash in investment accounts, after you import the final broker files and resolve any unmatched rows. Updating personal numbers is a confirmation you make here.",
+    options: "Follow Go to this step to open the page that does each step. Use the confirmation button on a step once you have reviewed it, and Undo confirmation if you need to reopen it. To close the cash year, click Close for the year that just ended; build a report in December so a saved run that projected that year exists. A late broker file shows Changed since close, and Reopen lets you close again. Nothing closes a year automatically.",
+    impact: "None on the projection. Closing the cash year freezes that year's reported withdrawals and the plan's figure for it, and feeds no tax number.",
+    terms: ["Reconciliation"],
   },
   "reports_and_review": {
     title: "Build & Results",
