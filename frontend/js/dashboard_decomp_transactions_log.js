@@ -15,6 +15,8 @@ const TL_PAGE = 25;
 let tlFilter = { account: "", symbol: "", year: "", type: "", held: false }; // shared: client-side in edit mode, server-side in history
 let tlMode = "edit"; // "edit" | "history"
 let tlHistKey = null; // filters of the last history load (JSON), or null before the first one
+let tlHistView = null; // the history view loaded for tlHistKey
+let tlHistSeq = 0; // number of the latest history request
 let tlShown = TL_PAGE; // entries rows currently shown; reset to one page whenever a filter changes
 let tlDrawer = { add: false, xfer: false }; // drawers the user has open (kept across repaints)
 let tlSlotStarted = null; // started state last painted into the health slot
@@ -79,47 +81,57 @@ function tlEntriesHtml(log) {
   return `<p class="muted tl-count">Showing ${pg.rows.length} of ${f.length}</p><div class="tl-table-wrap"><table class="rc-table"><thead><tr><th>Date</th><th>Account</th><th>Type</th><th>Symbol</th><th class="rc-num">Shares</th><th class="rc-num">Price</th><th>Source</th><th>Note</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` +
     (pg.remaining > 0 ? `<button type="button" class="btn" id="tlShowMore" onclick="tlShowMore()">Show ${TL_PAGE} more</button>` : "");
 }
+const TL_HIST_TYPES = [["buy", "Buy"], ["reinvest", "Reinvest"], ["sell", "Sale / redemption"]]; // the types the history view knows
+// The mode shown: history whenever the log is not started (history comes from imports, sales and holdings, not the log).
+const tlModeOf = (log) => (log && log.started === false ? "history" : tlMode);
 const tlFilterBarHtml = (log, accts) => {
-  const years = [...new Set((log.rows || []).map((r) => String(r.txn_date).slice(0, 4)).filter(Boolean))].sort().reverse();
-  const acctList = tlFilter.account && !accts.includes(tlFilter.account) ? [...accts, tlFilter.account] : accts; // keep the active filter selectable
+  const hist = tlModeOf(log) === "history", hv = (hist && tlHistView) || {}, hRows = hv.rows || [];
+  const years = [...new Set([...(log.rows || []).map((r) => r.txn_date), ...hRows.map((r) => r.date)].map((d) => String(d || "").slice(0, 4)).filter(Boolean))].sort().reverse();
+  const all = [...new Set([...accts, ...hRows.map((r) => r.account), ...(hv.held || []).map((h) => h.account)])].sort();
+  const keep = (list, v) => (v && !list.includes(v) ? [...list, v] : list); // keep the active filter selectable
+  const types = hist ? TL_HIST_TYPES : Object.entries(TL_LABEL);
   const sel = (id, label, opts, key) => `<label for="${id}">${label} ` + tlSelect(id, opts, tlFilter[key], `tlSetFilter.bind(null,'${key}')`) + `</label>`;
-  return `<div class="sl-filters tl-filters">` + sel("tlFAcct", "Account", [["", "All accounts"], ...acctList.map((a) => [a, accountDisplayLabel(a)])], "account") +
+  return `<div class="sl-filters tl-filters">` + sel("tlFAcct", "Account", [["", "All accounts"], ...keep(all, tlFilter.account).map((a) => [a, accountDisplayLabel(a)])], "account") +
     `<label for="tlFSym">Symbol <input id="tlFSym" size="7" value="${esc(tlFilter.symbol)}" onchange="tlSetFilter('symbol',this.value)"></label>` +
-    sel("tlFYear", "Filter year", [["", "All years"], ...years.map((y) => [y, y])], "year") + sel("tlFType", "Type", [["", "All types"], ...Object.entries(TL_LABEL)], "type") +
-    (tlMode === "history" ? `<label for="tlFHeld"><input type="checkbox" id="tlFHeld"${tlFilter.held ? " checked" : ""} onchange="tlSetFilter('held',this.checked)"> Held only</label>` : "") + `</div>`;
+    sel("tlFYear", "Filter year", [["", "All years"], ...keep(years, tlFilter.year).map((y) => [y, y])], "year") +
+    sel("tlFType", "Type", [["", "All types"], ...types, ...(tlFilter.type && !types.some(([v]) => v === tlFilter.type) ? [[tlFilter.type, TL_LABEL[tlFilter.type] || tlFilter.type]] : [])], "type") +
+    (hist ? `<label for="tlFHeld"><input type="checkbox" id="tlFHeld"${tlFilter.held ? " checked" : ""} onchange="tlSetFilter('held',this.checked)"> Held only</label>` : "") + `</div>`;
 };
-const tlModeHtml = () => `<div class="tl-mode" role="group" aria-label="Log view">` + [["edit", "tlModeEdit", "Edit log"], ["history", "tlModeHistory", "History &amp; held lots"]].map(([k, id, t]) =>
-  `<button type="button" class="btn" id="${id}" aria-pressed="${tlMode === k}" onclick="tlSetMode('${k}')">${t}</button>`).join(" ") + `</div>`;
+const tlModeHtml = (log) => `<div class="tl-mode" role="group" aria-label="Log view">` + [["edit", "tlModeEdit", "Edit log"], ["history", "tlModeHistory", "History &amp; held lots"]].map(([k, id, t]) =>
+  `<button type="button" class="btn" id="${id}" aria-pressed="${tlModeOf(log) === k}"${k === "edit" && log.started === false ? " disabled" : ""} onclick="tlSetMode('${k}')">${t}</button>`).join(" ") + `</div>`;
 const tlFilterKey = () => JSON.stringify(tlFilter);
 const tlHistoryHtml = () => { // history for the current filters, once loaded
-  const v = tlHistKey === tlFilterKey() && window.trState && window.trState().view;
-  return v && window.trHtml ? window.trHtml(v, tlFilter) : `<p class="muted">Loading…</p>`;
+  const v = tlHistKey === tlFilterKey() && tlHistView;
+  if (!v || !window.trHtml) return `<p class="muted">Loading…</p>`;
+  const n = (v.rows || []).length;
+  return `<p class="muted tl-count">${n} transaction${n === 1 ? "" : "s"}</p>` + window.trHtml(v, tlFilter);
 };
-const tlBodyHtml = (log) => (tlMode === "history" ? tlHistoryHtml() : tlEntriesHtml(log));
+const tlBodyHtml = (log) => (tlModeOf(log) === "history" ? tlHistoryHtml() : tlEntriesHtml(log));
 function tlPaintEntries() {
   const el = tlLog && document.getElementById("tlEntries");
   if (el) el.innerHTML = tlBodyHtml(tlLog);
 }
-async function tlLoadHistory() {
+async function tlLoadHistory() { // latest request wins: an older response never replaces a newer one
   if (!window.trLoad) return;
-  const f = { ...tlFilter };
-  await window.trLoad(f);
-  tlHistKey = JSON.stringify(f);
-  if (tlMode === "history") tlPaintEntries();
+  const f = { ...tlFilter }, seq = ++tlHistSeq;
+  const view = await window.trLoad(f);
+  if (seq !== tlHistSeq) return;
+  tlHistView = view; tlHistKey = JSON.stringify(f);
+  if (tlModeOf(tlLog) === "history") tlPaintEntries();
 }
 // Edit mode filters the loaded rows; history mode asks the server with the same filters.
 export function tlSetFilter(key, value) {
   tlFilter = { ...tlFilter, [key]: key === "held" ? !!value : String(value || "") }; tlShown = TL_PAGE;
-  if (tlMode === "history") return tlLoadHistory();
+  if (tlModeOf(tlLog) === "history") return tlLoadHistory();
   tlPaintEntries();
 }
 // Switching keeps the filters and the edit-mode paging; history is fetched only when not loaded for these filters.
 export function tlSetMode(mode) {
   tlMode = mode === "history" ? "history" : "edit";
   tlPaintRoot();
-  const b = document.getElementById(tlMode === "history" ? "tlModeHistory" : "tlModeEdit");
+  const hist = tlModeOf(tlLog) === "history", b = document.getElementById(hist ? "tlModeHistory" : "tlModeEdit");
   if (b && b.focus) b.focus(); // the pressed button was repainted
-  return tlMode === "history" && tlHistKey !== tlFilterKey() ? tlLoadHistory() : Promise.resolve();
+  return hist && tlHistKey !== tlFilterKey() ? tlLoadHistory() : Promise.resolve();
 }
 export function tlShowMore() {
   const first = tlNewestFirst(tlLog)[tlShown];
@@ -143,7 +155,8 @@ export function tlDrawerToggle(key, open) { tlDrawer = { ...tlDrawer, [key]: !!o
 export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit, opts = { health: true }) {
   const msg = tlMsgHtml();
   if (!log) return `<h3>Transaction log</h3>${msg}<p class="muted">Loading…</p>`;
-  if (!log.started) return opts.health ? tlNotStartedHtml(msg) : `<h3>Transaction log</h3>${msg}<p class="muted">The log is not started. Start it in the log health section.</p>`;
+  if (!log.started) return opts.health ? tlNotStartedHtml(msg) : `<h3>Transaction log</h3>${msg}<p class="muted">The log is not started. Start it in the log health section.</p>` +
+    `${tlModeHtml(log)}${tlFilterBarHtml(log, tlAccounts(log))}<div id="tlEntries">${tlHistoryHtml()}</div>`; // history works without the log
   const drift = opts.health ? (log.drift || []).length ? `<div role="alert" class="error"><b>The log and the holdings differ:</b><ul>` +
     log.drift.map((d) => `<li>${esc(accountDisplayLabel(d.account))} ${esc(d.symbol)} ${esc(d.purchase_date)}: holdings ${tlNum(d.holdings_shares)}, log ${tlNum(d.log_shares)}. ${esc(d.reason)}</li>`).join("") + `</ul></div>` : `<p class="muted">The log agrees with the holdings.</p>` : "";
   const accts = tlAccounts(log);
@@ -168,11 +181,11 @@ export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit, opts = 
   const drawers = `<div class="tl-drawers">` + drawer("add", "tlAddDrawer", edit ? "＋ Revise transaction" : "＋ Add transaction", addForm, edit || tlDrawer.add) +
     drawer("xfer", "tlXferDrawer", "＋ Transfer between accounts", xferForm, tlDrawer.xfer) + `</div>`;
   const editOnly = tlMode === "edit" ? `${managedBox}${drawers}` : "";
-  return `<h3>Transaction log</h3>${msg}${drift}${tlModeHtml()}${editOnly}${tlFilterBarHtml(log, accts)}<div id="tlEntries">${tlBodyHtml(log)}</div>`;
+  return `<h3>Transaction log</h3>${msg}${drift}${tlModeHtml(log)}${editOnly}${tlFilterBarHtml(log, accts)}<div id="tlEntries">${tlBodyHtml(log)}</div>`;
 }
 
 export function renderTransactionLog() {
-  if (tlLog === null) setTimeout(tlLoad, 0);
+  if (tlLog === null) setTimeout(tlReloadAll, 0); // a not-started log shows history, so it loads too
   return `<div class="sl-import" id="tlRoot">${tlHtml(tlLog, undefined, undefined, undefined, { health: false })}</div>`;
 }
 
@@ -210,7 +223,7 @@ async function tlPost(url, body, done) {
 // Refresh the log and, when history is shown or was loaded, the history once (with the current filters).
 export async function tlReloadAll() {
   await tlLoad();
-  if (tlMode === "history" || tlHistKey !== null) await tlLoadHistory();
+  if (tlModeOf(tlLog) === "history" || tlHistKey !== null) await tlLoadHistory();
 }
 
 // Proceeds when no dialog is available, by design (tests, embedded views).

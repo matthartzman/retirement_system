@@ -558,7 +558,7 @@ test("a save in edit mode reloads history once (tlReloadAll), and the fresh hist
     const n = calls.length;
     await m.tlSetMode("history");
     assert.equal(calls.length, n); // already fresh for these filters: no second fetch
-    assert.match(dom.els.tlRoot.innerHTML, /<div id="tlEntries"><table class="rc-table">.*NEWX/s); // repainted from the cached history
+    assert.match(dom.els.tlRoot.innerHTML, /<div id="tlEntries"><p class="muted tl-count">1 transaction<\/p><table class="rc-table">.*NEWX/s); // repainted from the cached history
   });
   dom.restore();
 });
@@ -585,4 +585,79 @@ test("log summary is unchanged with history loaded: count = log rows, tone empty
       assert.deepEqual(pub.log, { count: LOG.rows.length, tone: "", text: "" });
     });
   } finally { delete globalThis.slPublish; }
+});
+
+// ---- Task 11 fix round 1: history without a started log, latest request wins, parity -----------------------------
+const NOT_STARTED = { started: false, rows: [], open: [], drift: [] };
+const HCOLS = ["Date", "Account", "Type", "Symbol", "Shares", "Price", "Amount", "Remaining", "Sale", "Source"];
+
+test("not-started log: the section shows history (10 columns, held lots) with Edit log disabled; Start stays only in the health slot", async () => {
+  const dom = fakeDom();
+  const orig = globalThis.api;
+  globalThis.api = async (url, o) => (url === "/api/transactions/log" ? NOT_STARTED : orig(url, o));
+  try {
+    await inMode("history", async () => {
+      hist = HVIEW(2); calls.length = 0;
+      await m.tlReloadAll();
+      assert.deepEqual(histUrls(), ["/api/transactions?"]);
+      const h = m.renderTransactionLog();
+      assert.match(h, /Start it in the log health section/);
+      assert.match(h, /<button[^>]*aria-pressed="false" disabled[^>]*>Edit log<\/button>/);
+      assert.match(h, /aria-pressed="true"[^>]*>History &amp; held lots/);
+      assert.deepEqual(heads(h.slice(h.indexOf('id="tlEntries"'))), HCOLS);
+      assert.match(h, /2 transactions/);
+      assert.match(h, /id="tlFHeld"/);
+      assert.equal(((window.slHealthSlotHtml() + h).match(/Start the transaction log/g) || []).length, 1);
+      await m.tlSetFilter("held", true);
+      assert.match(histUrls().at(-1), /held=1/);
+      assert.match(dom.els.tlEntries.innerHTML, /<h4>Lots held<\/h4>/);
+      await m.tlSetMode("edit"); // not reachable from the UI (button disabled); still shows history
+      assert.match(dom.els.tlRoot.innerHTML, /Start it in the log health section/);
+      assert.doesNotMatch(dom.els.tlRoot.innerHTML, /tlVoid\(|Add transaction/);
+    });
+  } finally { globalThis.api = orig; dom.restore(); }
+  await loadLog(LOG);
+});
+
+test("history: latest request wins when responses arrive out of order", async () => {
+  await loadLog(BIG(3));
+  const dom = fakeDom();
+  const orig = globalThis.api, pending = {};
+  globalThis.api = (url, o) => (url.startsWith("/api/transactions?") ? new Promise((r) => { pending[new URLSearchParams(url.split("?")[1]).get("symbol") || ""] = r; }) : orig(url, o));
+  try {
+    await inMode("history", async () => {
+      const p0 = m.tlSetMode("history");
+      if (pending[""]) pending[""](HVIEW(1, "INIT"));
+      await p0;
+      const a = m.tlSetFilter("symbol", "AAA"), b = m.tlSetFilter("symbol", "BBB");
+      pending.BBB(HVIEW(2, "BBB")); await b;
+      pending.AAA(HVIEW(3, "AAA")); await a;
+      const ent = dom.els.tlEntries.innerHTML;
+      assert.match(ent, /BBB/);
+      assert.doesNotMatch(ent, /AAA|Loading…/);
+      assert.match(ent, /2 transactions/);
+      assert.match(m.tlHtml(BIG(3), ...PLAIN), /<div id="tlEntries"><p class="muted tl-count">2 transactions/);
+    });
+  } finally { globalThis.api = orig; dom.restore(); }
+});
+
+test("history parity: type options are the history types, accounts include the history view's, and a row count shows", async () => {
+  await loadLog(BIG(3));
+  const dom = fakeDom();
+  const opts = (h, id) => [...h.match(new RegExp(`<select id="${id}".*?</select>`))[0].matchAll(/<option value="([^"]*)"/g)].map((x) => x[1]);
+  await inMode("history", async () => {
+    hist = { rows: [{ ...HROW(0), account: "Member_1_Hist" }], held: [{ account: "Member_1_Held", symbol: "X", purchase_date: "2025-01-02", shares: 1, price: 1 }] };
+    m.tlSetFilter("symbol", "P1"); // edit mode: client-side only
+    await m.tlSetMode("history");
+    const h = m.tlHtml(BIG(3), ...PLAIN);
+    assert.deepEqual(opts(h, "tlFType"), ["", "buy", "reinvest", "sell"]);
+    for (const a of ["Member_1_Hist", "Member_1_Held", "Member_1_IRA"]) assert.ok(opts(h, "tlFAcct").includes(a), a);
+    assert.ok(opts(h, "tlFYear").includes("2026"));
+    assert.match(dom.els.tlEntries.innerHTML, /<p class="muted tl-count">1 transaction<\/p><table/);
+    await m.tlSetMode("edit");
+    const e = m.tlHtml(BIG(3), ...PLAIN);
+    assert.ok(opts(e, "tlFType").includes("opening"));
+    assert.ok(!opts(e, "tlFAcct").includes("Member_1_Hist"));
+  });
+  dom.restore();
 });
