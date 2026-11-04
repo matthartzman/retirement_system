@@ -145,3 +145,26 @@ describe("ARIA tab bar and panels", () => {
     delete globalThis.document;
   });
 });
+
+describe("panel summary publish hook", () => {
+  test("slPublish stores, slSummaries returns copies, slOnSummary notifies and unsubscribes", () => {
+    const seen = [];
+    const off = m.slOnSummary((k, s) => seen.push([k, s]));
+    m.slPublish("queue", { count: 3, tone: "bad", text: "3 waiting" });
+    assert.deepEqual(seen, [["queue", { count: 3, tone: "bad", text: "3 waiting" }]]);
+    const snap = m.slSummaries();
+    assert.deepEqual(snap.queue, { count: 3, tone: "bad", text: "3 waiting" });
+    snap.queue.count = 99;
+    assert.equal(m.slSummaries().queue.count, 3);
+    off();
+    m.slPublish("cash", { count: 0, tone: "", text: "" });
+    assert.equal(seen.length, 1);
+    assert.deepEqual(m.slSummaries().cash, { count: 0, tone: "", text: "" });
+    assert.equal(globalThis.slPublish, m.slPublish);
+  });
+  test("a throwing subscriber does not break publishing", () => {
+    const off = m.slOnSummary(() => { throw new Error("boom"); });
+    assert.doesNotThrow(() => m.slPublish("log", { count: 1, tone: "", text: "" }));
+    off();
+  });
+});

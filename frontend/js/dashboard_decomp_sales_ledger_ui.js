@@ -86,4 +86,14 @@ export function slTabKeydown(event) {
   slSetTab(ids[next], { focus: true });
 }
 
-Object.assign(window, { SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown });
+// Panel summaries: each panel publishes {count, tone, text} under its spec key; the page shell subscribes.
+const slSums = {};
+const slSubs = new Set();
+export function slPublish(key, summary) {
+  slSums[key] = { count: Number(summary && summary.count) || 0, tone: (summary && summary.tone) || "", text: String((summary && summary.text) || "") };
+  for (const cb of [...slSubs]) { try { cb(key, { ...slSums[key] }); } catch (e) { /* a bad subscriber must not break a panel paint */ } }
+}
+export function slOnSummary(cb) { slSubs.add(cb); return () => { slSubs.delete(cb); }; }
+export const slSummaries = () => Object.fromEntries(Object.entries(slSums).map(([k, v]) => [k, { ...v }]));
+
+Object.assign(window, { slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown });

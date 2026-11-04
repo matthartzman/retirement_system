@@ -199,3 +199,17 @@ describe("panel wording", () => {
     assert.doesNotMatch(m.renderBrokerImport(), /Income check/);
   });
 });
+
+describe("summary publish", () => {
+  test("imports count is published with tone ''; no slPublish does not throw", async () => {
+    const pub = [];
+    globalThis.slPublish = (k, s) => pub.push([k, s]);
+    const orig = globalThis.api;
+    globalThis.api = async () => ({ success: true, imports: [{ import_id: 1 }, { import_id: 2 }], accounts: [] });
+    await m.biLoadImports();
+    assert.deepEqual(pub.at(-1), ["imports", { count: 2, tone: "", text: "2 imports" }]);
+    delete globalThis.slPublish;
+    await assert.doesNotReject(m.biLoadImports());
+    globalThis.api = orig;
+  });
+});

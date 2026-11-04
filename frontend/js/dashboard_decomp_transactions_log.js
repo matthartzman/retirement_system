@@ -55,7 +55,17 @@ export function renderTransactionLog() {
   return `<div class="sl-import" id="tlRoot">${tlHtml(tlLog)}</div>`;
 }
 
-function tlPaint() { const root = document.getElementById("tlRoot"); if (root) root.innerHTML = tlHtml(tlLog); }
+export function tlSummary() {
+  if (tlLog && !tlLog.started) return { health: { count: 1, tone: "bad", text: "log not started" }, log: { count: 0, tone: "", text: "" } };
+  const n = new Set(((tlLog && tlLog.drift) || []).map((d) => d.account)).size;
+  return { health: { count: n, tone: n > 0 ? "bad" : "", text: n > 0 ? `drift: ${n} accounts` : "" }, log: { count: tlLog ? (tlLog.rows || []).length : 0, tone: "", text: "" } };
+}
+
+function tlPaint() {
+  const root = document.getElementById("tlRoot");
+  if (root) root.innerHTML = tlHtml(tlLog);
+  if (window.slPublish) { const s = tlSummary(); window.slPublish("health", s.health); window.slPublish("log", s.log); }
+}
 
 export async function tlLoad() {
   try { tlLog = await api("/api/transactions/log"); } catch (e) { tlLog = { started: false, rows: [], open: [], drift: [] }; tlMessage = { text: e.message, error: true }; }
@@ -107,5 +117,5 @@ export function tlTransfer() {
   return tlPost("/api/transactions/transfer", { from_account: tlXfer.from_account, to_account: tlXfer.to_account, symbol: tlXfer.symbol, txn_date: tlXfer.txn_date, allocation }, "Shares transferred.");
 }
 
-Object.assign(window, { renderTransactionLog, tlHtml, tlLoad, tlStart, tlSetManaged, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlVoid,
+Object.assign(window, { tlSummary, renderTransactionLog, tlHtml, tlLoad, tlStart, tlSetManaged, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlVoid,
   tlSetXfer, tlSetXferFrom, tlSetXferTo, tlPick, tlTransfer });

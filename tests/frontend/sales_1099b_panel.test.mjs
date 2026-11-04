@@ -139,3 +139,14 @@ describe("calls", () => {
     assert.deepEqual(downloads, [["1099b_difference_vanguard_2025.csv", "status,symbol\nchanged,ABCD\n"]]);
   });
 });
+
+describe("summary publish", () => {
+  test("publishes b1099 with count 0 (no tied-account data yet); no slPublish does not throw", async () => {
+    const pub = [];
+    globalThis.slPublish = (k, s) => pub.push([k, s]);
+    await m.bbLoadAccounts();
+    assert.deepEqual(pub.at(-1), ["b1099", { count: 0, tone: "", text: "" }]);
+    delete globalThis.slPublish;
+    await assert.doesNotReject(m.bbLoadAccounts());
+  });
+});

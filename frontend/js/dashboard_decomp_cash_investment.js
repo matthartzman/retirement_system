@@ -64,7 +64,15 @@ export function renderCashInvestment() {
   return `<div class="sl-import" id="ciRoot">${ciHtml(ciView)}</div>`;
 }
 
-const ciPaint = () => { const el = document.getElementById("ciRoot"); if (el) el.innerHTML = ciHtml(ciView); };
+export function ciSummary() {
+  const n = ((ciView && ciView.accounts) || []).reduce((t, a) => t + (Number(a.unmatched) || 0), 0);
+  return { count: n, tone: n > 0 ? "warn" : "", text: n > 0 ? `${n} unpaired` : "" };
+}
+const ciPaint = () => {
+  const el = document.getElementById("ciRoot");
+  if (el) el.innerHTML = ciHtml(ciView);
+  if (window.slPublish) window.slPublish("cash", ciSummary());
+};
 export async function ciLoad() {
   try { ciView = await api("/api/cash"); ciError = ""; } catch (e) { ciView = { accounts: [] }; ciError = e.message; }
   ciPaint();
@@ -90,4 +98,4 @@ export async function ciVerify(account, verified) {
 export function ciSortBy(key) { ciSort = { key, dir: ciSort.key === key ? -ciSort.dir : 1 }; ciPaint(); }
 export function ciToggle(open) { ciOpen = !!open; }
 
-Object.assign(window, { renderCashInvestment, ciHtml, ciLoad, ciShowLedger, ciSortBy, ciToggle, ciCloseYear, ciReopenYear, ciVerify });
+Object.assign(window, { ciSummary, renderCashInvestment, ciHtml, ciLoad, ciShowLedger, ciSortBy, ciToggle, ciCloseYear, ciReopenYear, ciVerify });

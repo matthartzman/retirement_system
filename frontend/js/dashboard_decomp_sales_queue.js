@@ -83,9 +83,15 @@ function sqBodyHtml() {
     (sqList ? sqQueueHtml(sqList.candidates, sqPanel && sqPanel.candidate.candidate_id) : `<p class="muted">Loading…</p>`) + sqPanelHtml(sqPanel, sqDraft);
 }
 
+export function sqSummary() {
+  const n = sqList ? Number(sqList.counts.unmatched) || 0 : 0;
+  return { count: n, tone: n > 0 ? "bad" : "", text: n > 0 ? `${n} waiting` : "" };
+}
+
 function sqPaint() {
   const root = document.getElementById("sqRoot");
   if (root) root.innerHTML = sqBodyHtml();
+  if (window.slPublish) window.slPublish("queue", sqSummary());
 }
 
 export function renderSalesQueue() {
@@ -174,5 +180,5 @@ export const sqUndo = (id) => sqPost(id, "undo", null, "Confirmation undone; the
 export const sqDismiss = (reason) => sqPost(sqPanel.candidate.candidate_id, "dismiss", { reason }, "Sale dismissed.");
 
 Object.assign(window, {
-  renderSalesQueue, loadSalesQueue, sqOpen, sqReload, sqSetAlloc, sqSetClass, sqFill, sqConfirm, sqUndo, sqDismiss,
+  renderSalesQueue, loadSalesQueue, sqSummary, sqOpen, sqReload, sqSetAlloc, sqSetClass, sqFill, sqConfirm, sqUndo, sqDismiss,
 });

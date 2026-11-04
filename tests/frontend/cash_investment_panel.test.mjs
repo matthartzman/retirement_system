@@ -101,3 +101,16 @@ test("panel_shows_floor_gate_state_with_verify_and_unverify_controls", () => {
   assert.match(blocked, /2 unmatched row/);
   assert.match(blocked, /ciVerify\(&quot;Member_1_HSA&quot;, false\)/);
 });
+
+test("summary: unpaired count across accounts is a warn; paint without slPublish is safe", async () => {
+  const pub = [];
+  globalThis.slPublish = (k, s) => pub.push([k, s]);
+  globalThis.document = { getElementById: () => null };
+  const orig = globalThis.api;
+  globalThis.api = async () => VIEW;
+  await m.ciLoad();
+  assert.deepEqual(pub.at(-1), ["cash", { count: 2, tone: "warn", text: "2 unpaired" }]);
+  delete globalThis.slPublish;
+  await assert.doesNotReject(m.ciLoad());
+  globalThis.api = orig;
+});

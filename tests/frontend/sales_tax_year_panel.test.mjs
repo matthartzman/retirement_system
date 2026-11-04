@@ -90,3 +90,21 @@ describe("load", () => {
     assert.equal(calls[0][0], "/api/sales/tax-year?year=2025");
   });
 });
+
+describe("summary publish", () => {
+  test("no wash data is 'never run'; flagged is bad; carryforward not entered is 'not saved'", async () => {
+    const pub = {};
+    globalThis.slPublish = (k, s) => { pub[k] = s; };
+    await m.loadSalesTaxYear(2026);
+    assert.deepEqual(pub.wash, { count: 0, tone: "warn", text: "never run" });
+    assert.deepEqual(pub.cf, { count: 1, tone: "warn", text: "not saved" });
+    const orig = globalThis.api;
+    globalThis.api = async () => SUMMARY({ carryforward_in: { short: 0, long: 0, entered: true }, wash: { count: 2, flagged_loss: 50, rows: [] } });
+    await m.loadSalesTaxYear(2026);
+    assert.deepEqual(m.stSummary().wash, { count: 2, tone: "bad", text: "2 flagged" });
+    assert.deepEqual(pub.cf, { count: 0, tone: "", text: "" });
+    delete globalThis.slPublish;
+    await assert.doesNotReject(m.loadSalesTaxYear(2026));
+    globalThis.api = orig;
+  });
+});

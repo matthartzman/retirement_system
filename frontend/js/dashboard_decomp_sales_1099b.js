@@ -105,7 +105,11 @@ export function renderSalesBroker1099b() {
   return `<div class="sl-import bb-panel" id="bbRoot">${bbBodyHtml()}</div>`;
 }
 
+// The panel holds no per-account "tied" data yet, so nothing is reported as untied.
+export const bbSummary = () => ({ count: 0, tone: "", text: "" });
+
 function bbPaint() {
+  if (window.slPublish) window.slPublish("b1099", bbSummary());
   const root = document.getElementById("bbRoot");
   if (!root) return;
   const old = root.querySelector('input[type="file"]');
@@ -182,6 +186,7 @@ export function bbExportCsv() {
 }
 
 Object.assign(window, {
+  bbSummary,
   bbSuggestionsHtml, bbReportRowHtml, bbTotalsHtml, bbReportHtml, bbControlHtml, bbChangesHtml, bbPreviewHtml, renderSalesBroker1099b, bbLoadAccounts,
   bbSetBroker, bbSetAccount, bbSetText, bbFileChosen, bbPreviewStatement, bbApply, bbExportCsv,
 });

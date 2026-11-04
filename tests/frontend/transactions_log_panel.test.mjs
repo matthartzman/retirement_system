@@ -78,3 +78,18 @@ test("managed toggle shows each account's state and posts the route", async () =
   assert.deepEqual(calls[0][2], { managed: true });
   assert.doesNotMatch(m.tlHtml(LOG), /data-managed="Member_1_IRA" checked/);
 });
+
+test("summary: health counts drifting accounts, log counts rows, not started is bad; paint without slPublish is safe", async () => {
+  const pub = {};
+  globalThis.slPublish = (k, s) => { pub[k] = s; };
+  await m.tlLoad();
+  assert.deepEqual(pub.health, { count: 1, tone: "bad", text: "drift: 1 accounts" });
+  assert.deepEqual(pub.log, { count: 1, tone: "", text: "" });
+  const orig = globalThis.api;
+  globalThis.api = async () => ({ started: false, rows: [], open: [], drift: [] });
+  await m.tlLoad();
+  assert.deepEqual(pub.health, { count: 1, tone: "bad", text: "log not started" });
+  delete globalThis.slPublish;
+  await assert.doesNotReject(m.tlLoad());
+  globalThis.api = orig;
+});

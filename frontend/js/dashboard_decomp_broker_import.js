@@ -117,10 +117,16 @@ export function renderBrokerImport() {
   return `<div class="sl-import" id="biRoot">${biBodyHtml()}</div>`;
 }
 
+export function biSummary() {
+  const n = ((biImports && biImports.imports) || []).length;
+  return { count: n, tone: "", text: `${n} imports` };
+}
+
 function biPaint(see) { // `see`: selector of the result to bring into view; this panel sits far down the page
   const root = document.getElementById("biRoot");
   const old = root && root.querySelector('input[type="file"]'); // repainting must not reset the chosen file
   if (root) root.innerHTML = biBodyHtml();
+  if (window.slPublish) window.slPublish("imports", biSummary());
   const fresh = old && old.files.length && root.querySelector('input[type="file"]');
   if (fresh) fresh.replaceWith(old);
   const el = see && root && root.querySelector(see);
@@ -187,6 +193,6 @@ export async function biRevert(id) {
 }
 
 Object.assign(window, {
-  biLotsHtml, biOrdersHtml, biPreviewHtml, biImportsHtml, renderBrokerImport, biLoadImports, biFileChosen,
+  biSummary, biLotsHtml, biOrdersHtml, biPreviewHtml, biImportsHtml, renderBrokerImport, biLoadImports, biFileChosen,
   biSetAccount, biSetBroker, biSetHintAccount, biHintPickersHtml, biSetMethod, biSetConfirm, biSetHistory, biSortBy, biToggleImports, biPreviewFile, biCommit, biRevert,
 });

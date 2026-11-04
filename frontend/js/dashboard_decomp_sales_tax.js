@@ -62,9 +62,20 @@ export function renderSalesTaxYear() {
   return `<div class="st-panel" id="stRoot">${stBodyHtml()}</div>`;
 }
 
+// No last-run marker is stored with the wash flags, so "never run" means nothing is flagged yet (or no data).
+export function stSummary() {
+  const n = (stData && stData.wash && stData.wash.count) || 0;
+  const unsaved = !!(stData && stData.carryforward_in && !stData.carryforward_in.entered);
+  return {
+    wash: n > 0 ? { count: n, tone: "bad", text: `${n} flagged` } : { count: 0, tone: "warn", text: "never run" },
+    cf: unsaved ? { count: 1, tone: "warn", text: "not saved" } : { count: 0, tone: "", text: "" },
+  };
+}
+
 function stPaint() {
   const root = document.getElementById("stRoot");
   if (root) root.innerHTML = stBodyHtml();
+  if (window.slPublish) { const s = stSummary(); window.slPublish("wash", s.wash); window.slPublish("cf", s.cf); }
 }
 
 export async function loadSalesTaxYear(year) {
@@ -101,4 +112,4 @@ export function stSaveCarryforward() {
 
 export const stRefreshWash = () => stPost("/api/sales/wash/refresh", null, "Wash-sale check done.");
 
-Object.assign(window, { stNettingHtml, stTaxHtml, stCarryforwardHtml, stWashHtml, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward, stRefreshWash });
+Object.assign(window, { stSummary, stNettingHtml, stTaxHtml, stCarryforwardHtml, stWashHtml, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward, stRefreshWash });
