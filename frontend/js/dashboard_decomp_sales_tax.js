@@ -87,11 +87,14 @@ export function renderSalesTaxYear() {
   return `<div class="st-panel" id="stRoot">${stBodyHtml()}</div>`;
 }
 
-// Neutral until real signals exist (a last-run marker for wash, a saved-state for the carryforward): a warn here would be an unclearable alert.
+// Wash: flagged is bad; else the last-run marker (task 14) warns "never run"/"stale" (cleared by Refresh). Old servers without the
+// marker keys stay neutral. The carryforward stays neutral: a warn there would be an unclearable alert.
 export function stSummary() {
-  const n = (stData && stData.wash && stData.wash.count) || 0;
+  const w = (stData && stData.wash) || {};
+  const n = w.count || 0;
+  const warn = w.never_run === true ? "never run" : w.stale === true ? "stale" : "";
   return {
-    wash: n > 0 ? { count: n, tone: "bad", text: `${n} flagged` } : { count: 0, tone: "", text: "" },
+    wash: n > 0 ? { count: n, tone: "bad", text: `${n} flagged` } : warn ? { count: 0, tone: "warn", text: warn } : { count: 0, tone: "", text: "" },
     cf: { count: 0, tone: "", text: "" },
   };
 }

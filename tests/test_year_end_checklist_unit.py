@@ -47,12 +47,65 @@ def steps(**kw):
     return out, {s["id"]: s for s in out["steps"]}
 
 
+TAX_STEPS = ["clear_sales_queue", "resolve_log_drift", "run_wash_check", "tie_1099b", "confirm_carryforward"]
+CLEAN = {"queue_waiting": 0, "drift_accounts": 0, "wash_state": "clean", "untied_1099b": 0, "carryforward_saved": True}
+
+
 def test_steps_come_in_the_designed_order_with_links(jan_2027):
+    # Task 14 (2026-11-03 sales-ledger redesign): the five tax-filing steps sit after final_broker_files.
     out, by = steps()
-    assert [s["id"] for s in out["steps"]] == ["capture_plan_year", "final_broker_files", "resolve_cash_rows", "confirm_year_end_cash",
-                                              "close_cash_year", "start_tracking", "personal_numbers", "reference_data"]
+    assert [s["id"] for s in out["steps"]] == ["capture_plan_year", "final_broker_files", *TAX_STEPS, "resolve_cash_rows",
+                                              "confirm_year_end_cash", "close_cash_year", "start_tracking", "personal_numbers",
+                                              "reference_data"]
     assert all(s["link"] and s["title"] and s["state"] in ("done", "open", "na") for s in out["steps"])
     assert out["year"] == 2026
+
+
+def test_tax_filing_steps_are_na_without_data_and_leave_the_old_steps_unchanged(jan_2027):
+    out, by = steps()
+    assert [by[k]["state"] for k in TAX_STEPS] == ["na"] * 5
+    old = [s for s in out["steps"] if s["id"] not in TAX_STEPS]
+    assert all(set(s) == {"id", "title", "link", "state", "detail"} for s in old)
+    with_data = [s for s in steps(tax_filing=CLEAN)[0]["steps"] if s["id"] not in TAX_STEPS]
+    assert with_data == old
+
+
+def test_tax_filing_steps_titles_links_and_deep_link_hashes(jan_2027):
+    by = steps(tax_filing=CLEAN)[1]
+    assert [by[k]["title"] for k in TAX_STEPS] == [
+        "Clear the sales waiting for lots", "Resolve log drift", "Run the wash-sale check",
+        "Apply and tie the broker 1099-B", "Confirm the capital-loss carryforward"]
+    assert all(by[k]["link"] == "sales_ledger" for k in TAX_STEPS)
+    assert [by[k]["hash"] for k in TAX_STEPS] == [
+        "#sales_ledger?tab=fix&sec=queue", "#sales_ledger?tab=fix&sec=health", "#sales_ledger?tab=tax&sec=wash",
+        "#sales_ledger?tab=import&sec=b1099", "#sales_ledger?tab=tax&sec=wash"]
+    assert [by[k]["state"] for k in TAX_STEPS] == ["done"] * 5
+
+
+def test_clear_sales_queue_open_while_sales_wait_for_lots(jan_2027):
+    s = steps(tax_filing={**CLEAN, "queue_waiting": 3})[1]["clear_sales_queue"]
+    assert s["state"] == "open" and "3" in s["detail"]
+
+
+def test_resolve_log_drift_open_while_accounts_drift(jan_2027):
+    s = steps(tax_filing={**CLEAN, "drift_accounts": 2})[1]["resolve_log_drift"]
+    assert s["state"] == "open" and "2" in s["detail"]
+
+
+@pytest.mark.parametrize("state,words", [("flagged", "flagged"), ("stale", "since the ledger changed"), ("never", "never run")])
+def test_run_wash_check_open_unless_clean(jan_2027, state, words):
+    s = steps(tax_filing={**CLEAN, "wash_state": state})[1]["run_wash_check"]
+    assert s["state"] == "open" and words in s["detail"] and "This app's accounts only." in s["detail"]
+    assert "This app's accounts only." in steps(tax_filing=CLEAN)[1]["run_wash_check"]["detail"]
+
+
+def test_tie_1099b_open_while_accounts_are_untied(jan_2027):
+    s = steps(tax_filing={**CLEAN, "untied_1099b": 1})[1]["tie_1099b"]
+    assert s["state"] == "open" and "1" in s["detail"]
+
+
+def test_confirm_carryforward_done_once_saved(jan_2027):
+    assert steps(tax_filing={**CLEAN, "carryforward_saved": False})[1]["confirm_carryforward"]["state"] == "open"
 
 
 def test_capture_plan_year_is_done_only_when_a_snapshot_projected_that_year(jan_2027):

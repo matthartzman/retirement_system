@@ -37,6 +37,22 @@ test("only_personal_numbers_offers_a_confirmation_and_it_toggles", () => {
   assert.match(done, /Undo confirmation/);
 });
 
+test("a_step_with_a_hash_deep_links_before_navigating_and_others_just_navigate (task 14)", () => {
+  const steps = [...DATA.steps, { id: "run_wash_check", title: "Run the wash-sale check", link: "sales_ledger", state: "open", detail: "x", hash: "#sales_ledger?tab=tax&sec=wash" }];
+  const h = m.yeHtml({ ...DATA, steps });
+  assert.match(h, /yeGo\(&quot;sales_ledger&quot;, &quot;#sales_ledger\?tab=tax&amp;sec=wash&quot;\)/);
+  assert.match(h, /setStep\(&quot;household_people&quot;\)/);
+  const seen = [];
+  globalThis.setStep = (id) => seen.push(["step", id, globalThis.location && globalThis.location.hash]);
+  globalThis.location = { hash: "" };
+  m.yeGo("sales_ledger", "#sales_ledger?tab=tax&sec=wash");
+  assert.deepEqual(seen.pop(), ["step", "sales_ledger", "#sales_ledger?tab=tax&sec=wash"]);
+  delete globalThis.location;
+  assert.doesNotThrow(() => m.yeGo("sales_ledger", "#sales_ledger?tab=fix&sec=queue"));
+  assert.deepEqual(seen.pop(), ["step", "sales_ledger", undefined]);
+  delete globalThis.setStep;
+});
+
 test("page_shows_loading_then_errors", () => {
   assert.match(m.yeHtml(null), /Loading/);
 });

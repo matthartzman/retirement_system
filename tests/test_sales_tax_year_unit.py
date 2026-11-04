@@ -1,6 +1,8 @@
 """Plan step 3a.3, server side: the tax-year summary, carryforward entry and wash-flag refresh of the Sales Ledger page."""
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from src import active_plan, sales_service, sales_tax_year
@@ -36,7 +38,7 @@ def test_empty_ledger_summary_is_all_zero(input_dir):
     assert out["year"] == 2026 and out["filing"] == "MFJ" and out["limit"] == 3000.0
     assert all(v == 0.0 for v in out["netting"].values())
     assert out["carryforward_in"] == {"short": 0.0, "long": 0.0, "entered": False}
-    assert out["wash"] == {"count": 0, "flagged_loss": 0.0, "rows": []}
+    assert out["wash"] == {"count": 0, "flagged_loss": 0.0, "rows": [], "last_run": None, "never_run": True, "stale": False}
 
 
 def test_summary_nets_the_year_and_ignores_voided_and_non_taxable(input_dir):
@@ -120,6 +122,48 @@ def test_wash_refresh_clears_a_flag_when_the_repurchase_is_gone(input_dir):
     active_plan.write_dataset_rows_for_input_dir(input_dir, "holdings", [])
     assert sales_tax_year.refresh_wash_flags(input_dir) == {"flagged": 0, "updated": 1}
     assert sales_tax_year.tax_year_summary(input_dir, 2026)["wash"]["count"] == 0
+
+
+def _marker(input_dir):
+    with active_plan.workspace_store(input_dir.parent) as store:
+        raw = store.get_meta(sales_tax_year.WASH_MARKER_KEY)
+    return json.loads(raw) if raw else None
+
+
+def test_wash_marker_is_written_by_every_refresh(input_dir):
+    assert _marker(input_dir) is None
+    sales_tax_year.refresh_wash_flags(input_dir)
+    mark = _marker(input_dir)
+    assert set(mark) == {"at", "signature"} and mark["at"][:4].isdigit() and isinstance(mark["signature"], str)
+    wash = sales_tax_year.tax_year_summary(input_dir, 2026)["wash"]
+    assert wash["last_run"] == mark["at"] and wash["never_run"] is False and wash["stale"] is False
+
+
+def test_wash_is_never_run_before_the_first_scan(input_dir):
+    wash = sales_tax_year.tax_year_summary(input_dir, 2026)["wash"]
+    assert (wash["last_run"], wash["never_run"], wash["stale"]) == (None, True, False)
+
+
+def test_wash_goes_stale_after_a_ledger_change_that_does_not_rescan_and_clears_on_rescan(input_dir):
+    _sale(input_dir, proceeds=1000.0, basis=1400.0)          # add_sale runs the automatic scan
+    assert sales_tax_year.tax_year_summary(input_dir, 2026)["wash"]["stale"] is False
+    active_plan.write_dataset_rows_for_input_dir(input_dir, "holdings", [   # a new buy, no scan
+        {"account": "Joint_taxable", "symbol": "VTI", "purchase_date": "2026-06-12", "shares": "1",
+         "purchase_price": "100", "lot_type": "buy", "note": ""}])
+    wash = sales_tax_year.tax_year_summary(input_dir, 2026)["wash"]
+    assert wash["stale"] is True and wash["never_run"] is False
+    sales_tax_year.refresh_wash_flags(input_dir)
+    assert sales_tax_year.tax_year_summary(input_dir, 2026)["wash"]["stale"] is False
+
+
+def test_the_scan_writing_its_own_flags_does_not_make_it_stale(input_dir):
+    _sale(input_dir, proceeds=1000.0, basis=1400.0)
+    active_plan.write_dataset_rows_for_input_dir(input_dir, "holdings", [
+        {"account": "Joint_taxable", "symbol": "VTI", "purchase_date": "2026-06-12", "shares": "1",
+         "purchase_price": "100", "lot_type": "buy", "note": ""}])
+    assert sales_tax_year.refresh_wash_flags(input_dir)["updated"] == 1
+    wash = sales_tax_year.tax_year_summary(input_dir, 2026)["wash"]
+    assert wash["count"] == 1 and wash["stale"] is False
 
 
 def test_entering_a_carryforward_keeps_the_state_rate_override(input_dir):

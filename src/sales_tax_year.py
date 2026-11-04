@@ -4,8 +4,11 @@ detection is ``wash_sales``; this module only reads and writes the plan file. No
 projection or the engine. Every function takes the workspace ``input`` folder like ``sales_service``."""
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import math
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -69,6 +72,17 @@ def realized_tax_estimate(cfg: dict[str, Any] | None, netting: dict[str, float],
             "note": stack["label"]}
 
 
+def _live_sales(sales: list[dict[str, Any]], year: int) -> list[dict[str, Any]]:
+    return [s for s in sales if s["status"] == "confirmed" and s["tax_class"] == "taxable"
+            and s["gain"] is not None and s["sale_date"][:4] == str(year)]
+
+
+def wash_flagged(sales: list[dict[str, Any]], year: int | None = None) -> list[dict[str, Any]]:
+    """Loss sales carrying a wash flag (of ``year``'s live taxable sales when a year is given)."""
+    rows = sales if year is None else _live_sales(sales, year)
+    return [s for s in rows if s["wash_flag"] != "none" and s["gain"] < 0]
+
+
 def tax_year_summary(input_dir: str | Path, year: int, *, filing: str | None = None) -> dict[str, Any]:
     """Netting for ``year`` with the carryforward chained from earlier years (an entered figure for a year
     replaces the computed one), the raw short/long sums, and the wash-flagged losses."""
@@ -77,6 +91,7 @@ def tax_year_summary(input_dir: str | Path, year: int, *, filing: str | None = N
     with active_plan.workspace_store(_base(input_dir)) as store:
         sales = store.sales.list_sales()
         adjustments = _adjustments(store)
+        run = wash_run_status(store, sales)
     by_year = net_realized_by_year(terms_from_ledger_rows(sales), adjustments, filing, through_year=year)
     prev = by_year.get(year - 1)
     entered = year in adjustments
@@ -85,9 +100,8 @@ def tax_year_summary(input_dir: str | Path, year: int, *, filing: str | None = N
     else:
         cf_in = (prev["carryforward_st"], prev["carryforward_lt"]) if prev else (0.0, 0.0)
     netting = by_year.get(year) or net_realized_year(0.0, 0.0, 0.0, 0.0, filing)
-    live = [s for s in sales if s["status"] == "confirmed" and s["tax_class"] == "taxable"
-            and s["gain"] is not None and s["sale_date"][:4] == str(year)]
-    flagged = [s for s in live if s["wash_flag"] != "none" and s["gain"] < 0]
+    live = _live_sales(sales, year)
+    flagged = wash_flagged(live)
     out = {
         "year": year, "filing": filing, "limit": capital_loss_ordinary_limit(filing), "netting": netting,
         "carryforward_in": {"short": cf_in[0] + 0.0, "long": cf_in[1] + 0.0, "entered": entered},
@@ -97,7 +111,7 @@ def tax_year_summary(input_dir: str | Path, year: int, *, filing: str | None = N
                    "lt_gain": sum(s["gain"] for s in live if s["holding_period"] == "long") + 0.0},
         "wash": {"count": len(flagged), "flagged_loss": sum(-s["gain"] for s in flagged) + 0.0,
                  "rows": [{"sale_id": s["sale_id"], "symbol": s["symbol"], "sale_date": s["sale_date"],
-                           "gain": s["gain"], "flag": s["wash_flag"], "note": s["wash_note"]} for s in flagged]},
+                           "gain": s["gain"], "flag": s["wash_flag"], "note": s["wash_note"]} for s in flagged], **run},
     }
     if live or netting["ordinary_offset"] or any(netting[k] for k in ("net_st", "net_lt")):   # empty ledger: no line
         override = (adjustments.get(year) or {}).get("state_rate_override")
@@ -160,14 +174,45 @@ def _all_buys(store) -> list[dict[str, Any]]:
     return dedupe_buys(held, broker, monarch)
 
 
+WASH_MARKER_KEY = "wash.last_run"
+_SALE_INPUT_KEYS = ("sale_id", "account", "symbol", "sale_date", "purchase_date", "shares", "status", "tax_class", "gain")
+
+
+def _wash_signature(sales: list[dict[str, Any]], buys: list[dict[str, Any]]) -> str:
+    """Stable digest of what the wash scan reads: a SHA-256 over the sales' identity and scan-relevant fields
+    (``_SALE_INPUT_KEYS``; the scan's own output, ``wash_flag``/``wash_note``, is left out so writing flags never
+    changes it) and the de-duplicated replacement purchases (account, symbol, date, shares), both sorted. It costs the
+    same reads as the scan but not the detection, and changes exactly when a rescan could give a different answer."""
+    payload = {"sales": sorted([str(s.get(k)) for k in _SALE_INPUT_KEYS] for s in sales),
+               "buys": sorted([str(b.get("account")), b["symbol"], b["date"], f"{float(b['shares']):.6f}"] for b in buys)}
+    return hashlib.sha256(json.dumps(payload, separators=(",", ":")).encode()).hexdigest()
+
+
+def wash_run_status(store, sales: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """The last-run marker against the current inputs: ``last_run`` (ISO time or None), ``never_run`` and ``stale``
+    (a marker exists but the inputs changed since, e.g. a hand-edited holding that triggers no rescan)."""
+    try:
+        mark = json.loads(store.get_meta(WASH_MARKER_KEY) or "null")
+    except ValueError:
+        mark = None
+    if not isinstance(mark, dict):
+        return {"last_run": None, "never_run": True, "stale": False}
+    sales = store.sales.list_sales() if sales is None else sales
+    return {"last_run": mark.get("at"), "never_run": False,
+            "stale": mark.get("signature") != _wash_signature(sales, _all_buys(store))}
+
+
 def refresh_wash_flags_in(store) -> dict[str, int]:
-    """``refresh_wash_flags`` inside the caller's open write store (and transaction)."""
+    """``refresh_wash_flags`` inside the caller's open write store (and transaction). Records the last-run marker
+    (``plan_meta`` key ``wash.last_run``: ``{at, signature}``, see ``_wash_signature``) every time it completes."""
     sales = store.sales.list_sales()
     buys = _all_buys(store)
     detected = detect_wash_sales(sales, buys, accounts=_account_classes(sales, {b["account"] for b in buys}))
     updates = plan_flag_updates(sales, detected)
     for sale_id, flag, note in updates:
         store.sales.set_wash_flag(sale_id, flag, note)
+    store.set_meta(WASH_MARKER_KEY, json.dumps({"at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                                                 "signature": _wash_signature(sales, buys)}))
     return {"flagged": len(detected), "updated": len(updates)}
 
 

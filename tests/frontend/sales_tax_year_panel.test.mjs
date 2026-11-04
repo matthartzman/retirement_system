@@ -108,6 +108,17 @@ describe("summary publish", () => {
     await assert.doesNotReject(m.loadSalesTaxYear(2026));
     globalThis.api = orig;
   });
+
+  test("wash last-run marker (task 14): never run and stale warn; flagged wins; old servers stay neutral", async () => {
+    const orig = globalThis.api;
+    const wash = async (w) => { globalThis.api = async () => SUMMARY({ wash: { count: 0, flagged_loss: 0, rows: [], ...w } }); await m.loadSalesTaxYear(2026); return m.stSummary().wash; };
+    assert.deepEqual(await wash({ last_run: null, never_run: true, stale: false }), { count: 0, tone: "warn", text: "never run" });
+    assert.deepEqual(await wash({ last_run: "2026-11-03T10:00:00+00:00", never_run: false, stale: true }), { count: 0, tone: "warn", text: "stale" });
+    assert.deepEqual(await wash({ last_run: "2026-11-03T10:00:00+00:00", never_run: false, stale: false }), { count: 0, tone: "", text: "" });
+    assert.deepEqual(await wash({ count: 3, never_run: true, stale: true }), { count: 3, tone: "bad", text: "3 flagged" });
+    assert.deepEqual(await wash({}), { count: 0, tone: "", text: "" });
+    globalThis.api = orig;
+  });
 });
 
 describe("tax tab layout (task 13)", () => {

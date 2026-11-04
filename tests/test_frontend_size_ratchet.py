@@ -676,7 +676,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 sales-ledger redesign: +13 (Task 11 fix: history without a started log, latest request wins, history parity)
 # 2026-11-03 sales-ledger redesign: +30 (Task 12 ledger toolbar, drawer, accessible table, void confirm)
 # 2026-11-03 sales-ledger redesign: +31 (Task 13 tax tab tiles, columns, 1099-B and year-end rows)
-TOTAL_JS_MAX_LINES = 43_154
+# 2026-11-03 sales-ledger redesign: +9 (Task 14 wash last-run summary, year-end step deep links)
+TOTAL_JS_MAX_LINES = 43_163
 
 
 

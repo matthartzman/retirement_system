@@ -7,12 +7,14 @@ reads and links to existing screens, runs nothing, and feeds no tax number. ``bu
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from . import cash_view, cash_year_close
 from .platform_runtime import today
 
+log = logging.getLogger(__name__)
 CONFIRMABLE = ("personal_numbers",)
 _EPS = 0.005
 
@@ -46,8 +48,39 @@ def set_confirmation(store: Any, year: int, step: str, confirmed: bool) -> None:
         store.delete_meta(_key(year, step))
 
 
-def _step(sid: str, title: str, link: str, state: str, detail: str) -> dict[str, str]:
-    return {"id": sid, "title": title, "link": link, "state": state, "detail": detail}
+def _step(sid: str, title: str, link: str, state: str, detail: str, hash: str | None = None) -> dict[str, str]:
+    out = {"id": sid, "title": title, "link": link, "state": state, "detail": detail}
+    if hash:
+        out["hash"] = hash   # deep link into the target page (the Sales Ledger's tab and section)
+    return out
+
+
+_WASH_DETAIL = {"clean": "No possible wash sales are flagged.", "flagged": "Possible wash sales are flagged — review them.",
+                "stale": "The check has not run since the ledger changed.", "never": "The check has never run."}
+
+
+def _tax_filing_steps(year: int, tf: Mapping[str, Any] | None) -> list[dict[str, str]]:
+    """The Sales Ledger's tax-filing steps; all ``na`` when ``tf`` (see ``service``) is None."""
+    def step(sid: str, title: str, hash_: str, done: bool, detail: str) -> dict[str, str]:
+        return _step(sid, title, "sales_ledger", "na" if tf is None else "done" if done else "open",
+                     "Not checked." if tf is None else detail, f"#sales_ledger?{hash_}")
+    tf_ = tf or {}
+    q, d, u = int(tf_.get("queue_waiting") or 0), int(tf_.get("drift_accounts") or 0), int(tf_.get("untied_1099b") or 0)
+    wash = str(tf_.get("wash_state") or "never")
+    saved = bool(tf_.get("carryforward_saved"))
+    return [
+        step("clear_sales_queue", "Clear the sales waiting for lots", "tab=fix&sec=queue", q == 0,
+             f"{q} sale(s) are waiting for lots." if q else "No sales are waiting for lots."),
+        step("resolve_log_drift", "Resolve log drift", "tab=fix&sec=health", d == 0,
+             f"The transaction log and the holdings differ in {d} account(s)." if d else "The transaction log agrees with the holdings."),
+        step("run_wash_check", "Run the wash-sale check", "tab=tax&sec=wash", wash == "clean",
+             f"{_WASH_DETAIL.get(wash, _WASH_DETAIL['never'])} This app's accounts only."),
+        step("tie_1099b", "Apply and tie the broker 1099-B", "tab=import&sec=b1099", u == 0,
+             f"{u} account(s) do not tie to the broker 1099-B." if u else f"No account is known to be untied from its {year} 1099-B."),
+        step("confirm_carryforward", "Confirm the capital-loss carryforward", "tab=tax&sec=wash", saved,
+             f"The carryforward into {year} is saved." if saved else
+             f"Enter the capital-loss carryforward into {year} from the prior year's Schedule D (zero if none)."),
+    ]
 
 
 def _growth_roles() -> frozenset[str]:
@@ -62,8 +95,11 @@ def _year_of(value: Any) -> int:
 
 def build(year: int, *, store: Any, ledgers: Mapping[str, list[Mapping[str, Any]]], snapshots: Sequence[Mapping[str, Any]],
           imports: Sequence[Mapping[str, Any]], setup_rows: Sequence[Mapping[str, Any]],
-          cash_differences: Sequence[tuple[str, float | None]], reference_stale: int) -> dict[str, Any]:
-    """The checklist for closing ``year``. Inputs are plain data so the whole thing is testable without a plan file."""
+          cash_differences: Sequence[tuple[str, float | None]], reference_stale: int,
+          tax_filing: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """The checklist for closing ``year``. Inputs are plain data so the whole thing is testable without a plan file.
+    ``tax_filing`` (``queue_waiting``, ``drift_accounts``, ``wash_state`` clean|flagged|stale|never, ``untied_1099b``,
+    ``carryforward_saved``) drives the Sales Ledger tax-filing steps; None leaves them not applicable."""
     closed = cash_year_close.is_year_closed(store, year)
     st = cash_year_close.close_status(store, year, ledgers=ledgers, snapshots=snapshots)
     out = []
@@ -82,6 +118,7 @@ def build(year: int, *, store: Any, ledgers: Mapping[str, list[Mapping[str, Any]
         "final_broker_files", "Import final broker files", "sales_ledger", "na" if not latest else "open" if behind else "done",
         "No broker imports yet." if not latest else
         f"No file dated after 31 Dec {year} for: {', '.join(behind)}." if behind else f"Every account has a file dated after 31 Dec {year}."))
+    out.extend(_tax_filing_steps(year, tax_filing))
 
     unmatched = sum(1 for led in ledgers.values() for r in led if r["pair_status"] == "unmatched" and r["date"][:4] == f"{year:04d}")
     strad = len(st["straddles"])
@@ -128,6 +165,38 @@ def _reference_stale() -> int:
         return 0
 
 
+def _safe(name: str, fn: Callable[[], Any], default: Any) -> Any:
+    try:
+        return fn()
+    except Exception:  # noqa: BLE001 - one failing source must not take the checklist down
+        log.exception("year-end: could not gather %s; showing the safe default", name)
+        return default
+
+
+def _tax_filing(store: Any, year: int) -> dict[str, Any]:
+    """The Sales Ledger state behind the tax-filing steps, read from the caller's open store with the same logic as the
+    routes: the queue (``/api/sales/candidates?state=unmatched``), the log drift (``/api/transactions/log``), the wash
+    marker plus the year's flags, and the carryforward ``entered`` flag of ``/api/sales/tax-year``."""
+    from . import sales_tax_year, transactions
+
+    def drift() -> int:
+        return len({d["account"] for d in transactions.reconcile(store)}) if transactions.started(store) else 0
+
+    def wash() -> str:
+        sales = store.sales.list_sales()
+        if sales_tax_year.wash_flagged(sales, year):
+            return "flagged"
+        run = sales_tax_year.wash_run_status(store, sales)
+        return "never" if run["never_run"] else "stale" if run["stale"] else "clean"
+
+    return {"queue_waiting": _safe("the sales queue", lambda: len(store.sales.list_candidates(state="unmatched")), 0),
+            "drift_accounts": _safe("the log drift", drift, 0),
+            "wash_state": _safe("the wash-sale check", wash, "never"),
+            # TODO(Task 15): per-account 1099-B tie data does not exist yet; count untied accounts once it does.
+            "untied_1099b": 0,
+            "carryforward_saved": _safe("the carryforward", lambda: store.sales.adjustment(year) is not None, False)}
+
+
 def service(input_dir: Any, year: int | None = None, *, confirm: tuple[str, bool] | None = None) -> dict[str, Any]:
     """Route body: the checklist for ``year`` (default ``default_year()``), optionally after setting a confirmation."""
     from . import active_plan
@@ -144,4 +213,5 @@ def service(input_dir: Any, year: int | None = None, *, confirm: tuple[str, bool
         return build(year, store=store, ledgers=ledgers, snapshots=snaps,
                      imports=[i for i in store.broker.list_imports() if i["status"] == "applied"],
                      setup_rows=store.dataset("ytd_account_setup").rows(),
-                     cash_differences=[(a["account"], a["difference"]) for a in view["accounts"]], reference_stale=_reference_stale())
+                     cash_differences=[(a["account"], a["difference"]) for a in view["accounts"]], reference_stale=_reference_stale(),
+                     tax_filing=_tax_filing(store, year))
