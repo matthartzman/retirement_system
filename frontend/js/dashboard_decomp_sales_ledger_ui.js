@@ -52,7 +52,9 @@ export function slSecOpen(state, key, defaultOpen, alertCount) {
 export function slTabBarHtml(active, markers = {}) {
   const tabs = SL_TABS.map(([id, label]) => {
     const mk = markers[id];
-    const badge = mk && mk.count > 0 ? ` <span class="sl-tab-badge ${mk.tone === "bad" ? "bad" : "warn"}">${Number(mk.count)}</span>` : "";
+    const tone = mk && mk.tone === "bad" ? "bad" : "warn";
+    const badge = mk && mk.count > 0 ? ` <span class="sl-tab-badge ${tone}">${Number(mk.count)}</span>`
+      : mk && mk.attn ? ` <span class="sl-tab-badge ${tone}"><span aria-hidden="true">!</span><span class="sr-only"> needs attention</span></span>` : "";
     const on = id === active;
     return `<button type="button" role="tab" id="sl-t-${id}" class="workspace-tab${on ? " active" : ""}" aria-selected="${on}" aria-controls="sl-p-${id}" tabindex="${on ? 0 : -1}" onclick="slSetTab('${id}')" onkeydown="slTabKeydown(event)">${label}${badge}</button>`;
   }).join("");
@@ -116,6 +118,7 @@ export function slMarkers(summaries) {
     m.count += s.count;
     if (s.tone === "bad") m.tone = "bad";
   }
+  for (const m of Object.values(out)) if (m.count === 0) m.attn = true; // an alert with no count still needs a text marker
   return out;
 }
 
@@ -126,7 +129,7 @@ export function slAnnounce(text, assertive = false) {
   if (el) el.textContent = String(text);
 }
 
-const SL_SEC_META = { queue: ["Sales waiting for lots", true], health: ["Log health", true], log: ["Transaction log", true], cash: ["Cash in investment", false],
+const SL_SEC_META = { queue: ["Sales waiting for lots", false], health: ["Log health", false], log: ["Transaction log", true], cash: ["Cash in investment", false],
   ledger: ["Sales ledger", true], wash: ["Realized gains & wash sales", true], cf: ["Carryforward", false], imports: ["Broker imports", false], b1099: ["Broker 1099-B", false], csv: ["Sales CSV import", false] };
 const SL_TAB_SECS = { fix: ["queue", "health", "log", "cash"], ledger: ["ledger"], tax: ["wash", "cf"], import: ["imports", "b1099", "csv"] };
 // Only real alerts (same predicate as the strip) count; informational counts such as row totals never open or pin a section.
@@ -185,6 +188,8 @@ export function slSecUpdate(key, summary) {
     b.textContent = String((summary && summary.text) || "");
     b.className = `sl-sec-badge sl-tone-${(summary && summary.tone) || "none"}`;
   }
+  const stateFn = { queue: "slQueueStateText", health: "slHealthStateText" }[key];
+  if (stateFn && window[stateFn]) slSecSetState(key, window[stateFn]());
   const el = doc.getElementById(`sl-sec-${key}`);
   if (!el) return;
   const want = slSecWantOpen(slUiLoad(), key, slAlertCountOf(summary));

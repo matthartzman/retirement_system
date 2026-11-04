@@ -336,6 +336,92 @@ describe("four tabs (Task 4)", () => {
   }));
 });
 
+describe("real-DOM fixes (Task 16a)", () => {
+  const stubs = { renderSalesQueue: "sq", renderTransactionLog: "tl", renderLogHealth: "lh", renderSalesTaxYear: "stRoot", renderBrokerImport: "bi", renderSalesBroker1099b: "b1" };
+  const memStore = () => { const d = {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); } }; };
+  const withStubs = (fn) => async () => {
+    for (const [k, id] of Object.entries(stubs)) globalThis[k] = () => `<div id="${id}">${k}</div>`;
+    globalThis.localStorage = memStore();
+    try { await fn(); } finally {
+      for (const k of Object.keys(stubs)) delete globalThis[k];
+      delete globalThis.location; delete globalThis.history; delete globalThis.localStorage; delete globalThis.tlStarted;
+    }
+  };
+  const idsOf = (html) => [...html.matchAll(/\sid="([^"]*)"/g)].map((x) => x[1]);
+
+  test("the page has no Sales Ledger h2 heading", withStubs(() => {
+    assert.doesNotMatch(m.renderSalesLedger(), /<h2>Sales Ledger<\/h2>/);
+  }));
+
+  test("the health slot's content (what a repaint writes) never carries the slot id; the wrapper has it exactly once", withStubs(() => {
+    for (const started of [true, false]) {
+      globalThis.tlStarted = () => started;
+      const inner = window.slHealthSlotInnerHtml();
+      assert.doesNotMatch(inner, /id="tlHealthSlot"/);
+      const wrapped = window.slHealthSlotHtml();
+      assert.equal(idsOf(wrapped).filter((x) => x === "tlHealthSlot").length, 1);
+      assert.equal(wrapped, `<div id="tlHealthSlot">${inner}</div>`);
+      const page = m.renderSalesLedger();
+      const all = idsOf(page.replace(wrapped, `<div id="tlHealthSlot">${inner}</div>`) + inner.replace(/id="/g, 'data-x="'));
+      assert.deepEqual(all.filter((x, i) => all.indexOf(x) !== i), []);
+    }
+  }));
+
+  test("queue and health shells are closed with state text when there is nothing to show; open when alerting", withStubs(() => {
+    window.slPublish("queue", { count: 0, tone: "", text: "" });
+    window.slPublish("health", { count: 0, tone: "", text: "" });
+    globalThis.tlStarted = () => true;
+    let html = m.renderSalesLedger();
+    assert.match(html, /<details class="sl-sec" id="sl-sec-queue" data-key="queue" data-alert="0">/);
+    assert.match(html, /<details class="sl-sec" id="sl-sec-health" data-key="health" data-alert="0">/);
+    assert.match(html, /id="sl-sec-state-queue">Nothing waiting</);
+    assert.match(html, /id="sl-sec-state-health">Log agrees with holdings</);
+    assert.equal(m.slQueueStateText(), "Nothing waiting");
+    window.slPublish("queue", { count: 3, tone: "warn", text: "3 waiting" });
+    window.slPublish("health", { count: 2, tone: "bad", text: "drift: 2 accounts" });
+    html = m.renderSalesLedger();
+    assert.match(html, /<details class="sl-sec" id="sl-sec-queue" data-key="queue" open data-alert="3">/);
+    assert.match(html, /<details class="sl-sec" id="sl-sec-health" data-key="health" open data-alert="2">/);
+    assert.match(html, /id="sl-sec-state-queue">oldest first — pick the lots sold</);
+    assert.match(html, /id="sl-sec-state-health">drift: 2 accounts</);
+    window.slPublish("queue", { count: 0, tone: "", text: "" });
+    window.slPublish("health", { count: 0, tone: "", text: "" });
+  }));
+
+  test("a deep link is consumed after it applies, so the same link applies again", withStubs(() => {
+    const replaced = [];
+    globalThis.location = { hash: "#sales_ledger?tab=import", pathname: "/frontend/index.html", search: "?x=1" };
+    globalThis.history = { replaceState: (a, b, url) => { replaced.push(url); globalThis.location.hash = ""; } };
+    window.slSetTab && window.slUiSave(window.slUiSetTab(window.slUiLoad(), "fix"));
+    assert.match(m.renderSalesLedger(), /id="sl-t-import"[^>]*aria-selected="true"/);
+    assert.deepEqual(replaced, ["/frontend/index.html?x=1"]);
+    window.slUiSave(window.slUiSetTab(window.slUiLoad(), "fix")); // the user moved on
+    globalThis.location.hash = "#sales_ledger?tab=import"; // the same link again
+    assert.match(m.renderSalesLedger(), /id="sl-t-import"[^>]*aria-selected="true"/);
+    delete globalThis.history; // no history API: must not throw
+    globalThis.location.hash = "#sales_ledger?tab=ledger";
+    assert.doesNotThrow(() => m.renderSalesLedger());
+  }));
+
+  test("the hash's sec opens that section after mount (known keys only)", withStubs(async () => {
+    const went = [];
+    const realGo = window.slGo;
+    window.slGo = (t, s) => went.push([t, s]);
+    try {
+      globalThis.location = { hash: "#sales_ledger?tab=fix&sec=log", pathname: "/p", search: "" };
+      globalThis.history = { replaceState: () => { globalThis.location.hash = ""; } };
+      m.renderSalesLedger();
+      await new Promise((r) => setTimeout(r, 5));
+      assert.deepEqual(went, [["fix", "log"]]);
+      went.length = 0;
+      globalThis.location.hash = "#sales_ledger?tab=fix&sec=nonsense";
+      m.renderSalesLedger();
+      await new Promise((r) => setTimeout(r, 5));
+      assert.deepEqual(went, []);
+    } finally { window.slGo = realGo; }
+  }));
+});
+
 describe("summary change repaints only strip and tab bar roots (Task 6)", () => {
   test("panel roots untouched", () => {
     const mk = (id) => (globalThis.__roots[id] = { writes: 0, _h: "", get innerHTML() { return this._h; }, set innerHTML(v) { this.writes++; this._h = v; } });

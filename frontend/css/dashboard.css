@@ -780,9 +780,10 @@ button.field-info-i{display:inline-flex;align-items:center;justify-content:cente
 .workspace-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 .workspace-tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .sl-tabbar{position:sticky;top:0;z-index:5}
+#slTabsRoot .workspace-tabs{overflow-y:hidden}
 .sl-tab[hidden]{display:none!important}
 .sl-tab-badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:6px;border-radius:9px;font-size:11px;line-height:18px;text-align:center;color:#fff;background:var(--muted)}
-.sl-tab-badge.bad{background:var(--bad,#b3261e)}
+.sl-tab-badge.bad{background:var(--danger)}
 .sl-tab-badge.warn{background:var(--warn,#9a6700)}
 .workspace-tab-body{padding:0 20px 20px}
 .workspace-tab-body>.holdings{padding-left:0;padding-right:0}
@@ -1318,6 +1319,13 @@ header :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{o
 .sl-sec-badge.sl-tone-ok{border-color:var(--ok);color:var(--ok)}
 .sl-sec-state{font-size:12px;color:var(--muted)}
 .sl-sec-body{padding:0 10px 10px}
+/* Task 16a: a panel heading inside a shell repeats the shell title (the Realized-gains heading carries the year, so it stays) */
+.sl-sec-body>#sqRoot>h3:first-child,.sl-sec-body>#tlRoot>h3:first-child{display:none}
+/* Task 16a: compact tables on this page; wraps only when the pane is genuinely narrow (the .rc-scroll wrapper scrolls) */
+.sl-page{--sl-row:28px}
+.sl-page .rc-table th,.sl-page .rc-table td{padding:3px 8px;white-space:nowrap;height:var(--sl-row,28px);vertical-align:middle}
+.sl-page .rc-table th{font-size:11px;text-transform:uppercase;color:var(--muted);background:#fbfaf7}
+.sl-page .rc-table .btn{min-height:24px;padding:1px 8px}
 @media (pointer:coarse){.sl-sec>summary,.sl-secctl .btn{min-height:44px}}
 @media (prefers-reduced-motion:reduce){.sl-sec-chev{transition:none}}
 

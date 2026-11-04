@@ -203,7 +203,7 @@ function tlPaint() {
   tlPaintRoot();
   const slot = document.getElementById("tlHealthSlot"), hroot = document.getElementById("tlHealthRoot");
   const started = tlStarted();
-  if (slot && window.slHealthSlotHtml && started !== tlSlotStarted) slot.innerHTML = window.slHealthSlotHtml(); // shell <-> bare prompt only when the started state flips
+  if (slot && window.slHealthSlotHtml && started !== tlSlotStarted) slot.innerHTML = window.slHealthSlotInnerHtml ? window.slHealthSlotInnerHtml() : ""; // content only: the slot node stays, never a nested wrapper; shell <-> bare prompt only when the started state flips
   else if (hroot) hroot.innerHTML = tlHealthInner();
   tlSlotStarted = started;
   if (window.slPublish) { const s = tlSummary(); window.slPublish("health", s.health); window.slPublish("log", s.log); }

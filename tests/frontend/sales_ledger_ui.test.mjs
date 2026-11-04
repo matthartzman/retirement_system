@@ -214,6 +214,20 @@ describe("alert strip, markers, live region, slGo (Task 6)", () => {
     assert.deepEqual(mk2.tax, { count: 3, tone: "warn" });
     assert.deepEqual(mk2.import, { count: 4, tone: "bad" });
   });
+  test("a tab whose alert item has count 0 still gets a text marker (!, needs attention)", () => {
+    const mk = m.slMarkers({ wash: S(0, "", "stale") });
+    assert.equal(mk.tax.count, 0);
+    assert.equal(mk.tax.attn, true);
+    const h = m.slTabBarHtml("fix", mk);
+    assert.match(h, /id="sl-t-tax"[^>]*>[^]*?<span class="sl-tab-badge warn"[^>]*>[^]*?!<[^]*?needs attention[^]*?<\/button>/);
+    assert.doesNotMatch(m.slTabBarHtml("fix", { tax: { count: 0, tone: "warn" } }), /sl-tab-badge/); // no alert flag, nothing to show
+    assert.equal(m.slMarkers(fixture()).fix.attn, undefined);
+  });
+  test("queue and health default closed; log, ledger and wash default open", () => {
+    const st = { sections: {} };
+    for (const k of ["queue", "health"]) { assert.equal(m.slSecWantOpen(st, k, 0), false, k); assert.equal(m.slSecWantOpen(st, k, 2), true, k); }
+    for (const k of ["log", "ledger", "wash"]) assert.equal(m.slSecWantOpen(st, k, 0), true, k);
+  });
   const liveDoc = (withLive = true) => {
     const els = {};
     if (withLive) {

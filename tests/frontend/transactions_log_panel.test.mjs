@@ -349,6 +349,20 @@ test("health slot: one Start button when not started, none when started; repaint
   dom.restore();
 });
 
+test("health slot repaint replaces the slot's content only: the slot id appears once (no nested wrapper)", async () => {
+  const orig = globalThis.api;
+  const dom = fakeDom();
+  globalThis.api = async () => ({ started: false, rows: [], open: [], drift: [] });
+  await m.tlLoad();
+  dom.els.tlHealthSlot = { innerHTML: "untouched" };
+  globalThis.api = orig;
+  await m.tlLoad(); // started flips: the slot repaints
+  const html = '<div id="tlHealthSlot">' + dom.els.tlHealthSlot.innerHTML + "</div>"; // what the DOM holds: the slot node plus its new content
+  assert.equal(html.split('id="tlHealthSlot"').length - 1, 1);
+  assert.equal(window.slHealthSlotHtml().split('id="tlHealthSlot"').length - 1, 1);
+  dom.restore();
+});
+
 test("start asks to confirm: cancel makes no call, OK posts once", async () => {
   const asked = [];
   let answer = false;

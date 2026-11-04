@@ -108,7 +108,7 @@ function slYearOptions() {
 export const slHiddenVoidCount = () => slHiddenVoids;
 const slHiddenText = () => (slHiddenVoids > 0 ? ` (${slHiddenVoids} hidden)` : "");
 function slHeadHtml() {
-  return `<h2>Sales Ledger</h2><label>Sale year <select id="slYear" onchange="slSetYear(this.value)">${slYearOptions()}</select></label> ` +
+  return `<label>Sale year <select id="slYear" onchange="slSetYear(this.value)">${slYearOptions()}</select></label> ` +
     `<label><input type="checkbox" ${slShowVoided ? "checked" : ""} onchange="slSetShowVoided(this.checked)"> Show voided<span id="slVoidedCount">${slHiddenText()}</span></label>`;
 }
 
@@ -120,6 +120,9 @@ function slListHtml() {
 
 let slHashApplied = null;
 const SL_SECS = ["queue", "health", "log", "wash", "cf", "b1099", "cash", "imports", "csv"];
+function slConsumeHash() { // true when the hash was dropped from the address
+  try { history.replaceState(null, "", location.pathname + location.search); return true; } catch (e) { return false; }
+}
 const slPanels = (names) => names.map((n) => (window[n] ? window[n]() : "")).join("");
 
 // Deep link: #sales_ledger?tab=import&sec=b1099. Only read when the hash is ours; location may not exist (node tests).
@@ -143,9 +146,19 @@ function slSection(key, title, fn, stateFn) {
   return window.slSecHtml({ key, title, badges, state: stateFn && window[stateFn] ? window[stateFn]() : "", alertCount: window.slAlertCountOf(sum), open, body: window[fn]() });
 }
 // Log health: a collapsible section once the log is started; the bare Start prompt (never inside a collapsible) before that.
-export function slHealthSlotHtml() {
+export function slHealthSlotInnerHtml() {
   const bare = window.tlStarted && window.tlStarted() === false && window.renderLogHealth;
-  return `<div id="tlHealthSlot">${bare ? window.renderLogHealth() : slSection("health", "Log health", "renderLogHealth")}</div>`;
+  return bare ? window.renderLogHealth() : slSection("health", "Log health", "renderLogHealth", "slHealthStateText");
+}
+export const slHealthSlotHtml = () => `<div id="tlHealthSlot">${slHealthSlotInnerHtml()}</div>`;
+// Closed-summary state text for the two sections that collapse when empty.
+export function slQueueStateText() {
+  const q = window.slSummaries().queue;
+  return !q ? "" : q.count > 0 ? "oldest first — pick the lots sold" : "Nothing waiting";
+}
+export function slHealthStateText() {
+  const h = window.slSummaries().health;
+  return !h ? "" : h.count > 0 ? h.text : window.tlStarted && window.tlStarted() ? "Log agrees with holdings" : "";
 }
 export const slLedgerBodyHtml = () => `<details class="drawer" id="slFormDrawer"><summary>Record a sale</summary><div id="slFormRoot">${slFormHtml()}</div></details>` +
   `<div id="slListRoot">${slListHtml()}</div>`;
@@ -168,14 +181,15 @@ function slSubscribeSummaries() { // repaint only the strip and tab bar; panels 
 }
 
 function slBodyHtml() {
-  const hashTab = slHashTarget().tab;
+  const { tab: hashTab, sec: hashSec } = slHashTarget();
   if (hashTab && hashTab !== slHashApplied) { // a deep link applies once; after that storage (slSetTab) decides
-    slHashApplied = hashTab;
+    slHashApplied = slConsumeHash() ? null : hashTab; // consumed: the same link applies again; no history: remember it instead
     window.slUiSave(window.slUiSetTab(window.slUiLoad(), hashTab));
+    if (hashSec && window.slGo) setTimeout(() => { window.slGo(hashTab, hashSec); slConsumeHash(); }, 0); // after the page mounts
   }
   const active = window.slUiLoad().tab;
   const panel = (id, body) => window.slTabPanelHtml(id, body, active);
-  const fix = slSection("queue", "Sales waiting for lots", "renderSalesQueue") + slHealthSlotHtml() + slSection("log", "Transaction log", "renderTransactionLog") +
+  const fix = slSection("queue", "Sales waiting for lots", "renderSalesQueue", "slQueueStateText") + slHealthSlotHtml() + slSection("log", "Transaction log", "renderTransactionLog") +
     `<div class="divider sl-divider">More views</div>` + slPanels(["renderCashInvestment"]);
   const ledger = slSection("ledger", "Sales", "slLedgerBodyHtml");
   return `<div id="slHeadRoot">${slHeadHtml()}</div>${window.slLiveHtml()}<div id="slStripRoot">${window.slStripHtml(window.slSummaries())}</div>` +
@@ -331,5 +345,5 @@ export async function slImportCommit() {
 
 Object.assign(window, {
   slMoney, slGainHtml, slRowHtml, slTableHtml, slTotalsHtml, slPreviewHtml, renderSalesLedger, slHashTarget, loadSalesLedger, slSubmit, slVoid, slUnvoid,
-  slSetYear, slSetShowVoided, slCsvFile, slImportPreview, slImportCommit, slEdit, slCancelEdit, slRequeue, slDraftSet, slHealthSlotHtml, slLedgerBodyHtml, slOpenForm, slHiddenVoidCount, slCsvBodyHtml, slCsvStateText,
+  slSetYear, slSetShowVoided, slCsvFile, slImportPreview, slImportCommit, slEdit, slCancelEdit, slRequeue, slDraftSet, slHealthSlotHtml, slHealthSlotInnerHtml, slQueueStateText, slHealthStateText, slLedgerBodyHtml, slOpenForm, slHiddenVoidCount, slCsvBodyHtml, slCsvStateText,
 });
