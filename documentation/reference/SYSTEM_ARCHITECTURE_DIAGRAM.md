@@ -376,7 +376,7 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 43. `js/dashboard_decomp_monarch_reconciliation.js?v=1`
 44. `js/dashboard_decomp_cash_accounts.js?v=1`
 45. `js/dashboard_decomp_sales_ledger_ui.js?v=7`
-46. `js/dashboard_decomp_sales_ledger.js?v=12`
+46. `js/dashboard_decomp_sales_ledger.js?v=13`
 47. `js/dashboard_decomp_sales_queue.js?v=2`
 48. `js/dashboard_decomp_sales_tax.js?v=3`
 49. `js/dashboard_decomp_broker_import.js?v=2`
@@ -384,8 +384,8 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 51. `js/dashboard_decomp_cash_investment.js?v=2`
 52. `js/dashboard_decomp_year_end.js?v=1`
 53. `js/dashboard_decomp_holdings_tree.js?v=1`
-54. `js/dashboard_decomp_transactions.js?v=1`
-55. `js/dashboard_decomp_transactions_log.js?v=5`
+54. `js/dashboard_decomp_transactions.js?v=2`
+55. `js/dashboard_decomp_transactions_log.js?v=6`
 56. `js/dashboard_decomp_tax_assumptions.js?v=1`
 57. `js/dashboard_decomp_roth_guardrails.js?v=1`
 58. `js/dashboard_decomp_misc.js?v=1`

@@ -257,11 +257,34 @@ describe("four tabs (Task 4)", () => {
       const i = html.indexOf(text);
       return i > a && i < b;
     };
-    for (const n of ["renderSalesQueue", "renderTransactionLog", "renderCashInvestment", "renderTransactions"]) assert.ok(inPanel("fix", n), n);
+    for (const n of ["renderSalesQueue", "renderTransactionLog", "renderCashInvestment"]) assert.ok(inPanel("fix", n), n);
+    assert.doesNotMatch(html, /id="tx"/); // Task 11: the separate Transactions panel is merged into the Transaction log
     for (const t of ['id="slFormRoot"', 'id="slCsvRoot"', 'id="slListRoot"']) assert.ok(inPanel("ledger", t), t);
     assert.ok(inPanel("tax", "renderSalesTaxYear"));
     for (const n of ["renderBrokerImport", "renderSalesBroker1099b"]) assert.ok(inPanel("import", n), n);
   }));
+
+  test("fix tab: merged Transaction log section, then a More views divider, then only the cash panel; one badge in the log summary", withStubs(() => {
+    const html = m.renderSalesLedger();
+    const fix = html.slice(html.indexOf('id="sl-p-fix"'), html.indexOf('id="sl-p-ledger"'));
+    assert.match(fix, /<div class="divider sl-divider">More views<\/div><div id="ci">renderCashInvestment<\/div><\/div><div class="sl-tab"/); // nothing else follows the cash panel
+    assert.ok(fix.indexOf('id="sl-sec-log"') < fix.indexOf("More views"));
+    assert.equal((fix.match(/More views/g) || []).length, 1);
+    const sum = fix.match(/<summary id="sl-sec-sum-log".*?<\/summary>/)[0];
+    assert.equal((sum.match(/class="sl-sec-badge/g) || []).length, 1);
+  }));
+
+  test("the cash panel after the divider is collapsed by default", async () => {
+    globalThis.localStorage = memStore();
+    await import("../../frontend/js/dashboard_decomp_cash_investment.js");
+    try {
+      const html = m.renderSalesLedger();
+      const fix = html.slice(html.indexOf('id="sl-p-fix"'), html.indexOf('id="sl-p-ledger"'));
+      assert.match(fix, /More views<\/div><div class="sl-import" id="ciRoot"><details ontoggle="ciToggle\(this\.open\)">/);
+      assert.doesNotMatch(fix, /id="ciRoot"><details open/);
+      await new Promise((r) => setTimeout(r, 5)); // let the panel's scheduled load settle inside the test
+    } finally { delete globalThis.renderCashInvestment; delete globalThis.localStorage; }
+  });
 
   test("no id occurs twice", withStubs(() => {
     const all = ids(m.renderSalesLedger());

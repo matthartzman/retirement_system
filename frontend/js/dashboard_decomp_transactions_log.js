@@ -1,5 +1,6 @@
-// Transaction log panel (phase 2 of the transaction log plan): the editable log beside the read-only list in
-// dashboard_decomp_transactions.js. Start it from existing imports and holdings, then add, revise, void and transfer.
+// Transaction log panel (phase 2 of the transaction log plan): one section with two modes over one filter bar. "Edit log"
+// starts the log from existing imports and holdings, then adds, revises, voids and transfers; "History & held lots" is the
+// read-only list of dashboard_decomp_transactions.js (trLoad/trHtml), fetched with the same filters.
 // Logic lives on the server (src/transactions.py, /api/transactions/*). Helpers are bare globals.
 
 const TL_TYPES = [["buy", "Buy"], ["reinvest", "Reinvest"], ["sell", "Sale / redemption"], ["opening", "Opening lot"]];
@@ -11,7 +12,9 @@ let tlXfer = { from_account: "", to_account: "", symbol: "", txn_date: "", picks
 let tlMessage = null;
 let tlHealthAll = false; // health list: false shows the first TL_HEALTH_MAX rows
 const TL_PAGE = 25;
-let tlFilter = { account: "", symbol: "", year: "", type: "" }; // client-side filters over the loaded rows
+let tlFilter = { account: "", symbol: "", year: "", type: "", held: false }; // shared: client-side in edit mode, server-side in history
+let tlMode = "edit"; // "edit" | "history"
+let tlHistKey = null; // filters of the last history load (JSON), or null before the first one
 let tlShown = TL_PAGE; // entries rows currently shown; reset to one page whenever a filter changes
 let tlDrawer = { add: false, xfer: false }; // drawers the user has open (kept across repaints)
 let tlSlotStarted = null; // started state last painted into the health slot
@@ -82,13 +85,42 @@ const tlFilterBarHtml = (log, accts) => {
   const sel = (id, label, opts, key) => `<label for="${id}">${label} ` + tlSelect(id, opts, tlFilter[key], `tlSetFilter.bind(null,'${key}')`) + `</label>`;
   return `<div class="sl-filters tl-filters">` + sel("tlFAcct", "Account", [["", "All accounts"], ...acctList.map((a) => [a, accountDisplayLabel(a)])], "account") +
     `<label for="tlFSym">Symbol <input id="tlFSym" size="7" value="${esc(tlFilter.symbol)}" onchange="tlSetFilter('symbol',this.value)"></label>` +
-    sel("tlFYear", "Filter year", [["", "All years"], ...years.map((y) => [y, y])], "year") + sel("tlFType", "Type", [["", "All types"], ...Object.entries(TL_LABEL)], "type") + `</div>`;
+    sel("tlFYear", "Filter year", [["", "All years"], ...years.map((y) => [y, y])], "year") + sel("tlFType", "Type", [["", "All types"], ...Object.entries(TL_LABEL)], "type") +
+    (tlMode === "history" ? `<label for="tlFHeld"><input type="checkbox" id="tlFHeld"${tlFilter.held ? " checked" : ""} onchange="tlSetFilter('held',this.checked)"> Held only</label>` : "") + `</div>`;
 };
+const tlModeHtml = () => `<div class="tl-mode" role="group" aria-label="Log view">` + [["edit", "tlModeEdit", "Edit log"], ["history", "tlModeHistory", "History &amp; held lots"]].map(([k, id, t]) =>
+  `<button type="button" class="btn" id="${id}" aria-pressed="${tlMode === k}" onclick="tlSetMode('${k}')">${t}</button>`).join(" ") + `</div>`;
+const tlFilterKey = () => JSON.stringify(tlFilter);
+const tlHistoryHtml = () => { // history for the current filters, once loaded
+  const v = tlHistKey === tlFilterKey() && window.trState && window.trState().view;
+  return v && window.trHtml ? window.trHtml(v, tlFilter) : `<p class="muted">Loading…</p>`;
+};
+const tlBodyHtml = (log) => (tlMode === "history" ? tlHistoryHtml() : tlEntriesHtml(log));
 function tlPaintEntries() {
   const el = tlLog && document.getElementById("tlEntries");
-  if (el) el.innerHTML = tlEntriesHtml(tlLog);
+  if (el) el.innerHTML = tlBodyHtml(tlLog);
 }
-export function tlSetFilter(key, value) { tlFilter = { ...tlFilter, [key]: String(value || "") }; tlShown = TL_PAGE; tlPaintEntries(); }
+async function tlLoadHistory() {
+  if (!window.trLoad) return;
+  const f = { ...tlFilter };
+  await window.trLoad(f);
+  tlHistKey = JSON.stringify(f);
+  if (tlMode === "history") tlPaintEntries();
+}
+// Edit mode filters the loaded rows; history mode asks the server with the same filters.
+export function tlSetFilter(key, value) {
+  tlFilter = { ...tlFilter, [key]: key === "held" ? !!value : String(value || "") }; tlShown = TL_PAGE;
+  if (tlMode === "history") return tlLoadHistory();
+  tlPaintEntries();
+}
+// Switching keeps the filters and the edit-mode paging; history is fetched only when not loaded for these filters.
+export function tlSetMode(mode) {
+  tlMode = mode === "history" ? "history" : "edit";
+  tlPaintRoot();
+  const b = document.getElementById(tlMode === "history" ? "tlModeHistory" : "tlModeEdit");
+  if (b && b.focus) b.focus(); // the pressed button was repainted
+  return tlMode === "history" && tlHistKey !== tlFilterKey() ? tlLoadHistory() : Promise.resolve();
+}
 export function tlShowMore() {
   const first = tlNewestFirst(tlLog)[tlShown];
   tlShown += TL_PAGE; tlPaintEntries();
@@ -97,7 +129,7 @@ export function tlShowMore() {
   if (window.slAnnounce) window.slAnnounce(`${TL_PAGE} more rows shown`);
 }
 export function tlFocusRow(account, symbol, purchase_date) { // purchase_date identifies the health row; the log filters by account and symbol
-  tlFilter = { account, symbol, year: "", type: "" }; tlShown = TL_PAGE;
+  tlFilter = { account, symbol, year: "", type: "", held: false }; tlShown = TL_PAGE; tlMode = "edit";
   tlPaint(); // full log repaint so the filter controls show the new values
   if (typeof window.slGo === "function") window.slGo("fix", "log");
 }
@@ -135,7 +167,8 @@ export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit, opts = 
   const drawer = (key, id, title, body, open) => `<details class="drawer" id="${id}"${open ? " open" : ""} ontoggle="tlDrawerToggle('${key}',this.open)"><summary>${title}</summary>${body}</details>`;
   const drawers = `<div class="tl-drawers">` + drawer("add", "tlAddDrawer", edit ? "＋ Revise transaction" : "＋ Add transaction", addForm, edit || tlDrawer.add) +
     drawer("xfer", "tlXferDrawer", "＋ Transfer between accounts", xferForm, tlDrawer.xfer) + `</div>`;
-  return `<h3>Transaction log</h3>${msg}${drift}${managedBox}${drawers}${tlFilterBarHtml(log, accts)}<div id="tlEntries">${tlEntriesHtml(log)}</div>`;
+  const editOnly = tlMode === "edit" ? `${managedBox}${drawers}` : "";
+  return `<h3>Transaction log</h3>${msg}${drift}${tlModeHtml()}${editOnly}${tlFilterBarHtml(log, accts)}<div id="tlEntries">${tlBodyHtml(log)}</div>`;
 }
 
 export function renderTransactionLog() {
@@ -149,9 +182,12 @@ export function tlSummary() {
   return { health: { count: n, tone: n > 0 ? "bad" : "", text: n > 0 ? `drift: ${n} accounts` : "" }, log: { count: tlLog ? (tlLog.rows || []).length : 0, tone: "", text: "" } };
 }
 
-function tlPaint() {
+function tlPaintRoot() {
   const root = document.getElementById("tlRoot");
   if (root) root.innerHTML = tlHtml(tlLog, undefined, undefined, undefined, { health: false });
+}
+function tlPaint() {
+  tlPaintRoot();
   const slot = document.getElementById("tlHealthSlot"), hroot = document.getElementById("tlHealthRoot");
   const started = tlStarted();
   if (slot && window.slHealthSlotHtml && started !== tlSlotStarted) slot.innerHTML = window.slHealthSlotHtml(); // shell <-> bare prompt only when the started state flips
@@ -168,19 +204,31 @@ export async function tlLoad() {
 async function tlPost(url, body, done) {
   try { await api(url, { method: "POST", body: JSON.stringify(body || {}) }); tlMessage = { text: done, error: false }; }
   catch (e) { tlMessage = { text: e.message, error: true }; tlPaint(); return false; }
-  await tlLoad();
-  if (window.trLoad) window.trLoad();
+  await tlReloadAll();
   return true;
 }
+// Refresh the log and, when history is shown or was loaded, the history once (with the current filters).
+export async function tlReloadAll() {
+  await tlLoad();
+  if (tlMode === "history" || tlHistKey !== null) await tlLoadHistory();
+}
 
+// Proceeds when no dialog is available, by design (tests, embedded views).
 const tlConfirmed = (msg) => !(typeof window !== "undefined" && typeof window.confirm === "function") || window.confirm(msg);
 export const tlStart = () => !tlConfirmed("Starting the log means holdings will now be written by the log.") ? Promise.resolve(false) : tlPost("/api/transactions/backfill", {}, "The transaction log was started.");
-export const tlSetManaged = (account, on) => !on && !tlConfirmed("Holdings freeze at their last state and the log stops updating them.") ? (tlPaint(), Promise.resolve(false)) : tlPost(`/api/transactions/accounts/${encodeURIComponent(account)}/managed`, { managed: !!on },
-  on ? "The account is now managed by the log." : "The account is no longer managed; its holdings stay as they are.").then((ok) => {
-  if (ok && window.loadManagedHoldingAccounts) window.loadManagedHoldingAccounts();
-  if (!ok) tlLoad();
-  return ok;
-});
+function tlRevertManaged(account) { // re-check only this checkbox; no repaint, so an open "Edit…" details stays open
+  const boxes = typeof document !== "undefined" && document.querySelectorAll ? document.querySelectorAll("input[data-managed]") : [];
+  for (const b of boxes) if (b.getAttribute("data-managed") === account) b.checked = true;
+}
+export function tlSetManaged(account, on) {
+  if (!on && !tlConfirmed("Holdings freeze at their last state and the log stops updating them.")) { tlRevertManaged(account); return Promise.resolve(false); }
+  return tlPost(`/api/transactions/accounts/${encodeURIComponent(account)}/managed`, { managed: !!on },
+    on ? "The account is now managed by the log." : "The account is no longer managed; its holdings stay as they are.").then((ok) => {
+    if (ok && window.loadManagedHoldingAccounts) window.loadManagedHoldingAccounts();
+    if (!ok) tlLoad();
+    return ok;
+  });
+}
 export function tlSetForm(k, v) { tlForm = { ...tlForm, [k]: v }; }
 export function tlSetFormAccount(v) { tlSetForm("account", v); }
 export function tlSetFormType(v) { tlSetForm("type", v); tlPaint(); }
@@ -205,7 +253,7 @@ if (typeof document !== "undefined" && document.addEventListener) {
   document.addEventListener("keydown", tlOnKeydown);
 }
 export function tlVoid(id) {
-  if (typeof confirm === "function" && !confirm("Void this transaction? It stays in the history as voided.")) return Promise.resolve(false);
+  if (!tlConfirmed("Void this transaction? It stays in the history as voided.")) return Promise.resolve(false);
   return tlPost(`/api/transactions/${Number(id)}/void`, {}, "Transaction voided.");
 }
 export function tlSetXfer(k, v) { tlXfer = { ...tlXfer, [k]: v }; }
@@ -218,5 +266,5 @@ export function tlTransfer() {
   return tlPost("/api/transactions/transfer", { from_account: tlXfer.from_account, to_account: tlXfer.to_account, symbol: tlXfer.symbol, txn_date: tlXfer.txn_date, allocation }, "Shares transferred.");
 }
 
-Object.assign(window, { tlHealthHtml, tlManagedChipsHtml, renderLogHealth, tlStarted, tlFocusRow, tlShowAllHealth, tlSummary, renderTransactionLog, tlHtml, tlFilterRows, tlPage, tlSetFilter, tlShowMore, tlDrawerToggle, tlLoad, tlStart, tlSetManaged, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlOnKeydown, tlVoid,
+Object.assign(window, { tlHealthHtml, tlManagedChipsHtml, renderLogHealth, tlStarted, tlFocusRow, tlShowAllHealth, tlSummary, renderTransactionLog, tlHtml, tlFilterRows, tlPage, tlSetFilter, tlSetMode, tlReloadAll, tlShowMore, tlDrawerToggle, tlLoad, tlStart, tlSetManaged, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlOnKeydown, tlVoid,
   tlSetXfer, tlSetXferFrom, tlSetXferTo, tlPick, tlTransfer });

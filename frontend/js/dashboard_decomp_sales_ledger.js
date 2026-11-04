@@ -162,7 +162,7 @@ function slBodyHtml() {
   const active = window.slUiLoad().tab;
   const panel = (id, body) => window.slTabPanelHtml(id, body, active);
   const fix = slSection("queue", "Sales waiting for lots", "renderSalesQueue") + slHealthSlotHtml() + slSection("log", "Transaction log", "renderTransactionLog") +
-    slPanels(["renderCashInvestment", "renderTransactions"]);
+    `<div class="divider sl-divider">More views</div>` + slPanels(["renderCashInvestment"]);
   const ledger = `<div id="slFormRoot">${slFormHtml()}</div><div id="slCsvRoot">${slImportHtml()}</div>` +
     `<h3>Ledger</h3><div id="slListRoot">${slListHtml()}</div>`;
   return `<div id="slHeadRoot">${slHeadHtml()}</div>${window.slLiveHtml()}<div id="slStripRoot">${window.slStripHtml(window.slSummaries())}</div>` +

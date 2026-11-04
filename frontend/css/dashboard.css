@@ -1329,5 +1329,9 @@ header :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{o
 .tl-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:10px 0}
 .tl-filters label{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted)}
 .tl-count{margin:6px 0}
+.tl-mode{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.tl-mode .btn[aria-pressed="true"]{background:var(--soft);border-color:var(--accent);font-weight:700}
+.sl-divider{display:flex;align-items:center;gap:10px;margin:14px 0 8px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.09em;font-weight:900}
+.sl-divider::before,.sl-divider::after{content:"";flex:1;border-top:1px solid var(--line)}
 .tl-table-wrap{overflow-x:auto}
 #tlEntries tr:focus{outline:2px solid var(--accent)}
