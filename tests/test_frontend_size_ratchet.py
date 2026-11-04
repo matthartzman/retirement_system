@@ -661,7 +661,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 (Account Tax Basis page: renderAccountTaxBasis, help entry, glossary terms, row routing; +1 in dashboard.js): raised to 42,609, the old ceiling plus both changes.
 # 2026-11-03 sales-ledger redesign: +52 (new module dashboard_decomp_sales_ledger_ui.js; dashboard.js did not grow)
 # 2026-11-03 sales-ledger redesign: +37 (Task 2 tab bar/panel builders)
-TOTAL_JS_MAX_LINES = 42_698
+# 2026-11-03 sales-ledger redesign: +21 (Task 3 scoped repaint, drafts, header)
+TOTAL_JS_MAX_LINES = 42_719
 
 
 

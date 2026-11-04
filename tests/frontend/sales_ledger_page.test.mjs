@@ -10,7 +10,9 @@ before(async () => {
   globalThis.accountDisplayLabel = (a) => String(a).replace(/^Member_1_/, "Matt's ");
   const fields = {};
   globalThis.__fields = fields;
-  globalThis.document = { getElementById: (id) => (id in fields ? { value: fields[id] } : null) };
+  const roots = {};
+  globalThis.__roots = roots;
+  globalThis.document = { getElementById: (id) => (id in fields ? { value: fields[id] } : roots[id] || null) };
   globalThis.api = async (url, opts) => {
     calls.push([url, opts && opts.method, opts && opts.body ? JSON.parse(opts.body) : null]);
     if (url.startsWith("/api/sales?")) return { success: true, sales: [], totals: { count: 0, short_gain: 0, long_gain: 0 } };
@@ -106,6 +108,63 @@ describe("tax-year panel hook", () => {
     } finally {
       delete globalThis.renderSalesTaxYear;
       delete globalThis.loadSalesTaxYear;
+    }
+  });
+});
+
+describe("scoped repaint keeps drafts (F10)", () => {
+  const clearFields = () => { for (const k of Object.keys(globalThis.__fields)) delete globalThis.__fields[k]; };
+  const mountRoots = () => {
+    for (const id of ["slHeadRoot", "slFormRoot", "slCsvRoot", "slListRoot"]) {
+      globalThis.__roots[id] = { writes: 0, _h: "", get innerHTML() { return this._h; }, set innerHTML(v) { this.writes++; this._h = v; } };
+    }
+  };
+  beforeEach(() => { clearFields(); mountRoots(); });
+
+  test("a ledger load repaints only the list and keeps the form and CSV drafts", async () => {
+    m.slDraftSet("slSymbol", "VXUS");
+    m.slDraftSet("slCsv", "a,b\n1,2\n");
+    await m.loadSalesLedger();
+    const r = globalThis.__roots;
+    assert.ok(r.slListRoot.writes >= 1);
+    assert.equal(r.slFormRoot.writes, 0);
+    assert.equal(r.slCsvRoot.writes, 0);
+    assert.equal(r.slHeadRoot.writes, 0);
+    calls.length = 0;
+    await m.slSubmit();
+    assert.equal(calls.find((c) => c[0] === "/api/sales" && c[1] === "POST")[2].symbol, "VXUS");
+    m.slDraftSet("slCsv", "a,b\n1,2\n");
+    await m.slImportPreview();
+    assert.deepEqual(calls.find((c) => c[0] === "/api/sales/import/preview")[2], { content: "a,b\n1,2\n" });
+  });
+
+  test("changing the year does not rewrite the form or CSV roots", async () => {
+    await m.slSetYear("2025");
+    assert.equal(globalThis.__roots.slFormRoot.writes, 0);
+    assert.equal(globalThis.__roots.slCsvRoot.writes, 0);
+    await m.slSetYear(String(new Date().getFullYear()));
+  });
+
+  test("preview then commit posts the same CSV text", async () => {
+    m.slDraftSet("slCsv", "sale_date,symbol\n2026-01-02,VTI\n");
+    await m.slImportPreview();
+    await m.slImportCommit();
+    const bodies = calls.filter((c) => c[0] === "/api/sales/import/preview" || c[0] === "/api/sales/import/commit").map((c) => c[2].content);
+    assert.deepEqual(bodies, ["sale_date,symbol\n2026-01-02,VTI\n", "sale_date,symbol\n2026-01-02,VTI\n"]);
+  });
+
+  test("the form is drawn from the draft", () => {
+    m.slDraftSet("slShares", "42");
+    assert.match(m.renderSalesLedger(), /id="slShares"[^>]*value="42"/);
+  });
+
+  test("header says Sale year with an All years option; ledger ids appear once", () => {
+    const html = m.renderSalesLedger();
+    assert.match(html, /Sale year/);
+    assert.match(html, /<select id="slYear"[^>]*>\s*<option value="" ?[^>]*>All years/);
+    assert.match(html, /Show voided/);
+    for (const id of ["slAccount", "slDate", "slClass", "slSymbol", "slShares", "slProceeds", "slFees", "slBasis", "slPurchase", "slCsv", "slYear"]) {
+      assert.equal(html.split(`id="${id}"`).length - 1, 1, id);
     }
   });
 });
