@@ -1335,3 +1335,10 @@ header :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{o
 .sl-divider::before,.sl-divider::after{content:"";flex:1;border-top:1px solid var(--line)}
 .tl-table-wrap{overflow-x:auto}
 #tlEntries tr:focus{outline:2px solid var(--accent)}
+.sl-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:6px 0}
+.sl-toolbar p{margin:0}
+.sl-form .field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.sl-scroll{max-height:70vh;overflow:auto}
+.sl-scroll th{position:sticky;top:0;z-index:1;background:#fbfaf7;scroll-margin-top:40px}
+.sl-scroll tbody tr,.sl-scroll .btn{scroll-margin-top:40px}
+.sl-chip{font-size:12px;padding:0 8px;border-radius:9px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}

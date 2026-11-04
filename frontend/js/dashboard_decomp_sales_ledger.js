@@ -19,6 +19,7 @@ let slEditId = null;
 let slAccounts = [];
 let slDraft = {}; // form field id -> text, kept on input so a repaint or reload never loses a half-filled sale
 let slCsvText = ""; // pasted CSV text, kept on input for the same reason
+let slHiddenVoids = 0; // voided rows the current selection hides (one extra fetch when Show voided is off)
 
 export function slMoney(v) {
   if (v === null || v === undefined || Number.isNaN(Number(v))) return "—";
@@ -42,12 +43,12 @@ export function slRowHtml(s) {
     : btn("slVoid", "Void");
   return `<tr class="${voided ? "sl-voided" : ""}"><td>${esc(s.sale_date)}</td><td>${esc(accountDisplayLabel(s.account))}</td><td>${esc(s.symbol)}</td>` +
     `<td class="rc-num">${esc(String(s.shares))}</td><td class="rc-num">${slMoney(s.proceeds)}</td><td class="rc-num">${slMoney(s.fees)}</td>` +
-    `<td class="rc-num">${slMoney(s.basis)}</td><td>${slGainHtml(s.gain)}</td><td>${esc(SL_TERM[s.holding_period] || "")}</td><td>${action}</td></tr>`;
+    `<td class="rc-num">${slMoney(s.basis)}</td><td>${s.gain === null || s.gain === undefined ? `<span class="sl-chip">tax-deferred — no gain reported</span>` : slGainHtml(s.gain)}</td><td>${esc(SL_TERM[s.holding_period] || "")}</td><td>${action}</td></tr>`;
 }
 
 export function slTableHtml(sales) {
   if (!sales || !sales.length) return `<p class="muted">No sales recorded for this selection.</p>`;
-  return `<div class="rc-scroll"><table class="rc-table"><thead><tr><th>Sale date</th><th>Account</th><th>Symbol</th><th class="rc-num">Shares</th>` +
+  return `<div class="rc-scroll sl-scroll" role="region" aria-label="Sales" tabindex="0"><table class="rc-table"><thead><tr><th>Sale date</th><th>Account</th><th>Symbol</th><th class="rc-num">Shares</th>` +
     `<th class="rc-num">Proceeds</th><th class="rc-num">Fees</th><th class="rc-num">Basis</th><th class="rc-num">Gain</th><th>Term</th><th></th></tr></thead>` +
     `<tbody>${sales.map(slRowHtml).join("")}</tbody></table></div>`;
 }
@@ -99,14 +100,17 @@ function slYearOptions() {
     [...years].sort().reverse().map((y) => `<option value="${y}"${y === slYear ? " selected" : ""}>${y}</option>`).join("");
 }
 
+export const slHiddenVoidCount = () => slHiddenVoids;
+const slHiddenText = () => (slHiddenVoids > 0 ? ` (${slHiddenVoids} hidden)` : "");
 function slHeadHtml() {
   return `<h2>Sales Ledger</h2><label>Sale year <select id="slYear" onchange="slSetYear(this.value)">${slYearOptions()}</select></label> ` +
-    `<label><input type="checkbox" ${slShowVoided ? "checked" : ""} onchange="slSetShowVoided(this.checked)"> Show voided</label>`;
+    `<label><input type="checkbox" ${slShowVoided ? "checked" : ""} onchange="slSetShowVoided(this.checked)"> Show voided<span id="slVoidedCount">${slHiddenText()}</span></label>`;
 }
 
 function slListHtml() {
   const msg = slMessage ? `<p class="${slMessage.error ? "field-error" : "muted"}" role="status">${esc(slMessage.text)}</p>` : "";
-  return msg + (slError ? `<p class="field-error">${esc(slError)}</p>` : slData ? slTotalsHtml(slData.totals) + slTableHtml(slData.sales) : `<p class="muted">Loading…</p>`);
+  const bar = `<div class="sl-toolbar">${slData ? slTotalsHtml(slData.totals) : ""}<button class="btn" type="button" onclick="slOpenForm()">＋ Record a sale</button></div>`;
+  return msg + bar + (slError ? `<p class="field-error">${esc(slError)}</p>` : slData ? slTableHtml(slData.sales) : `<p class="muted">Loading…</p>`);
 }
 
 let slHashApplied = null;
@@ -138,6 +142,10 @@ export function slHealthSlotHtml() {
   const bare = window.tlStarted && window.tlStarted() === false && window.renderLogHealth;
   return `<div id="tlHealthSlot">${bare ? window.renderLogHealth() : slSection("health", "Log health", "renderLogHealth")}</div>`;
 }
+export const slLedgerBodyHtml = () => `<details class="drawer" id="slFormDrawer"><summary>Record a sale</summary><div id="slFormRoot">${slFormHtml()}</div></details>` +
+  `<div id="slCsvRoot">${slImportHtml()}</div><div id="slListRoot">${slListHtml()}</div>`;
+const slDrawer = (open) => { const d = typeof document !== "undefined" && document.getElementById("slFormDrawer"); if (d) d.open = open; };
+export function slOpenForm() { slDrawer(true); const f = typeof document !== "undefined" && document.getElementById("slDate"); if (f && f.focus) f.focus(); }
 function slPaintTabs() { // repaint the strip and tab bar without losing keyboard focus inside the tab bar
   const act = typeof document !== "undefined" && document.activeElement;
   const id = act && act.id;
@@ -163,8 +171,7 @@ function slBodyHtml() {
   const panel = (id, body) => window.slTabPanelHtml(id, body, active);
   const fix = slSection("queue", "Sales waiting for lots", "renderSalesQueue") + slHealthSlotHtml() + slSection("log", "Transaction log", "renderTransactionLog") +
     `<div class="divider sl-divider">More views</div>` + slPanels(["renderCashInvestment"]);
-  const ledger = `<div id="slFormRoot">${slFormHtml()}</div><div id="slCsvRoot">${slImportHtml()}</div>` +
-    `<h3>Ledger</h3><div id="slListRoot">${slListHtml()}</div>`;
+  const ledger = slSection("ledger", "Sales", "slLedgerBodyHtml");
   return `<div id="slHeadRoot">${slHeadHtml()}</div>${window.slLiveHtml()}<div id="slStripRoot">${window.slStripHtml(window.slSummaries())}</div>` +
     `<div id="slTabsRoot">${slTabsHtml(active)}</div>` +
     panel("fix", fix) + panel("ledger", ledger) + panel("tax", slSection("wash", "Realized gains & wash sales", "renderSalesTaxYear")) +
@@ -200,6 +207,8 @@ export async function loadSalesLedger() {
     if (out && out.sales) slAccounts = [...new Set([...slAccounts, ...out.sales.map((x) => x.account)])].sort();
     slData = out && out.success ? out : null;
     if (!slData) slError = "The ledger could not be loaded.";
+    await slLoadHiddenVoids();
+    if (window.slPublish && slData) window.slPublish("ledger", { count: slData.sales.length, tone: "", text: `${slData.sales.length} sale${slData.sales.length === 1 ? "" : "s"}` });
     if (window.loadSalesTaxYear && slYear) window.loadSalesTaxYear(slYear);
   } catch (e) {
     slData = null;
@@ -207,6 +216,20 @@ export async function loadSalesLedger() {
   }
   slLoading = false;
   slPaint();
+}
+
+async function slLoadHiddenVoids() { // one extra read, only when voided rows are hidden; a failure just shows nothing
+  slHiddenVoids = 0;
+  if (!slShowVoided) {
+    try {
+      const q = new URLSearchParams({ include_voided: "1" });
+      if (slYear) q.set("year", slYear);
+      const all = await api("/api/sales?" + q);
+      slHiddenVoids = ((all && all.sales) || []).filter((x) => x.status === "voided").length;
+    } catch (e) { slHiddenVoids = 0; }
+  }
+  const el = typeof document !== "undefined" && document.getElementById("slVoidedCount");
+  if (el) el.textContent = slHiddenText();
 }
 
 const val = (id) => { const el = document.getElementById(id); return el ? el.value : (slDraft[id] ?? ""); };
@@ -235,25 +258,32 @@ export async function slSubmit() {
   slDraft = {}; // typing while the save is in flight lands in the fresh draft
   const out = await slPost(editing ? `/api/sales/${Number(editing)}/replace` : "/api/sales", body,
     editing ? "Sale updated; the old row is kept as voided." : "Sale recorded.");
-  if (out) { slEditId = null; slPaintForm(); } else slDraft = { ...sent, ...slDraft };
+  if (out) { slEditId = null; slPaintForm(); slDrawer(false); } else slDraft = { ...sent, ...slDraft };
 }
 
 export function slEdit(id) {
   const s = slData && slData.sales.find((x) => Number(x.sale_id) === Number(id));
   if (!s) return;
   slEditId = Number(id);
+  slDrawer(true); // open first, then set the values
   slDraft = Object.fromEntries(Object.entries(SL_FORM).map(([elId, k]) => [elId, s[k] === null || s[k] === undefined ? "" : String(s[k])]));
   slPaintForm();
 }
 
-export function slCancelEdit() { slEditId = null; slDraft = {}; slPaintForm(); }
+export function slCancelEdit() { slEditId = null; slDraft = {}; slDrawer(false); slPaintForm(); }
 export async function slRequeue(id) {
   const out = await slPost(`/api/sales/${Number(id)}/requeue`, null, "Sale sent back to the queue; its shares are back in their lots. It is waiting on the Fix tab.");
   if (out && window.sqReload) window.sqReload();
   if (out && window.slGo) window.slGo("fix", "queue");
 }
 
-export const slVoid = (id) => slPost(`/api/sales/${Number(id)}/void`, null, "Sale voided. Use Restore to bring it back.");
+export async function slVoid(id) {
+  const s = slData && slData.sales.find((x) => Number(x.sale_id) === Number(id));
+  const gain = s && s.gain !== null && s.gain !== undefined ? (s.gain > 0 ? "+" : "") + slMoney(s.gain) : "this sale";
+  const year = s && s.sale_date ? String(s.sale_date).slice(0, 4) : slYear || "all-years";
+  if (typeof window !== "undefined" && window.confirm && !window.confirm(`Remove ${gain} from ${year} totals?`)) return undefined;
+  return slPost(`/api/sales/${Number(id)}/void`, null, "Sale voided. Use Restore to bring it back.");
+}
 export const slUnvoid = (id) => slPost(`/api/sales/${Number(id)}/unvoid`, null, "Sale restored.");
 export function slSetYear(v) { slYear = String(v || "").trim(); return loadSalesLedger(); }
 export function slSetShowVoided(on) { slShowVoided = !!on; return loadSalesLedger(); }
@@ -289,5 +319,5 @@ export async function slImportCommit() {
 
 Object.assign(window, {
   slMoney, slGainHtml, slRowHtml, slTableHtml, slTotalsHtml, slPreviewHtml, renderSalesLedger, slHashTarget, loadSalesLedger, slSubmit, slVoid, slUnvoid,
-  slSetYear, slSetShowVoided, slCsvFile, slImportPreview, slImportCommit, slEdit, slCancelEdit, slRequeue, slDraftSet, slHealthSlotHtml,
+  slSetYear, slSetShowVoided, slCsvFile, slImportPreview, slImportCommit, slEdit, slCancelEdit, slRequeue, slDraftSet, slHealthSlotHtml, slLedgerBodyHtml, slOpenForm, slHiddenVoidCount,
 });

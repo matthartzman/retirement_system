@@ -349,3 +349,89 @@ describe("summary change repaints only strip and tab bar roots (Task 6)", () => 
     for (const id of ["slStripRoot", "slTabsRoot", "slHeadRoot", "slFormRoot", "slCsvRoot", "slListRoot"]) delete globalThis.__roots[id];
   });
 });
+
+describe("ledger tab (Task 12)", () => {
+  const rows = [SALE(), SALE({ sale_id: 8, gain: null, tax_class: "roth" }), SALE({ sale_id: 9, status: "voided", gain: 100 })];
+  const withApi = (handler, fn) => async () => {
+    const realApi = globalThis.api;
+    globalThis.api = async (url, opts) => { const r = await handler(url, opts); return r === undefined ? realApi(url, opts) : r; };
+    try { await fn(); } finally { globalThis.api = realApi; }
+  };
+  const mkRoot = (id) => (globalThis.__roots[id] = { writes: 0, log: null, _h: "", get innerHTML() { return this._h; }, set innerHTML(v) { this.writes++; this._h = v; if (this.log) this.log.push(id); } });
+  const loadWith = (extra) => async (url, opts) => {
+    if (url.startsWith("/api/sales?")) {
+      calls.push([url, opts && opts.method, null]);
+      const hidden = url.includes("include_voided");
+      const sales = hidden ? rows : rows.slice(0, 2);
+      return { success: true, sales, totals: { count: sales.length, short_gain: 0, long_gain: 495 } };
+    }
+    return extra ? extra(url) : undefined;
+  };
+
+  test("totals come from the server (voided and tax-deferred excluded there); null gain gets a chip", withApi(loadWith(), async () => {
+    mkRoot("slListRoot");
+    await m.loadSalesLedger();
+    const h = globalThis.__roots.slListRoot.innerHTML;
+    assert.match(h, /<strong>2<\/strong> sales · short-term net .*\$0\.00.* · long-term net .*\+\$495\.00/);
+    assert.match(h, /tax-deferred — no gain reported/);
+    assert.match(h, /＋ Record a sale/);
+    assert.match(m.slRowHtml(SALE({ gain: null })), /tax-deferred — no gain reported/);
+    assert.doesNotMatch(m.slRowHtml(SALE()), /tax-deferred/);
+    delete globalThis.__roots.slListRoot;
+  }));
+
+  test("table sits in a focusable labelled scroll region", () => {
+    assert.match(m.slTableHtml([SALE()]), /<div class="rc-scroll sl-scroll" role="region" aria-label="Sales" tabindex="0">/);
+  });
+
+  test("void asks first: cancel posts nothing, confirm posts once and names the gain and year", withApi(loadWith(), async () => {
+    await m.loadSalesLedger();
+    const real = globalThis.confirm;
+    const msgs = [];
+    try {
+      globalThis.confirm = (t) => { msgs.push(t); return false; };
+      calls.length = 0;
+      await m.slVoid(7);
+      assert.equal(calls.filter((c) => c[1] === "POST").length, 0);
+      globalThis.confirm = (t) => { msgs.push(t); return true; };
+      await m.slVoid(7);
+      assert.equal(calls.filter((c) => c[1] === "POST").length, 1);
+      assert.equal(msgs[1], "Remove +$495.00 from 2026 totals?");
+      await m.slVoid(8);
+      assert.equal(msgs[2], "Remove this sale from 2026 totals?");
+    } finally { if (real === undefined) delete globalThis.confirm; else globalThis.confirm = real; }
+  }));
+
+  test("the drawer opens before Edit sets the values; ids stay unique", withApi(loadWith(), async () => {
+    await m.loadSalesLedger();
+    const order = [];
+    const form = mkRoot("slFormRoot"); form.log = order;
+    globalThis.__roots.slFormDrawer = { set open(v) { order.push("open:" + v); } };
+    m.slEdit(7);
+    assert.deepEqual(order, ["open:true", "slFormRoot"]);
+    order.length = 0;
+    m.slCancelEdit();
+    assert.deepEqual(order, ["open:false", "slFormRoot"]);
+    delete globalThis.__roots.slFormDrawer; delete globalThis.__roots.slFormRoot;
+    const html = m.renderSalesLedger();
+    assert.equal(html.split('id="slFormDrawer"').length - 1, 1);
+    assert.match(html, /<details class="drawer" id="slFormDrawer">/);
+    assert.match(html, /<div class="rc-scroll sl-scroll"|id="sl-sec-ledger"/);
+  }));
+
+  test("hidden voided count comes from one extra fetch; absent on failure", withApi(loadWith(), async () => {
+    const label = { textContent: "" };
+    globalThis.__roots.slVoidedCount = label;
+    calls.length = 0;
+    await m.loadSalesLedger();
+    assert.equal(calls.filter((c) => c[0].includes("include_voided=1")).length, 1);
+    assert.equal(m.slHiddenVoidCount(), 1);
+    assert.equal(label.textContent, " (1 hidden)");
+    assert.match(m.renderSalesLedger(), /id="slVoidedCount">\s\(1 hidden\)/);
+    globalThis.api = async (url) => { if (url.includes("include_voided=1")) throw new Error("x"); return { success: true, sales: [], totals: { count: 0, short_gain: 0, long_gain: 0 } }; };
+    await m.loadSalesLedger();
+    assert.equal(m.slHiddenVoidCount(), 0);
+    assert.equal(label.textContent, "");
+    delete globalThis.__roots.slVoidedCount;
+  }));
+});
