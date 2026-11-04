@@ -384,6 +384,24 @@ describe("real-DOM fixes (Task 16a)", () => {
     } finally { window.slGo = realGo; delete globalThis.document; globalThis.document = { getElementById: (id) => (id in globalThis.__fields ? { value: globalThis.__fields[id] } : globalThis.__roots[id] || null) }; }
   }));
 
+  test("storage off: a summary publish repaints the tab bar with the clicked tab; Expand/Collapse act on it", withStubs(() => {
+    globalThis.localStorage = { getItem() { throw new Error("denied"); }, setItem() { throw new Error("denied"); } };
+    const prev = globalThis.document;
+    const els = { slTabsRoot: { innerHTML: "" }, slStripRoot: { innerHTML: "" } };
+    for (const t of ["fix", "ledger", "tax", "import"]) { els[`sl-t-${t}`] = { setAttribute() {}, classList: { toggle() {} } }; els[`sl-p-${t}`] = {}; }
+    globalThis.document = { getElementById: (id) => els[id] || null, activeElement: null };
+    try {
+      assert.match(m.renderSalesLedger(), /id="sl-t-fix"[^>]*aria-selected="true"/); // subscribes the tab bar repaint
+      window.slSetTab("ledger");
+      window.slPublish("queue", { count: 2, tone: "warn", text: "2 waiting" });
+      assert.match(els.slTabsRoot.innerHTML, /id="sl-t-ledger"[^>]*aria-selected="true"/);
+      assert.match(els.slTabsRoot.innerHTML, /id="sl-t-fix"[^>]*aria-selected="false"/);
+      assert.match(els.slTabsRoot.innerHTML, /onclick="slSecAll\(null,true\)"/);
+      assert.match(els.slTabsRoot.innerHTML, /onclick="slSecAll\(null,false\)"/);
+      assert.match(m.renderSalesLedger(), /id="sl-t-ledger"[^>]*aria-selected="true"/); // a full re-render keeps it too
+    } finally { window.slPublish("queue", { count: 0, tone: "", text: "" }); window.slSetTab("fix"); globalThis.document = prev; }
+  }));
+
   test("queue and health shells are closed with state text when there is nothing to show; open when alerting", withStubs(() => {
     window.slPublish("queue", { count: 0, tone: "", text: "" });
     window.slPublish("health", { count: 0, tone: "", text: "" });

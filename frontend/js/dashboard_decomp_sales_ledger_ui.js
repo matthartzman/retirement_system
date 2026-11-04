@@ -80,6 +80,17 @@ export function slTabBarHtml(active, markers = {}) {
 export const slTabPanelHtml = (id, bodyHtml, active) =>
   `<div class="sl-tab" role="tabpanel" id="sl-p-${id}" aria-labelledby="sl-t-${id}"${id === active ? "" : " hidden"}>${bodyHtml}</div>`;
 
+// The active tab is kept in memory once chosen, so it survives repaints when storage is off; storage (or a deep link) only
+// gives the initial value. It is bound to the store it was chosen under: a different store starts from storage again.
+let slCurTab = null;
+const slStore = () => { try { return globalThis.localStorage; } catch (e) { return undefined; } };
+export const slCurrentTab = () => (slCurTab && slCurTab.store === slStore() ? slCurTab.tab : slUiLoad().tab);
+export function slSetCurrentTab(id) {
+  if (!slTabOk(id)) return;
+  slCurTab = { tab: id, store: slStore() };
+  slUiSave(slUiSetTab(slUiLoad(), id));
+}
+
 export function slSetTab(id, opts = {}) {
   if (!slTabOk(id)) return;
   const doc = globalThis.document;
@@ -91,7 +102,7 @@ export function slSetTab(id, opts = {}) {
     if (btn) { btn.setAttribute("aria-selected", String(on)); btn.tabIndex = on ? 0 : -1; if (btn.classList) btn.classList.toggle("active", on); }
     if (pnl) pnl.hidden = !on;
   }
-  slUiSave(slUiSetTab(slUiLoad(), id));
+  slSetCurrentTab(id);
   if (opts.focus) { const b = doc.getElementById(`sl-t-${id}`); if (b) b.focus(); }
 }
 
@@ -127,11 +138,12 @@ export function slStripHtml(summaries) {
   return `<nav aria-label="Needs attention" class="sl-strip">${items.length ? items.join(" ") : "<span>No open items</span>"}</nav>`;
 }
 
+// A tab's marker counts its alert ITEMS with a count (raw counts mix units: sales, accounts, cash rows); bad wins.
 export function slMarkers(summaries) {
   const out = {};
   for (const [, tab, s] of slAlertItems(summaries)) {
     const m = out[tab] || (out[tab] = { count: 0, tone: "warn" });
-    m.count += s.count;
+    if (s.count > 0) m.count += 1;
     if (s.tone === "bad") m.tone = "bad";
   }
   for (const m of Object.values(out)) if (m.count === 0) m.attn = true; // an alert with no count still needs a text marker
@@ -163,7 +175,7 @@ export function slGo(tab, sec) {
     slUiSave(slUiRecordToggle(slUiLoad(), ok, true, slAlertCount(ok))); // navigating to a section is the user's choice to see it
     const sum = el.querySelector && el.querySelector("summary");
     if (sum && sum.focus) sum.focus();
-  }
+  } else if (ok === "cash" && window.ciReveal) window.ciReveal(); // the Cash panel keeps its own <details>, not a section shell
   try { globalThis.history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* no history API: the tab switch still happened */ } // never leave a hash: a later render would re-apply it
 }
 
@@ -221,11 +233,11 @@ export function slSecSetState(key, text) {
   if (el) el.textContent = String(text || "");
 }
 
-export function slSecAll(tab, open) {
+export function slSecAll(tab, open) { // no tab: the active one
   const doc = globalThis.document;
   if (!doc) return;
   let st = slUiLoad();
-  for (const key of SL_TAB_SECS[tab] || []) {
+  for (const key of SL_TAB_SECS[tab || slCurrentTab()] || []) {
     const el = doc.getElementById(`sl-sec-${key}`);
     if (!el) continue;
     const want = !!open || slAlertCount(key) > 0;
@@ -250,4 +262,4 @@ export function slNextStepHtml(result) {
   return items.length ? `<p class="sl-next" role="status">Next: ${items.join(" · ")}</p>` : "";
 }
 
-Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSetDensity, slIsCompact, slSecHtml, slAlertCountOf, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecSetState, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown, slStepsHtml, slNextStepHtml });
+Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSetDensity, slIsCompact, slSecHtml, slAlertCountOf, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecSetState, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slCurrentTab, slSetCurrentTab, slTabKeydown, slStepsHtml, slNextStepHtml });

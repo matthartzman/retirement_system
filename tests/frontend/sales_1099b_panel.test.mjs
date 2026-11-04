@@ -222,6 +222,59 @@ describe("apply gating (Task 15)", () => {
   });
 });
 
+describe("stale preview guard (final review I4)", () => {
+  // A preview request whose answer the test releases by hand.
+  const deferredPreview = () => {
+    const orig = globalThis.api;
+    let release;
+    globalThis.api = (url, opts) => {
+      if (url !== "/api/sales/1099b/preview") return orig(url, opts);
+      calls.push([url, opts && opts.method, JSON.parse(opts.body)]);
+      return new Promise((r) => { release = () => r(PREVIEW()); });
+    };
+    return { release: () => release(), restore: () => { globalThis.api = orig; } };
+  };
+  test("an answer for the old account is dropped when the account changes while the preview is in flight", async () => {
+    m.bbSetBroker("vanguard"); m.bbSetAccount("Brokerage"); m.bbSetText("statement text");
+    const d = deferredPreview();
+    try {
+      const p = m.bbPreviewStatement();
+      m.bbSetAccount("Other");
+      d.release(); await p;
+      assert.equal(m.bbStateText(), ""); // no preview kept
+      assert.doesNotMatch(m.renderSalesBroker1099b(), /Difference report|Previewing/);
+      assert.match(m.renderSalesBroker1099b(), /onclick="bbPreviewStatement\(\)" >Preview/); // not busy any more
+      m.bbMarkViewed(true);
+      calls.length = 0;
+      await m.bbApply();
+      assert.equal(calls.length, 0); // nothing applied with the new account
+    } finally { d.restore(); }
+  });
+  test("an unchanged in-flight preview still lands and applies", async () => {
+    m.bbSetBroker("vanguard"); m.bbSetAccount("Brokerage"); m.bbSetText("statement text");
+    const d = deferredPreview();
+    try {
+      const p = m.bbPreviewStatement();
+      d.release(); await p;
+      assert.match(m.bbStateText(), /Preview ready/);
+      m.bbMarkViewed(true);
+      calls.length = 0;
+      await m.bbApply();
+      assert.deepEqual(calls[0], ["/api/sales/1099b/apply", "POST", { broker: "vanguard", account: "Brokerage", content: "statement text", replace: false }]);
+    } finally { d.restore(); }
+  });
+  test("apply after an input change post-preview is refused", async () => {
+    m.bbSetBroker("vanguard"); m.bbSetAccount("Brokerage"); m.bbSetText("statement text");
+    await m.bbPreviewStatement();
+    m.bbMarkViewed(true);
+    m.bbSetBroker("etrade");
+    calls.length = 0;
+    await m.bbApply();
+    assert.equal(calls.length, 0);
+    m.bbSetBroker("vanguard");
+  });
+});
+
 describe("focus-safe review box and state (Task 15 fix)", () => {
   const els = {};
   const withDom = async (fn) => {

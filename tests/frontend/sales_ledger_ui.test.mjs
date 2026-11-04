@@ -205,14 +205,16 @@ describe("alert strip, markers, live region, slGo (Task 6)", () => {
     }
     assert.match(m.slStripHtml({ queue: S(0, "", "") }), /<span>No open items<\/span>/);
   });
-  test("slMarkers sums per tab, tone bad wins, empty tabs omitted", () => {
+  // Final review I3: raw counts are in different units (sales, accounts, cash rows), so a tab counts its counted alert ITEMS.
+  test("slMarkers counts alert items per tab (not summed raw counts), tone bad wins, empty tabs omitted", () => {
     const mk = m.slMarkers(fixture());
-    assert.deepEqual(mk.fix, { count: 6, tone: "bad" });
+    assert.deepEqual(mk.fix, { count: 3, tone: "bad" }); // queue, drift, cash; the uncounted "never run" log item adds no number
     assert.equal(mk.tax, undefined);
     assert.equal(mk.import, undefined);
     const mk2 = m.slMarkers({ wash: S(2, "warn", "w"), cf: S(1, "warn", "c"), b1099: S(4, "bad", "b") });
-    assert.deepEqual(mk2.tax, { count: 3, tone: "warn" });
-    assert.deepEqual(mk2.import, { count: 4, tone: "bad" });
+    assert.deepEqual(mk2.tax, { count: 2, tone: "warn" });
+    assert.deepEqual(mk2.import, { count: 1, tone: "bad" });
+    assert.deepEqual(m.slMarkers({ cash: S(104, "warn", "104 unmatched cash rows") }).fix, { count: 1, tone: "warn" });
   });
   test("a tab whose alert item has count 0 still gets a text marker (!, needs attention)", () => {
     const mk = m.slMarkers({ wash: S(0, "", "stale") });
@@ -333,6 +335,29 @@ describe("collapsible section shell (Task 7)", () => {
     assert.doesNotThrow(() => m.slSecAll("fix", false));
     delete globalThis.document;
   });
+  test("storage off: the active tab is kept in memory; slSecAll with no tab acts on it", () => {
+    setStore({ getItem() { throw new Error("no"); }, setItem() { throw new Error("no"); } });
+    const d = secDoc(["log", "ledger"]); globalThis.document = d;
+    m.slSetTab("ledger");
+    assert.equal(m.slCurrentTab(), "ledger");
+    assert.equal(window.slCurrentTab, m.slCurrentTab);
+    m.slSecAll(null, true);
+    assert.equal(d.els["sl-sec-ledger"].open, true);
+    assert.equal(d.els["sl-sec-log"].open, false); // the Fix tab is not touched
+    m.slSetTab("fix");
+    assert.equal(m.slCurrentTab(), "fix");
+    delete globalThis.document;
+  });
+  test("a fresh store starts from the stored tab, not a tab chosen under another store", () => {
+    setStore(store()); globalThis.document = secDoc([]);
+    m.slSetTab("tax");
+    assert.equal(m.slCurrentTab(), "tax");
+    const s = store(); setStore(s);
+    assert.equal(m.slCurrentTab(), "fix");
+    m.slUiSave({ tab: "import", sections: {}, density: "" }, s);
+    assert.equal(m.slCurrentTab(), "import");
+    delete globalThis.document;
+  });
   test("slSecAll collapse leaves alerting sections open; expand opens all", () => {
     setStore(store()); const d = secDoc(["queue", "health", "log", "cash"]); globalThis.document = d;
     for (const k of ["queue", "health", "log", "cash"]) d.els[`sl-sec-${k}`].open = true;
@@ -344,6 +369,20 @@ describe("collapsible section shell (Task 7)", () => {
     m.slSecAll("fix", true);
     assert.equal(d.els["sl-sec-log"].open, true);
     delete globalThis.document;
+  });
+  test("slGo('fix','cash') lands on the Cash panel: it has no section shell, so the panel reveals itself", () => {
+    setStore(store()); globalThis.document = secDoc([]);
+    delete globalThis.document.els["sl-sec-cash"];
+    let revealed = 0;
+    globalThis.ciReveal = () => { revealed++; };
+    try {
+      m.slGo("fix", "cash");
+      assert.equal(revealed, 1);
+      m.slGo("fix", "queue"); // other keys never call the cash panel
+      assert.equal(revealed, 1);
+      delete globalThis.ciReveal;
+      assert.doesNotThrow(() => m.slGo("fix", "cash")); // panel not loaded: just the tab switch
+    } finally { delete globalThis.ciReveal; delete globalThis.document; }
   });
   test("slGo rejects an unknown tab, tolerates no document, records the opened section", () => {
     const s = store(); setStore(s); const d = secDoc(["wash"]); globalThis.document = d;

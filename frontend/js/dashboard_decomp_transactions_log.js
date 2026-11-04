@@ -260,7 +260,11 @@ export function tlEditRow(id) {
   if (dr && dr.scrollIntoView) dr.scrollIntoView({ block: "start" });
   if (el && el.focus) el.focus();
 }
-export function tlOnKeydown(e) { if (e.key === "Escape" && !e.defaultPrevented && (tlEdit || tlDrawer.add)) tlCancel(); }
+export function tlOnKeydown(e) {
+  const r = document.getElementById("tlRoot"); // Esc elsewhere (another drawer, tab or page) must not drop a revision in progress
+  if (!r || typeof r.contains !== "function" || !r.contains(e.target)) return;
+  if (e.key === "Escape" && !e.defaultPrevented && (tlEdit || tlDrawer.add)) tlCancel();
+}
 export function tlCancel() { tlEdit = null; tlDrawer = { ...tlDrawer, add: false }; tlPaint(); }
 if (typeof document !== "undefined" && document.addEventListener) {
   document.addEventListener("keydown", tlOnKeydown);

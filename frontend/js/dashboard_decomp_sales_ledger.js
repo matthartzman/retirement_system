@@ -143,8 +143,8 @@ export function slHashTarget() {
 }
 
 const slTabsHtml = (active) => window.slTabBarHtml(active, window.slMarkers(window.slSummaries())) +
-  `<div class="sl-secctl"><button type="button" class="btn" id="slExpandAll" onclick="slSecAll(window.slUiLoad().tab,true)">Expand all</button> ` +
-  `<button type="button" class="btn" id="slCollapseAll" onclick="slSecAll(window.slUiLoad().tab,false)">Collapse all</button></div>`;
+  `<div class="sl-secctl"><button type="button" class="btn" id="slExpandAll" onclick="slSecAll(null,true)">Expand all</button> ` +
+  `<button type="button" class="btn" id="slCollapseAll" onclick="slSecAll(null,false)">Collapse all</button></div>`;
 // Wrap a panel in the collapsible section shell; the panel's own markup is passed through untouched.
 function slSection(key, title, fn, stateFn) {
   if (!window[fn]) return "";
@@ -177,7 +177,7 @@ function slPaintTabs() { // repaint the strip and tab bar without losing keyboar
   const act = typeof document !== "undefined" && document.activeElement;
   const id = act && act.id;
   slPaintInto("slStripRoot", () => window.slStripHtml(window.slSummaries()));
-  slPaintInto("slTabsRoot", () => slTabsHtml(window.slUiLoad().tab));
+  slPaintInto("slTabsRoot", () => slTabsHtml(window.slCurrentTab()));
   const el = id && document.getElementById(id);
   if (el && el !== document.activeElement && el.focus) el.focus();
 }
@@ -190,12 +190,12 @@ function slSubscribeSummaries() { // repaint only the strip and tab bar; panels 
 
 function slBodyHtml() {
   const { tab: hashTab, sec: hashSec } = slHashTarget();
-  if (hashTab && hashTab !== slHashApplied) { // a deep link applies once; after that storage (slSetTab) decides
+  if (hashTab && hashTab !== slHashApplied) { // a deep link applies once; after that the current tab (slSetTab) decides
     slHashApplied = slConsumeHash() ? null : hashTab; // consumed: the same link applies again; no history: remember it instead
-    window.slUiSave(window.slUiSetTab(window.slUiLoad(), hashTab));
+    window.slSetCurrentTab(hashTab);
     if (hashSec && window.slGo) setTimeout(() => { window.slGo(hashTab, hashSec); slConsumeHash(); }, 0); // after the page mounts
   }
-  const active = window.slUiLoad().tab;
+  const active = window.slCurrentTab();
   const panel = (id, body) => window.slTabPanelHtml(id, body, active);
   const fix = slSection("queue", "Sales waiting for lots", "renderSalesQueue", "slQueueStateText") + slHealthSlotHtml() + slSection("log", "Transaction log", "renderTransactionLog") +
     `<div class="divider sl-divider">More views</div>` + slPanels(["renderCashInvestment"]);

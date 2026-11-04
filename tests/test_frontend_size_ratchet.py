@@ -682,7 +682,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 sales-ledger redesign: +1 (Task 15b tie-1099-B confirm map)
 # 2026-11-03 sales-ledger redesign: +19 (Task 16a real-DOM fixes: single health slot, closed empty sections, count-0 tab marker, deep-link consume + sec)
 # 2026-11-03 sales-ledger redesign: +24 (Task 16b density toggle, help text)
-TOTAL_JS_MAX_LINES = 43_267
+# 2026-11-03 sales-ledger redesign: +31 (final-review fixes: Esc scope, in-memory tab, cash alert landing, 1099-B stale preview)
+TOTAL_JS_MAX_LINES = 43_298
 
 
 

@@ -102,15 +102,41 @@ test("panel_shows_floor_gate_state_with_verify_and_unverify_controls", () => {
   assert.match(blocked, /ciVerify\(&quot;Member_1_HSA&quot;, false\)/);
 });
 
-test("summary: unpaired count across accounts is a warn; paint without slPublish is safe", async () => {
+test("summary: unmatched cash rows across accounts are a warn, worded like the column; paint without slPublish is safe", async () => {
   const pub = [];
   globalThis.slPublish = (k, s) => pub.push([k, s]);
   globalThis.document = { getElementById: () => null };
   const orig = globalThis.api;
   globalThis.api = async () => VIEW;
   await m.ciLoad();
-  assert.deepEqual(pub.at(-1), ["cash", { count: 2, tone: "warn", text: "2 unpaired" }]);
+  assert.deepEqual(pub.at(-1), ["cash", { count: 2, tone: "warn", text: "2 unmatched cash rows" }]);
+  globalThis.api = async () => ({ ...VIEW, accounts: [{ ...VIEW.accounts[1], unmatched: 1 }] });
+  await m.ciLoad();
+  assert.deepEqual(pub.at(-1), ["cash", { count: 1, tone: "warn", text: "1 unmatched cash row" }]);
   delete globalThis.slPublish;
   await assert.doesNotReject(m.ciLoad());
   globalThis.api = orig;
+});
+
+test("the panel summary row shows the unmatched count only when there is one", () => {
+  const sum = (v) => m.ciHtml(v, null).match(/<summary>.*?<\/summary>/)[0];
+  assert.match(sum(VIEW), /Cash in investment accounts<\/h3> \(2\) · 2 unmatched<\/summary>/);
+  assert.match(sum({ ...VIEW, accounts: [VIEW.accounts[0]] }), /Cash in investment accounts<\/h3> \(1\)<\/summary>/);
+  assert.match(m.ciHtml(null, null), /<details ontoggle="ciToggle\(this\.open\)"><summary><h3 style="display:inline">Cash in investment accounts<\/h3><\/summary>/);
+});
+
+test("ciReveal opens the panel (kept open on repaint) and focuses its summary; no root is a no-op", () => {
+  const summary = { focus() { this.focused = true; } };
+  const details = { open: false, querySelector: (s) => (s === "summary" ? summary : null) };
+  const root = { innerHTML: "", querySelector: (s) => (s === "details" ? details : null) };
+  globalThis.document = { getElementById: (id) => (id === "ciRoot" ? root : null) };
+  m.ciReveal();
+  assert.equal(details.open, true);
+  assert.equal(summary.focused, true);
+  assert.match(m.ciHtml(VIEW, null), /^<details open ontoggle=/); // ciOpen is now true, so a repaint keeps it open
+  m.ciToggle(false);
+  globalThis.document = { getElementById: () => null };
+  assert.doesNotThrow(() => m.ciReveal());
+  m.ciToggle(false);
+  assert.equal(globalThis.ciReveal, m.ciReveal);
 });

@@ -15,6 +15,7 @@ let bbPdf = ""; // base64 of an uploaded PDF; wins over pasted text
 let bbFile = "";
 let bbAccounts = null; // null = not loaded yet
 let bbPreview = null;
+let bbPreviewKey = ""; // the request body the current preview was built from; Apply refuses any other
 let bbMessage = null; // { text, error }
 let bbBusy = false;
 let bbViewed = false; // the user ticked "I have reviewed this difference report" for the current preview
@@ -168,16 +169,18 @@ export async function bbPreviewStatement() {
   if (!bbAccount) { bbMessage = { text: "Choose the Planner account this statement belongs to.", error: true }; return bbPaint(); }
   if (!bbText && !bbPdf) { bbMessage = { text: "Paste the statement text or choose a file first.", error: true }; return bbPaint(); }
   bbBusy = true; bbViewed = false; bbDone = null; bbMessage = { text: "Previewing…", error: false }; bbPaint();
+  const key = JSON.stringify(bbBody()); // the account, broker or statement may change while the request is in flight
   try {
-    bbPreview = await api("/api/sales/1099b/preview", { method: "POST", body: JSON.stringify(bbBody()) });
-    bbMessage = null;
-    bbViewed = false;
+    const out = await api("/api/sales/1099b/preview", { method: "POST", body: key });
+    if (JSON.stringify(bbBody()) !== key) bbMessage = null; // a preview of other inputs: drop it
+    else { bbPreview = out; bbPreviewKey = key; bbMessage = null; bbViewed = false; }
   } catch (e) { bbPreview = null; bbMessage = { text: e.message, error: true }; }
   bbBusy = false; bbPaint();
 }
 
 export async function bbApply() {
   if (!bbCanApply(bbPreview, bbViewed)) return;
+  if (JSON.stringify(bbBody()) !== bbPreviewKey) { bbMessage = { text: "The inputs changed after this preview — preview again.", error: true }; return bbPaint(); }
   const replace = !!bbPreview.supersedes;
   if (replace && !(window.confirm && window.confirm("An earlier statement for this account and year was imported. Replace it with this one?"))) return;
   bbBusy = true; bbPaint();

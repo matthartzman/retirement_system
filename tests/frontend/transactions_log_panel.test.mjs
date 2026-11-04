@@ -454,18 +454,48 @@ test("Esc only cancels with an edit or open add drawer, and ignores defaultPreve
   await loadLog(BIG(3));
   const dom = fakeDom();
   m.tlCancel();
+  const inside = { inLog: true };
+  dom.els.tlRoot.contains = (n) => !!(n && n.inLog);
   dom.els.tlRoot.innerHTML = "untouched";
-  m.tlOnKeydown({ key: "Escape" });
+  m.tlOnKeydown({ key: "Escape", target: inside });
   assert.equal(dom.els.tlRoot.innerHTML, "untouched");
   m.tlDrawerToggle("add", true);
-  m.tlOnKeydown({ key: "Escape", defaultPrevented: true });
+  m.tlOnKeydown({ key: "Escape", defaultPrevented: true, target: inside });
   assert.equal(dom.els.tlRoot.innerHTML, "untouched");
-  m.tlOnKeydown({ key: "a" });
+  m.tlOnKeydown({ key: "a", target: inside });
   assert.equal(dom.els.tlRoot.innerHTML, "untouched");
-  m.tlOnKeydown({ key: "Escape" });
+  m.tlOnKeydown({ key: "Escape", target: inside });
   assert.notEqual(dom.els.tlRoot.innerHTML, "untouched");
   assert.doesNotMatch(dom.els.tlRoot.innerHTML, /id="tlAddDrawer" open/);
   dom.restore();
+});
+
+test("Esc outside the log root (another drawer, tab or page) keeps the revision in progress", async () => {
+  await loadLog(LOG);
+  const dom = fakeDom();
+  m.tlEditRow(7);
+  dom.els.tlRoot.contains = (n) => !!(n && n.inLog);
+  dom.els.tlRoot.innerHTML = "untouched";
+  m.tlOnKeydown({ key: "Escape", target: { inLog: false } }); // e.g. the Record-a-sale drawer or the 1099-B textarea
+  m.tlOnKeydown({ key: "Escape", target: null });
+  assert.equal(dom.els.tlRoot.innerHTML, "untouched");
+  calls.length = 0;
+  m.tlSetForm("shares", "12");
+  await m.tlSave();
+  assert.equal(calls[0][0], "/api/transactions/7/revise"); // still a revision, not a duplicate add
+  dom.restore();
+});
+
+test("Esc with no log root mounted, or a root without contains(), does nothing", async () => {
+  await loadLog(LOG);
+  const dom = fakeDom();
+  m.tlEditRow(7);
+  dom.els.tlRoot.innerHTML = "untouched";
+  m.tlOnKeydown({ key: "Escape", target: { inLog: true } }); // stub root has no contains()
+  assert.equal(dom.els.tlRoot.innerHTML, "untouched");
+  dom.restore();
+  m.tlOnKeydown({ key: "Escape", target: { inLog: true } }); // getElementById returns null
+  m.tlCancel();
 });
 
 test("tlHtml(otherLog) renders otherLog's rows, not the module's", async () => {

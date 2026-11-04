@@ -55,7 +55,8 @@ export function ciHtml(view, ledger = ciLedger, sort = ciSort) {
     ledger.rows.map((l) => `<tr><td>${esc(l.date)}</td><td>${esc(l.class)}${l.needs_review ? " (review)" : ""}</td><td class="rc-num">${l.in_kind ? "in kind" : ciMoney(l.amount)}</td><td class="rc-num">${ciMoney(l.cash_balance)}</td>` +
       `<td>${esc(l.pair_status)}${l.partner_account ? " " + esc(accountDisplayLabel(l.partner_account)) : ""}</td><td>${esc(l.source)}</td></tr>`).join("") + `</tbody></table></div>` : `<p class="muted">No cash rows.</p>`) : "";
   const table = rows.length ? `<div class="rc-scroll"><table class="rc-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` : `<p class="muted">No broker imports yet.</p>`;
-  return `<details${ciOpen ? " open" : ""} ontoggle="ciToggle(this.open)"><summary><h3 style="display:inline">Cash in investment accounts</h3>${view ? ` (${rows.length})` : ""}</summary>` +
+  const un = ciUnmatched(view);
+  return `<details${ciOpen ? " open" : ""} ontoggle="ciToggle(this.open)"><summary><h3 style="display:inline">Cash in investment accounts</h3>${view ? ` (${rows.length})` : ""}${un > 0 ? ` · ${un} unmatched` : ""}</summary>` +
     `${ciError ? `<p role="alert" class="error">${esc(ciError)}</p>` : ""}${table}${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${rep}${cmpHtml}${pastHtml}${stHtml}${closesHtml}${floorHtml}${led}</details>`;
 }
 
@@ -64,9 +65,20 @@ export function renderCashInvestment() {
   return `<div class="sl-import" id="ciRoot">${ciHtml(ciView)}</div>`;
 }
 
+const ciUnmatched = (view) => ((view && view.accounts) || []).reduce((t, a) => t + (Number(a.unmatched) || 0), 0);
 export function ciSummary() {
-  const n = ((ciView && ciView.accounts) || []).reduce((t, a) => t + (Number(a.unmatched) || 0), 0);
-  return { count: n, tone: n > 0 ? "warn" : "", text: n > 0 ? `${n} unpaired` : "" };
+  const n = ciUnmatched(ciView);
+  return { count: n, tone: n > 0 ? "warn" : "", text: n > 0 ? `${n} unmatched cash row${n === 1 ? "" : "s"}` : "" };
+}
+// The page's "unmatched cash rows" alert lands here (the panel keeps its own <details>, not a section shell).
+export function ciReveal() {
+  ciToggle(true);
+  const root = document.getElementById("ciRoot");
+  const det = root && root.querySelector && root.querySelector("details");
+  if (!det) return;
+  det.open = true;
+  const sum = det.querySelector && det.querySelector("summary");
+  if (sum && sum.focus) sum.focus();
 }
 const ciPaint = () => {
   const el = document.getElementById("ciRoot");
@@ -98,4 +110,4 @@ export async function ciVerify(account, verified) {
 export function ciSortBy(key) { ciSort = { key, dir: ciSort.key === key ? -ciSort.dir : 1 }; ciPaint(); }
 export function ciToggle(open) { ciOpen = !!open; }
 
-Object.assign(window, { ciSummary, renderCashInvestment, ciHtml, ciLoad, ciShowLedger, ciSortBy, ciToggle, ciCloseYear, ciReopenYear, ciVerify });
+Object.assign(window, { ciSummary, ciReveal, renderCashInvestment, ciHtml, ciLoad, ciShowLedger, ciSortBy, ciToggle, ciCloseYear, ciReopenYear, ciVerify });
