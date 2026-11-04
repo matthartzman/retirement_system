@@ -62,6 +62,8 @@ def classify_other(r: Mapping[str, Any]) -> tuple[str, bool, bool, bool]:
     if "RETURN EXCESS" in text:
         return "excess_return", True, False, False
     if any(w in text for w in _DISTRIBUTION_WORDS):
+        if amount > 0 and "WITHDRAWAL" not in text:      # "Partnership Distribution" paid INTO the account is money received, not a withdrawal
+            return "income", True, False, False
         return "distribution", True, False, False
     if any(w in text for w in _FEE_WORDS):
         return "fee", True, False, False
