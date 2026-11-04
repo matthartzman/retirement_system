@@ -77,7 +77,14 @@ export function bbChangesHtml(p) {
 
 // Apply needs what the server already requires (can_apply: clean statement, control totals tie) plus the user's review.
 export const bbCanApply = (preview, viewed) => !!(preview && preview.can_apply) && !!viewed;
-export function bbMarkViewed(on) { bbViewed = !!on; bbPaint(); }
+const bbReason = (p, v) => (bbCanApply(p, v) ? "" : "Review the differences and tick the box; totals must tie.");
+export function bbMarkViewed(on) { // in place: repainting the root would drop keyboard focus from the checkbox
+  bbViewed = !!on;
+  const btn = document.getElementById("bbApplyBtn");
+  const why = document.getElementById("bbApplyReason");
+  if (btn) btn.disabled = !bbCanApply(bbPreview, bbViewed) || bbBusy;
+  if (why) why.textContent = bbReason(bbPreview, bbViewed);
+}
 
 export function bbPreviewHtml(p) {
   const errs = (p.errors || []).map((e) => `<li>${e.line ? `Line ${Number(e.line)}: ` : ""}${esc(e.error)}</li>`).join("");
@@ -89,9 +96,8 @@ export function bbPreviewHtml(p) {
     `${bbControlHtml(p.control_totals)}${bbChangesHtml(p)}${bbReportHtml(p.report)}` +
     `<label class="bb-viewed"><input type="checkbox" ${bbViewed ? "checked" : ""} onchange="bbMarkViewed(this.checked)"> I have reviewed this difference report</label>` +
     `<div class="bb-actions"><button class="btn" type="button" onclick="bbExportCsv()">Export report CSV</button> ` +
-    `<button class="btn primary" type="button" onclick="bbApply()" ${bbCanApply(p, bbViewed) && !bbBusy ? "" : "disabled"}>${p.supersedes ? "Replace earlier import and apply" : "Apply official numbers"}</button>` +
-    `${p.can_apply ? "" : ` <span class="muted">Apply is off until the statement reads cleanly and its control totals tie.</span>`}` +
-    `${bbCanApply(p, bbViewed) ? "" : ` <span class="muted" id="bbApplyReason">Review the differences and tick the box; totals must tie.</span>`}</div></div>`;
+    `<button class="btn primary" type="button" id="bbApplyBtn" aria-describedby="bbApplyReason" onclick="bbApply()" ${bbCanApply(p, bbViewed) && !bbBusy ? "" : "disabled"}>${p.supersedes ? "Replace earlier import and apply" : "Apply official numbers"}</button>` +
+    ` <span class="muted" id="bbApplyReason">${bbReason(p, bbViewed)}</span></div></div>`;
 }
 
 function bbBodyHtml() {
@@ -120,6 +126,7 @@ export const bbSummary = () => ({ count: 0, tone: "", text: "" });
 
 function bbPaint() {
   if (window.slPublish) window.slPublish("b1099", bbSummary());
+  if (window.slSecSetState) window.slSecSetState("b1099", bbStateText());
   const root = document.getElementById("bbRoot");
   if (!root) return;
   const old = root.querySelector('input[type="file"]');
@@ -137,9 +144,9 @@ export async function bbLoadAccounts() {
   bbPaint();
 }
 
-export function bbSetBroker(v) { bbBroker = v; bbPreview = null; bbPaint(); }
-export function bbSetAccount(v) { bbAccount = v; bbPreview = null; bbPaint(); }
-export function bbSetText(v) { bbText = v; bbPdf = ""; bbFile = ""; bbPreview = null; }
+export function bbSetBroker(v) { bbBroker = v; bbPreview = null; bbDone = null; bbPaint(); }
+export function bbSetAccount(v) { bbAccount = v; bbPreview = null; bbDone = null; bbPaint(); }
+export function bbSetText(v) { bbText = v; bbPdf = ""; bbFile = ""; bbPreview = null; bbDone = null; }
 
 export function bbFileChosen(input) {
   const file = input.files && input.files[0];
@@ -148,7 +155,7 @@ export function bbFileChosen(input) {
   const pdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
   reader.onload = () => {
     const out = String(reader.result || "");
-    bbFile = file.name; bbPreview = null;
+    bbFile = file.name; bbPreview = null; bbDone = null;
     if (pdf) { bbPdf = out.slice(out.indexOf(",") + 1); bbText = ""; } else { bbText = out; bbPdf = ""; }
     bbPaint();
   };

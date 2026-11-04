@@ -244,3 +244,17 @@ describe("skeleton and next steps (Task 15)", () => {
     ui.slPublish("queue", { count: 0, tone: "", text: "" });
   });
 });
+
+describe("shell state follows the panel (Task 15 fix)", () => {
+  test("the imports state text updates after a commit reloads the list", async () => {
+    const el = { textContent: "old" };
+    const prev = globalThis.document;
+    globalThis.document = { getElementById: (id) => (id === "sl-sec-state-imports" ? el : null) };
+    const orig = globalThis.api;
+    globalThis.api = async (url, o) => (url === "/api/sales/broker/imports" ? { imports: [{ import_id: 1, imported_at: "2026-11-01T00:00:00" }, { import_id: 2, imported_at: "2026-11-02T00:00:00" }], accounts: [] } : orig(url, o));
+    try {
+      await m.biCommit();
+      assert.equal(el.textContent, "Last import 2026-11-02 · 2 imports");
+    } finally { globalThis.document = prev; globalThis.api = orig; }
+  });
+});

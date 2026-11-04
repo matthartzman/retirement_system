@@ -678,7 +678,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 sales-ledger redesign: +31 (Task 13 tax tab tiles, columns, 1099-B and year-end rows)
 # 2026-11-03 sales-ledger redesign: +9 (Task 14 wash last-run summary, year-end step deep links)
 # 2026-11-03 sales-ledger redesign: +41 (Task 15 import tab skeleton, 1099-B apply gating, CTAs, CSV import move)
-TOTAL_JS_MAX_LINES = 43_204
+# 2026-11-03 sales-ledger redesign: +19 (Task 15 fix: CSV box feedback, live shell state text, focus-safe review box)
+TOTAL_JS_MAX_LINES = 43_223
 
 
 

@@ -19,6 +19,7 @@ let slEditId = null;
 let slAccounts = [];
 let slDraft = {}; // form field id -> text, kept on input so a repaint or reload never loses a half-filled sale
 let slCsvText = ""; // pasted CSV text, kept on input for the same reason
+let slCsvMessage = null; // { text, error }: feedback for the CSV box itself (the Ledger-tab message line is hidden on the Import tab)
 let slCsvDone = null; // set after a successful CSV import: drives the next-step links
 let slHiddenVoids = 0; // voided rows the current selection hides (one extra fetch when Show voided is off)
 
@@ -87,11 +88,13 @@ function slFormHtml() {
 }
 
 const slSteps = (n) => (window.slStepsHtml ? window.slStepsHtml(n) : "");
+export const slCsvStateText = () => (slPreview ? `Preview ready · ${slPreview.will_write.length} rows` : slCsvMessage && !slCsvMessage.error ? slCsvMessage.text : "Paste or choose a CSV");
 function slImportHtml() {
+  const msg = slCsvMessage ? `<p class="${slCsvMessage.error ? "field-error" : "muted"}" role="status">${esc(slCsvMessage.text)}</p>` : "";
   return `<div class="sl-import">${slSteps(slPreview ? 2 : 1)}<h3>Import from CSV</h3><p class="muted">Columns: sale_date, account, tax_class, symbol, shares, proceeds, basis (required); fees, purchase_date.</p>` +
     `<textarea id="slCsv" rows="5" aria-label="Sales CSV" placeholder="Paste CSV text here" oninput="slDraftSet('slCsv',this.value)">${esc(slCsvText)}</textarea>` +
     `<input type="file" accept=".csv,text/csv" aria-label="Choose a CSV file" onchange="slCsvFile(this)">` +
-    `<button class="btn" type="button" onclick="slImportPreview()">Preview</button>${slPreview ? slPreviewHtml(slPreview) : ""}${slCsvDone && window.slNextStepHtml ? window.slNextStepHtml(slCsvDone) : ""}</div>`;
+    `<button class="btn" type="button" onclick="slImportPreview()">Preview</button>${msg}${slPreview ? slPreviewHtml(slPreview) : ""}${slCsvDone && window.slNextStepHtml ? window.slNextStepHtml(slCsvDone) : ""}</div>`;
 }
 
 function slYearOptions() {
@@ -179,7 +182,7 @@ function slBodyHtml() {
     `<div id="slTabsRoot">${slTabsHtml(active)}</div>` +
     panel("fix", fix) + panel("ledger", ledger) + panel("tax", slSection("wash", "Realized gains & wash sales", "renderSalesTaxYear")) +
     panel("import", slSection("imports", "Broker imports", "renderBrokerImport", "biStateText") + slSection("b1099", "Broker 1099-B", "renderSalesBroker1099b", "bbStateText") +
-      slSection("csv", "Sales CSV import", "slCsvBodyHtml"));
+      slSection("csv", "Sales CSV import", "slCsvBodyHtml", "slCsvStateText"));
 }
 
 export function renderSalesLedger() {
@@ -191,7 +194,7 @@ export function renderSalesLedger() {
 function slPaintInto(id, html) { const el = document.getElementById(id); if (el) el.innerHTML = html(); }
 function slPaint() { slPaintInto("slListRoot", slListHtml); }
 const slPaintForm = () => slPaintInto("slFormRoot", slFormHtml);
-const slPaintCsv = () => slPaintInto("slCsvRoot", slImportHtml);
+const slPaintCsv = () => { slPaintInto("slCsvRoot", slImportHtml); if (window.slSecSetState) window.slSecSetState("csv", slCsvStateText()); };
 
 export async function loadSalesLedger() {
   const year = slYear; // a year/Show-voided change mid-load must not pair the count with another selection
@@ -306,10 +309,10 @@ export async function slImportPreview() {
   slCsvDone = null;
   try {
     slPreview = await api("/api/sales/import/preview", { method: "POST", body: JSON.stringify({ content: csvVal() }) });
-    slMessage = null;
+    slMessage = null; slCsvMessage = null;
   } catch (e) {
     slPreview = null;
-    slMessage = { text: e.message, error: true };
+    slMessage = { text: e.message, error: true }; slCsvMessage = slMessage;
   }
   slPaint();
   slPaintCsv();
@@ -317,14 +320,16 @@ export async function slImportPreview() {
 
 export async function slImportCommit() {
   const out = await slPost("/api/sales/import/commit", { content: csvVal() }, "Import complete.");
-  if (out) { slCsvText = ""; slCsvDone = {}; slPaintCsv(); }
+  if (out) { slCsvText = ""; slCsvDone = {}; }
   if (out && out.written !== undefined) {
     slMessage = { text: `Added ${out.written} sale${out.written === 1 ? "" : "s"}.`, error: false };
     slPaint();
   }
+  slCsvMessage = slMessage; // success text or the failure the post caught; both belong in the CSV box too
+  slPaintCsv();
 }
 
 Object.assign(window, {
   slMoney, slGainHtml, slRowHtml, slTableHtml, slTotalsHtml, slPreviewHtml, renderSalesLedger, slHashTarget, loadSalesLedger, slSubmit, slVoid, slUnvoid,
-  slSetYear, slSetShowVoided, slCsvFile, slImportPreview, slImportCommit, slEdit, slCancelEdit, slRequeue, slDraftSet, slHealthSlotHtml, slLedgerBodyHtml, slOpenForm, slHiddenVoidCount, slCsvBodyHtml,
+  slSetYear, slSetShowVoided, slCsvFile, slImportPreview, slImportCommit, slEdit, slCancelEdit, slRequeue, slDraftSet, slHealthSlotHtml, slLedgerBodyHtml, slOpenForm, slHiddenVoidCount, slCsvBodyHtml, slCsvStateText,
 });

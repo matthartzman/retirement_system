@@ -155,7 +155,7 @@ export function slSecHtml({ key, title, badges = [], state = "", alertCount = 0,
   const badge = bs || `<span class="sl-sec-badge sl-tone-none" id="sl-sec-badge-${key}"></span>`;
   return `<details class="sl-sec" id="sl-sec-${key}" data-key="${key}"${open ? " open" : ""} data-alert="${Number(alertCount) || 0}">` +
     `<summary id="sl-sec-sum-${key}" onclick="slOnSummaryClick('${key}')"><span class="sl-sec-chev" aria-hidden="true">&#9656;</span>` +
-    `<h3 class="sl-sec-title">${slEsc(title)}</h3> ${badge}${state ? ` <span class="sl-sec-state">${slEsc(state)}</span>` : ""}</summary>` +
+    `<h3 class="sl-sec-title">${slEsc(title)}</h3> ${badge} <span class="sl-sec-state" id="sl-sec-state-${key}">${slEsc(state)}</span></summary>` +
     `<div class="sl-sec-body">${body}</div></details>`;
 }
 
@@ -194,6 +194,12 @@ export function slSecUpdate(key, summary) {
   }
 }
 
+// Panels call this from their paint functions so the summary's status text follows their live state.
+export function slSecSetState(key, text) {
+  const el = globalThis.document && globalThis.document.getElementById(`sl-sec-state-${key}`);
+  if (el) el.textContent = String(text || "");
+}
+
 export function slSecAll(tab, open) {
   const doc = globalThis.document;
   if (!doc) return;
@@ -223,4 +229,4 @@ export function slNextStepHtml(result) {
   return items.length ? `<p class="sl-next" role="status">Next: ${items.join(" · ")}</p>` : "";
 }
 
-Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSecHtml, slAlertCountOf, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown, slStepsHtml, slNextStepHtml });
+Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSecHtml, slAlertCountOf, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecSetState, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown, slStepsHtml, slNextStepHtml });

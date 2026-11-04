@@ -527,3 +527,43 @@ describe("import tab skeleton (Task 15)", () => {
     delete globalThis.__fields.slCsv;
   });
 });
+
+describe("CSV box feedback and shell state (Task 15 fix)", () => {
+  const csvRoot = () => (globalThis.__roots.slCsvRoot = { _h: "", get innerHTML() { return this._h; }, set innerHTML(v) { this._h = v; } });
+  const real = () => globalThis.api;
+  test("a preview error, a commit failure and a commit success each put text in the CSV box", async () => {
+    const orig = real();
+    const root = csvRoot();
+    globalThis.__fields.slCsv = "a,b\n";
+    try {
+      globalThis.api = async (url, o) => { if (url === "/api/sales/import/preview") throw new Error("bad csv header"); return orig(url, o); };
+      await m.slImportPreview();
+      assert.match(root.innerHTML, /field-error" role="status">bad csv header/);
+      globalThis.api = async (url, o) => { if (url === "/api/sales/import/commit") throw new Error("commit refused"); return orig(url, o); };
+      await m.slImportCommit();
+      assert.match(root.innerHTML, /commit refused/);
+      globalThis.api = async (url, o) => (url === "/api/sales/import/commit" ? { success: true, written: 3 } : orig(url, o));
+      globalThis.__fields.slCsv = "a,b\n";
+      await m.slImportCommit();
+      assert.match(root.innerHTML, /role="status">Added 3 sales\./);
+      assert.equal(m.slCsvStateText(), "Added 3 sales.");
+    } finally { globalThis.api = orig; delete globalThis.__roots.slCsvRoot; delete globalThis.__fields.slCsv; }
+  });
+  test("the CSV shell state follows the preview", async () => {
+    globalThis.__fields.slCsv = "a,b\n";
+    await m.slImportPreview();
+    assert.equal(m.slCsvStateText(), "Preview ready · 1 rows");
+    delete globalThis.__fields.slCsv;
+  });
+  test("every section summary carries a state span; slSecSetState patches it and is a no-op without the element or document", () => {
+    assert.match(window.slSecHtml({ key: "x", title: "T" }), /<span class="sl-sec-state" id="sl-sec-state-x"><\/span>/);
+    const el = { textContent: "" };
+    const prev = globalThis.document;
+    globalThis.document = { getElementById: (id) => (id === "sl-sec-state-x" ? el : null) };
+    window.slSecSetState("x", "hello"); window.slSecSetState("nope", "z");
+    assert.equal(el.textContent, "hello");
+    delete globalThis.document;
+    assert.doesNotThrow(() => window.slSecSetState("x", "y"));
+    globalThis.document = prev;
+  });
+});

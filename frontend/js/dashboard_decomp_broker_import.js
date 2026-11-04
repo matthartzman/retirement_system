@@ -134,6 +134,7 @@ function biPaint(see) { // `see`: selector of the result to bring into view; thi
   const old = root && root.querySelector('input[type="file"]'); // repainting must not reset the chosen file
   if (root) root.innerHTML = biBodyHtml();
   if (window.slPublish) window.slPublish("imports", biSummary());
+  if (window.slSecSetState) window.slSecSetState("imports", biStateText());
   const fresh = old && old.files.length && root.querySelector('input[type="file"]');
   if (fresh) fresh.replaceWith(old);
   const el = see && root && root.querySelector(see);

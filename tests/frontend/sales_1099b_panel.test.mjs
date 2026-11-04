@@ -221,3 +221,57 @@ describe("apply gating (Task 15)", () => {
     assert.match(m.bbStateText(), /Preview ready/);
   });
 });
+
+describe("focus-safe review box and state (Task 15 fix)", () => {
+  const els = {};
+  const withDom = async (fn) => {
+    const prev = globalThis.document;
+    let repaints = 0;
+    els.bbRoot = { querySelector: () => null, set innerHTML(v) { repaints++; }, get innerHTML() { return ""; } };
+    els.bbApplyBtn = { disabled: true }; els.bbApplyReason = { textContent: "x" }; els["sl-sec-state-b1099"] = { textContent: "" };
+    globalThis.document = { getElementById: (id) => els[id] || null };
+    try { await fn(() => repaints); } finally { globalThis.document = prev; }
+  };
+  const previewed = async () => { m.bbSetText("statement text"); m.bbSetAccount("Brokerage"); await m.bbPreviewStatement(); };
+  test("ticking the box toggles Apply and the reason in place, without repainting the root", async () => {
+    await withDom(async (repaints) => {
+      await previewed();
+      const before = repaints();
+      m.bbMarkViewed(true);
+      assert.equal(repaints(), before);
+      assert.equal(els.bbApplyBtn.disabled, false);
+      assert.equal(els.bbApplyReason.textContent, "");
+      m.bbMarkViewed(false);
+      assert.equal(els.bbApplyBtn.disabled, true);
+      assert.match(els.bbApplyReason.textContent, /tick the box/);
+    });
+  });
+  test("Apply is described by the single reason sentence", () => {
+    m.bbMarkViewed(false);
+    const html = m.bbPreviewHtml(PREVIEW({ can_apply: false }));
+    assert.match(html, /id="bbApplyBtn" aria-describedby="bbApplyReason"/);
+    assert.equal((html.match(/tick the box|Apply is off/g) || []).length, 1);
+  });
+  test("shell state shows the pending preview and clears after apply", async () => {
+    globalThis.slNextStepHtml = () => "";
+    await withDom(async () => {
+      await previewed();
+      assert.match(els["sl-sec-state-b1099"].textContent, /Preview ready/);
+      m.bbMarkViewed(true);
+      await m.bbApply();
+      assert.equal(els["sl-sec-state-b1099"].textContent, "");
+    });
+    delete globalThis.slNextStepHtml;
+  });
+  test("the post-apply links clear when the account, broker, text or file changes", async () => {
+    for (const change of [() => m.bbSetAccount("Brokerage"), () => m.bbSetBroker("etrade"), () => m.bbSetText("other")]) {
+      globalThis.slNextStepHtml = (r) => (r ? "<nav>NEXT</nav>" : "");
+      await previewed(); m.bbMarkViewed(true); await m.bbApply();
+      assert.match(m.renderSalesBroker1099b(), /NEXT/);
+      change();
+      assert.doesNotMatch(m.renderSalesBroker1099b(), /NEXT/);
+    }
+    delete globalThis.slNextStepHtml;
+    m.bbSetBroker("vanguard");
+  });
+});
