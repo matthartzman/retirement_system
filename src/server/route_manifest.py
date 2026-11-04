@@ -47,7 +47,7 @@ ROUTE_MODULES = {
         "/api/sales/tax-year", "/api/sales/carryforward", "/api/sales/wash/refresh",
         "/api/sales/1099b/preview", "/api/sales/1099b/apply", "/api/sales/1099b/wash",
         "/api/sales/broker/preview", "/api/sales/broker/commit", "/api/sales/broker/imports",
-        "/api/sales/broker/imports/<int:import_id>/revert", "/api/cash", "/api/cash/year-close", "/api/cash/verify-account", "/api/year-end", "/api/year-end/confirm", "/api/transactions", "/api/transactions/log",
+        "/api/sales/broker/imports/<int:import_id>/revert", "/api/cash", "/api/cash/year-close", "/api/cash/verify-account", "/api/cash/rollover-mark", "/api/year-end", "/api/year-end/confirm", "/api/transactions", "/api/transactions/log",
         "/api/transactions/backfill", "/api/transactions/accounts", "/api/transactions/accounts/<account>/managed", "/api/transactions/<int:txn_id>/revise", "/api/transactions/<int:txn_id>/void", "/api/transactions/transfer",
         "/api/sales/<int:sale_id>/replace", "/api/sales/<int:sale_id>/requeue"],
     "reconcile": ["/api/reconcile", "/api/reconcile/map", "/api/reconcile/preview", "/api/reconcile/apply", "/api/reconcile/undo", "/api/reconcile/log", "/api/reconcile/policy", "/api/reconcile/undo-auto", "/api/reconcile/seed"],

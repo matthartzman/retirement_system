@@ -152,8 +152,13 @@ def year_straddles(ledgers: Mapping[str, list[Mapping[str, Any]]], days: int = 5
     return sorted(out, key=lambda x: (x["out_date"], x["out_account"]))
 
 
-def _ledgers(store: Any, accounts: list[str]) -> dict[str, list[dict[str, Any]]]:
-    return pair_transfers({a: account_ledger(store, a, _monarch_names(store, a)) for a in accounts})
+def _ledgers(store: Any, accounts: list[str], *, marks: bool = True) -> dict[str, list[dict[str, Any]]]:
+    """Paired ledgers of ``accounts``. ``marks`` applies the owner's rollover marks (``cash_rollover_marks``)."""
+    out = pair_transfers({a: account_ledger(store, a, _monarch_names(store, a)) for a in accounts})
+    if marks:
+        from . import cash_rollover_marks
+        cash_rollover_marks.apply(store, out)
+    return out
 
 
 def _cash_lot(store: Any, account: str) -> dict[str, Any] | None:

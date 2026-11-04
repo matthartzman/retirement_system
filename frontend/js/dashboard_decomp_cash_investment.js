@@ -51,9 +51,9 @@ export function ciHtml(view, ledger = ciLedger, sort = ciSort) {
     `<button class="btn" type="button" onclick="ciVerify(${esc(JSON.stringify(r.account))}, ${!r.floor_gate.verified})">${r.floor_gate.verified ? "Remove verification" : "Mark verified"}</button></li>`).join("");
   const floorHtml = fg ? `<p>Floor feed (applies only when the plan's pair-status tax setting is on; an account is fed only once verified against a closed year and with no unmatched rows this year):</p><ul>${fg}</ul>` : "";
   const closesHtml = ciCloses((view && view.closes) || [], lbl);
-  const led = ledger && ledger.rows ? `<h4>${esc(accountDisplayLabel(ledger.account))}: ledger</h4>` + (ledger.rows.length ? `<div class="rc-scroll"><table class="rc-table"><thead><tr><th>Date</th><th>Class</th><th class="rc-num">Amount</th><th class="rc-num">Balance</th><th>Pairing</th><th>Source</th></tr></thead><tbody>` +
+  const led = ledger && ledger.rows ? `<h4>${esc(accountDisplayLabel(ledger.account))}: ledger</h4>` + (ledger.rows.length ? `<div class="rc-scroll"><table class="rc-table"><thead><tr><th>Date</th><th>Class</th><th class="rc-num">Amount</th><th class="rc-num">Balance</th><th>Pairing</th><th>Source</th><th></th></tr></thead><tbody>` +
     ledger.rows.map((l) => `<tr><td>${esc(l.date)}</td><td>${esc(l.class)}${l.needs_review ? " (review)" : ""}</td><td class="rc-num">${l.in_kind ? "in kind" : ciMoney(l.amount)}</td><td class="rc-num">${ciMoney(l.cash_balance)}</td>` +
-      `<td>${esc(l.pair_status)}${l.partner_account ? " " + esc(accountDisplayLabel(l.partner_account)) : ""}</td><td>${esc(l.source)}</td></tr>`).join("") + `</tbody></table></div>` : `<p class="muted">No cash rows.</p>`) : "";
+      `<td>${esc(l.pair_status)}${l.partner_account ? " " + esc(accountDisplayLabel(l.partner_account)) : ""}</td><td>${esc(l.source)}</td><td>${ciRolloverButton(ledger.account, l)}</td></tr>`).join("") + `</tbody></table></div>` : `<p class="muted">No cash rows.</p>`) : "";
   const table = rows.length ? `<div class="rc-scroll"><table class="rc-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` : `<p class="muted">No broker imports yet.</p>`;
   // The body only: the Sales Ledger page wraps it in the "cash" section shell (open/closed memory, alert rule, summary badge).
   return `${ciError ? `<p role="alert" class="error">${esc(ciError)}</p>` : ""}${table}${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${rep}${cmpHtml}${pastHtml}${stHtml}${closesHtml}${floorHtml}${led}`;
@@ -95,9 +95,18 @@ export async function ciReopenYear(year) {
 async function ciYearAction(body) {
   try { await api("/api/cash/year-close", { method: "POST", body: JSON.stringify(body) }); await ciLoad(); } catch (e) { ciError = e.message; ciPaint(); }
 }
+const ciMarkable = (l) => (l.pair_status === "external_withdrawal" || l.pair_status === "unmatched") && (l.class === "distribution" || l.class === "transfer_out") && !l.in_kind && Number(l.amount) < 0;
+export function ciRolloverButton(account, l) {
+  if (l.pair_status === "external_rollover") return `<button class="btn" type="button" onclick="ciMarkRollover(${esc(JSON.stringify(account))}, ${esc(JSON.stringify(l.date))}, ${Number(l.amount)}, false)">Unmark rollover</button>`;
+  return ciMarkable(l) ? `<button class="btn" type="button" onclick="ciMarkRollover(${esc(JSON.stringify(account))}, ${esc(JSON.stringify(l.date))}, ${Number(l.amount)}, true)">Mark as rollover</button>` : "";
+}
+export async function ciMarkRollover(account, date, amount, marked) {
+  if (marked && !confirm(`Mark this ${ciMoney(Math.abs(amount))} outflow on ${date} as a rollover? It stops counting as a withdrawal, so it is not taxed by the cash floor.`)) return;
+  try { await api("/api/cash/rollover-mark", { method: "POST", body: JSON.stringify({ account, date, amount, marked }) }); await ciLoad(); await ciShowLedger(account); } catch (e) { ciError = e.message; ciPaint(); }
+}
 export async function ciVerify(account, verified) {
   try { await api("/api/cash/verify-account", { method: "POST", body: JSON.stringify({ account, verified }) }); await ciLoad(); } catch (e) { ciError = e.message; ciPaint(); }
 }
 export function ciSortBy(key) { ciSort = { key, dir: ciSort.key === key ? -ciSort.dir : 1 }; ciPaint(); }
 
-Object.assign(window, { ciSummary, ciStateText, renderCashInvestment, ciHtml, ciLoad, ciShowLedger, ciSortBy, ciCloseYear, ciReopenYear, ciVerify });
+Object.assign(window, { ciSummary, ciStateText, renderCashInvestment, ciHtml, ciLoad, ciShowLedger, ciSortBy, ciCloseYear, ciReopenYear, ciVerify, ciMarkRollover });

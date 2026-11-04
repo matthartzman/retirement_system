@@ -1480,6 +1480,25 @@ def cash_year_close_action():
     return jsonify({"success": True, **out})
 
 
+@app.route("/api/cash/rollover-mark", methods=["POST"])
+def cash_rollover_mark():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import cash_rollover_marks as _crm
+    body = request.get_json(silent=True) or {}
+    account, date, amount = body.get("account"), body.get("date"), body.get("amount")
+    if not isinstance(account, str) or not account or not isinstance(date, str) or not date             or isinstance(amount, bool) or not isinstance(amount, (int, float)):
+        return jsonify({"success": False, "error": "account, date and amount are required"}), 400
+    marked = bool(body.get("marked", True))
+    try:
+        out = _crm.service(_ytd_input_root(), account, date, amount, marked)
+    except _crm.MarkError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    _audit("cash_rollover_marked" if marked else "cash_rollover_unmarked", {"account": account, "date": date})
+    return jsonify({"success": True, **out})
+
+
 @app.route("/api/cash/verify-account", methods=["POST"])
 def cash_verify_account():
     denied = _require("write_config")

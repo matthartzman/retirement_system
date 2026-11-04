@@ -125,3 +125,15 @@ test("the panel is a body only: the page's cash section shell supplies the summa
   assert.match(m.ciStateText(), /^(\d+ accounts?)?$/);
   assert.equal(globalThis.ciReveal, undefined);
 });
+
+test("ledger_offers_mark_as_rollover_on_a_plain_outflow_and_unmark_on_a_marked_one", () => {
+  const rows = [
+    { date: "2026-04-07", class: "transfer_out", amount: -355000, cash_balance: 0, pair_status: "external_withdrawal", source: "broker", in_kind: false },
+    { date: "2026-04-08", class: "transfer_out", amount: -5, cash_balance: 0, pair_status: "internal", source: "broker", in_kind: false },
+    { date: "2026-04-09", class: "transfer_in", amount: 9, cash_balance: 0, pair_status: "external_inflow", source: "broker", in_kind: false },
+    { date: "2026-04-10", class: "distribution", amount: -40, cash_balance: 0, pair_status: "external_rollover", source: "broker", in_kind: false }];
+  const h = m.ciHtml(VIEW, { account: "Member_1_IRA", rows });
+  assert.equal((h.match(/Mark as rollover/g) || []).length, 1);
+  assert.equal((h.match(/Unmark rollover/g) || []).length, 1);
+  assert.match(h, /ciMarkRollover\(&quot;Member_1_IRA&quot;, &quot;2026-04-07&quot;, -355000, true\)/);
+});
