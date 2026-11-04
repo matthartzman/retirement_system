@@ -269,7 +269,7 @@ describe("four tabs (Task 4)", () => {
   test("fix tab: merged Transaction log section, then a More views divider, then only the cash panel; one badge in the log summary", withStubs(() => {
     const html = m.renderSalesLedger();
     const fix = html.slice(html.indexOf('id="sl-p-fix"'), html.indexOf('id="sl-p-ledger"'));
-    assert.match(fix, /<div class="divider sl-divider">More views<\/div><div id="ci">renderCashInvestment<\/div><\/div><div class="sl-tab"/); // nothing else follows the cash panel
+    assert.match(fix, /<div class="divider sl-divider">More views<\/div><details class="sl-sec" id="sl-sec-cash"[^>]*>.*<div id="ci">renderCashInvestment<\/div><\/div><\/details><\/div><div class="sl-tab"/); // 2026-11-04: cash is a section shell now; nothing else follows it
     assert.ok(fix.indexOf('id="sl-sec-log"') < fix.indexOf("More views"));
     assert.equal((fix.match(/More views/g) || []).length, 1);
     const sum = fix.match(/<summary id="sl-sec-sum-log".*?<\/summary>/)[0];
@@ -282,8 +282,8 @@ describe("four tabs (Task 4)", () => {
     try {
       const html = m.renderSalesLedger();
       const fix = html.slice(html.indexOf('id="sl-p-fix"'), html.indexOf('id="sl-p-ledger"'));
-      assert.match(fix, /More views<\/div><div class="sl-import" id="ciRoot"><details ontoggle="ciToggle\(this\.open\)">/);
-      assert.doesNotMatch(fix, /id="ciRoot"><details open/);
+      assert.match(fix, /More views<\/div><details class="sl-sec" id="sl-sec-cash" data-key="cash" data-alert="0"><summary/); // shell, closed
+      assert.match(fix, /id="ciRoot"/);
       await new Promise((r) => setTimeout(r, 5)); // let the panel's scheduled load settle inside the test
     } finally { delete globalThis.renderCashInvestment; delete globalThis.localStorage; }
   });

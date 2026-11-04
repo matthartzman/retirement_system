@@ -7,6 +7,8 @@
 let stData = null;
 let stMessage = null; // { text, error }
 let stError = "";
+let stFromAll = false; // the header says All years: this tab keeps the last concrete year and says so
+let stCfDraft = null; // { year, stCfShort, stCfLong }: typed carryforward text survives any repaint until it is saved
 let stYearEnd = null; // { year, open, total } from GET /api/year-end; null when unavailable
 
 const stMoney = (v) => (Number(v) < 0 ? "-$" : "$") + Math.abs(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -38,10 +40,17 @@ export function stTaxHtml(s) {
 export function stCarryforwardHtml(s) {
   const cf = s.carryforward_in;
   const how = cf.entered ? "Entered from your Schedule D." : "Estimated from your earlier sales; enter last year's Schedule D figures to replace this.";
-  const input = (id, label, v) => `<label>${label}<input id="${id}" type="number" min="0" step="any" value="${esc(String(v))}"></label>`;
+  const d = stCfDraft && stCfDraft.year === s.year ? stCfDraft : {};
+  const input = (id, label, v) => `<label>${label}<input id="${id}" type="number" min="0" step="any" value="${esc(String(d[id] ?? v))}" oninput="stCfDraftSet('${id}',this.value)"></label>`;
   return `<div class="st-carry"><h4>Capital-loss carryforward into ${esc(String(s.year))}</h4>` +
     `<div class="field-grid">${input("stCfShort", "Short-term ($, positive)", cf.short)}${input("stCfLong", "Long-term ($, positive)", cf.long)}</div>` +
     `<p class="muted">${esc(how)}</p><button class="btn" type="button" onclick="stSaveCarryforward()">Save carryforward</button></div>`;
+}
+
+export function stCfDraftSet(id, v) {
+  if (!stData || (id !== "stCfShort" && id !== "stCfLong")) return;
+  if (!stCfDraft || stCfDraft.year !== stData.year) stCfDraft = { year: stData.year };
+  stCfDraft[id] = String(v ?? "");
 }
 
 export function stWashHtml(w) {
@@ -79,7 +88,8 @@ function stBodyHtml() {
   const msg = stMessage ? `<p class="${stMessage.error ? "field-error" : "muted"}" role="status">${esc(stMessage.text)}</p>` : "";
   const b = window.slSummaries && window.slSummaries().b1099;
   const ye = stYearEnd ? stYearEndLinkHtml(stYearEnd.open, stYearEnd.total, stYearEnd.year) : "";
-  return `<h3>Tax year ${esc(String(stData.year))} · sales dated 1/1–12/31</h3>${msg}${stTilesHtml(stData)}${st1099bStatusRowHtml(b)}${ye}` +
+  const note = stFromAll ? `<p class="muted">The Sale year filter is set to All years; this tab shows ${esc(String(stData.year))}, the last year you selected. Pick a year above to change it.</p>` : "";
+  return `<h3>Tax year ${esc(String(stData.year))} · sales dated 1/1–12/31</h3>${note}${msg}${stTilesHtml(stData)}${st1099bStatusRowHtml(b)}${ye}` +
     `<div class="sl-tax-cols"><div>${stNettingHtml(stData)}${stTaxHtml(stData)}</div><div>${stCarryforwardHtml(stData)}</div></div>${stWashHtml(stData.wash)}`;
 }
 
@@ -87,15 +97,22 @@ export function renderSalesTaxYear() {
   return `<div class="st-panel" id="stRoot">${stBodyHtml()}</div>`;
 }
 
+// Only a carryforward that is actually carried in but was never entered is a signal; "entered: false" alone is the normal
+// state for anyone with no carryforward, so it would be a permanent false alarm. Saving the figures (even as zero) clears it.
+function stCfUnsaved() {
+  const cf = stData && stData.carryforward_in;
+  return !!cf && cf.entered === false && (Number(cf.short) > 0 || Number(cf.long) > 0);
+}
+
 // Wash: flagged is bad; else the last-run marker (task 14) warns "never run"/"stale" (cleared by Refresh). Old servers without the
 // marker keys stay neutral. The carryforward stays neutral: a warn there would be an unclearable alert.
 export function stSummary() {
   const w = (stData && stData.wash) || {};
-  const n = w.count || 0;
+  const n = Number.isFinite(w.all_years_count) ? w.all_years_count : w.count || 0; // the strip counts flagged sales across ALL years
   const warn = w.never_run === true ? "never run" : w.stale === true ? "stale" : "";
   return {
     wash: n > 0 ? { count: n, tone: "bad", text: `${n} flagged` } : warn ? { count: 0, tone: "warn", text: warn } : { count: 0, tone: "", text: "" },
-    cf: { count: 0, tone: "", text: "" },
+    cf: stCfUnsaved() ? { count: 0, tone: "warn", text: "carryforward not saved" } : { count: 0, tone: "", text: "" },
   };
 }
 
@@ -105,13 +122,10 @@ function stPaint() {
   if (window.slPublish) { const s = stSummary(); window.slPublish("wash", s.wash); window.slPublish("cf", s.cf); }
 }
 
-export async function loadSalesTaxYear(year) {
+export async function loadSalesTaxYear(year, opts = {}) {
   stError = "";
+  stFromAll = !!opts.fromAll;
   const taxReq = api("/api/sales/tax-year?year=" + encodeURIComponent(year));
-  const yeReq = api("/api/year-end").then((r) => {
-    const steps = r && Array.isArray(r.steps) ? r.steps : [];
-    return steps.length ? { year: r.year, total: steps.length, open: steps.filter((x) => x && x.state === "open").length } : null;
-  }).catch(() => null);
   try {
     const out = await taxReq;
     stData = out && out.success ? out : null;
@@ -120,29 +134,51 @@ export async function loadSalesTaxYear(year) {
     stData = null;
     stError = "The tax-year summary could not be loaded: " + e.message;
   }
-  stYearEnd = await yeReq;
   stPaint();
+  // /api/year-end rescans every purchase for the wash signature, so it is fetched only while the Tax tab is showing
+  // (and again when the tab is next shown after a reload); the link row is the only thing that needs it.
+  stYeStale = true;
+  if (stTabShown()) await stLoadYearEnd();
 }
 
-const stVal = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
+const stTabShown = () => !window.slCurrentTab || window.slCurrentTab() === "tax";
+let stYeStale = true;
+let stYeBusy = false;
+async function stLoadYearEnd() {
+  if (stYeBusy) return;
+  stYeBusy = true;
+  stYeStale = false;
+  try {
+    const r = await api("/api/year-end");
+    const steps = r && Array.isArray(r.steps) ? r.steps : [];
+    stYearEnd = steps.length ? { year: r.year, total: steps.length, open: steps.filter((x) => x && x.state === "open").length } : null;
+  } catch (e) { stYearEnd = null; }
+  stYeBusy = false;
+  stPaint();
+}
+// Called by the page when the Tax tab is shown: fetch the year-end counts if a load skipped them.
+export function stOnShown() { if (stYeStale && stData) return stLoadYearEnd(); return undefined; }
 
-async function stPost(url, body, okText) {
+async function stPost(url, body, okText, onOk) {
   const year = stData && stData.year;
   try {
     await api(url, { method: "POST", body: JSON.stringify(body || {}) });
     stMessage = { text: okText, error: false };
+    if (onOk) onOk();
   } catch (e) {
     stMessage = { text: e.message, error: true };
   }
-  if (year) await loadSalesTaxYear(year);
+  if (year) await loadSalesTaxYear(year, { fromAll: stFromAll });
   else stPaint();
 }
 
 export function stSaveCarryforward() {
   if (!stData) return Promise.resolve();
-  return stPost("/api/sales/carryforward", { year: stData.year, carryforward_short: stVal("stCfShort"), carryforward_long: stVal("stCfLong") }, "Carryforward saved.");
+  const d = stCfDraft && stCfDraft.year === stData.year ? stCfDraft : {};
+  const pick = (id) => { const el = document.getElementById(id); return el ? el.value : (d[id] ?? ""); };
+  return stPost("/api/sales/carryforward", { year: stData.year, carryforward_short: pick("stCfShort"), carryforward_long: pick("stCfLong") }, "Carryforward saved.", () => { stCfDraft = null; });
 }
 
 export const stRefreshWash = () => stPost("/api/sales/wash/refresh", null, "Wash-sale check done.");
 
-Object.assign(window, { stTilesHtml, st1099bStatusRowHtml, stYearEndLinkHtml, stSummary, stNettingHtml, stTaxHtml, stCarryforwardHtml, stWashHtml, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward, stRefreshWash });
+Object.assign(window, { stTilesHtml, st1099bStatusRowHtml, stYearEndLinkHtml, stSummary, stNettingHtml, stTaxHtml, stCarryforwardHtml, stCfDraftSet, stOnShown, stWashHtml, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward, stRefreshWash });

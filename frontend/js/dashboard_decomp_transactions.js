@@ -22,7 +22,8 @@ export function trHtml(view, filter = trFilter) {
   const held = ((view && view.held) || []);
   const heldHtml = filter.held ? `<h4>Lots held</h4>` + (held.length ? `<table class="rc-table"><thead><tr><th>Account</th><th>Symbol</th><th>Purchased</th><th class="rc-num">Shares</th><th class="rc-num">Price</th></tr></thead><tbody>` +
     held.map((h) => `<tr><td>${esc(accountDisplayLabel(h.account))}</td><td>${esc(h.symbol)}</td><td>${esc(h.purchase_date)}</td><td class="rc-num">${trNum(h.shares)}</td><td class="rc-num">${trMoney(h.price)}</td></tr>`).join("") + `</tbody></table>` : `<p class="muted">No open lots.</p>`) : "";
-  return `${trError ? `<p role="alert" class="error">${esc(trError)}</p>` : ""}${table}${heldHtml}`;
+  const err = view && typeof view.error === "string" ? view.error : trError; // the error travels with its view, so an out-of-order failure cannot mismatch rows
+  return `${err ? `<p role="alert" class="error">${esc(err)}</p>` : ""}${table}${heldHtml}`;
 }
 
 // Fetch the history for these filters (account, symbol, year, type, held); the caller paints.
@@ -31,8 +32,10 @@ export async function trLoad(filter = trFilter) {
   const q = new URLSearchParams();
   for (const k of ["account", "symbol", "year", "type"]) if (trFilter[k]) q.set(k, trFilter[k]);
   if (trFilter.held) q.set("held", "1");
-  try { trView = await api(`/api/transactions?${q}`); trError = ""; } catch (e) { trView = { rows: [], held: [] }; trError = e.message; }
-  return trView;
+  let view, error = "";
+  try { view = { ...(await api(`/api/transactions?${q}`)), error: "" }; } catch (e) { error = e.message; view = { rows: [], held: [], error }; }
+  trView = view; trError = error;
+  return view;
 }
 export const trState = () => ({ view: trView, error: trError });
 

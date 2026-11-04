@@ -61,7 +61,7 @@ export function slParseHash(hash) {
 export function slSecOpen(state, key, defaultOpen, alertCount) {
   const e = state && state.sections && state.sections[key];
   if (!e) return !!defaultOpen;
-  if (alertCount > 0 && e.lastAlertCount !== alertCount) return true;
+  if (alertCount !== 0 && e.lastAlertCount !== alertCount) return true; // counted alerts are > 0, countless ones a negative signature
   return !!e.open;
 }
 
@@ -69,7 +69,7 @@ export function slTabBarHtml(active, markers = {}) {
   const tabs = SL_TABS.map(([id, label]) => {
     const mk = markers[id];
     const tone = mk && mk.tone === "bad" ? "bad" : "warn";
-    const badge = mk && mk.count > 0 ? ` <span class="sl-tab-badge ${tone}">${Number(mk.count)}</span>`
+    const badge = mk && mk.count > 0 ? ` <span class="sl-tab-badge ${tone}"><span aria-hidden="true">${Number(mk.count)}</span><span class="sr-only">${Number(mk.count)} ${Number(mk.count) === 1 ? "item needs" : "items need"} attention</span></span>`
       : mk && mk.attn ? ` <span class="sl-tab-badge ${tone}"><span aria-hidden="true">!</span><span class="sr-only"> needs attention</span></span>` : "";
     const on = id === active;
     return `<button type="button" role="tab" id="sl-t-${id}" class="workspace-tab${on ? " active" : ""}" aria-selected="${on}" aria-controls="sl-p-${id}" tabindex="${on ? 0 : -1}" onclick="slSetTab('${id}')" onkeydown="slTabKeydown(event)">${label}${badge}</button>`;
@@ -91,6 +91,25 @@ export function slSetCurrentTab(id) {
   slUiSave(slUiSetTab(slUiLoad(), id));
 }
 
+// Sale year and Show voided only shape the Sales ledger and Tax year tabs; elsewhere they are disabled (not just dimmed) and say why.
+export function slHeadControlState(tab) {
+  const off = tab === "fix" || tab === "import";
+  return { disabled: off, title: off ? "Applies to the Sales ledger and Tax year tabs, not this one." : "" };
+}
+export function slHeadSync(tab) {
+  const doc = globalThis.document;
+  if (!doc) return;
+  const st = slHeadControlState(tab);
+  for (const id of ["slYear", "slVoidedBox"]) {
+    const el = doc.getElementById(id);
+    if (!el) continue;
+    el.disabled = st.disabled;
+    if (el.setAttribute) { el.setAttribute("aria-disabled", String(st.disabled)); el.setAttribute("title", st.title); }
+    const lab = el.parentNode;
+    if (lab && lab.classList) lab.classList.toggle("sl-ctl-off", st.disabled);
+  }
+}
+
 export function slSetTab(id, opts = {}) {
   if (!slTabOk(id)) return;
   const doc = globalThis.document;
@@ -103,6 +122,8 @@ export function slSetTab(id, opts = {}) {
     if (pnl) pnl.hidden = !on;
   }
   slSetCurrentTab(id);
+  slHeadSync(id);
+  if (id === "tax" && globalThis.window && globalThis.window.stOnShown) globalThis.window.stOnShown();
   if (opts.focus) { const b = doc.getElementById(`sl-t-${id}`); if (b) b.focus(); }
 }
 
@@ -127,7 +148,7 @@ export function slOnSummary(cb) { slSubs.add(cb); return () => { slSubs.delete(c
 export const slSummaries = () => Object.fromEntries(Object.entries(slSums).map(([k, v]) => [k, { ...v }]));
 
 // Alert strip: one text badge per open item (warn/bad, stale/never run, or counted + toned), across all years.
-const SL_KEY_TAB = { queue: "fix", health: "fix", log: "fix", cash: "fix", wash: "tax", cf: "tax", b1099: "import", imports: "import" };
+const SL_KEY_TAB = { queue: "fix", health: "fix", log: "fix", cash: "fix", wash: "tax", cf: "tax", b1099: "import", imports: "import", csv: "import" };
 const slEsc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const slIsAlert = (s) => !!s && (s.tone === "warn" || s.tone === "bad" || /^(stale|never run)$/i.test(String(s.text).trim()) || (s.count > 0 && s.tone !== ""));
 const slAlertItems = (sums) => Object.keys(SL_KEY_TAB).filter((k) => slIsAlert(sums && sums[k])).map((k) => [k, SL_KEY_TAB[k], sums[k]]);
@@ -161,21 +182,38 @@ const SL_SEC_META = { queue: ["Sales waiting for lots", false], health: ["Log he
   ledger: ["Sales ledger", true], wash: ["Realized gains & wash sales", true], cf: ["Carryforward", false], imports: ["Broker imports", false], b1099: ["Broker 1099-B", false], csv: ["Sales CSV import", false] };
 const SL_TAB_SECS = { fix: ["queue", "health", "log", "cash"], ledger: ["ledger"], tax: ["wash", "cf"], import: ["imports", "b1099", "csv"] };
 // Only real alerts (same predicate as the strip) count; informational counts such as row totals never open or pin a section.
-export const slAlertCountOf = (s) => (slIsAlert(s) && s.count > 0 ? s.count : 0);
-const slAlertCount = (key) => slAlertCountOf(slSums[key]);
+// A countless alert (stale, never run, log not started) gets a stable negative signature from its text, so the persisted-collapse
+// rule re-opens the section when it first appears or changes; an alert is never hideable.
+const slSig = (s) => { let h = 7; for (const c of `${s.tone}|${String(s.text).trim().toLowerCase()}`) h = (h * 31 + c.charCodeAt(0)) % 1000003; return -(h + 1); };
+export const slAlertCountOf = (s) => (!slIsAlert(s) ? 0 : s.count > 0 ? s.count : slSig(s));
+// Strip keys that have no section of their own land in (and re-open) another: Carryforward lives in the wash section.
+const SL_SEC_OF = { cf: "wash" };
+const SL_SEC_SRC = { wash: ["wash", "cf"] };
+const slSecKey = (k) => SL_SEC_OF[k] || k;
+// A section's alert signature: the sum over every summary that lands in it (never 0 while any of them is an alert).
+export function slSecAlert(key) {
+  const parts = (SL_SEC_SRC[key] || [key]).map((k) => slAlertCountOf(slSums[k])).filter((n) => n !== 0);
+  const sum = parts.reduce((a, b) => a + b, 0);
+  return parts.length && sum === 0 ? -1 : sum;
+}
+const slAlertCount = slSecAlert;
+const SL_FOCUS_FALLBACK = { health: "tlStartBtn" }; // a bare prompt stands in for a section that does not exist yet
 
 export function slGo(tab, sec) {
   if (!slTabOk(tab)) return;
   slSetTab(tab);
   const doc = globalThis.document;
-  const ok = SL_SEC_META[sec] ? sec : null;
+  const ok = SL_SEC_META[slSecKey(sec)] ? slSecKey(sec) : null;
   const el = ok && doc && doc.getElementById(`sl-sec-${ok}`);
   if (el) {
     el.open = true;
     slUiSave(slUiRecordToggle(slUiLoad(), ok, true, slAlertCount(ok))); // navigating to a section is the user's choice to see it
     const sum = el.querySelector && el.querySelector("summary");
     if (sum && sum.focus) sum.focus();
-  } else if (ok === "cash" && window.ciReveal) window.ciReveal(); // the Cash panel keeps its own <details>, not a section shell
+  } else if (ok && doc && SL_FOCUS_FALLBACK[ok]) { // e.g. "log not started": the bare Start prompt is the place to land
+    const f = doc.getElementById(SL_FOCUS_FALLBACK[ok]);
+    if (f) { if (f.scrollIntoView) f.scrollIntoView({ block: "center" }); if (f.focus) f.focus(); }
+  }
   try { globalThis.history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* no history API: the tab switch still happened */ } // never leave a hash: a later render would re-apply it
 }
 
@@ -193,8 +231,8 @@ export function slSecHtml({ key, title, badges = [], state = "", alertCount = 0,
 // Whether a section should be open now: stored choice, except a new alert count (or any alert with no stored choice) opens it.
 export function slSecWantOpen(state, key, alertCount) {
   const meta = SL_SEC_META[key];
-  const n = alertCount > 0 ? alertCount : 0;
-  if (n > 0 && !(state && state.sections && state.sections[key])) return true;
+  const n = Number(alertCount) || 0;
+  if (n !== 0 && !(state && state.sections && state.sections[key])) return true;
   return slSecOpen(state, key, !!(meta && meta[1]), n);
 }
 
@@ -207,7 +245,9 @@ export function slOnSummaryClick(key) {
 }
 
 // Patch a section in place when its panel publishes a summary; never re-renders, never moves focus, never writes the store.
-export function slSecUpdate(key, summary) {
+export function slSecUpdate(srcKey, srcSummary) {
+  const key = slSecKey(srcKey);
+  const summary = key === srcKey ? srcSummary : slSums[key];
   const meta = SL_SEC_META[key];
   const doc = globalThis.document;
   if (!meta || !doc) return;
@@ -220,7 +260,11 @@ export function slSecUpdate(key, summary) {
   if (stateFn && window[stateFn]) slSecSetState(key, window[stateFn]());
   const el = doc.getElementById(`sl-sec-${key}`);
   if (!el) return;
-  const want = slSecWantOpen(slUiLoad(), key, slAlertCountOf(summary));
+  const st = slUiLoad();
+  const n = slSecAlert(key);
+  const e = st.sections[key];
+  if (n === 0 && e && e.lastAlertCount !== 0) slUiSave(slUiRecordToggle(st, key, e.open, 0)); // alert cleared: forget it so its return re-opens the section
+  const want = slSecWantOpen(st, key, n);
   if (want && !el.open) { // a summary update may only open a section, never close one under the user
     el.open = true;
     slAnnounce(`${meta[0]}: ${(summary && summary.text) || ""}`);
@@ -240,7 +284,7 @@ export function slSecAll(tab, open) { // no tab: the active one
   for (const key of SL_TAB_SECS[tab || slCurrentTab()] || []) {
     const el = doc.getElementById(`sl-sec-${key}`);
     if (!el) continue;
-    const want = !!open || slAlertCount(key) > 0;
+    const want = !!open || slAlertCount(key) !== 0;
     el.open = want;
     st = slUiRecordToggle(st, key, want, slAlertCount(key));
   }
@@ -259,7 +303,7 @@ export function slNextStepHtml(result) {
   const q = Number((slSums.queue || {}).count) || 0;
   const link = (tab, sec, text) => `<a href="#sales_ledger?tab=${tab}&amp;sec=${sec}" onclick="slGo('${tab}','${sec}');return false">${text}</a>`;
   const items = [result.wash ? link("tax", "wash", "Review changed lots / re-run wash check") : "", q > 0 ? link("fix", "queue", `${q} sale${q === 1 ? "" : "s"} waiting → Fix lots`) : ""].filter(Boolean);
-  return items.length ? `<p class="sl-next" role="status">Next: ${items.join(" · ")}</p>` : "";
+  return items.length ? `<p class="sl-next">Next: ${items.join(" · ")}</p>` : "";
 }
 
-Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSetDensity, slIsCompact, slSecHtml, slAlertCountOf, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecSetState, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slCurrentTab, slSetCurrentTab, slTabKeydown, slStepsHtml, slNextStepHtml });
+Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSetDensity, slIsCompact, slSecHtml, slAlertCountOf, slSecAlert, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecSetState, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slCurrentTab, slSetCurrentTab, slTabKeydown, slHeadControlState, slHeadSync, slStepsHtml, slNextStepHtml });

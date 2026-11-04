@@ -38,7 +38,7 @@ def test_empty_ledger_summary_is_all_zero(input_dir):
     assert out["year"] == 2026 and out["filing"] == "MFJ" and out["limit"] == 3000.0
     assert all(v == 0.0 for v in out["netting"].values())
     assert out["carryforward_in"] == {"short": 0.0, "long": 0.0, "entered": False}
-    assert out["wash"] == {"count": 0, "flagged_loss": 0.0, "rows": [], "last_run": None, "never_run": True, "stale": False}
+    assert out["wash"] == {"count": 0, "all_years_count": 0, "flagged_loss": 0.0, "rows": [], "last_run": None, "never_run": True, "stale": False}
 
 
 def test_summary_nets_the_year_and_ignores_voided_and_non_taxable(input_dir):
@@ -181,3 +181,15 @@ def test_entering_a_carryforward_keeps_the_state_rate_override(input_dir):
     sales_tax_year.set_carryforward(input_dir, 2026, short=1.0, long=2.0)
     with active_plan.workspace_store(input_dir.parent) as store:
         assert store.sales.adjustment(2026)["state_rate_override"] == 0.04
+
+
+def test_wash_all_years_count_covers_flags_outside_the_selected_year(input_dir):
+    """The Sales Ledger strip counts flagged sales across ALL years; `count` stays the selected year's."""
+    _sale(input_dir, sale_date="2025-06-10", proceeds=1000.0, basis=1400.0, purchase_date="2024-01-01")  # -400, 2025
+    active_plan.write_dataset_rows_for_input_dir(input_dir, "holdings", [
+        {"account": "Spouse_ira", "symbol": "VTI", "purchase_date": "2025-06-20", "shares": "10",
+         "purchase_price": "100", "lot_type": "reinvest", "note": ""}])
+    sales_tax_year.refresh_wash_flags(input_dir)
+    wash = sales_tax_year.tax_year_summary(input_dir, 2026)["wash"]
+    assert wash["count"] == 0 and wash["all_years_count"] == 1
+    assert sales_tax_year.tax_year_summary(input_dir, 2025)["wash"]["all_years_count"] == 1
