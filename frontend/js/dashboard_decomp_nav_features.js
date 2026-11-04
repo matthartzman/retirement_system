@@ -7,6 +7,8 @@
 // disagree. Turning a feature off only hides it; the saved entries are kept.
 // The pure functions take their inputs as arguments so node tests can drive them without a browser.
 
+import { STRATEGY_SECTION_REGISTRY } from "./dashboard_decomp_strategy_workspace.js";
+
 // ── Set up / Maintain flow switch ───────────────────────────────────────────
 const MODE_KEY = "rp_nav_mode";
 export const MAINTAIN_FIRST_GROUP = "Track & Reconcile";
@@ -149,11 +151,10 @@ const DISPLAY_NAME = {
   retirement_strategy: "Withdrawal Sequencing",
 };
 
-// Ungated sections that always exist on a page (listed under "Always on").
-export const ALWAYS_ON_SECTIONS = {
-  strategy_optimize: ["Asset Allocation"],
-  strategy_workbench: ["Strategy Levers", "Unified Comparison Matrix", "Decision", "Saved Planning Cases"],
-};
+// "Always on" sections: the strategy workspace's section registry, gate null = always on (no second list).
+export function alwaysOnSections(stepId, registry = STRATEGY_SECTION_REGISTRY) {
+  return registry.filter((r) => r.stepId === stepId && r.gate == null).map((r) => r.title);
+}
 // Pages whose gate is hand-written in stepGatedByOptionalModule rather than in moduleGates.
 const HAND_GATED_STEPS = ["strategy_stress", "entity_charitable", "family_business", "rental_properties"];
 
@@ -239,7 +240,7 @@ export function groupFeatures(group, deps) {
     .filter((s) => s.group === group && !s.hidden && !gated.has(s.id))
     .forEach((s) => {
       always.push({ name: s.title, stepId: s.id, hostTitle: s.title });
-      (ALWAYS_ON_SECTIONS[s.id] || []).forEach((sec) => always.push({ name: sec, stepId: s.id, hostTitle: s.title, section: true }));
+      alwaysOnSections(s.id).forEach((sec) => always.push({ name: sec, stepId: s.id, hostTitle: s.title, section: true }));
     });
   // A gated page whose gate is hand-written still lists through its feature rows, never as "always on".
   return {

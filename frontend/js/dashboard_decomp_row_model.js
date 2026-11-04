@@ -120,7 +120,7 @@ export const SUGGESTED_NEXT = {
 export function suggestedNext(stepId) {
   const nav = window.RPNav;
   const maintain = nav && nav.currentMode(overallStats().missing.length, planLoaded) === "maintain";
-  const nextId = maintain ? nav.maintainNext(stepId) : SUGGESTED_NEXT[stepId];
+  const nextId = (maintain && nav.maintainNext(stepId)) || SUGGESTED_NEXT[stepId]; // off the Maintain chain: Set up chain
   const st = STEPS.find((s) => s.id === nextId);
   // W13: a suggestion pointing at a module-gated step whose module is off is
   // a link to a page the nav does not show -- the dead end this workstream's
