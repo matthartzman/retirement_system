@@ -11,7 +11,7 @@ export function showConfigCardHelp(key) {
     SYSTEM_CONFIG_FIELD_HELP[key] || window.RPHelp?.pageHtml("system_configuration") || "";
 }
 
-// ── Workbook download (Settings → Data & Maintenance → Workbook download) ──
+// ── Workbook download (Settings → Data & Backups → Workbook download) ──
 // Configurable filename root and desktop-only save folder for the workbook
 // download, so "Download Workbook" stops handing back a same-name-every-time
 // file (browser) or a cryptic OS-temp-file path (desktop app) -- see

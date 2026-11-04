@@ -12,7 +12,10 @@ from src import module_catalog as mc
 from src.reporting.workbook_common import _SECTION_META
 from tests._decomp_dashboard import dashboard_js_text
 
-UTILITY = {"Plan Status", "Household", "Strategy", "Reports & Review", "Settings"}
+UTILITY = {"Plan Status", "Household", "Strategy", "Reports & Review", "Settings",
+           # 2026-11-04 left-nav redesign (user-approved free-hand regroup; DOMAINS is unchanged and the Features
+           # popover tags each feature with its catalog domain instead).
+           "Household & Cash Flow", "Accounts & Property", "Protection & Legacy", "Analyze", "Track & Reconcile"}
 
 
 def _nav_groups():

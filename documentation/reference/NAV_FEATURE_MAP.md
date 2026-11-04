@@ -2,6 +2,8 @@
 
 Inventory of the dashboard's left navigation: what each item does, whether it can be switched on or off, its state in the demo plan, and where it appears when enabled.
 
+> **Structure update (2026-11-04):** the nav was regrouped from twelve headings to eight (Plan Status pinned, Household & Cash Flow, Accounts & Property, Protection & Legacy, Taxes, Analyze, Track & Reconcile, Settings), with a Set up / Maintain switch and a per-heading Features popover (`frontend/js/dashboard_decomp_nav_features.js`). The "Nav group" and item names in the tables below follow the new structure; the page rows are not re-verified one by one. Source of truth: `STEPS` in `frontend/js/dashboard.js` and the design in `documentation/future/superpowers/specs/2026-11-04-left-nav-redesign-design.md`.
+
 ## How the left nav works
 
 - The nav is built from the `STEPS` array in `frontend/js/dashboard.js` (lines 14-296). `renderSteps()` (`frontend/js/dashboard_decomp_row_model.js:2386`) groups consecutive visible steps by `group` and numbers the pages 1..N (the group headings are not numbered in the UI).
@@ -27,65 +29,53 @@ Legend: Optional? = Always on / Switchable. Position = group and ordinal in the 
 
 | Nav group | Item | What it does | Optional? | Switch (key and where set) | Current state (demo) | Position when enabled |
 |---|---|---|---|---|---|---|
-| Plan Status | (group heading) | Home group | Always on | - | n/a | Group 1 |
-| Plan Status | Plan Status (`start`) | Open a plan, check readiness, choose the next action | Always on | - | n/a | 1.1 |
-| Household | (group heading) | Household facts | Always on | - | n/a | Group 2 |
-| Household | Household & People (`household_people`) | Names, birth dates, state, filing status, retirement dates, horizon, survivor assumptions | Always on | - | n/a | 2.1 |
-| Income & Benefits | (group heading) | Income inputs | Always on | - | n/a | Group 3 |
-| Income & Benefits | Work Income (`income_work`) | Salary or self-employment income, payroll assumptions, retirement contributions | Always on | - | n/a | 3.1 |
-| Income & Benefits | SS, Pensions, & Annuities (`income_retirement`) | Social Security claiming, pensions, annuity income, COLA settings | Always on | - | n/a | 3.2 |
-| Spending | (group heading) | Spending inputs | Always on | - | n/a | Group 4 |
-| Spending | Spending Model (`spending_core`) | Category hierarchy, budgets, projection controls; one accordion per Tracking Type (Housing, Wellness, Travel and Other Spending live here) | Always on | - | n/a | 4.1 |
-| Investments & Property | (group heading) | Assets and property | Always on | - | n/a | Group 5 |
-| Investments & Property | Investment Holdings (`holdings`) | One row per tax lot: account, ticker, shares, date, basis | Always on | - | n/a | 5.1 |
-| Investments & Property | Reserve Requirements (`assets_home_cash`) | Cash reserve floor protected before drawing investments | Always on | - | n/a | 5.2 |
-| Investments & Property | Other Assets and Liabilities (`assets_special`) | Notes receivable, HSA, 529 plans, equity comp, collectibles, personal property | Always on | - | n/a | 5.3 |
-| Investments & Property | Other Assets > 529 Plans section | 529 rows on this page (same rows as Education & Equity Comp) | Switchable | `education_funding_529`, Plan Features | Off (FALSE) | Section of 5.3 and 9.1 |
-| Investments & Property | Other Assets > Equity Compensation section | Equity comp rows on this page | Switchable | `equity_compensation`, Plan Features | Off (FALSE) | Section of 5.3 and 9.1 |
-| Investments & Property | Other Assets > Hybrid LTC row group | Hybrid LTC/life policy rows | Switchable | Plan flag `Hybrid LTC / Settings / enabled` (key `hybrid_ltc_policy`), Plan Features | Off (FALSE, `client_assets.csv:84`) | Row group of 5.3 |
-| Investments & Property | Home Equity Line (`heloc_strategy`) | Bridge large discretionary spending with home equity | Switchable | Plan flag `HELOC / Setup / heloc_enabled` (key `heloc`), Plan Features | Off (NO, `client_policy.csv:11`): nav item hidden | 5.4 |
-| Investments & Property | Rental Properties (`rental_properties`) | Rental real estate: rent, expenses, mortgage, depreciation, passive-loss limits and sale per property; Convert my home; summary estimate and warnings | Switchable | `rental_property_income`, Plan Features (Advanced tier, default off) | Off (default): hidden while nothing is entered; with properties stored the page stays and shows its off state ("Off · N rows entered", data kept, preview) | 5.5 |
-| Insurance & Care | (group heading) | Insurance inputs | Always on | - | n/a | Group 6 |
-| Insurance & Care | Insurance (`annuity_death_benefits`) | Carrier illustrations for annuities and special income, plus all insurance policies | Always on | - | n/a | 6.1 |
-| Insurance & Care | Insurance > Existing Life Insurance rows (section `Insurance In Force`) | Policies in force | Switchable | `existing_life_insurance`, Plan Features (`section_gates`) | Off (FALSE) | Rows of 6.1 |
-| Estate & Legacy | (group heading) | Estate inputs | Always on | - | n/a | Group 7 |
-| Estate & Legacy | Estate Inputs (`estate`) | Exemptions, trust structure, beneficiary needs, gifting, charitable intent | Always on | - | n/a | 7.1 |
-| Taxes | (group heading) | Tax strategy inputs | Always on | - | n/a | Group 8 |
-| Taxes | Roth Conversion (`roth_conversion`) | Conversion policy, ceiling, IRMAA guardrails, objective weights | Switchable | `roth_conversion_plan`, Plan Features | On (TRUE) | 8.1 |
-| Taxes | Charitable Giving (`entity_charitable`) | Giving vehicle: direct gift, DAF, QCD | Switchable | Shown iff `daf_giving` (DAF/Settings/enabled) OR `qcd_giving` (Cashflow/Charitable Giving/qcd_enabled); both switched on Plan Features | On: DAF TRUE (`client_assets.csv:78`), QCD off by default (no demo row) | 8.2 |
+| Plan Status | Plan Status (`start`) | Open a plan, check readiness, choose the next action | Always on | - | n/a | see STEPS order |
+| Household & Cash Flow | Household & People (`household_people`) | Names, birth dates, state, filing status, retirement dates, horizon, survivor assumptions | Always on | - | n/a | see STEPS order |
+| Household & Cash Flow | Work Income (`income_work`) | Salary or self-employment income, payroll assumptions, retirement contributions | Always on | - | n/a | see STEPS order |
+| Household & Cash Flow | Social Security & Pensions (`income_retirement`) | Social Security claiming, pensions, annuity income, COLA settings | Always on | - | n/a | see STEPS order |
+| Household & Cash Flow | Spending Model (`spending_core`) | Category hierarchy, budgets, projection controls; one accordion per Tracking Type (Housing, Wellness, Travel and Other Spending live here) | Always on | - | n/a | see STEPS order |
+| Accounts & Property | Investment Holdings (`holdings`) | One row per tax lot: account, ticker, shares, date, basis | Always on | - | n/a | see STEPS order |
+| Accounts & Property | Rental Properties (`rental_properties`) | Rental real estate: rent, expenses, mortgage, depreciation, passive-loss limits and sale per property; Convert my home; summary estimate and warnings | Switchable | `rental_property_income`, Plan Features (Advanced tier, default off) | Off (default): hidden while nothing is entered; with properties stored the page stays and shows its off state ("Off · N rows entered", data kept, preview) | see STEPS order |
+| Accounts & Property | Home Equity Line (`heloc_strategy`) | Bridge large discretionary spending with home equity | Switchable | Plan flag `HELOC / Setup / heloc_enabled` (key `heloc`), Plan Features | Off (NO, `client_policy.csv:11`): nav item hidden | see STEPS order |
+| Accounts & Property | Other Assets & Debts (`assets_special`) | Notes receivable, HSA, 529 plans, equity comp, collectibles, personal property | Always on | - | n/a | see STEPS order |
+| Accounts & Property | Other Assets > 529 Plans section | 529 rows on this page (same rows as Education & Equity Comp) | Switchable | `education_funding_529`, Plan Features | Off (FALSE) | Section of 5.3 and 9.1 |
+| Accounts & Property | Other Assets > Equity Compensation section | Equity comp rows on this page | Switchable | `equity_compensation`, Plan Features | Off (FALSE) | Section of 5.3 and 9.1 |
+| Accounts & Property | Other Assets > Hybrid LTC row group | Hybrid LTC/life policy rows | Switchable | Plan flag `Hybrid LTC / Settings / enabled` (key `hybrid_ltc_policy`), Plan Features | Off (FALSE, `client_assets.csv:84`) | Row group of 5.3 |
+| Accounts & Property | Cash Reserves (`assets_home_cash`) | Cash reserve floor protected before drawing investments | Always on | - | n/a | see STEPS order |
+| Accounts & Property | 529 & Equity Compensation (`family_business`) | 529 and equity comp inputs (second entry to rows that live on Other Assets) | Always on (page) | - (page not gated; sections below are) | n/a | see STEPS order |
+| Accounts & Property | 529 Plans section | One 529 section per beneficiary or goal | Switchable | `education_funding_529`, Plan Features | Off: section shows enable-note | Section of 9.1 |
+| Accounts & Property | Equity Compensation section | Grants, vesting, exercise assumptions | Switchable | `equity_compensation`, Plan Features | Off: section shows enable-note | Section of 9.1 |
+| Protection & Legacy | Insurance (`annuity_death_benefits`) | Carrier illustrations for annuities and special income, plus all insurance policies | Always on | - | n/a | see STEPS order |
+| Protection & Legacy | Insurance > Existing Life Insurance rows (section `Insurance In Force`) | Policies in force | Switchable | `existing_life_insurance`, Plan Features (`section_gates`) | Off (FALSE) | Rows of 6.1 |
+| Protection & Legacy | Estate Inputs (`estate`) | Exemptions, trust structure, beneficiary needs, gifting, charitable intent | Always on | - | n/a | see STEPS order |
+| Taxes | Roth Conversion (`roth_conversion`) | Conversion policy, ceiling, IRMAA guardrails, objective weights | Switchable | `roth_conversion_plan`, Plan Features | On (TRUE) | see STEPS order |
+| Taxes | Charitable Giving (`entity_charitable`) | Giving vehicle: direct gift, DAF, QCD | Switchable | Shown iff `daf_giving` (DAF/Settings/enabled) OR `qcd_giving` (Cashflow/Charitable Giving/qcd_enabled); both switched on Plan Features | On: DAF TRUE (`client_assets.csv:78`), QCD off by default (no demo row) | see STEPS order |
 | Taxes | Charitable Giving > DAF rows | Contribution, grant years and amounts | Switchable | `daf_giving`, Plan Features | On | Rows of 8.2 |
 | Taxes | Charitable Giving > QCD rows | Qualified charitable distributions | Switchable | `qcd_giving`, Plan Features | Off (default) | Rows of 8.2 |
-| Family & Business | (group heading) | Family and business features | Always on | - | n/a | Group 9 |
-| Family & Business | Education & Equity Comp (`family_business`) | 529 and equity comp inputs (second entry to rows that live on Other Assets) | Always on (page) | - (page not gated; sections below are) | n/a | 9.1 |
-| Family & Business | 529 Plans section | One 529 section per beneficiary or goal | Switchable | `education_funding_529`, Plan Features | Off: section shows enable-note | Section of 9.1 |
-| Family & Business | Equity Compensation section | Grants, vesting, exercise assumptions | Switchable | `equity_compensation`, Plan Features | Off: section shows enable-note | Section of 9.1 |
-| Strategy | (group heading) | Decision workspaces | Always on | - | n/a | Group 10 |
-| Strategy | Optimize (`strategy_optimize`) | Stack of collapsible lever sections | Always on | - | n/a | 10.1 |
-| Strategy | Optimize > HSA Drawdown | HSA withdrawal-policy block | Always on (section) | Module `hsa_drawdown` toggles the workbook tab only, not this section | n/a | Section 10.1.1 |
-| Strategy | Optimize > Asset Allocation | Targets or optimizer recommendation, include/exclude, risk settings | Always on | - | n/a | Section 10.1.2 |
-| Strategy | Optimize > Withdrawal Sequencing | Bucket draw order, trust withdrawals, spousal rollover | Always on (section) | Module `retirement_strategy` toggles the workbook sheet only | n/a | Section 10.1.3 |
-| Strategy | Optimize > Social Security | SS optimization panel | Always on (section) | Module `social_security_timing` toggles the workbook sheet only | n/a | Section 10.1.4 |
-| Strategy | Optimize > Next Housing Move | ZIP screening and ranking of places to move | Switchable | `housing_location_search`, Plan Features | On (TRUE) | Section 10.1.5 |
-| Strategy | Optimize > Harvesting | Tax-loss and gain harvesting settings | Always on (section) | Modules `tax_loss_harvesting`, `gain_harvesting` toggle workbook sheets only | n/a | Section 10.1.6 |
-| Strategy | Stress Test (`strategy_stress`) | Adverse-assumption tests | Switchable | Hidden when all four section modules are off | On: all four on | 10.2 |
-| Strategy | Stress Test > Monte Carlo | Probability, engine, trials, volatility, liquidity floor | Switchable | `market_luck_stress_test`, Plan Features | On (TRUE) | Section 10.2.1 |
-| Strategy | Stress Test > Survivor | Mortality ages, survivor filing, income reduction | Switchable | `survivor_stress_test`, Plan Features | On (TRUE) | Section 10.2.2 |
-| Strategy | Stress Test > Long-Term Care | Care cost, duration, coverage | Switchable | `long_term_care_stress`, Plan Features | On (TRUE) | Section 10.2.3 |
-| Strategy | Stress Test > Divorce Planning | Account transfer, alimony, asset division overlay | Switchable | `divorce_qdro`, Plan Features | Off (FALSE); section omitted entirely | Section 10.2.4 |
-| Strategy | Scenarios (`strategy_scenarios`) | Named scenario change sets | Always on (page) | - (page not hidden by any gate) | n/a | 10.3 |
-| Strategy | Scenarios > Scenario Change Sets | Change-set builder | Switchable | `what_if_analysis`, Plan Features | On (TRUE) | Section 10.3.1 |
-| Strategy | Workbench (`strategy_workbench`) | Compare baseline, change sets and stress results; decide what to adopt (sections: Strategy Levers, Change Set Builder, Unified Comparison Matrix, Decision, Saved Planning Cases) | Always on | - | n/a | 10.4 |
-| Reports & Review | (group heading) | Results | Always on | - | n/a | Group 11 |
-| Reports & Review | Actual Spending (`actual_spending`) | This year's imported transactions and comparison vs the spending model; tabs "This year" and "Analysis" | Always on (page) | - | n/a | 11.1 |
-| Reports & Review | Actual Spending tabs (This year, Analysis) | Transaction import/review and actual-vs-budget analysis | Switchable | `spending_tracker_ytd` (also switches Spending Summary and Account Reconciliation sheets), Plan Features | On (TRUE) | Tabs of 11.1 |
-| Reports & Review | Account Reconciliation (`monarch_reconciliation`) | The app's account numbers beside the imported daily balances; update the app, ignore, always update or keep the app as source (`dashboard.js:225-232`) | Switchable | `account_import`, Plan Features (default on, no plan row) | On (default) | 11.2 |
-| Reports & Review | Build & Results (`reports_and_review`) | Readiness, build, impact, results, downloads, plan data review | Always on | - | n/a | 11.3 |
-| Settings | (group heading) | System settings | Always on | - | n/a | Group 12 |
-| Settings | Economic & Tax Assumptions (`economic_tax_assumptions`) | Return rates, inflation, tax bracket indexing, COLA | Always on | - | n/a | 12.1 |
-| Settings | Plan Features (`optional_functions`) | Switch page for every optional module and plan flag, grouped by life area | Always on | - (it is the switch surface) | n/a | 12.2 |
-| Settings | Field Finder (`all_assumptions`) | Find any value not on a guided page | Always on | - | n/a | 12.3 |
-| Settings | Workbook Formatting (`workbook_formatting`) | Excel column widths per sheet, table, column | Always on | - | n/a | 12.4 |
-| Settings | Data & Maintenance (`system_configuration`) | Pricing snapshots, backups, CSV export, change log, system console | Always on | - | n/a | 12.5 |
+| Analyze | Optimize (`strategy_optimize`) | Stack of collapsible lever sections | Always on | - | n/a | see STEPS order |
+| Analyze | Optimize > HSA Drawdown | HSA withdrawal-policy block | Always on (section) | Module `hsa_drawdown` toggles the workbook tab only, not this section | n/a | Section 10.1.1 |
+| Analyze | Optimize > Asset Allocation | Targets or optimizer recommendation, include/exclude, risk settings | Always on | - | n/a | Section 10.1.2 |
+| Analyze | Optimize > Withdrawal Sequencing | Bucket draw order, trust withdrawals, spousal rollover | Always on (section) | Module `retirement_strategy` toggles the workbook sheet only | n/a | Section 10.1.3 |
+| Analyze | Optimize > Social Security | SS optimization panel | Always on (section) | Module `social_security_timing` toggles the workbook sheet only | n/a | Section 10.1.4 |
+| Analyze | Optimize > Next Housing Move | ZIP screening and ranking of places to move | Switchable | `housing_location_search`, Plan Features | On (TRUE) | Section 10.1.5 |
+| Analyze | Optimize > Harvesting | Tax-loss and gain harvesting settings | Always on (section) | Modules `tax_loss_harvesting`, `gain_harvesting` toggle workbook sheets only | n/a | Section 10.1.6 |
+| Analyze | Stress Test (`strategy_stress`) | Adverse-assumption tests | Switchable | Hidden when all four section modules are off | On: all four on | see STEPS order |
+| Analyze | Stress Test > Monte Carlo | Probability, engine, trials, volatility, liquidity floor | Switchable | `market_luck_stress_test`, Plan Features | On (TRUE) | Section 10.2.1 |
+| Analyze | Stress Test > Survivor | Mortality ages, survivor filing, income reduction | Switchable | `survivor_stress_test`, Plan Features | On (TRUE) | Section 10.2.2 |
+| Analyze | Stress Test > Long-Term Care | Care cost, duration, coverage | Switchable | `long_term_care_stress`, Plan Features | On (TRUE) | Section 10.2.3 |
+| Analyze | Stress Test > Divorce Planning | Account transfer, alimony, asset division overlay | Switchable | `divorce_qdro`, Plan Features | Off (FALSE); section omitted entirely | Section 10.2.4 |
+| Analyze | Scenarios (`strategy_scenarios`) | Named scenario change sets | Always on (page) | - (page not hidden by any gate) | n/a | see STEPS order |
+| Analyze | Scenarios > Scenario Change Sets | Change-set builder | Switchable | `what_if_analysis`, Plan Features | On (TRUE) | Section 10.3.1 |
+| Analyze | Planning Workbench (`strategy_workbench`) | Compare baseline, change sets and stress results; decide what to adopt (sections: Strategy Levers, Change Set Builder, Unified Comparison Matrix, Decision, Saved Planning Cases) | Always on | - | n/a | see STEPS order |
+| Analyze | Build & Results (`reports_and_review`) | Readiness, build, impact, results, downloads, plan data review | Always on | - | n/a | see STEPS order |
+| Track & Reconcile | Actual Spending (`actual_spending`) | This year's imported transactions and comparison vs the spending model; tabs "This year" and "Analysis" | Always on (page) | - | n/a | see STEPS order |
+| Track & Reconcile | Actual Spending tabs (This year, Analysis) | Transaction import/review and actual-vs-budget analysis | Switchable | `spending_tracker_ytd` (also switches Spending Summary and Account Reconciliation sheets), Plan Features | On (TRUE) | Tabs of 11.1 |
+| Track & Reconcile | Account Reconciliation (`monarch_reconciliation`) | The app's account numbers beside the imported daily balances; update the app, ignore, always update or keep the app as source (`dashboard.js:225-232`) | Switchable | `account_import`, Plan Features (default on, no plan row) | On (default) | see STEPS order |
+| Settings | Plan Features (`optional_functions`) | Switch page for every optional module and plan flag, grouped by life area | Always on | - (it is the switch surface) | n/a | see STEPS order |
+| Settings | Economic & Tax Assumptions (`economic_tax_assumptions`) | Return rates, inflation, tax bracket indexing, COLA | Always on | - | n/a | see STEPS order |
+| Settings | Find a Field (`all_assumptions`) | Find any value not on a guided page | Always on | - | n/a | see STEPS order |
+| Settings | Workbook Formatting (`workbook_formatting`) | Excel column widths per sheet, table, column | Always on | - | n/a | see STEPS order |
+| Settings | Data & Backups (`system_configuration`) | Pricing snapshots, backups, CSV export, change log, system console | Always on | - | n/a | see STEPS order |
 
 ### Hidden or redirect-only steps (never in the nav)
 
@@ -106,62 +96,47 @@ Legend: Optional? = Always on / Switchable. Position = group and ordinal in the 
 
 ## Left nav with everything enabled
 
-Numbering is group.item; the UI's own step number (1-27, groups not counted) is the item's rank in this list. **(required)** = always on. Backticked keys are the switch. HELOC is tagged by its plan flag key.
+Generated from `STEPS` (2026-11-04 structure). Plan Status is a pinned link; Maintain mode lifts only Track & Reconcile to the top.
 
-1. **Plan Status** **(required)**
-   1.1. Plan Status **(required)**
-2. **Household** **(required)**
-   2.1. Household & People **(required)**
-3. **Income & Benefits** **(required)**
-   3.1. Work Income **(required)**
-   3.2. SS, Pensions, & Annuities **(required)**
-4. **Spending** **(required)**
-   4.1. Spending Model **(required)**
-5. **Investments & Property** **(required)**
-   5.1. Investment Holdings **(required)**
-   5.2. Reserve Requirements **(required)**
-   5.3. Other Assets and Liabilities **(required)**
-   5.4. Home Equity Line - `heloc` (`HELOC/Setup/heloc_enabled`)
-   5.5. Rental Properties - `rental_property_income`
-6. **Insurance & Care** **(required)**
-   6.1. Insurance **(required)**
-7. **Estate & Legacy** **(required)**
-   7.1. Estate Inputs **(required)**
-8. **Taxes** **(required)**
-   8.1. Roth Conversion - `roth_conversion_plan`
-   8.2. Charitable Giving - `daf_giving` (DAF/Settings/enabled) OR `qcd_giving` (Cashflow/Charitable Giving/qcd_enabled)
-9. **Family & Business** **(required)**
-   9.1. Education & Equity Comp **(required page)** - sections `education_funding_529`, `equity_compensation`
-10. **Strategy** **(required)**
-    10.1. Optimize **(required)**
-        10.1.1. HSA Drawdown **(required)**
-        10.1.2. Asset Allocation **(required)**
-        10.1.3. Withdrawal Sequencing **(required)**
-        10.1.4. Social Security **(required)**
-        10.1.5. Next Housing Move - `housing_location_search`
-        10.1.6. Harvesting **(required)**
-    10.2. Stress Test - shown iff any of its four modules is on
-        10.2.1. Monte Carlo - `market_luck_stress_test`
-        10.2.2. Survivor - `survivor_stress_test`
-        10.2.3. Long-Term Care - `long_term_care_stress`
-        10.2.4. Divorce Planning - `divorce_qdro`
-    10.3. Scenarios **(required page)**
-        10.3.1. Scenario Change Sets - `what_if_analysis`
-    10.4. Workbench **(required)**
-11. **Reports & Review** **(required)**
-    11.1. Actual Spending **(required page)** - tabs This year / Analysis gated by `spending_tracker_ytd`
-    11.2. Account Reconciliation - `account_import`
-    11.3. Build & Results **(required)**
-12. **Settings** **(required)**
-    12.1. Economic & Tax Assumptions **(required)**
-    12.2. Plan Features **(required)**
-    12.3. Field Finder **(required)**
-    12.4. Workbook Formatting **(required)**
-    12.5. Data & Maintenance **(required)**
-
-Totals: 12 groups, 27 pages. Always-on pages: 21. Pages with their own show/hide switch: Home Equity Line, Rental Properties, Roth Conversion, Charitable Giving, Stress Test (any-of-four), Account Reconciliation. Demo plan today: 25 of 27 pages visible (Home Equity Line and Rental Properties hidden).
-
-Workbook note (not nav): in the workbook, Current vs Proposed and Planning Levers move from section 1 (Reports) to section 3 (Comparisons). The Reports order becomes Executive Summary, Net Worth, Cash Flow, Balance Sheet, Lifetime Taxes, Charts, Spending Summary.
+1. **Plan Status**
+   - Plan Status (`start`)
+2. **Household & Cash Flow**
+   - Household & People (`household_people`)
+   - Work Income (`income_work`)
+   - Social Security & Pensions (`income_retirement`)
+   - Spending Model (`spending_core`)
+3. **Accounts & Property**
+   - Checking & Savings (`cash_accounts`)
+   - Investment Holdings (`holdings`)
+   - Rental Properties (`rental_properties`)
+   - Home Equity Line (`heloc_strategy`)
+   - Other Assets & Debts (`assets_special`)
+   - Cash Reserves (`assets_home_cash`)
+   - 529 & Equity Compensation (`family_business`)
+4. **Protection & Legacy**
+   - Insurance (`annuity_death_benefits`)
+   - Estate Inputs (`estate`)
+5. **Taxes**
+   - Account Tax Basis (`account_tax_basis`)
+   - Roth Conversion (`roth_conversion`)
+   - Charitable Giving (`entity_charitable`)
+6. **Analyze**
+   - Optimize (`strategy_optimize`)
+   - Stress Test (`strategy_stress`)
+   - Scenarios (`strategy_scenarios`)
+   - Planning Workbench (`strategy_workbench`)
+   - Build & Results (`reports_and_review`)
+7. **Track & Reconcile**
+   - Actual Spending (`actual_spending`)
+   - Account Reconciliation (`monarch_reconciliation`)
+   - Investment Sales Ledger (`sales_ledger`)
+   - Year-End Transition (`year_end`)
+8. **Settings**
+   - Plan Features (`optional_functions`)
+   - Economic & Tax Assumptions (`economic_tax_assumptions`)
+   - Find a Field (`all_assumptions`)
+   - Workbook Formatting (`workbook_formatting`)
+   - Data & Backups (`system_configuration`)
 
 ## Notes / discrepancies
 

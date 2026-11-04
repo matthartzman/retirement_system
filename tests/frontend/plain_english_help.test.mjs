@@ -53,7 +53,7 @@ test("every page has a full record; the panel renders it, nothing falls back", (
   const src = fs.readFileSync("frontend/js/dashboard.js", "utf8");
   const block = src.slice(src.indexOf("const STEPS = ["), src.indexOf("\n];", src.indexOf("const STEPS = [")));
   const ids = [...block.matchAll(/(?:\n    |\n  \{ )id: "(\w+)"/g)].map((m) => m[1]);
-  assert.equal(ids.length, 31);
+  assert.equal(ids.length, 32);
   for (const id of ids) {
     const p = HELP_PAGES[id];
     for (const k of ["title", "summary", "whatFor", "connections", "options", "impact"]) assert.ok(p && p[k], `${id}.${k}`);
@@ -85,7 +85,7 @@ test("every section record names a real page and renders with a way back to page
 
 test("page help keeps the pointer to where HSA withdrawal timing is controlled", () => {
   const all = Object.values(HELP_PAGES).map((p) => `${p.whatFor} ${p.connections} ${p.options} ${p.impact}`).join(" ");
-  assert.match(all, /HSA withdrawal timing is controlled on Other Assets and Liabilities/);
+  assert.match(all, /HSA withdrawal timing is controlled on Other Assets & Debts/);
 });
 
 test("page help keeps the planning workbench record and the YTD import wording", () => {

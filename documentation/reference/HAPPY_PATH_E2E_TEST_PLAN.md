@@ -3,7 +3,7 @@
 ## Objective
 Prove a brand-new user can go from a blank plan to a complete, saved,
 reloadable retirement plan with working outputs, using the guided navigation
-exclusively (no Field Finder shortcuts), touching required fields plus a
+exclusively (no Find a Field shortcuts), touching required fields plus a
 representative sample of common optional ones.
 
 ## Scope basis
@@ -24,7 +24,7 @@ not meant for per-plan editing).
 | 4 | Assets & Protection | Annuity & Special Income, Insurance & Estate, Other Assets, Estate Inputs | One annuity illustration row; one LTC/life policy; HSA; estate exemption fields | 15 min |
 | 5 | Strategy | Distribution Strategy (Roth + withdrawal order), Investment Strategy (allocation), Timing & Tax (SS timing, state) | Roth conversion policy = optimize; withdrawal bucket order; allocation target_pct summing to 100%; confirm SS claim age flows through from Phase 1 | 20 min |
 | 6 | Stress Tests | Probability Analysis (Monte Carlo) | Confirm/adjust simulation count and engine mode; leave survivor/LTC/divorce off for the happy path | 5 min |
-| 7 | Preflight + Build | Reports & Review → Preflight → Build | Confirm 100% complete, 0 required missing, no blockers; run build; confirm QC pass count, no errors | 10 min |
+| 7 | Preflight + Build | Analyze → Build & Results → Build | Confirm 100% complete, 0 required missing, no blockers; run build; confirm QC pass count, no errors | 10 min |
 | 8 | Output verification | Results, Impact & Build History, downloaded workbook | Net Worth trends plausibly; Cash Flow totals are non-zero and consistent; Monte Carlo success % renders 0-100%; Roth conversion strategy produced conversions if policy=optimize | 15 min |
 | 9 | Save/Load round-trip | Save Plan As → Load Saved Plan | Save with a distinct name; reload; spot-check 8-10 values across different phases match exactly | 10 min |
 

@@ -296,7 +296,7 @@ export function renderStrategyOptimize() {
     // Sequencing, Social Security, Harvesting) or is not tax-domain (Asset
     // Allocation, Next Housing Move).
     // #329 §3.3 (W9): "add" -- was reachable only by setting a mode field on
-    // Other Assets and Liabilities, with no visible consequence. Reuses the
+    // Other Assets & Debts, with no visible consequence. Reuses the
     // exact HSA-withdrawal-policy block the Spending workspace's Withdrawal
     // Order tab already renders (dashboard.js's hsaWithdrawalPolicyBlock()),
     // not a new renderer.
@@ -308,7 +308,7 @@ export function renderStrategyOptimize() {
         const html = hsaWithdrawalPolicyBlock(withdrawalOtherRows());
         return (
           html ||
-          '<div class="field-list"><p class="small" data-kind="state">No HSA withdrawal policy rows — configure HSA on Other Assets and Liabilities.</p></div>'
+          '<div class="field-list"><p class="small" data-kind="state">No HSA withdrawal policy rows — configure HSA on Other Assets & Debts.</p></div>'
         );
       },
     },

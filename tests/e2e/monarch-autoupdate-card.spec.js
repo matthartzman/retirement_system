@@ -3,7 +3,7 @@
 // exercises the exact fetch/module/global-bridge pattern that previously
 // caused a real production outage (see script-order-spike.spec.js), with
 // zero e2e coverage of its own. This exercises the real page: load the
-// Data & Maintenance step, flip the enable checkbox (autosave, no Save
+// Data & Backups step, flip the enable checkbox (autosave, no Save
 // button -- W5-8/UX-103), verify it persisted across a fresh navigation,
 // then trigger "Import now" and verify the status line changes.
 //
@@ -36,7 +36,7 @@ import { openCurrentPlan, navigateToStep } from './helpers.js';
 
 test('Monarch settings card: toggle persists via autosave, and Import now updates status', async ({ page }) => {
   await openCurrentPlan(page);
-  await navigateToStep(page, 'system_configuration', 'Data & Maintenance');
+  await navigateToStep(page, 'system_configuration', 'Data & Backups');
 
   const card = page.locator('.monarch-autoupdate-card');
   await expect(card).toBeVisible({ timeout: 10_000 });
@@ -81,7 +81,7 @@ test('Monarch settings card: toggle persists via autosave, and Import now update
     // policy this same page session already trusts: a fresh navigation
     // away and back re-fetches monarch-autoupdate status from the server.
     await navigateToStep(page, 'start', 'Retirement planning workspace');
-    await navigateToStep(page, 'system_configuration', 'Data & Maintenance');
+    await navigateToStep(page, 'system_configuration', 'Data & Backups');
     const reloadedCheckbox = page.locator('.monarch-autoupdate-card #monarchAutoUpdateEnabled');
     const reloadedSourceDir = page.locator('.monarch-autoupdate-card #monarchAutoUpdateSourceDir');
     await expect(reloadedCheckbox).toHaveJSProperty('checked', true, { timeout: 10_000 });

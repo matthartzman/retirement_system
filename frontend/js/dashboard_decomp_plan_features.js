@@ -109,9 +109,9 @@ export function engineIgnoredWarning(meta) {
 // LTC/DAF/QCD don't, and the generic row->step resolver
 // (sourceStepForRow(), which BUILD_IMPACT_SOURCE_STEP_IDS drives) would send
 // Hybrid LTC to "ltc_stress" -- its readiness-stats step, not the page
-// (Other Assets and Liabilities) that actually renders its enable toggle.
+// (Other Assets & Debts) that actually renders its enable toggle.
 // Same three-line shape as the "Open HELOC strategy page" button already
-// hardcodes on Other Assets and Liabilities (dashboard_decomp_assets_other.js).
+// hardcodes on Other Assets & Debts (dashboard_decomp_assets_other.js).
 const PLAN_FLAG_DESTINATION_STEP = {
   heloc: "heloc_strategy",
   hybrid_ltc_policy: "assets_special",
@@ -391,6 +391,14 @@ function featureRowHtml(entry) {
   return html;
 }
 
+// "Off . N rows kept" for a feature that is off but whose entered data is still saved (the nav Features popover
+// shows the same note Plan Features does).
+export function featureKeptLabel(key) {
+  const owned = moduleOwnedRows(key);
+  const n = key === "rental_property_income" ? rentalKeptCount() : owned === null ? 0 : enteredRowCount(owned);
+  return n ? offRowsLabel(n) : "";
+}
+
 // Modules with no dashboard_step of their own whose rows still live on a
 // given page, plus hub pages that front several legacy steps.
 const PAGE_EXTRA_MODULES = {
@@ -485,6 +493,7 @@ export function renderOptionalFunctions() {
 Object.assign(window, {
   demandHint,
   offFeaturesForPage,
+  featureKeptLabel,
   offFeaturesLineHtml,
   enteredRowCount,
   offRowsLabel,

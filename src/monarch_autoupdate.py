@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Opt-in Monarch auto-update policy + run status (ticket 305).
 
 Shaped after src/local_backup_scheduler.py's policy-file pattern for
@@ -9,7 +7,10 @@ consistency. Unlike that scheduler, the actual daily trigger is external
 status, not the timing itself.
 """
 
+from __future__ import annotations
+
 import json
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -117,12 +118,14 @@ def get_extractor_freshness(base_dir: str | Path, *, now: datetime | None = None
     raw_dir = extractor_raw_dir(base_dir)
     files = list(raw_dir.glob("*.csv")) if raw_dir.exists() else []
     now = now or now_utc()
+    failure = get_extractor_failure(base_dir)
     if not files:
         return {
             "last_extract_at": None,
             "age_hours": None,
             "stale": True,
             "stale_after_hours": EXTRACTOR_STALE_HOURS,
+            "failure": failure,
         }
     newest_mtime = max(f.stat().st_mtime for f in files)
     last_extract_dt = datetime.fromtimestamp(newest_mtime, tz=timezone.utc)
@@ -132,7 +135,46 @@ def get_extractor_freshness(base_dir: str | Path, *, now: datetime | None = None
         "age_hours": round(age_hours, 1),
         "stale": age_hours > EXTRACTOR_STALE_HOURS,
         "stale_after_hours": EXTRACTOR_STALE_HOURS,
+        "failure": failure,
     }
+
+
+# What the extractor leaves behind when a scrape fails: monarch-debug-<stamp>.html/.png (and
+# balances-debug-<stamp>.png) in Monarch Extractor/output. The page title tells us *why*.
+SIGNED_OUT_MESSAGE = (
+    "Monarch has signed the saved login out, so the daily import cannot read your data. "
+    "Re-enter your Monarch credentials: open a terminal in the Monarch Extractor folder, run "
+    "\".venv\\Scripts\\python.exe monarch_extract.py --login\", sign in (and complete any 2FA) in the "
+    "browser that opens, then press ENTER."
+)
+
+
+def get_extractor_failure(base_dir: str | Path) -> dict[str, Any] | None:
+    """The reason the latest scrape failed, when the debug files make it known; else None.
+
+    Only a failure newer than the newest successful delivery counts. Recognised today:
+    ``signed_out`` (the captured page is Monarch's sign-in screen). Any other debug capture
+    reports ``unknown`` with the page title so the user at least sees what the page was."""
+    root = Path(base_dir) / "Monarch Extractor"
+    out_dir = root / "output"
+    debug = sorted(out_dir.glob("monarch-debug-*.html"), key=lambda f: f.stat().st_mtime) if out_dir.exists() else []
+    if not debug:
+        return None
+    newest = debug[-1]
+    raws = list((root / "raw").glob("*.csv")) if (root / "raw").exists() else []
+    if raws and max(f.stat().st_mtime for f in raws) >= newest.stat().st_mtime:
+        return None  # a later scrape succeeded
+    try:
+        html = newest.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    m = re.search(r"<title>([^<]*)</title>", html, re.IGNORECASE)
+    title = (m.group(1).strip() if m else "")
+    at = iso_utc(datetime.fromtimestamp(newest.stat().st_mtime, tz=timezone.utc))
+    if "sign in" in title.lower() or "log in" in title.lower() or "login" in title.lower():
+        return {"reason": "signed_out", "message": SIGNED_OUT_MESSAGE, "failed_at": at, "page_title": title}
+    return {"reason": "unknown", "message": f"The last Monarch scrape failed on a page titled \"{title or 'unknown'}\"; see the debug files in Monarch Extractor/output.",
+            "failed_at": at, "page_title": title}
 
 
 class SourceDirNotAbsoluteError(ValueError):

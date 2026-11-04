@@ -278,7 +278,7 @@ function rpVisibleFields(group, kind) {
 
 function rpCalcText(key, draft, data) {
   const home = (data || {}).home || {};
-  if (key === "home") return home.label ? home.label + " (your plan's home, Other Assets and Liabilities)" : "Your plan's home";
+  if (key === "home") return home.label ? home.label + " (your plan's home, Other Assets & Debts)" : "Your plan's home";
   const land = draft.land_share;
   if (draft.kind === "converted_home") {
     const first = (((data || {}).estimate || {}).years || {}).first;

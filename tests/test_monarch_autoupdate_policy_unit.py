@@ -118,3 +118,34 @@ def test_extractor_freshness_picks_newest_of_multiple_files(tmp_path):
     _touch_raw_file(tmp_path, "monarch-20260909-114609-attempt1.csv", now - timedelta(days=5))
     freshness = mau.get_extractor_freshness(tmp_path, now=now)
     assert freshness["age_hours"] == pytest.approx(120.0)
+
+
+def _debug_page(tmp_path, title, mtime):
+    out = tmp_path / "Monarch Extractor" / "output"
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / "monarch-debug-20261104-023140.html"
+    path.write_text(f"<html><head><title>{title}</title></head></html>", encoding="utf-8")
+    import os
+
+    os.utime(path, (mtime.timestamp(), mtime.timestamp()))
+
+
+def test_extractor_failure_signed_out_names_the_login_fix(tmp_path):
+    now = datetime(2026, 11, 4, 12, 0, 0, tzinfo=timezone.utc)
+    _touch_raw_file(tmp_path, "monarch-20261102-023000-attempt1.csv", now - timedelta(days=2))
+    _debug_page(tmp_path, "Monarch | Sign in", now - timedelta(hours=10))
+    failure = mau.get_extractor_failure(tmp_path)
+    assert failure["reason"] == "signed_out"
+    assert "monarch_extract.py --login" in failure["message"]
+    assert mau.get_extractor_freshness(tmp_path, now=now)["failure"]["reason"] == "signed_out"
+
+
+def test_extractor_failure_cleared_by_a_later_successful_scrape(tmp_path):
+    now = datetime(2026, 11, 4, 12, 0, 0, tzinfo=timezone.utc)
+    _debug_page(tmp_path, "Monarch | Sign in", now - timedelta(days=2))
+    _touch_raw_file(tmp_path, "monarch-20261104-023000-attempt1.csv", now - timedelta(hours=1))
+    assert mau.get_extractor_failure(tmp_path) is None
+
+
+def test_extractor_failure_none_without_debug_files(tmp_path):
+    assert mau.get_extractor_failure(tmp_path) is None

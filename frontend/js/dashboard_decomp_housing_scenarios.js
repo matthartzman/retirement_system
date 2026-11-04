@@ -785,7 +785,7 @@ export function renderSpendingHousing() {
 // #338 W-C/W-E: the housing PLAN inputs (home value/basis, mortgage balance,
 // home sale, residency over time, next moves, improvements) -- everything the
 // old Housing page rendered that is not a recurring cost. W-E split them by
-// owner: primaryHomeFieldsHtml() (Other Assets and Liabilities, always in
+// owner: primaryHomeFieldsHtml() (Other Assets & Debts, always in
 // effect), nextHousingMoveInputsHtml() (Strategy -> Optimize -> Next Housing
 // Move, gated by that switch) and homeImprovementsHtml() (Spending Model's
 // Housing accordion). This composition keeps the legacy Housing page whole.

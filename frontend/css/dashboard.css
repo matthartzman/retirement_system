@@ -1368,3 +1368,46 @@ header :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{o
 .sl-step.on{color:var(--ink);border-bottom:2px solid var(--accent)}
 .sl-next{margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--soft)}
 .bb-viewed{display:block;margin:10px 0}
+
+/* ── Left-nav redesign: Set up / Maintain switch and per-heading Features popover ── */
+.nav-mode{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:8px 0 10px}
+.nav-mode .btn{min-height:32px;padding:4px 8px;font-size:12px;font-weight:800}
+.nav-maintain .stepbtn .num{display:none}
+.nav-maintain .stepbtn{grid-template-columns:1fr auto}
+.nav-group-name{display:inline-flex;align-items:center;gap:6px}
+.nf-icon{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:3px;min-width:24px;min-height:24px;padding:0 4px;border:none;border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;font-size:10px;font-weight:800}
+.nf-icon:hover,.nf-icon[aria-expanded="true"]{background:var(--accent2);color:var(--accent)}
+.nf-icon:focus-visible,.nf-switch:focus-visible,.nf-link:focus-visible,.nf-close:focus-visible{outline:3px solid #bfdbfe;outline-offset:1px}
+.nf-count{opacity:.75;font-variant-numeric:tabular-nums}
+.nf-pop{position:fixed;z-index:60;width:min(380px,calc(100vw - 24px));max-height:min(70vh,520px);overflow:auto;background:var(--surface);color:var(--ink);border:1px solid var(--line2);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:10px 12px 12px;font-size:13px;text-transform:none;letter-spacing:0}
+.nf-pop.hidden{display:none}
+.nf-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.nf-close{border:none;background:transparent;font-size:20px;line-height:1;min-width:32px;min-height:32px;cursor:pointer;color:var(--muted)}
+.nf-status{min-height:0;font-size:12px;color:var(--ok)}
+.nf-status:not(:empty){padding:4px 0}
+.nf-section h3{margin:10px 0 2px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.nf-host{margin:8px 0 2px;font-size:12px;font-weight:800}
+.nf-list{list-style:none;margin:0;padding:0}
+.nf-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+.nf-main{min-width:0;flex:1}
+.nf-link{border:none;background:transparent;padding:0;font:inherit;font-weight:700;color:var(--accent);cursor:pointer;text-align:left}
+.nf-link:hover{text-decoration:underline}
+.nf-name{font-weight:700}
+.nf-tag{margin-left:6px;padding:0 6px;border:1px solid var(--line);border-radius:999px;font-size:10px;color:var(--muted)}
+.nf-desc,.nf-note,.nf-foot-note{display:block;font-size:12px;color:var(--muted)}
+.nf-more{margin:6px 0}
+.nf-more summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--muted)}
+.nf-switch{position:relative;flex:none;width:40px;height:24px;min-height:24px;border-radius:999px;border:1px solid var(--line2);background:#e5e1d6;cursor:pointer;padding:0}
+.nf-switch.on{background:var(--accent);border-color:var(--accent)}
+.nf-switch[disabled]{opacity:.5;cursor:not-allowed}
+.nf-knob{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .12s}
+.nf-switch.on .nf-knob{transform:translateX(16px)}
+.nf-foot{margin-top:10px;display:flex;flex-direction:column;gap:2px}
+@media(max-width:900px){
+  .nf-pop{left:0;right:0;bottom:0;top:auto;width:auto;max-height:75vh;border-radius:14px 14px 0 0}
+  .nf-icon{min-width:44px;min-height:44px}
+  .nf-switch{width:48px;height:28px;min-height:28px}
+  .nf-knob{width:22px;height:22px}
+  .nf-switch.on .nf-knob{transform:translateX(20px)}
+  .nav-mode .btn{min-height:44px}
+}

@@ -11,7 +11,7 @@
 
    Only Housing COSTS render in the Housing accordion. Home value / mortgage
    balance and home sale / next moves / state over time are housing plan
-   inputs, not spending: W-E moved them to Other Assets and Liabilities
+   inputs, not spending: W-E moved them to Other Assets & Debts
    and to Optimize -> Next Housing Move. Only home improvements (a
    spending line) stay here, via homeImprovementsHtml().
 
@@ -48,7 +48,7 @@ export function sortByTrackingTypeOrder(types) {
 
 // Real-estate taxes, insurance, maintenance, utilities and HOA are budget
 // categories (Housing Budget Detail); the mortgage balance is a liability
-// and moves to Other Assets and Liabilities in W-E. Location descriptors
+// and moves to Other Assets & Debts in W-E. Location descriptors
 // (city_type/population_size) feed the housing estimator, not spending.
 const HOUSING_MORTGAGE_NON_COST = [
   "annual_real_estate_taxes",
@@ -121,13 +121,13 @@ export function spendingSourceHeadHtml(tt) {
 
 // Body suffix, after the budget groups: home improvement projects. #338 W-E
 // moved the other housing plan inputs out -- home value and mortgage balance
-// to Other Assets and Liabilities, sale/next steps/residency to Strategy ->
+// to Other Assets & Debts, sale/next steps/residency to Strategy ->
 // Optimize -> Next Housing Move.
 export function spendingSourceTailHtml(tt) {
   if (tt !== "Housing") return "";
   return (
     homeImprovementsHtml(rowsForStep("spending_mortgage_events")) +
-    '<div class="section-note" data-kind="state" data-help-section="spending_core.home_links">See <a href="#" onclick="navigateTo(\'assets_special\');return false">Other Assets and Liabilities</a> and <a href="#" onclick="navigateTo(\'strategy_optimize\');return false">Optimize &rarr; Next Housing Move</a>. ' + (window.RPHelp?.sectionButtonHtml("spending_core.home_links") || "") + '</div>'
+    '<div class="section-note" data-kind="state" data-help-section="spending_core.home_links">See <a href="#" onclick="navigateTo(\'assets_special\');return false">Other Assets & Debts</a> and <a href="#" onclick="navigateTo(\'strategy_optimize\');return false">Optimize &rarr; Next Housing Move</a>. ' + (window.RPHelp?.sectionButtonHtml("spending_core.home_links") || "") + '</div>'
   );
 }
 
