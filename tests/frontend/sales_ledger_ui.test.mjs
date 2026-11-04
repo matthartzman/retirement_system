@@ -76,3 +76,72 @@ describe("slSecOpen / slUiRecordToggle", () => {
     assert.deepEqual(a.sections, {});
   });
 });
+
+describe("ARIA tab bar and panels", () => {
+  test("slTabBarHtml structure", () => {
+    const h = m.slTabBarHtml("fix", {});
+    assert.match(h, /role="tablist"/);
+    assert.match(h, /aria-label="/);
+    assert.equal((h.match(/tabindex="0"/g) || []).length, 1);
+    assert.equal((h.match(/tabindex="-1"/g) || []).length, 3);
+    for (const [id] of m.SL_TABS) {
+      assert.ok(h.includes(`aria-controls="sl-p-${id}"`));
+      assert.ok(h.includes(`id="sl-t-${id}"`));
+    }
+    assert.equal((h.match(/aria-selected="true"/g) || []).length, 1);
+  });
+  test("marker renders count inside tab", () => {
+    const h = m.slTabBarHtml("fix", { ledger: { count: 3, tone: "bad" } });
+    assert.match(h, /id="sl-t-ledger"[^>]*>[^]*?<span[^>]*>3<\/span>[^]*?<\/button>/);
+  });
+  test("slTabPanelHtml hidden unless active", () => {
+    const a = m.slTabPanelHtml("fix", "<p>x</p>", "fix");
+    const b = m.slTabPanelHtml("tax", "<p>x</p>", "fix");
+    for (const h of [a, b]) {
+      assert.match(h, /role="tabpanel"/);
+    }
+    assert.ok(a.includes('aria-labelledby="sl-t-fix"') && a.includes('id="sl-p-fix"') && !/\shidden/.test(a));
+    assert.ok(b.includes('aria-labelledby="sl-t-tax"') && /\shidden/.test(b));
+  });
+  const stubDoc = () => {
+    const els = {};
+    for (const [id] of m.SL_TABS) {
+      els[`sl-t-${id}`] = { attrs: {}, tabIndex: 0, setAttribute(k, v) { this.attrs[k] = v; }, focus() { this.focused = true; } };
+      els[`sl-p-${id}`] = { hidden: false };
+    }
+    return { els, getElementById: (i) => els[i] || null };
+  };
+  test("slSetTab toggles hidden/aria/tabIndex without re-render", () => {
+    const doc = stubDoc();
+    globalThis.document = doc;
+    let rerenders = 0;
+    globalThis.renderMain = () => { rerenders++; };
+    m.slSetTab("tax", { focus: true });
+    assert.equal(doc.els["sl-p-tax"].hidden, false);
+    assert.equal(doc.els["sl-p-fix"].hidden, true);
+    assert.equal(doc.els["sl-t-tax"].attrs["aria-selected"], "true");
+    assert.equal(doc.els["sl-t-fix"].attrs["aria-selected"], "false");
+    assert.equal(doc.els["sl-t-tax"].tabIndex, 0);
+    assert.equal(doc.els["sl-t-fix"].tabIndex, -1);
+    assert.equal(doc.els["sl-t-tax"].focused, true);
+    assert.equal(rerenders, 0);
+    delete globalThis.document; delete globalThis.renderMain;
+  });
+  test("slTabKeydown arrows wrap, Home/End", () => {
+    const doc = stubDoc();
+    globalThis.document = doc;
+    const press = (key, from) => {
+      let prevented = false;
+      m.slTabKeydown({ key, target: { id: `sl-t-${from}` }, preventDefault() { prevented = true; } });
+      return prevented;
+    };
+    const active = () => m.SL_TABS.map((t) => t[0]).find((id) => doc.els[`sl-t-${id}`].tabIndex === 0);
+    assert.ok(press("ArrowRight", "import")); assert.equal(active(), "fix");
+    press("ArrowLeft", "fix"); assert.equal(active(), "import");
+    press("Home", "tax"); assert.equal(active(), "fix");
+    press("End", "tax"); assert.equal(active(), "import");
+    assert.equal(doc.els["sl-t-import"].focused, true);
+    assert.equal(press("a", "fix"), false);
+    delete globalThis.document;
+  });
+});

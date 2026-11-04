@@ -778,6 +778,12 @@ button.field-info-i{display:inline-flex;align-items:center;justify-content:cente
 .workspace-tab{background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;padding:11px 18px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;border-radius:0;transition:color .14s,border-color .14s;letter-spacing:.01em}
 .workspace-tab:hover{color:var(--ink)}
 .workspace-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.workspace-tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.sl-tabbar{position:sticky;top:0;z-index:5}
+.sl-tab[hidden]{display:none!important}
+.sl-tab-badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:6px;border-radius:9px;font-size:11px;line-height:18px;text-align:center;color:#fff;background:var(--muted)}
+.sl-tab-badge.bad{background:var(--bad,#b3261e)}
+.sl-tab-badge.warn{background:var(--warn,#9a6700)}
 .workspace-tab-body{padding:0 20px 20px}
 .workspace-tab-body>.holdings{padding-left:0;padding-right:0}
 .workspace-tab-body>.build-impact{margin-left:0;margin-right:0}

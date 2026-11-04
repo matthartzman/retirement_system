@@ -49,4 +49,41 @@ export function slSecOpen(state, key, defaultOpen, alertCount) {
   return !!e.open;
 }
 
-Object.assign(window, { SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen });
+export function slTabBarHtml(active, markers = {}) {
+  const tabs = SL_TABS.map(([id, label]) => {
+    const mk = markers[id];
+    const badge = mk && mk.count > 0 ? ` <span class="sl-tab-badge ${mk.tone === "bad" ? "bad" : "warn"}">${Number(mk.count)}</span>` : "";
+    const on = id === active;
+    return `<button type="button" role="tab" id="sl-t-${id}" class="workspace-tab${on ? " active" : ""}" aria-selected="${on}" aria-controls="sl-p-${id}" tabindex="${on ? 0 : -1}" onclick="slSetTab('${id}')" onkeydown="slTabKeydown(event)">${label}${badge}</button>`;
+  }).join("");
+  return `<div class="workspace-tabs sl-tabbar" role="tablist" aria-label="Sales ledger sections">${tabs}</div>`;
+}
+
+export const slTabPanelHtml = (id, bodyHtml, active) =>
+  `<div class="sl-tab" role="tabpanel" id="sl-p-${id}" aria-labelledby="sl-t-${id}"${id === active ? "" : " hidden"}>${bodyHtml}</div>`;
+
+export function slSetTab(id, opts = {}) {
+  if (!slTabOk(id)) return;
+  const doc = globalThis.document;
+  for (const [tid] of SL_TABS) {
+    const on = tid === id;
+    const btn = doc.getElementById(`sl-t-${tid}`);
+    const pnl = doc.getElementById(`sl-p-${tid}`);
+    if (btn) { btn.setAttribute("aria-selected", String(on)); btn.tabIndex = on ? 0 : -1; if (btn.classList) btn.classList.toggle("active", on); }
+    if (pnl) pnl.hidden = !on;
+  }
+  slUiSave(slUiSetTab(slUiLoad(), id));
+  if (opts.focus) { const b = doc.getElementById(`sl-t-${id}`); if (b) b.focus(); }
+}
+
+export function slTabKeydown(event) {
+  const ids = SL_TABS.map((t) => t[0]);
+  const cur = ids.indexOf(String(event.target && event.target.id).replace("sl-t-", ""));
+  if (cur < 0) return;
+  const next = { ArrowRight: (cur + 1) % ids.length, ArrowLeft: (cur + ids.length - 1) % ids.length, Home: 0, End: ids.length - 1 }[event.key];
+  if (next === undefined) return;
+  event.preventDefault();
+  slSetTab(ids[next], { focus: true });
+}
+
+Object.assign(window, { SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown });
