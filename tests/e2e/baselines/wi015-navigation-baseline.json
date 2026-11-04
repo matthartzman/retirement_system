@@ -56,12 +56,6 @@
       "errors": 0
     },
     {
-      "stepId": "account_tax_basis",
-      "heading": "Account Tax Basis",
-      "hasContent": true,
-      "errors": 0
-    },
-    {
       "stepId": "annuity_death_benefits",
       "heading": "Insurance",
       "hasContent": true,
@@ -82,6 +76,12 @@
     {
       "stepId": "entity_charitable",
       "heading": "Charitable Giving",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "account_tax_basis",
+      "heading": "Account Tax Basis",
       "hasContent": true,
       "errors": 0
     },
