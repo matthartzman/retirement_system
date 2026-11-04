@@ -81,3 +81,17 @@ def test_a_failing_gather_shows_the_step_open_not_done(client, monkeypatch, capl
 def test_derived_steps_cannot_be_confirmed_by_hand(client):
     assert client.post("/api/year-end/confirm", json={"year": 2026, "step": "close_cash_year"}).status_code == 400
     assert client.post("/api/year-end/confirm", json={"year": "2026", "step": "personal_numbers"}).status_code == 400
+
+
+def test_tie_1099b_confirmation_round_trips_through_the_route(client, monkeypatch):
+    events = []
+    monkeypatch.setattr(plan_routes, "_audit", lambda name, detail=None: events.append((name, detail)))
+    r = client.post("/api/year-end/confirm", json={"year": 2026, "step": "tie_1099b", "confirmed": True})
+    assert r.status_code == 200
+    s = by_id(r)["tie_1099b"]
+    assert s["state"] == "done" and "You confirmed each 1099-B is tied" in s["detail"]
+    assert events[-1] == ("year_end_step_confirmed", {"year": 2026, "step": "tie_1099b"})
+    assert by_id(client.get("/api/year-end?year=2026"))["tie_1099b"]["state"] == "done"
+    r = client.post("/api/year-end/confirm", json={"year": 2026, "step": "tie_1099b", "confirmed": False})
+    assert by_id(r)["tie_1099b"]["state"] == "open"
+    assert client.post("/api/year-end/confirm", json={"year": 2026, "step": "run_wash_check", "confirmed": True}).status_code == 400

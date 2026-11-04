@@ -194,3 +194,27 @@ def test_banner_window_is_mid_december_through_january(monkeypatch):
     for d, expect in ((date(2026, 12, 14), False), (date(2026, 12, 15), True), (date(2027, 1, 31), True), (date(2027, 2, 1), False)):
         monkeypatch.setattr(year_end, "today", lambda d=d: d)
         assert year_end.in_season() is expect
+
+
+def test_tie_1099b_is_a_stored_confirmation(jan_2027):
+    # Task 15b: no per-account tie data exists yet (untied_1099b unknown), so the user attests the tie.
+    meta = Meta()
+    unknown = {**CLEAN, "untied_1099b": None}
+    s = steps(store=meta, tax_filing=unknown)[1]["tie_1099b"]
+    assert s["state"] == "open" and s["detail"].startswith("Not verified automatically")
+    year_end.set_confirmation(meta, 2026, "tie_1099b", True)
+    assert json.loads(meta.d["year_end.2026.tie_1099b"])["confirmed"] is True
+    s = steps(store=meta, tax_filing=unknown)[1]["tie_1099b"]
+    assert (s["state"], s["detail"], s["hash"]) == ("done", "You confirmed each 1099-B is tied. Re-check after any new import.", "#sales_ledger?tab=import&sec=b1099")
+    year_end.set_confirmation(meta, 2026, "tie_1099b", False)
+    assert "year_end.2026.tie_1099b" not in meta.d
+    assert steps(store=meta, tax_filing=unknown)[1]["tie_1099b"]["state"] == "open"
+    assert year_end.CONFIRMABLE == ("personal_numbers", "tie_1099b")
+
+
+def test_a_known_untied_count_beats_the_tie_confirmation(jan_2027):
+    meta = Meta()
+    year_end.set_confirmation(meta, 2026, "tie_1099b", True)
+    s = steps(store=meta, tax_filing={**CLEAN, "untied_1099b": 2})[1]["tie_1099b"]
+    assert s["state"] == "open" and "2 account(s)" in s["detail"]
+    assert steps(store=meta)[1]["tie_1099b"]["state"] == "na"     # no tax-filing data: still not applicable

@@ -15,7 +15,7 @@ from . import cash_view, cash_year_close
 from .platform_runtime import today
 
 log = logging.getLogger(__name__)
-CONFIRMABLE = ("personal_numbers",)
+CONFIRMABLE = ("personal_numbers", "tie_1099b")
 _EPS = 0.005
 
 
@@ -60,8 +60,9 @@ _WASH_DETAIL = {"clean": "No possible wash sales are flagged.", "flagged": "Poss
 _COULD_NOT_CHECK = "Could not check — open the Sales Ledger page to see it."
 
 
-def _tax_filing_steps(year: int, tf: Mapping[str, Any] | None) -> list[dict[str, str]]:
-    """The Sales Ledger's tax-filing steps; all ``na`` when ``tf`` (see ``service``) is None."""
+def _tax_filing_steps(year: int, tf: Mapping[str, Any] | None, tied_confirmed: bool = False) -> list[dict[str, str]]:
+    """The Sales Ledger's tax-filing steps; all ``na`` when ``tf`` (see ``service``) is None. ``tied_confirmed`` is the
+    stored attestation for ``tie_1099b``; it counts only while the tie count is unknown (a known untied count wins)."""
     def step(sid: str, title: str, hash_: str, done: bool, detail: str) -> dict[str, str]:
         return _step(sid, title, "sales_ledger", "na" if tf is None else "done" if done else "open",
                      "Not checked." if tf is None else detail, f"#sales_ledger?{hash_}")
@@ -81,8 +82,9 @@ def _tax_filing_steps(year: int, tf: Mapping[str, Any] | None) -> list[dict[str,
         drift,
         step("run_wash_check", "Run the wash-sale check", "tab=tax&sec=wash", wash == "clean",
              f"{_WASH_DETAIL.get(wash, _WASH_DETAIL['never'])} This app's accounts only."),
-        step("tie_1099b", "Apply and tie the broker 1099-B", "tab=import&sec=b1099", u == 0,
-             "Not verified automatically — compare each broker 1099-B on the Import tab." if u is None else
+        step("tie_1099b", "Apply and tie the broker 1099-B", "tab=import&sec=b1099", u == 0 or (u is None and tied_confirmed),
+             ("You confirmed each 1099-B is tied. Re-check after any new import." if tied_confirmed else
+              "Not verified automatically — compare each broker 1099-B on the Import tab.") if u is None else
              f"{u} account(s) do not tie to the broker 1099-B." if u else f"Every account ties to its {year} 1099-B."),
         step("confirm_carryforward", "Confirm the capital-loss carryforward", "tab=tax&sec=wash", saved,
              f"The carryforward into {year} is saved." if saved else
@@ -126,7 +128,7 @@ def build(year: int, *, store: Any, ledgers: Mapping[str, list[Mapping[str, Any]
         "final_broker_files", "Import final broker files", "sales_ledger", "na" if not latest else "open" if behind else "done",
         "No broker imports yet." if not latest else
         f"No file dated after 31 Dec {year} for: {', '.join(behind)}." if behind else f"Every account has a file dated after 31 Dec {year}."))
-    out.extend(_tax_filing_steps(year, tax_filing))
+    out.extend(_tax_filing_steps(year, tax_filing, is_confirmed(store, year, "tie_1099b")))
 
     unmatched = sum(1 for led in ledgers.values() for r in led if r["pair_status"] == "unmatched" and r["date"][:4] == f"{year:04d}")
     strad = len(st["straddles"])
