@@ -15,6 +15,8 @@ before(async () => {
     if (url === "/api/transactions/log") return LOG;
     return { success: true };
   };
+  await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
+  await import("../../frontend/js/dashboard_decomp_sales_ledger.js");
   m = await import("../../frontend/js/dashboard_decomp_transactions_log.js");
 });
 beforeEach(() => { calls.length = 0; });
@@ -111,7 +113,7 @@ test("health: 7 drift items show 5 rows and Show all 7; show all reveals every r
 test("managed chips mark managed accounts and keep the checkbox list in an Edit details", () => {
   const h = m.tlManagedChipsHtml({ ...LOG, managed: ["Member_1_IRA"] });
   assert.match(h, /Managed accounts \(1\)/);
-  assert.match(h, /Matt's IRA[^<]*<\/span>|Matt's IRA · managed|managed/);
+  assert.match(h, /<span[^>]*>Matt's IRA · managed<\/span>/);
   assert.match(h, /· managed/);
   assert.match(h, /<details/);
   assert.match(h, /data-managed="Member_1_IRA" checked/);
@@ -149,4 +151,191 @@ test("tlFocusRow goes to the log via slGo when defined and is safe when not", ()
   assert.deepEqual(seen[0], ["fix", "log"]);
   delete globalThis.slGo;
   assert.doesNotThrow(() => m.tlFocusRow("Member_1_IRA", "ZZZ", "2024-06-01"));
+});
+
+// ---- Task 9: filters, pagination, drawers --------------------------------------------------------------------
+const BIG = (n) => ({ started: true, drift: [], open: [], rows: Array.from({ length: n }, (_, i) => ({ txn_id: i + 1, txn_date: `${2020 + (i % 5)}-03-01`, account: i % 2 ? "Member_1_IRA" : "Member_1_Roth", type: i % 3 ? "buy" : "sell", symbol: i % 4 ? "TOTL" : "vxus", shares: 1, price: 2, source: "manual" })) });
+const rowIds = (h) => [...h.matchAll(/<tr id="tlRow(\d+)"/g)].map((x) => Number(x[1]));
+// A document whose elements remember innerHTML/focus so repaints and focus moves can be observed.
+function fakeDom() {
+  const els = {}, focused = [], live = {};
+  const get = (id) => (els[id] ||= { id, innerHTML: "", focus() { focused.push(id); }, scrollIntoView() { focused.push("scroll:" + id); } });
+  globalThis.document = { getElementById: get };
+  globalThis.slAnnounce = (t) => { live.text = t; };
+  return { els, focused, live, restore() { globalThis.document = { getElementById: () => null }; delete globalThis.slAnnounce; } };
+}
+async function loadLog(log) {
+  const orig = globalThis.api;
+  globalThis.api = async (url) => (url === "/api/transactions/log" ? log : { success: true });
+  await m.tlLoad();
+  globalThis.api = orig;
+  m.tlSetFilter("account", ""); m.tlSetFilter("symbol", ""); m.tlSetFilter("year", ""); m.tlSetFilter("type", "");
+}
+const PLAIN = [undefined, undefined, undefined, { health: false }];
+
+test("tlFilterRows: account exact, symbol case-insensitive, year prefix, type exact, empty = no constraint", () => {
+  const rows = BIG(40).rows;
+  assert.equal(m.tlFilterRows(rows, {}).length, 40);
+  assert.equal(m.tlFilterRows(rows, { symbol: "VXUS" }).length, rows.filter((r) => r.symbol === "vxus").length);
+  assert.ok(m.tlFilterRows(rows, { account: "Member_1_IRA" }).every((r) => r.account === "Member_1_IRA"));
+  assert.ok(m.tlFilterRows(rows, { year: "2021" }).every((r) => r.txn_date.startsWith("2021")));
+  assert.ok(m.tlFilterRows(rows, { type: "sell" }).every((r) => r.type === "sell"));
+  assert.equal(m.tlFilterRows(rows, { account: "Member_1_ira" }).length, 0);
+});
+
+test("tlPage: first N rows and remaining clamped at zero", () => {
+  assert.deepEqual(m.tlPage([1, 2, 3], 2), { rows: [1, 2], remaining: 1 });
+  assert.deepEqual(m.tlPage([1, 2, 3], 25), { rows: [1, 2, 3], remaining: 0 });
+  assert.deepEqual(m.tlPage([], 25), { rows: [], remaining: 0 });
+});
+
+test("0 rows keeps the empty-log text; 1 row shows Showing 1 of 1 and no Show more", async () => {
+  await loadLog(BIG(0));
+  assert.match(m.tlHtml(BIG(0), ...PLAIN), /The log is empty\./);
+  await loadLog(BIG(1));
+  const h = m.tlHtml(BIG(1), ...PLAIN);
+  assert.match(h, /Showing 1 of 1/);
+  assert.doesNotMatch(h, /Show 25 more/);
+});
+
+test("5,000 rows: 25 first, newest first, Show 25 more adds 25 and moves focus to the first new row, button ends", async () => {
+  const log = BIG(5000);
+  await loadLog(log);
+  const h = m.tlHtml(log, ...PLAIN);
+  const ids = rowIds(h);
+  assert.equal(ids.length, 25);
+  assert.equal(ids[0], 5000);
+  assert.match(h, /Showing 25 of 5000/);
+  assert.match(h, /Show 25 more/);
+  assert.doesNotMatch(h, /max-height|overflow-y/);
+  const dom = fakeDom();
+  m.tlShowMore();
+  assert.equal(rowIds(dom.els.tlEntries.innerHTML).length, 50);
+  assert.match(dom.els.tlEntries.innerHTML, /Showing 50 of 5000/);
+  assert.deepEqual(dom.focused, ["tlRow4975"]);
+  assert.equal(dom.live.text, "25 more rows shown");
+  for (let i = 0; i < 198; i++) m.tlShowMore();
+  assert.match(dom.els.tlEntries.innerHTML, /Showing 5000 of 5000/);
+  assert.doesNotMatch(dom.els.tlEntries.innerHTML, /Show 25 more/);
+  dom.restore();
+});
+
+test("a filter with no match says so; changing a filter resets paging and repaints only the entries area", async () => {
+  const log = BIG(200);
+  await loadLog(log);
+  const dom = fakeDom();
+  m.tlShowMore(); m.tlShowMore();
+  assert.equal(rowIds(dom.els.tlEntries.innerHTML).length, 75);
+  m.tlSetFilter("type", "buy");
+  assert.equal(rowIds(dom.els.tlEntries.innerHTML).length, 25);
+  assert.equal(dom.els.tlRoot, undefined);
+  m.tlSetFilter("symbol", "NOSUCH");
+  assert.match(dom.els.tlEntries.innerHTML, /No transactions match\./);
+  m.tlSetFilter("symbol", "vxus"); m.tlSetFilter("year", "2020");
+  assert.ok(rowIds(dom.els.tlEntries.innerHTML).length > 0);
+  dom.restore();
+  await loadLog(log);
+});
+
+test("filter controls have real labels, including Filter year", async () => {
+  await loadLog(BIG(3));
+  const h = m.tlHtml(BIG(3), ...PLAIN);
+  for (const t of ["Account", "Symbol", "Filter year", "Type"]) assert.match(h, new RegExp(`<label for="tlF[A-Za-z]+">${t} `));
+});
+
+test("layout: both drawers sit above the filters and the entries", async () => {
+  const h = m.tlHtml(BIG(3), ...PLAIN);
+  const at = (re) => h.search(re);
+  assert.ok(at(/＋ Add transaction/) > 0 && at(/＋ Add transaction/) < at(/＋ Transfer between accounts/));
+  assert.ok(at(/＋ Transfer between accounts/) < at(/class="sl-filters tl-filters"/));
+  assert.ok(at(/class="sl-filters tl-filters"/) < at(/id="tlEntries"/));
+  assert.ok(at(/tl-managed-chips/) < at(/＋ Add transaction/));
+  assert.match(h, /<details class="drawer" id="tlAddDrawer" ontoggle/);
+});
+
+test("tlEditRow renders the drawer open before values are set, scrolls and focuses; Cancel closes it", async () => {
+  await loadLog(BIG(3));
+  const dom = fakeDom();
+  m.tlEditRow(2);
+  assert.match(dom.els.tlRoot.innerHTML, /<details class="drawer" id="tlAddDrawer" open/);
+  assert.match(dom.els.tlRoot.innerHTML, /Revise transaction/);
+  assert.ok(dom.focused.includes("scroll:tlAddDrawer"));
+  assert.equal(dom.focused.at(-1), "tlFDate");
+  m.tlCancel();
+  assert.doesNotMatch(dom.els.tlRoot.innerHTML, /id="tlAddDrawer" open/);
+  dom.restore();
+  assert.doesNotThrow(() => m.tlEditRow(2));
+  m.tlCancel();
+});
+
+test("tlFocusRow filters by account and symbol, resets paging and keeps the slGo call", async () => {
+  await loadLog(BIG(100));
+  const dom = fakeDom(), seen = [];
+  globalThis.slGo = (...a) => seen.push(a);
+  m.tlShowMore();
+  m.tlFocusRow("Member_1_IRA", "TOTL", "2024-06-01");
+  const h = dom.els.tlRoot.innerHTML;
+  assert.match(h, /<option value="Member_1_IRA" selected>/);
+  assert.match(h, /id="tlFSym" size="7" value="TOTL"/);
+  assert.ok(rowIds(h).length <= 25);
+  assert.deepEqual(seen[0], ["fix", "log"]);
+  delete globalThis.slGo; dom.restore();
+  await loadLog(BIG(1));
+});
+
+test("tlFocusRow arguments with an apostrophe and a backslash yield a valid, escaped handler", () => {
+  const acct = "O'Brien\\IRA";
+  const h = m.tlHealthHtml({ ...LOG, drift: [{ ...LOG.drift[0], account: acct, symbol: "A'B" }] });
+  const attr = h.match(/onclick="(tlFocusRow\([^"]*\))"/)[1];
+  const raw = attr.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  let got;
+  new Function("tlFocusRow", raw)((...a) => { got = a; });
+  assert.deepEqual(got, [acct, "A'B", "2024-06-01"]);
+});
+
+test("health: Show all repaints only #tlHealthRoot and refocuses the toggle", async () => {
+  await loadLog({ ...LOG, drift: DRIFT7 });
+  const dom = fakeDom();
+  m.tlShowAllHealth(true);
+  assert.match(dom.els.tlHealthRoot.innerHTML, /Show fewer/);
+  assert.equal(dom.els.tlRoot, undefined);
+  assert.deepEqual(dom.focused, ["tlHealthToggle"]);
+  m.tlShowAllHealth(false);
+  dom.restore();
+  await loadLog(LOG);
+});
+
+test("bare Start prompt shows start and load errors", async () => {
+  const orig = globalThis.api;
+  globalThis.api = async (url) => { if (url === "/api/transactions/log") return { started: false, rows: [], open: [], drift: [] }; throw new Error("backfill failed"); };
+  await m.tlLoad();
+  await m.tlStart();
+  assert.match(m.renderLogHealth(), /backfill failed/);
+  globalThis.api = async () => { throw new Error("load failed"); };
+  await m.tlLoad();
+  assert.match(m.renderLogHealth(), /load failed/);
+  globalThis.api = orig;
+  await m.tlLoad();
+});
+
+test("health slot: one Start button when not started, none when started; repaints on the started flip", async () => {
+  const startBtns = (h) => (h.match(/Start the transaction log/g) || []).length;
+  const orig = globalThis.api;
+  globalThis.api = async () => ({ started: false, rows: [], open: [], drift: [] });
+  await m.tlLoad();
+  assert.equal(startBtns(window.slHealthSlotHtml() + m.renderTransactionLog()), 1);
+  globalThis.api = orig;
+  await m.tlLoad();
+  assert.equal(startBtns(window.slHealthSlotHtml() + m.renderTransactionLog()), 0);
+  const dom = fakeDom();
+  globalThis.api = async () => ({ started: false, rows: [], open: [], drift: [] });
+  await m.tlLoad();
+  dom.els.tlHealthSlot = { innerHTML: "untouched" };
+  globalThis.api = orig;
+  await m.tlLoad();
+  assert.notEqual(dom.els.tlHealthSlot.innerHTML, "untouched");
+  dom.els.tlHealthSlot.innerHTML = "untouched";
+  await m.tlLoad();
+  assert.equal(dom.els.tlHealthSlot.innerHTML, "untouched");
+  dom.restore();
 });

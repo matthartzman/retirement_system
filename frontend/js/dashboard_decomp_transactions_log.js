@@ -10,7 +10,10 @@ let tlForm = { txn_date: "", account: "", type: "buy", symbol: "", shares: "", p
 let tlXfer = { from_account: "", to_account: "", symbol: "", txn_date: "", picks: {} };
 let tlMessage = null;
 let tlHealthAll = false; // health list: false shows the first TL_HEALTH_MAX rows
-let tlFocus = null; // {account, symbol, purchase_date} chosen from a health row; Task 9 filters the log by it
+const TL_PAGE = 25;
+let tlFilter = { account: "", symbol: "", year: "", type: "" }; // client-side filters over the loaded rows
+let tlShown = TL_PAGE; // entries rows currently shown; reset to one page whenever a filter changes
+let tlDrawer = { add: false, xfer: false }; // drawers the user has open (kept across repaints)
 let tlSlotStarted = null; // started state last painted into the health slot
 const TL_HEALTH_MAX = 5;
 
@@ -19,6 +22,7 @@ const tlAccounts = (log) => [...new Set([...(log.rows || []).map((r) => r.accoun
 const tlSelect = (id, opts, cur, fn) => `<select id="${id}" onchange="${fn}(this.value)">${opts.map(([v, t]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
 
 const tlJs = (v) => esc(String(v).replace(/[\\']/g, "\\$&"));
+const tlMsgHtml = () => tlMessage ? `<p role="status" class="${tlMessage.error ? "error" : "muted"}">${esc(tlMessage.text)}</p>` : "";
 const tlNotStartedHtml = (msg) => `<h3>Transaction log</h3>${msg}<p class="muted">The log is not started. Starting builds it from your broker imports and holdings; the holdings are not changed.</p>` +
   `<button type="button" class="btn" onclick="tlStart()">Start the transaction log</button>`;
 const tlManagedListHtml = (log, accts) => {
@@ -34,7 +38,7 @@ export function tlHealthHtml(log) {
   return `<div role="alert"><b>The log and the holdings differ:</b><ul>` + shown.map((d) =>
     `<li>${esc(accountDisplayLabel(d.account))} ${esc(d.symbol)} ${esc(d.purchase_date)}: holdings ${tlNum(d.holdings_shares)}, log ${tlNum(d.log_shares)}. ${esc(d.reason)} ` +
     `<button type="button" class="btn" onclick="tlFocusRow('${tlJs(d.account)}','${tlJs(d.symbol)}','${tlJs(d.purchase_date)}')">Show in log</button></li>`).join("") + `</ul>` +
-    (drift.length > TL_HEALTH_MAX ? `<button type="button" class="btn" onclick="tlShowAllHealth(${!tlHealthAll})">${tlHealthAll ? "Show fewer" : `Show all ${drift.length}`}</button>` : "") + `</div>`;
+    (drift.length > TL_HEALTH_MAX ? `<button type="button" class="btn" id="tlHealthToggle" onclick="tlShowAllHealth(${!tlHealthAll})">${tlHealthAll ? "Show fewer" : `Show all ${drift.length}`}</button>` : "") + `</div>`;
 }
 
 export function tlManagedChipsHtml(log) {
@@ -44,21 +48,67 @@ export function tlManagedChipsHtml(log) {
     ` <details class="tl-managed-edit"><summary>Edit…</summary>${tlManagedListHtml(log, tlAccounts(log))}</details></div>`;
 }
 
-const tlHealthInner = () => !tlLog ? `<p class="muted">Loading…</p>` : !tlLog.started ? tlNotStartedHtml("") : tlHealthHtml(tlLog);
+const tlHealthInner = () => !tlLog ? `<p class="muted">Loading…</p>` : !tlLog.started ? tlNotStartedHtml(tlMsgHtml()) : tlHealthHtml(tlLog);
 export function renderLogHealth() {
   if (tlLog === null) setTimeout(tlLoad, 0);
   return `<div id="tlHealthRoot">${tlHealthInner()}</div>`;
 }
 export const tlStarted = () => !(tlLog && tlLog.started === false); // false only once the log is known to be not started
 
-export function tlFocusRow(account, symbol, purchase_date) {
-  tlFocus = { account, symbol, purchase_date };
+export function tlFilterRows(rows, f = {}) {
+  const sym = String(f.symbol || "").trim().toUpperCase();
+  return (rows || []).filter((r) => (!f.account || r.account === f.account) && (!sym || String(r.symbol).toUpperCase() === sym) &&
+    (!f.year || String(r.txn_date).startsWith(String(f.year))) && (!f.type || r.type === f.type));
+}
+export function tlPage(rows, shown) {
+  const n = Math.max(0, Number(shown) || 0);
+  return { rows: rows.slice(0, n), remaining: Math.max(0, rows.length - n) };
+}
+const tlRowId = (r) => `tlRow${Number(r.txn_id)}`;
+const tlNewestFirst = () => tlFilterRows(((tlLog && tlLog.rows) || []).slice().reverse(), tlFilter);
+function tlEntriesHtml(log) {
+  if (!(log.rows || []).length) return `<p class="muted">The log is empty.</p>`;
+  const f = tlNewestFirst(), pg = tlPage(f, tlShown);
+  if (!f.length) return `<p class="muted">No transactions match.</p>`;
+  const rows = pg.rows.map((r) => `<tr id="${tlRowId(r)}" tabindex="-1"><td>${esc(r.txn_date)}</td><td>${esc(accountDisplayLabel(r.account))}</td><td>${esc(TL_LABEL[r.type] || r.type)}</td><td>${esc(r.symbol)}</td>` +
+    `<td class="rc-num">${tlNum(r.shares)}</td><td class="rc-num">${r.price == null ? "" : tlNum(r.price)}</td><td>${esc(r.source)}</td><td>${esc(r.note || "")}</td>` +
+    `<td><button type="button" onclick="tlEditRow(${Number(r.txn_id)})">Edit</button> <button type="button" onclick="tlVoid(${Number(r.txn_id)})">Void</button></td></tr>`).join("");
+  return `<p class="muted tl-count">Showing ${pg.rows.length} of ${f.length}</p><div class="tl-table-wrap"><table class="rc-table"><thead><tr><th>Date</th><th>Account</th><th>Type</th><th>Symbol</th><th class="rc-num">Shares</th><th class="rc-num">Price</th><th>Source</th><th>Note</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` +
+    (pg.remaining > 0 ? `<button type="button" class="btn" id="tlShowMore" onclick="tlShowMore()">Show ${TL_PAGE} more</button>` : "");
+}
+const tlFilterBarHtml = (log, accts) => {
+  const years = [...new Set((log.rows || []).map((r) => String(r.txn_date).slice(0, 4)).filter(Boolean))].sort().reverse();
+  const sel = (id, label, opts, key) => `<label for="${id}">${label} ` + tlSelect(id, opts, tlFilter[key], `tlSetFilter.bind(null,'${key}')`) + `</label>`;
+  return `<div class="sl-filters tl-filters">` + sel("tlFAcct", "Account", [["", "All accounts"], ...accts.map((a) => [a, accountDisplayLabel(a)])], "account") +
+    `<label for="tlFSym">Symbol <input id="tlFSym" size="7" value="${esc(tlFilter.symbol)}" onchange="tlSetFilter('symbol',this.value)"></label>` +
+    sel("tlFYear", "Filter year", [["", "All years"], ...years.map((y) => [y, y])], "year") + sel("tlFType", "Type", [["", "All types"], ...Object.entries(TL_LABEL)], "type") + `</div>`;
+};
+function tlPaintEntries() {
+  const el = tlLog && document.getElementById("tlEntries");
+  if (el) el.innerHTML = tlEntriesHtml(tlLog);
+}
+export function tlSetFilter(key, value) { tlFilter = { ...tlFilter, [key]: String(value || "") }; tlShown = TL_PAGE; tlPaintEntries(); }
+export function tlShowMore() {
+  const first = tlNewestFirst()[tlShown];
+  tlShown += TL_PAGE; tlPaintEntries();
+  const el = first && document.getElementById(tlRowId(first));
+  if (el && el.focus) el.focus();
+  if (window.slAnnounce) window.slAnnounce(`${TL_PAGE} more rows shown`);
+}
+export function tlFocusRow(account, symbol, purchase_date) { // purchase_date identifies the health row; the log filters by account and symbol
+  tlFilter = { account, symbol, year: "", type: "" }; tlShown = TL_PAGE;
+  tlPaint(); // full log repaint so the filter controls show the new values
   if (typeof window.slGo === "function") window.slGo("fix", "log");
 }
-export function tlShowAllHealth(on) { tlHealthAll = !!on; tlPaint(); }
+export function tlShowAllHealth(on) {
+  tlHealthAll = !!on;
+  const root = document.getElementById("tlHealthRoot");
+  if (root) { root.innerHTML = tlHealthInner(); const b = document.getElementById("tlHealthToggle"); if (b && b.focus) b.focus(); }
+}
+export function tlDrawerToggle(key, open) { tlDrawer = { ...tlDrawer, [key]: !!open }; }
 
 export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit, opts = { health: true }) {
-  const msg = tlMessage ? `<p role="status" class="${tlMessage.error ? "error" : "muted"}">${esc(tlMessage.text)}</p>` : "";
+  const msg = tlMsgHtml();
   if (!log) return `<h3>Transaction log</h3>${msg}<p class="muted">Loading…</p>`;
   if (!log.started) return opts.health ? tlNotStartedHtml(msg) : `<h3>Transaction log</h3>${msg}<p class="muted">The log is not started. Start it in the log health section.</p>`;
   const drift = opts.health ? (log.drift || []).length ? `<div role="alert" class="error"><b>The log and the holdings differ:</b><ul>` +
@@ -66,17 +116,14 @@ export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit, opts = 
   const accts = tlAccounts(log);
   const acctOpts = [["", "Account"], ...accts.map((a) => [a, accountDisplayLabel(a)])];
   const managedBox = opts.health ? `<h4>Managed accounts</h4>${tlManagedListHtml(log, accts)}` : tlManagedChipsHtml(log);
-  const rows = (log.rows || []).slice().reverse().map((r) => `<tr><td>${esc(r.txn_date)}</td><td>${esc(accountDisplayLabel(r.account))}</td><td>${esc(TL_LABEL[r.type] || r.type)}</td><td>${esc(r.symbol)}</td>` +
-    `<td class="rc-num">${tlNum(r.shares)}</td><td class="rc-num">${r.price == null ? "" : tlNum(r.price)}</td><td>${esc(r.source)}</td><td>${esc(r.note || "")}</td>` +
-    `<td><button type="button" onclick="tlEditRow(${Number(r.txn_id)})">Edit</button> <button type="button" onclick="tlVoid(${Number(r.txn_id)})">Void</button></td></tr>`).join("");
-  const field = (k, ph, size) => `<input placeholder="${ph}" value="${esc(form[k])}" size="${size}" onchange="tlSetForm('${k}',this.value)">`;
-  const addForm = `<h4>${edit ? "Revise transaction" : "Add transaction"}</h4><div class="sl-filters">` +
-    `<input type="date" value="${esc(form.txn_date)}" onchange="tlSetForm('txn_date',this.value)">` + tlSelect("tlAcct", acctOpts, form.account, "tlSetFormAccount") +
+  const field = (k, ph, size) => `<input aria-label="${ph}" placeholder="${ph}" value="${esc(form[k])}" size="${size}" onchange="tlSetForm('${k}',this.value)">`;
+  const addForm = `<div class="sl-filters">` +
+    `<input type="date" id="tlFDate" aria-label="Date" value="${esc(form.txn_date)}" onchange="tlSetForm('txn_date',this.value)">` + tlSelect("tlAcct", acctOpts, form.account, "tlSetFormAccount") +
     tlSelect("tlType", TL_TYPES, form.type, "tlSetFormType") + field("symbol", "Symbol", 7) + field("shares", "Shares", 8) + field("price", "Price", 8) +
     `<button type="button" onclick="tlSave()">${edit ? "Save revision" : "Add"}</button>${edit ? ` <button type="button" onclick="tlCancel()">Cancel</button>` : ""}</div>` +
     (form.type === "sell" ? `<p class="muted">A sale takes the oldest lots first.</p>` : "");
   const lotsForSymbol = (log.open || []).filter((l) => l.account === xfer.from_account && (!xfer.symbol || l.symbol.toUpperCase() === xfer.symbol.toUpperCase()));
-  const xferForm = `<h4>Transfer between accounts</h4><div class="sl-filters">` + tlSelect("tlFrom", [["", "From"], ...accts.map((a) => [a, accountDisplayLabel(a)])], xfer.from_account, "tlSetXferFrom") +
+  const xferForm = `<div class="sl-filters">` + tlSelect("tlFrom", [["", "From"], ...accts.map((a) => [a, accountDisplayLabel(a)])], xfer.from_account, "tlSetXferFrom") +
     tlSelect("tlTo", [["", "To"], ...accts.map((a) => [a, accountDisplayLabel(a)])], xfer.to_account, "tlSetXferTo") +
     `<input placeholder="Symbol" value="${esc(xfer.symbol)}" size="7" onchange="tlSetXfer('symbol',this.value)">` +
     `<input type="date" value="${esc(xfer.txn_date)}" onchange="tlSetXfer('txn_date',this.value)"></div>` +
@@ -84,8 +131,10 @@ export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit, opts = 
       lotsForSymbol.map((l) => `<tr><td>${esc(l.symbol)} ${esc(l.purchase_date)} @ ${tlNum(l.price)}</td><td class="rc-num">${tlNum(l.shares)}</td>` +
         `<td class="rc-num"><input size="7" value="${esc(xfer.picks[l.lot_txn_id] || "")}" onchange="tlPick(${Number(l.lot_txn_id)},this.value)"></td></tr>`).join("") + `</tbody></table>` : `<p class="muted">Choose the source account to list its open lots.</p>`) +
     `<button type="button" onclick="tlTransfer()">Transfer</button>`;
-  const table = rows ? `<table class="rc-table"><thead><tr><th>Date</th><th>Account</th><th>Type</th><th>Symbol</th><th class="rc-num">Shares</th><th class="rc-num">Price</th><th>Source</th><th>Note</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p class="muted">The log is empty.</p>`;
-  return `<h3>Transaction log</h3>${msg}${drift}${managedBox}${addForm}${xferForm}${table}`;
+  const drawer = (key, id, title, body, open) => `<details class="drawer" id="${id}"${open ? " open" : ""} ontoggle="tlDrawerToggle('${key}',this.open)"><summary>${title}</summary>${body}</details>`;
+  const drawers = `<div class="tl-drawers">` + drawer("add", "tlAddDrawer", edit ? "＋ Revise transaction" : "＋ Add transaction", addForm, edit || tlDrawer.add) +
+    drawer("xfer", "tlXferDrawer", "＋ Transfer between accounts", xferForm, tlDrawer.xfer) + `</div>`;
+  return `<h3>Transaction log</h3>${msg}${drift}${managedBox}${drawers}${tlFilterBarHtml(log, accts)}<div id="tlEntries">${tlEntriesHtml(log)}</div>`;
 }
 
 export function renderTransactionLog() {
@@ -117,7 +166,7 @@ export async function tlLoad() {
 
 async function tlPost(url, body, done) {
   try { await api(url, { method: "POST", body: JSON.stringify(body || {}) }); tlMessage = { text: done, error: false }; }
-  catch (e) { tlMessage = { text: e.message, error: true }; return false; }
+  catch (e) { tlMessage = { text: e.message, error: true }; tlPaint(); return false; }
   await tlLoad();
   if (window.trLoad) window.trLoad();
   return true;
@@ -137,15 +186,21 @@ export async function tlSave() {
   const body = { ...tlForm };
   if (!body.txn_date || !body.account || !body.symbol || !body.shares) { tlMessage = { text: "Date, account, symbol and shares are required.", error: true }; tlPaint(); return; }
   const ok = await tlPost(tlEdit ? `/api/transactions/${Number(tlEdit)}/revise` : "/api/transactions", body, tlEdit ? "Transaction revised." : "Transaction added.");
-  if (ok) { tlEdit = null; tlForm = { ...tlForm, symbol: "", shares: "", price: "" }; tlPaint(); }
+  if (ok) { if (tlEdit) tlDrawer = { ...tlDrawer, add: false }; tlEdit = null; tlForm = { ...tlForm, symbol: "", shares: "", price: "" }; tlPaint(); }
 }
 export function tlEditRow(id) {
   const r = ((tlLog && tlLog.rows) || []).find((x) => x.txn_id === id);
   if (!r) return;
-  tlEdit = id; tlForm = { txn_date: r.txn_date, account: r.account, type: r.type, symbol: r.symbol, shares: String(r.shares), price: r.price == null ? "" : String(r.price) };
+  tlEdit = id; tlDrawer = { ...tlDrawer, add: true }; tlForm = { txn_date: r.txn_date, account: r.account, type: r.type, symbol: r.symbol, shares: String(r.shares), price: r.price == null ? "" : String(r.price) };
   tlPaint();
+  const dr = document.getElementById("tlAddDrawer"), el = document.getElementById("tlFDate");
+  if (dr && dr.scrollIntoView) dr.scrollIntoView({ block: "start" });
+  if (el && el.focus) el.focus();
 }
-export function tlCancel() { tlEdit = null; tlPaint(); }
+export function tlCancel() { tlEdit = null; tlDrawer = { ...tlDrawer, add: false }; tlPaint(); }
+if (typeof document !== "undefined" && document.addEventListener) {
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && (tlEdit || tlDrawer.add)) tlCancel(); });
+}
 export function tlVoid(id) {
   if (typeof confirm === "function" && !confirm("Void this transaction? It stays in the history as voided.")) return Promise.resolve(false);
   return tlPost(`/api/transactions/${Number(id)}/void`, {}, "Transaction voided.");
@@ -160,5 +215,5 @@ export function tlTransfer() {
   return tlPost("/api/transactions/transfer", { from_account: tlXfer.from_account, to_account: tlXfer.to_account, symbol: tlXfer.symbol, txn_date: tlXfer.txn_date, allocation }, "Shares transferred.");
 }
 
-Object.assign(window, { tlHealthHtml, tlManagedChipsHtml, renderLogHealth, tlStarted, tlFocusRow, tlShowAllHealth, tlSummary, renderTransactionLog, tlHtml, tlLoad, tlStart, tlSetManaged, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlVoid,
+Object.assign(window, { tlHealthHtml, tlManagedChipsHtml, renderLogHealth, tlStarted, tlFocusRow, tlShowAllHealth, tlSummary, renderTransactionLog, tlHtml, tlFilterRows, tlPage, tlSetFilter, tlShowMore, tlDrawerToggle, tlLoad, tlStart, tlSetManaged, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlVoid,
   tlSetXfer, tlSetXferFrom, tlSetXferTo, tlPick, tlTransfer });

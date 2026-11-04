@@ -1320,3 +1320,14 @@ header :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{o
 .sl-sec-body{padding:0 10px 10px}
 @media (pointer:coarse){.sl-sec>summary,.sl-secctl .btn{min-height:44px}}
 @media (prefers-reduced-motion:reduce){.sl-sec-chev{transition:none}}
+
+.tl-drawers{display:grid;grid-template-columns:1fr;gap:10px;margin:10px 0}
+@media(min-width:1100px){.tl-drawers{grid-template-columns:1fr 1fr;align-items:start}}
+.drawer{border:1px solid var(--line2);border-radius:10px;background:var(--surface);color:var(--ink);padding:0 12px}
+.drawer>summary{cursor:pointer;font-weight:700;padding:10px 0;color:var(--accent)}
+.drawer[open]{background:var(--soft)}
+.tl-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:10px 0}
+.tl-filters label{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted)}
+.tl-count{margin:6px 0}
+.tl-table-wrap{overflow-x:auto}
+#tlEntries tr:focus{outline:2px solid var(--accent)}
