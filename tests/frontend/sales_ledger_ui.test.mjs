@@ -345,4 +345,28 @@ describe("collapsible section shell (Task 7)", () => {
     assert.doesNotThrow(() => m.slGo("tax", "wash"));
     delete globalThis.history;
   });
+  test("informational counts (log rows) are not alerts: collapse-all closes, user collapse sticks, no announcement", async () => {
+    const s = store(); setStore(s); const d = secDoc(["log"]); globalThis.document = d;
+    d.els["sl-sec-log"].open = true;
+    m.slPublish("log", { count: 12, tone: "", text: "12 rows" });
+    m.slSecAll("fix", false);
+    assert.equal(d.els["sl-sec-log"].open, false);
+    assert.equal(m.slUiLoad(s).sections.log.lastAlertCount, 0);
+    d.els.slLive.textContent = "";
+    m.slPublish("log", { count: 13, tone: "", text: "13 rows" });
+    assert.equal(d.els["sl-sec-log"].open, false);
+    assert.equal(d.els.slLive.textContent, "");
+    delete globalThis.document;
+  });
+  test("a summary update never closes an open section (2 -> 3 -> 2 -> 0)", async () => {
+    const s = store(); setStore(s); const d = secDoc(["queue"]); globalThis.document = d;
+    m.slUiSave(m.slUiRecordToggle(m.slUiLoad(s), "queue", false, 2), s);
+    m.slPublish("queue", { count: 3, tone: "warn", text: "3 waiting" });
+    assert.equal(d.els["sl-sec-queue"].open, true);
+    m.slPublish("queue", { count: 2, tone: "warn", text: "2 waiting" });
+    assert.equal(d.els["sl-sec-queue"].open, true);
+    m.slPublish("queue", { count: 0, tone: "", text: "" });
+    assert.equal(d.els["sl-sec-queue"].open, true);
+    delete globalThis.document;
+  });
 });

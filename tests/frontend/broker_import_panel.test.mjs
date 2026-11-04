@@ -124,6 +124,13 @@ describe("ledger row actions", () => {
     await sl.slRequeue(7);
     assert.equal(calls[0][0], "/api/sales/7/requeue");
   });
+  test("after requeue the active tab is fix", async () => {
+    const seen = [];
+    globalThis.slGo = (t, k) => seen.push([t, k]);
+    await sl.slRequeue(7);
+    delete globalThis.slGo;
+    assert.deepEqual(seen, [["fix", "queue"]]);
+  });
 });
 
 describe("account in file", () => {

@@ -130,8 +130,8 @@ function slSection(key, title, fn) {
   if (!window[fn]) return "";
   const sum = window.slSummaries()[key] || {};
   const badges = sum.text ? [{ text: sum.text, tone: sum.tone || "none" }] : [];
-  const open = window.slSecWantOpen(window.slUiLoad(), key, sum.count);
-  return window.slSecHtml({ key, title, badges, alertCount: sum.count || 0, open, body: window[fn]() });
+  const open = window.slSecWantOpen(window.slUiLoad(), key, window.slAlertCountOf(sum));
+  return window.slSecHtml({ key, title, badges, alertCount: window.slAlertCountOf(sum), open, body: window[fn]() });
 }
 function slPaintTabs() { // repaint the strip and tab bar without losing keyboard focus inside the tab bar
   const act = typeof document !== "undefined" && document.activeElement;

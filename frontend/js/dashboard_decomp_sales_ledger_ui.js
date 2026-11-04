@@ -129,7 +129,9 @@ export function slAnnounce(text, assertive = false) {
 const SL_SEC_META = { queue: ["Sales waiting for lots", true], health: ["Health", false], log: ["Transaction log", true], cash: ["Cash in investment", false],
   ledger: ["Sales ledger", true], wash: ["Realized gains & wash sales", true], cf: ["Carryforward", false], imports: ["Broker imports", false], b1099: ["Broker 1099-B", false] };
 const SL_TAB_SECS = { fix: ["queue", "health", "log", "cash"], ledger: ["ledger"], tax: ["wash", "cf"], import: ["imports", "b1099"] };
-const slAlertCount = (key) => (slSums[key] && slSums[key].count > 0 ? slSums[key].count : 0);
+// Only real alerts (same predicate as the strip) count; informational counts such as row totals never open or pin a section.
+export const slAlertCountOf = (s) => (slIsAlert(s) && s.count > 0 ? s.count : 0);
+const slAlertCount = (key) => slAlertCountOf(slSums[key]);
 
 export function slGo(tab, sec) {
   if (!slTabOk(tab)) return;
@@ -185,10 +187,11 @@ export function slSecUpdate(key, summary) {
   }
   const el = doc.getElementById(`sl-sec-${key}`);
   if (!el) return;
-  const want = slSecWantOpen(slUiLoad(), key, summary && summary.count);
-  const was = !!el.open;
-  el.open = want;
-  if (want && !was) slAnnounce(`${meta[0]}: ${(summary && summary.text) || ""}`);
+  const want = slSecWantOpen(slUiLoad(), key, slAlertCountOf(summary));
+  if (want && !el.open) { // a summary update may only open a section, never close one under the user
+    el.open = true;
+    slAnnounce(`${meta[0]}: ${(summary && summary.text) || ""}`);
+  }
 }
 
 export function slSecAll(tab, open) {
@@ -207,4 +210,4 @@ export function slSecAll(tab, open) {
 
 slOnSummary((key, summary) => slSecUpdate(key, summary));
 
-Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSecHtml, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown });
+Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSecHtml, slAlertCountOf, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slTabKeydown });
