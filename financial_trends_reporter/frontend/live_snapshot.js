@@ -209,7 +209,8 @@ export function hintText(hint) {
 
 function accountRowHtml(a) {
   const hasPct = a.delta_pct !== null && a.delta_pct !== undefined;
-  const flag = a.flag ? `<span class="flag" title="${hasPct ? "Differs from the imported balance by more than 1% and $100" : "Differs from the imported balance by more than $100"}">⚠ <span class="flag-text">Check</span></span> ` : "";
+  const flag = a.flag ? `<span class="flag" title="${hasPct ? "Differs from the imported balance by more than 1% and $100" : "Differs from the imported balance by more than $100"}">⚠ <span class="flag-text">Check</span></span> `
+    : a.volatile ? `<span class="muted" title="The gap is explained by today's market move">Volatile</span> ` : "";
   const monarch = (a.monarch_accounts || []).length ? ` <span class="muted">(${(a.monarch_accounts || []).map(esc).join(", ")})</span>` : "";
   // Only a balance more than a session old says when it synced; holdings are valued at that day's close.
   const synced = a.balance_stale && a.balance_as_of ? ` <span class="muted synced">· last synced ${esc(a.balance_as_of)}</span>` : "";
@@ -245,7 +246,8 @@ function accountsSectionHtml(rec) {
 function reconciliationHtml(rec) {
   if (!rec) return "";
   const pct = rec.delta_pct === null || rec.delta_pct === undefined ? DASH : fmtPct(Math.abs(rec.delta_pct));
-  const warn = rec.flag ? " Check the Investment Holdings page in the Retirement Planner for trades or transfers not yet entered." : "";
+  const warn = rec.flag ? " Check the Investment Holdings page in the Retirement Planner for trades or transfers not yet entered."
+    : rec.volatile ? " Highly volatile markets!" : "";
   return `<div class="recon${rec.flag ? " warn" : ""}" role="${rec.flag ? "alert" : "status"}">Holdings file ${fmtUsd(rec.holdings_value)} vs. imported balances ${fmtUsd(rec.monarch_value)} (${esc(rec.monarch_as_of || "")}): ${pct} apart.${warn}</div>`
     + accountsSectionHtml(rec);
 }

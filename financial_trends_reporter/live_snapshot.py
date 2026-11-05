@@ -719,10 +719,21 @@ def _reconcile_accounts(positions: list[dict], stale: list[str], accounts, monar
         delta_pct = _ratio(delta, monarch_value)
         # Both over 1% and over $100; with no Monarch balance to divide by, the $ test alone decides.
         flag = abs(delta) > RECONCILE_ACCOUNT_FLAG_USD and (delta_pct is None or abs(delta_pct) > RECONCILE_FLAG_PCT)
+        # A balance dated today was struck before today's moves: when backing those moves out closes the gap
+        # and the market really moved, the gap is volatility, not a missing trade or transfer.
+        volatile = False
+        if flag and last_trading_day_on_or_before(date.fromisoformat(balance_day or today.isoformat())) >= session:
+            prior_value = sum(m["current"] - (m["day"] or 0.0) for m in members)
+            move = _ratio(held - prior_value, prior_value)
+            alt = prior_value - monarch_value
+            alt_pct = _ratio(alt, monarch_value)
+            if (move is not None and abs(move) > RECONCILE_FLAG_PCT and delta * (held - prior_value) > 0
+                    and not (abs(alt) > RECONCILE_ACCOUNT_FLAG_USD and (alt_pct is None or abs(alt_pct) > RECONCILE_FLAG_PCT))):
+                flag, volatile = False, True
         footing += held
         rows.append({"holdings_account": holdings_account, "monarch_accounts": [n for n, _, _ in names],
                      "holdings_value": round(held, 2), "monarch_value": round(monarch_value, 2),
-                     "delta": round(delta, 2), "delta_pct": delta_pct, "flag": flag,
+                     "delta": round(delta, 2), "delta_pct": delta_pct, "flag": flag, "volatile": volatile,
                      # More than a session old: the row says when it last synced (fresh rows say nothing).
                      "balance_as_of": balance_day,
                      "balance_stale": bool(balance_day) and balance_day < prior.isoformat(),
@@ -908,9 +919,19 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
         yesterday = bool(sections["as_of"]) and sections["as_of"] < today.isoformat()
         compare = current - (day or 0.0) if yesterday else current
         delta = _ratio(compare - sections["liquid_total"], sections["liquid_total"])
+        flag = delta is None or abs(delta) > RECONCILE_FLAG_PCT
+        volatile = False
+        if flag and delta is not None and not yesterday and day:
+            # Balance dated today predates today's moves: if backing them out closes the gap, it's the market.
+            prior_total = current - day
+            alt = _ratio(prior_total - sections["liquid_total"], sections["liquid_total"])
+            move = _ratio(day, prior_total)
+            if (alt is not None and abs(alt) <= RECONCILE_FLAG_PCT and move is not None
+                    and abs(move) > RECONCILE_FLAG_PCT and delta * day > 0):
+                flag, volatile = False, True
         reconciliation = {"holdings_value": round(compare, 2), "monarch_value": round(sections["liquid_total"], 2),
                           "monarch_as_of": sections["as_of"], "delta_pct": delta,
-                          "flag": delta is None or abs(delta) > RECONCILE_FLAG_PCT,
+                          "flag": flag, "volatile": volatile,
                           **_reconcile_accounts(positions, stale, accounts, monarch, yesterday, today, closes_by_day,
                                                 sales or [], unconfirmed or [])}
 

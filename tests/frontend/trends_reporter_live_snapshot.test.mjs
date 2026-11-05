@@ -186,6 +186,12 @@ describe("liveViewHtml", () => {
     const flagged = liveViewHtml({ ...DATA, reconciliation: { ...DATA.reconciliation, delta_pct: 0.05, flag: true } });
     assert.match(flagged, /class="recon warn"/);
   });
+  test("reconciliation: a gap explained by the market says so instead of Check", () => {
+    const vol = liveViewHtml({ ...DATA, reconciliation: { ...DATA.reconciliation, delta_pct: -0.0236, flag: false, volatile: true } });
+    assert.match(vol, /Highly volatile markets!/);
+    assert.ok(!vol.includes('class="recon warn"'));
+    assert.ok(!/Check the Investment Holdings page/.test(vol));
+  });
   test("annualized is a dash until 90 days have passed, never 0%", () => {
     const rows = (data) => liveViewHtml(data).match(/<tbody>[\s\S]*?<\/tbody>/)[0];   // the total row comes from the server
     assert.match(rows({ ...DATA, days: 60 }), /<td class="num col-ann">–<\/td>/);
