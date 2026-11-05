@@ -60,3 +60,13 @@ def test_control_totals_tie_and_a_wrong_summary_is_refused():
 def test_cent_rounding_in_the_summary_is_tolerated_with_a_warning():
     st = _parse(gain="109.98")
     assert st.control["status"] == "ok" and any("rounding" in w for w in st.warnings)
+
+
+def test_fractional_share_counts_are_not_rounded_to_cents():
+    body = BODY.replace("Sell,10,12/30/2025,100.00", "Sell,10.484,12/30/2025,100.00")
+    assert _parse(body=body).rows[0]["quantity"] == 10.484
+
+
+def test_a_line_without_an_acquired_date_is_allowed():
+    body = BODY.replace("Sell,10,12/30/2025", "Sell,10,--")
+    assert _parse(body=body).rows[0]["date_acquired"] is None

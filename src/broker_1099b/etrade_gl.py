@@ -40,6 +40,14 @@ def _money(token: str) -> float | None:
     return parse_money(t) if is_money(t) else None
 
 
+def _qty(token: str) -> float | None:
+    """Share counts keep their fractional digits (the money helper rounds to cents)."""
+    try:
+        return float((token or "").replace(",", "").strip())
+    except ValueError:
+        return None
+
+
 def _symbol(raw: str) -> tuple[str, str]:
     """(symbol, description). A Treasury bill is known by its description only."""
     raw = raw.strip()
@@ -103,9 +111,14 @@ def _lot(st: ParsedStatement, no: int, cells: list[str], symbol: str, descriptio
 
     if len(cells) < 11 or not symbol:
         return bad("cannot read this Sell line (expected 11 columns under a security)")
-    qty, basis, proceeds, gain, deferred = (_money(cells[i]) for i in (1, 4, 7, 8, 9))
+    qty = _qty(cells[1])
+    basis, proceeds, gain, deferred = (_money(cells[i]) for i in (4, 7, 8, 9))
     acquired, sold = _date(cells[2]), _date(cells[5])
-    if None in (qty, basis, proceeds, gain) or not acquired or not sold:
+    if cells[2] in ("", "--"):    # no acquisition date: the line may stand for several ledger rows (aggregate match)
+        acquired = None
+    elif not acquired:
+        return bad("cannot read this Sell line (acquired date)")
+    if None in (qty, basis, proceeds, gain) or not sold:
         return bad("cannot read this Sell line (date or amount)")
     term = cells[10].strip().lower()
     st.rows.append({
