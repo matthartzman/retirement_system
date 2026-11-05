@@ -13,9 +13,9 @@ from typing import Any
 from src.sales_confirm import prior_business_day
 from src.sales_ledger import holding_period
 
-from .live_snapshot import _num, account_tax_type
+from .live_snapshot import _num, account_labels, account_tax_type, household_nicknames
 
-GROUPS = ("symbol", "account")
+GROUPS = ("symbol", "account", "term")
 EPS = 1e-6
 DIFFERS = 0.005
 
@@ -27,10 +27,21 @@ def load(base_dir: str | Path) -> dict[str, Any]:
         from src import active_plan
 
         with active_plan.workspace_store(Path(base_dir)) as store:
-            return {"sales": store.sales.list_sales(), "candidates": store.sales.list_candidates(state="unmatched"),
-                    "lots": store.dataset("holdings").rows()}
+            loaded = {"sales": store.sales.list_sales(), "candidates": store.sales.list_candidates(state="unmatched"),
+                      "lots": store.dataset("holdings").rows()}
     except Exception:  # noqa: BLE001 - older plan (no ledger tables), missing or locked
         return {"sales": [], "candidates": [], "lots": []}
+    return {**loaded, "people": _people(Path(base_dir))}
+
+
+def _people(base_dir: Path) -> dict[str, str]:
+    """The household nicknames that turn an internal account id into the name the page shows; {} when unreadable."""
+    try:
+        from .trends_metrics import _plan_rows
+
+        return household_nicknames(_plan_rows(base_dir, base_dir / "local_state" / "retirement_system_v10.db", ""))
+    except Exception:  # noqa: BLE001 - the page then shows ids tidied by display_account without a nickname
+        return {}
 
 
 def _window(today: date, start: str | None, tax_year: int | None) -> tuple[date, date]:
@@ -130,27 +141,51 @@ def _totals(rows: list[dict]) -> dict[str, Any]:
     return {k: (round(v, 2) if isinstance(v, float) else v) for k, v in t.items()}
 
 
-def _groups(rows: list[dict], by: str) -> list[dict]:
-    keyed: dict[str, list[dict]] = {}
+def _levels(group: Any) -> list[str]:
+    """The grouping levels, outermost first, from "symbol,account" or a list; unknown and repeated names are dropped."""
+    raw = group.split(",") if isinstance(group, str) else list(group or [])
+    out: list[str] = []
+    for x in raw:
+        x = str(x).strip()
+        if x in GROUPS and x not in out:
+            out.append(x)
+    return out or ["symbol"]
+
+
+def _groups(rows: list[dict], levels: list[str], labels: dict[str, str]) -> list[dict]:
+    """A tree, one level per entry in ``levels``: every node has its totals, the last level holds the sale rows
+    (``lots``), the others hold ``children``. A percent-only person loses ``lots`` and keeps the totals."""
+    dim, keyed = levels[0], {}
     for r in rows:
-        keyed.setdefault(str(r[by] or ""), []).append(r)
-    return [{"name": name, **_totals(ms), "lots": sorted(ms, key=lambda r: (str(r["sale_date"]), r["sale_id"] or 0))}
-            for name, ms in sorted(keyed.items(), key=lambda kv: kv[0].casefold())]
+        keyed.setdefault(str(r[dim] or ""), []).append(r)
+    label = lambda name: labels.get(name, name) if dim == "account" else name
+    nodes = []
+    for name, ms in keyed.items():
+        node = {"name": name, "label": label(name), "dim": dim, **_totals(ms)}
+        if len(levels) > 1:
+            node["children"] = _groups(ms, levels[1:], labels)
+        else:
+            node["lots"] = sorted(ms, key=lambda r: (str(r["sale_date"]), r["sale_id"] or 0))
+        nodes.append(node)
+    return sorted(nodes, key=lambda n: (str(n["label"]).casefold(), n["name"]))
 
 
 def build(*, sales: list[dict], candidates: list[dict], lots: list[dict], today: date, start: str | None = None,
           tax_year: int | None = None, group: str = "symbol", taxable_only: bool = False, wash_only: bool = False,
-          include_unconfirmed: bool = False) -> dict[str, Any]:
+          include_unconfirmed: bool = False, people: dict[str, str] | None = None) -> dict[str, Any]:
     lo, hi = _window(today, start, tax_year)
-    group = group if group in GROUPS else "symbol"
+    levels = _levels(group)
     keep = lambda r: (not taxable_only or r["tax_class"] == "taxable") and (not wash_only or r["wash_flag"] != "none")
     confirmed = [r for r in (_row(s) for s in sales if s.get("status", "confirmed") == "confirmed" and _in(s.get("sale_date"), lo, hi)) if keep(r)]
     waiting = [c for c in candidates if _in(c["sale_date"], lo, hi)]
     est, skipped = estimate_rows(waiting, lots, lo, hi) if include_unconfirmed else ([], 0)
     est = [r for r in est if keep(r)]
     years = sorted({int(str(s["sale_date"])[:4]) for s in sales if str(s.get("sale_date") or "")[:4].isdigit()} | {today.year}, reverse=True)
-    return {"window": {"from": lo.isoformat(), "to": hi.isoformat(), "tax_year": tax_year or None}, "group_by": group, "years": years,
+    labels = account_labels((r["account"] for r in confirmed + est), people or {})
+    for r in confirmed + est:
+        r["account_label"] = labels.get(str(r["account"] or "").strip(), "")
+    return {"window": {"from": lo.isoformat(), "to": hi.isoformat(), "tax_year": tax_year or None}, "group_by": levels[0], "levels": levels, "years": years,
             "filters": {"taxable_only": taxable_only, "wash_only": wash_only, "include_unconfirmed": include_unconfirmed},
-            "summary": _totals(confirmed), "groups": _groups(confirmed, group),
+            "summary": _totals(confirmed), "groups": _groups(confirmed, levels, labels),
             "unconfirmed": {"count": len(waiting), "not_estimated": skipped if include_unconfirmed else None},
-            "estimate": {**_totals(est), "groups": _groups(est, group)} if include_unconfirmed else None}
+            "estimate": {**_totals(est), "groups": _groups(est, levels, labels)} if include_unconfirmed else None}

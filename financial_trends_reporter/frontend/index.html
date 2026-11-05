@@ -181,6 +181,11 @@
   .realized-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin: 8px 0; }
   .live-big.small { font-size: 20px; }
   .realized-table .sale-lot th { font-weight: 400; padding-left: 28px; }
+  .realized-table tr[data-depth="1"] > th { padding-left: 24px; }
+  .realized-table tr[data-depth="2"] > th { padding-left: 40px; }
+  .realized-table tr[data-depth="3"] > th { padding-left: 56px; }
+  .realized-table .group-row > th { font-weight: 600; }
+  .realized-table .sale-lot > th { font-weight: 400; }
   .chip.warn { display: inline-block; border: 1px solid #b45309; color: #b45309; border-radius: 999px; padding: 1px 8px; font-size: 12px; }
   .pos { color: #15803d; } .neg { color: #b42318; }
   @media (prefers-color-scheme: dark) { .pos { color: #4ade80; } .neg { color: #ff8a80; } .chip.warn { color: #fbbf24; border-color: #fbbf24; } }
