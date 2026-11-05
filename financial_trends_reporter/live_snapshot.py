@@ -585,6 +585,12 @@ def _checking_net_flows(accounts, flows_daily, liquid_accounts: set[str], baseli
     return net
 
 
+def _outside_range(value: float, a: float, b: float) -> float:
+    """How far ``value`` is from the closed range between ``a`` and ``b`` (0 inside it)."""
+    lo, hi = min(a, b), max(a, b)
+    return 0.0 if lo <= value <= hi else min(abs(value - lo), abs(value - hi))
+
+
 def _hints(members: list[dict], value_then, delta: float, as_of: str | None, stale: set[str],
            sale_items: list[tuple[dict, bool]] | None = None) -> list[dict]:
     """Why a flagged account may disagree with Monarch, in the design's order (4.1): lots bought after
@@ -719,16 +725,16 @@ def _reconcile_accounts(positions: list[dict], stale: list[str], accounts, monar
         delta_pct = _ratio(delta, monarch_value)
         # Both over 1% and over $100; with no Monarch balance to divide by, the $ test alone decides.
         flag = abs(delta) > RECONCILE_ACCOUNT_FLAG_USD and (delta_pct is None or abs(delta_pct) > RECONCILE_FLAG_PCT)
-        # A balance dated today was struck before today's moves: when backing those moves out closes the gap
-        # and the market really moved, the gap is volatility, not a missing trade or transfer.
+        # A balance dated today may have synced before the open, midday or after the close, so it can sit anywhere
+        # between yesterday's close value and the live value. Inside that range (give or take the usual 1% / $100),
+        # and with a real market move, the gap is volatility, not a missing trade or transfer.
         volatile = False
         if flag and last_trading_day_on_or_before(date.fromisoformat(balance_day or today.isoformat())) >= session:
             prior_value = sum(m["current"] - (m["day"] or 0.0) for m in members)
             move = _ratio(held - prior_value, prior_value)
-            alt = prior_value - monarch_value
-            alt_pct = _ratio(alt, monarch_value)
-            if (move is not None and abs(move) > RECONCILE_FLAG_PCT and delta * (held - prior_value) > 0
-                    and not (abs(alt) > RECONCILE_ACCOUNT_FLAG_USD and (alt_pct is None or abs(alt_pct) > RECONCILE_FLAG_PCT))):
+            miss = _outside_range(monarch_value, held, prior_value)
+            if (move is not None and abs(move) > RECONCILE_FLAG_PCT
+                    and not (miss > RECONCILE_ACCOUNT_FLAG_USD and (not monarch_value or miss / abs(monarch_value) > RECONCILE_FLAG_PCT))):
                 flag, volatile = False, True
         footing += held
         rows.append({"holdings_account": holdings_account, "monarch_accounts": [n for n, _, _ in names],
@@ -922,12 +928,11 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
         flag = delta is None or abs(delta) > RECONCILE_FLAG_PCT
         volatile = False
         if flag and delta is not None and not yesterday and day:
-            # Balance dated today predates today's moves: if backing them out closes the gap, it's the market.
+            # Balance dated today: it can sit anywhere between yesterday's close and the live value (see the account rows).
             prior_total = current - day
-            alt = _ratio(prior_total - sections["liquid_total"], sections["liquid_total"])
             move = _ratio(day, prior_total)
-            if (alt is not None and abs(alt) <= RECONCILE_FLAG_PCT and move is not None
-                    and abs(move) > RECONCILE_FLAG_PCT and delta * day > 0):
+            miss = _ratio(_outside_range(sections["liquid_total"], current, prior_total), abs(sections["liquid_total"]))
+            if miss is not None and miss <= RECONCILE_FLAG_PCT and move is not None and abs(move) > RECONCILE_FLAG_PCT:
                 flag, volatile = False, True
         reconciliation = {"holdings_value": round(compare, 2), "monarch_value": round(sections["liquid_total"], 2),
                           "monarch_as_of": sections["as_of"], "delta_pct": delta,

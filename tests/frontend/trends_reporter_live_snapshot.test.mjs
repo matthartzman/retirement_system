@@ -245,6 +245,10 @@ describe("reconciliation by account", () => {
     assert.match(out, /<summary>Reconciliation by account <b>⚠ 1 to check<\/b><\/summary>/);
     assert.ok(!liveViewHtml({ ...DATA, reconciliation: REC }).includes("to check"));
   });
+  test("rows show the holdings account label only, with no imported account name in parentheses", () => {
+    const out = liveViewHtml({ ...DATA, reconciliation: REC_FLAGGED });
+    assert.doesNotMatch(out, /\(Matt IRA\)/);
+  });
   test("account names are escaped", () => {
     const evil = "<img src=x onerror=alert(1)>";
     const rec = { ...REC_FLAGGED, accounts: [{ ...REC_FLAGGED.accounts[0], holdings_account: evil, monarch_accounts: [evil] }],
