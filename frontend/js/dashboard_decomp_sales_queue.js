@@ -75,12 +75,47 @@ export function sqPanelHtml(panel, draft) {
     `<button class="btn" type="button" onclick="sqDismiss('not_a_sale')">Not a sale</button></div>`;
 }
 
+let sqHistory = []; // sales (and matured bills) a history-only import left out of the ledger
+
+export function sqHistoryHtml(items) {
+  if (!items || !items.length) return "";
+  const rows = items.map((h, i) => {
+    const what = h.kind === "interest"
+      ? `<span class="muted">Treasury bill maturity: interest income, not a sale</span>`
+      : h.complete ? `${sqMoney(h.gain)} gain from ${h.pieces.length} lot${h.pieces.length === 1 ? "" : "s"}`
+        : `<span class="muted">lots not in the files: use Record a sale</span>`;
+    return `<tr><td>${esc(h.sale_date)}</td><td>${esc(accountDisplayLabel(h.account))}</td><td>${esc(h.symbol)}</td><td class="rc-num">${esc(String(h.shares))}</td>` +
+      `<td class="rc-num">${sqMoney(h.proceeds)}</td><td>${what}</td><td>${h.kind === "sale" && h.complete ? `<button class="btn" type="button" onclick="sqHistoryRecord(${i})">Record</button> ` : ""}` +
+      `<button class="btn" type="button" onclick="sqHistoryDismiss(${i})">Dismiss</button></td></tr>`;
+  }).join("");
+  return `<h3>Sales found in history imports (${items.length})</h3><p class="muted">These were imported as history only, so they never reached the queue. Record writes the ledger rows from the buys in your broker files.</p>` +
+    `<div class="rc-scroll"><table class="rc-table"><thead><tr><th>Date</th><th>Account</th><th>Symbol</th><th class="rc-num">Shares</th><th class="rc-num">Proceeds</th><th>Result</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+async function sqLoadHistory() {
+  try { const out = await api("/api/sales/history"); sqHistory = out && out.success ? out.items : []; } catch (e) { sqHistory = []; }
+  sqPaint();
+}
+
+async function sqHistoryPost(action, i, okText) {
+  const h = sqHistory[i];
+  try {
+    await api(`/api/sales/history/${action}`, { method: "POST", body: JSON.stringify({ key: h.key }) });
+    sqMessage = { text: okText, error: false };
+    if (window.loadSalesLedger) window.loadSalesLedger();
+    await sqLoadHistory();
+  } catch (e) { sqMessage = { text: e.message, error: true }; sqPaint(); }
+}
+
+export const sqHistoryRecord = (i) => sqHistoryPost("record", i, "Sale recorded in the ledger from your broker history.");
+export const sqHistoryDismiss = (i) => sqHistoryPost("dismiss", i, "Dismissed.");
+
 function sqBodyHtml() {
   const msg = sqMessage ? `<p class="${sqMessage.error ? "field-error" : "muted"}" role="status">${esc(sqMessage.text)}` +
     `${sqMessage.undoId ? ` <button class="btn" type="button" onclick="sqUndo(${Number(sqMessage.undoId)})">Undo</button>` : ""}</p>` : "";
   const waiting = sqList ? sqList.counts.unmatched : 0;
   return `<h3>Sales waiting for lots${sqList ? ` (${waiting})` : ""}</h3>${msg}` +
-    (sqList ? sqQueueHtml(sqList.candidates, sqPanel && sqPanel.candidate.candidate_id) : `<p class="muted">Loading…</p>`) + sqPanelHtml(sqPanel, sqDraft);
+    (sqList ? sqQueueHtml(sqList.candidates, sqPanel && sqPanel.candidate.candidate_id) : `<p class="muted">Loading…</p>`) + sqPanelHtml(sqPanel, sqDraft) + sqHistoryHtml(sqHistory);
 }
 
 export function sqSummary() {
@@ -95,7 +130,7 @@ function sqPaint() {
 }
 
 export function renderSalesQueue() {
-  if (sqList === null && !sqLoading) setTimeout(loadSalesQueue, 0);
+  if (sqList === null && !sqLoading) { setTimeout(loadSalesQueue, 0); setTimeout(sqLoadHistory, 0); }
   return `<div class="sq-queue" id="sqRoot">${sqBodyHtml()}</div>`;
 }
 
@@ -181,4 +216,5 @@ export const sqDismiss = (reason) => sqPost(sqPanel.candidate.candidate_id, "dis
 
 Object.assign(window, {
   renderSalesQueue, loadSalesQueue, sqSummary, sqOpen, sqReload, sqSetAlloc, sqSetClass, sqFill, sqConfirm, sqUndo, sqDismiss,
+  sqHistoryRecord, sqHistoryDismiss,
 });

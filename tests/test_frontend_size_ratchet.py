@@ -687,7 +687,9 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-04 sales-ledger follow-ups: +103
 # 2026-11-04 left-nav follow-ups C/D: +29 (popover dependency text; Turn on buttons on host-page notes)
 # 2026-11-04 cash rollover marks +8 (Mark as rollover button and handler in the Cash panel); editable CASH lot of a managed account +2
-TOTAL_JS_MAX_LINES = 43_762
+# 2026-11-05 history-only sales recovery: +36 (Sales found in history imports list in the sales queue module)
+# 2026-11-05 interest and dividends by type on the Tax tab: +20 (stIncomeHtml, fund-type chooser, CSV link in the sales tax module)
+TOTAL_JS_MAX_LINES = 43_818
 
 
 
