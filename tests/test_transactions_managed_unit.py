@@ -189,3 +189,13 @@ def test_managed_routes(ws, monkeypatch):
     assert c.get("/api/transactions/log").get_json()["managed"] == [IRA]
     assert c.post("/api/transactions/accounts/Nobody_Else/managed", json={"managed": True}).status_code == 400
     assert c.post(f"/api/transactions/accounts/{IRA}/managed", json={"managed": False}).get_json()["result"]["managed"] is False
+
+
+def test_reconcile_ignores_cash_lots_the_log_does_not_own(ws):
+    with active_plan.workspace_store(ws, write=True) as store:           # an import replaces the CASH lot: new date and balance
+        rows = [r for r in store.dataset("holdings").rows() if r["symbol"] != "CASH"]
+        store.dataset("holdings").replace_all(rows + [{"account": IRA, "symbol": "CASH", "purchase_date": "2026-11-03",
+                                                       "shares": "55", "purchase_price": "1", "lot_type": "buy", "note": ""}])
+    with active_plan.workspace_store(ws) as store:
+        assert transactions.reconcile(store) == []
+        assert transactions.reconcile(store, IRA) == []
