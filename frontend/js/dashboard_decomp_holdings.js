@@ -464,8 +464,10 @@ export function renderHoldings() {
   const cashRows = h.data
     .map((r, i) => ({ r, i }))
     .filter((x) => !isHiddenCash(x.r.account) && isCashHoldingLot(x.r))
+    .filter((x) => window.currentHoldingAccount === "ALL" || String(x.r.account || "") === window.currentHoldingAccount)
     .sort(compareHoldingLots);
-  const missing = accounts.filter((a) => !cashRows.some((x) => String(x.r.account || "") === a));
+  const shown = accounts.filter((a) => window.currentHoldingAccount === "ALL" || a === window.currentHoldingAccount);
+  const missing = shown.filter((a) => !cashRows.some((x) => String(x.r.account || "") === a));
   // Ticket 374: the grouped, collapsible view leads; the cash balances sit under "Edit cash in investment accounts".
   const tree = typeof window.renderHoldingsTree === "function"
     ? window.renderHoldingsTree(h.data.filter((r) => !isHiddenCash(r.account)), accountDisplayLabel)
@@ -473,7 +475,7 @@ export function renderHoldings() {
   const cashInput = (i, col, type, value, cls) =>
     `<input class="${cls}" data-hcol="${col}" type="${type}" value="${esc(value)}" oninput="updateHolding(${i},'${col}',${col === "shares" ? "currencyRaw(this.value)" : "this.value"})" ${col === "shares" ? `onfocus="this.value=currencyRaw(this.value);this.select&&this.select()" onblur="this.value=currencyDisplay(this.value,2)"` : ""}>`;
   let html = `${tree}<div class="holdings" data-help-section="holdings.plan_holdings"><details${tree && !window.holdingsEditOpen ? "" : " open"} ontoggle="window.holdingsEditOpen=this.open"><summary>Edit cash in investment accounts ${(window.RPHelp?.sectionButtonHtml("holdings.plan_holdings") || "")}</summary>`
-    + `<input type="file" id="holdingsImportInput" accept=".csv,text/csv" style="display:none" onchange="handleHoldingsCsvImport(this)"><div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="document.getElementById('holdingsImportInput').click()">Preview &amp; replace CSV</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Account</th><th>Cash balance</th><th>As of</th><th></th></tr></thead><tbody>`;
+    + `<input type="file" id="holdingsImportInput" accept=".csv,text/csv" style="display:none" onchange="handleHoldingsCsvImport(this)"><div class="table-actions"><select data-focus-key="holdings:account-select" aria-label="Show account" onchange="setHoldingAccount(this.value)"><option value="ALL" ${window.currentHoldingAccount === "ALL" ? "selected" : ""}>All accounts</option>${accounts.map((a) => `<option value="${esc(a)}" ${window.currentHoldingAccount === a ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("")}</select><button class="btn" type="button" data-requires-app="1" onclick="document.getElementById('holdingsImportInput').click()">Preview &amp; replace CSV</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Account</th><th>Cash balance</th><th>As of</th><th></th></tr></thead><tbody>`;
   cashRows.forEach(({ r, i }) => {
     html += `<tr data-hidx="${i}"><td data-label="Account">${esc(accountDisplayLabel(r.account))}</td>`
       + `<td data-label="Cash balance">${cashInput(i, "shares", "text", currencyDisplay(r.shares || "", 2), "tiny")}</td>`

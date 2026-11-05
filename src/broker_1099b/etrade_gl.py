@@ -11,8 +11,6 @@ description, ``UNITED STATES TREASURY BILL 0% 10/27/2026``) is recorded as ``CAS
 """
 from __future__ import annotations
 
-import csv
-import io
 import re
 from datetime import datetime
 from typing import Any, Iterable
@@ -22,6 +20,19 @@ from .normalized import ParsedStatement, check_control_totals, is_money, parse_m
 BROKER = "etrade_gl"
 TBILL_SYMBOL = "CASH (T-BILL)"
 _ACCOUNT_LAST4 = re.compile(r"-\s*(\d{4})\s*$")
+
+
+_FIELD = re.compile(r'"([^"]*)"|([^,]*)')
+
+
+def _split(line: str) -> list[str]:
+    """One comma-separated line into fields; a field may be double-quoted. The text is already in memory (no file I/O)."""
+    out, pos = [], 0
+    while pos <= len(line):
+        m = _FIELD.match(line, pos)
+        out.append(m.group(1) if m.group(1) is not None else m.group(2))
+        pos = m.end() + 1
+    return out
 
 
 def _date(token: str) -> str | None:
@@ -58,7 +69,7 @@ def _symbol(raw: str) -> tuple[str, str]:
 
 def parse(text: str, *, known_symbols: Iterable[str] | None = None, account: str | None = None) -> ParsedStatement:
     st = ParsedStatement(broker=BROKER)
-    records = list(csv.reader(io.StringIO(text or "")))
+    records = [_split(ln) for ln in (text or "").splitlines()]
     label = None
     summary_gain: dict[str, float] = {}
     section = None
