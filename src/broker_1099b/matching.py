@@ -29,14 +29,15 @@ def _days(a: str, b: str) -> int:
     return abs((date.fromisoformat(a) - date.fromisoformat(b)).days)
 
 
-def eligible(ledger: Iterable[Mapping[str, Any]], account: str) -> list[Mapping[str, Any]]:
-    return [r for r in ledger if r["account"] == account and r["status"] == "confirmed" and r["tax_class"] == "taxable"]
+def eligible(ledger: Iterable[Mapping[str, Any]], account: str, *, any_tax_class: bool = False) -> list[Mapping[str, Any]]:
+    """Confirmed ledger rows of the account; a 1099-B covers taxable rows only, a Gains & Losses report any account."""
+    return [r for r in ledger if r["account"] == account and r["status"] == "confirmed" and (any_tax_class or r["tax_class"] == "taxable")]
 
 
 def match_lines(lines: list[Mapping[str, Any]], ledger: Iterable[Mapping[str, Any]], *, account: str,
-                date_tolerance_days: int = DATE_TOLERANCE_DAYS) -> dict[str, Any]:
+                date_tolerance_days: int = DATE_TOLERANCE_DAYS, any_tax_class: bool = False) -> dict[str, Any]:
     """``{matches: [{line_index, kind, how, sale_ids}], unmatched_lines: [index], unmatched_ledger: [sale_id]}``."""
-    rows = sorted(eligible(ledger, account), key=lambda r: r["sale_id"])
+    rows = sorted(eligible(ledger, account, any_tax_class=any_tax_class), key=lambda r: r["sale_id"])
     free = {r["sale_id"]: r for r in rows}
     matches: dict[int, dict[str, Any]] = {}
 
@@ -103,12 +104,12 @@ def _closeness(a: float, b: float) -> float:
 
 
 def suggest(lines: list[Mapping[str, Any]], ledger: Iterable[Mapping[str, Any]], result: Mapping[str, Any], *,
-            account: str, limit: int = SUGGESTION_LIMIT) -> dict[int, list[dict[str, Any]]]:
+            account: str, limit: int = SUGGESTION_LIMIT, any_tax_class: bool = False) -> dict[int, list[dict[str, Any]]]:
     """Advisory ranking for each unmatched line: up to ``limit`` unclaimed confirmed taxable rows of ``account`` with the
     same symbol (or CUSIP, for a line with no symbol), best first. ``{line_index: [{sale_id, score, reason, reasons}]}``;
     lines with no candidate over ``SUGGESTION_MIN_SCORE`` are omitted. Nothing here is applied or affects the match."""
     free = set(result["unmatched_ledger"])
-    pool = [r for r in eligible(ledger, account) if r["sale_id"] in free]
+    pool = [r for r in eligible(ledger, account, any_tax_class=any_tax_class) if r["sale_id"] in free]
     out: dict[int, list[dict[str, Any]]] = {}
     for i in result["unmatched_lines"]:
         ln = lines[i]

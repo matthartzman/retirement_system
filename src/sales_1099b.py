@@ -81,8 +81,8 @@ def preview(input_dir: str | Path, *, broker: str, account: str, text: str | Non
         active = store.sales.active_statement(broker, account, year)
         ledger = _ledger_before(store, active["statement_id"] if active else None)
         previous = store.sales.statement_lines(active["statement_id"]) if active else []
-    result = matching.match_lines(lines, ledger, account=account)
-    suggestions = matching.suggest(lines, ledger, result, account=account)
+    result = matching.match_lines(lines, ledger, account=account, any_tax_class=_any_class(broker))
+    suggestions = matching.suggest(lines, ledger, result, account=account, any_tax_class=_any_class(broker))
     rep = _report.build_report(lines, ledger, result, tax_year=year, suggestions=suggestions)
     placed = {m["line_index"]: m["sale_ids"] for m in result["matches"]}
     washes = _report.wash_adjustments(lines, [placed.get(i, []) for i in range(len(lines))])
@@ -121,7 +121,7 @@ def apply(input_dir: str | Path, *, broker: str, account: str, text: str | None 
             store.sales.revert_statement(active["statement_id"])
             superseded = active["statement_id"]
         ledger = store.sales.list_sales()
-        result = matching.match_lines(lines, ledger, account=account)
+        result = matching.match_lines(lines, ledger, account=account, any_tax_class=_any_class(broker))
         by_id = {r["sale_id"]: r for r in ledger}
         meta = pv.get("meta", {})
         sid = store.sales.add_statement(broker=broker, account=account, tax_year=year, corrected=bool(meta.get("corrected")),
@@ -146,10 +146,25 @@ def apply(input_dir: str | Path, *, broker: str, account: str, text: str | None 
             "unmatched_ledger": result["unmatched_ledger"]}
 
 
+def _any_class(broker: str) -> bool:
+    """A Gains & Losses download covers IRAs and 401(k)s as well as taxable accounts; a 1099-B is taxable only."""
+    return broker == "etrade_gl"
+
+
+def _tax_class(account: str) -> str:
+    """Ledger tax class from the plan's account naming; taxable when the name says nothing (as before)."""
+    from .core import ACCOUNT_TYPES, _infer_type
+    try:
+        tax = ACCOUNT_TYPES[_infer_type(account)]["tax"]
+    except (ValueError, KeyError):
+        return "taxable"
+    return tax if tax in ("taxable", "pre_tax", "roth", "hsa") else "taxable"
+
+
 def _new_row(ln: dict[str, Any], account: str, statement_id: int, line_no: int) -> dict[str, Any]:
     covered = bool(ln["covered"])
     return {
-        "sale_date": ln["date_sold"], "account": account, "tax_class": "taxable",
+        "sale_date": ln["date_sold"], "account": account, "tax_class": _tax_class(account),
         "symbol": ln.get("symbol") or f"CUSIP-{ln.get('cusip') or 'UNKNOWN'}", "shares": ln["quantity"],
         "proceeds": ln["proceeds"], "fees": 0.0, "basis": ln["basis"], "purchase_date": ln.get("date_acquired"),
         "holding_period": ln["term"], "gain": ln["gain"], "source": "1099b", "statement_id": statement_id,
