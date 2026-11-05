@@ -636,8 +636,17 @@ def get_holding_classes():
     out = {}
     for sym in sorted(s for s in symbols if s):
         asset_class, subclass = classify_symbol(sym, master)
-        out[sym] = {"asset_class": asset_class, "subclass": subclass}
+        out[sym] = {"asset_class": asset_class, "subclass": subclass, "name": _holding_display_name(sym, master)}
     return jsonify({"success": True, "classes": out})
+
+
+def _holding_display_name(symbol: str, master: dict) -> str:
+    """The fund's name (security master notes, as the Trends Snapshot shows it); cash lots and unknown symbols get a plain label."""
+    if symbol.startswith("CASH (T-BILL"):
+        return "Treasury bill"
+    if symbol.startswith("CASH"):
+        return "Cash"
+    return str((master.get(symbol) or {}).get("notes") or "").strip()
 
 
 @app.route("/api/holdings", methods=["POST"])

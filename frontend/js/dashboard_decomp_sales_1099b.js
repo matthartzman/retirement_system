@@ -4,7 +4,7 @@
 // lines, totals, the wash-sale loss disallowed from column 1g), applies it, and exports the report as CSV.
 // The Planner account is always the user's choice, never read from the statement. Helpers are bare globals.
 
-const BB_BROKERS = [["etrade", "E*Trade"], ["vanguard", "Vanguard"]];
+const BB_BROKERS = [["etrade", "E*Trade 1099-B"], ["etrade_gl", "E*Trade Gains & Losses (CSV)"], ["vanguard", "Vanguard"]];
 const BB_STATUS = { changed: "Changed", unchanged: "Matches the ledger", not_previously_entered: "Not previously entered", no_1099b_line: "No 1099-B line" };
 const BB_FIELD = { proceeds: "Proceeds", basis: "Basis", gain: "Gain", holding_period: "Holding period", purchase_date: "Acquired", sale_date: "Sold" };
 

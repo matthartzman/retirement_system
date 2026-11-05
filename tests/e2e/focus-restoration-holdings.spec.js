@@ -21,8 +21,8 @@ test('changing the Holdings account filter keeps it focused after the autosave r
   await openCurrentPlan(page);
   await navigateToStep(page, 'holdings', 'Investment Holdings');
 
-  // The flat lot table (with the account filter) sits under "Edit lots" since the grouped view leads the page.
-  await page.locator('summary', { hasText: 'Edit lots' }).click();
+  // The cash editor (with the account filter) sits under "Edit cash in investment accounts" since the grouped view leads the page.
+  await page.locator('summary', { hasText: 'Edit cash in investment accounts' }).click();
   const select = page.locator('.table-actions select[data-focus-key="holdings:account-select"]');
   await expect(select, 'account-filter select is missing its data-focus-key -- the generalization this test exists to prove did not ship').toHaveCount(1);
 

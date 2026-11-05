@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 315 Python files under `src/`, 69 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 316 Python files under `src/`, 69 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (227 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (228 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -544,6 +544,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/bootstrap.py` | `src`, `account_numbers`, `plan_data_migration`, `platform_runtime`, `security` | — |
 | `src/broker_1099b/__init__.py` | `broker_1099b`, `broker_1099b.normalized`, `tlh` | — |
 | `src/broker_1099b/etrade.py` | `broker_1099b.normalized` | — |
+| `src/broker_1099b/etrade_gl.py` | `broker_1099b.normalized` | — |
 | `src/broker_1099b/matching.py` | — | — |
 | `src/broker_1099b/normalized.py` | — | — |
 | `src/broker_1099b/pdf_text.py` | — | `pypdf` |
@@ -698,7 +699,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/results_model.py` | `balance_sheet_liabilities`, `person_labels`, `version` | — |
 | `src/roth_ui_build_guard.py` | — | — |
 | `src/runtime_config.py` | `system_config` | — |
-| `src/sales_1099b.py` | `broker_1099b`, `sales_ledger` | — |
+| `src/sales_1099b.py` | `broker_1099b`, `core`, `sales_ledger` | — |
 | `src/sales_confirm.py` | `core`, `sales_ledger` | — |
 | `src/sales_confirm_bulk.py` | `sales_confirm`, `sales_ledger` | — |
 | `src/sales_ledger.py` | — | — |

@@ -1729,14 +1729,12 @@ export function rawRowsForStep(id) {
         return (
           !rowIsHomeSaleAssumption(r) &&
           ((sec === "Economic Assumptions" &&
-            // #235: reinvest_dividends_default/cash_yield_rate moved to
-            // Investment Holdings -- a per-holding-account behavior, not a
-            // system-wide economic assumption.
+            // reinvest_dividends_default lives on the Sales Ledger's cash panel;
+            // cash_yield_rate is back here (the rate cash earns is an economic assumption).
             // #236: annuity_default_dividend_rate/annuity_default_additional_income_pct
             // moved to SS, Pensions & Annuities' "Plan-wide income stream settings".
             ![
               "reinvest_dividends_default",
-              "cash_yield_rate",
               "annuity_default_dividend_rate",
               "annuity_default_additional_income_pct",
               "annuity_pv_discount_rate",

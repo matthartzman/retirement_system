@@ -358,5 +358,13 @@
   "region": "Global",
   "style": "Commodities",
   "notes": "iShares S&P GSCI Commodity-Indexed Trust"
+ },
+ {
+  "symbol": "IJH",
+  "asset_class": "US EQUITY",
+  "sleeve": "Satellite Equity",
+  "region": "US",
+  "style": "Mid Blend",
+  "notes": "iShares Core S&P Mid-Cap ETF"
  }
 ]

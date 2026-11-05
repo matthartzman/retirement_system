@@ -220,11 +220,11 @@ def test_unclassified_symbol_goes_to_other():
     assert _groups(out, lambda p: p["asset_class"])["Other"]["current"] == pytest.approx(110)
 
 
-def test_cash_tbill_priced_at_par():
+def test_cash_tbill_priced_at_par_and_classed_as_fixed_income():
     lots = [{"account": "Member_1_Trust", "symbol": "CASH (T-BILL)", "purchase_date": "2026-09-24", "shares": "1000", "purchase_price": "0.99"}]
     out = _compute(lots=lots, quotes={})
     assert out["liquid"]["current"] == pytest.approx(1000)
-    assert _groups(out, lambda p: p["asset_class"])["Cash"]["market_gain"] == pytest.approx(10)
+    assert _groups(out, lambda p: p["asset_class"])["Fixed Income"]["market_gain"] == pytest.approx(10)
 
 
 def test_annualized_hidden_in_first_90_days():
@@ -607,3 +607,21 @@ def test_planner_tax_settings_override():
     rates = {"pre_tax_rate": 0.3, "ltcg_rate": 0.2, "explicit": ["pre_tax_rate", "ltcg_rate"]}
     out = ls._planner_tax(_planner_cfg(), date(2026, 10, 28), 100000.0, _positions_for_planner(), rates)
     assert out["ordinary_tax"] == 30000.0 and out["ltcg_tax"] == 40000.0 and out["rate_source"] == "settings"
+
+
+def test_classification_fixed_income_and_mid_cap():
+    from financial_trends_reporter.live_snapshot import classify_symbol
+    master = {
+        "IJH": {"asset_class": "US EQUITY", "style": "Mid Blend"},
+        "BND": {"asset_class": "BONDS", "style": "Aggregate Bonds"},
+        "TLT": {"asset_class": "BONDS", "style": "Long Treasury"},
+        "SGOV": {"asset_class": "SHORT-TERM BONDS", "style": "T-Bills"},
+        "VTIP": {"asset_class": "TIPS", "style": "Short TIPS"},
+    }
+    assert classify_symbol("IJH", master) == ("Equity", "Mid-Cap")
+    assert classify_symbol("BND", master) == ("Fixed Income", "Core Bonds")
+    assert classify_symbol("TLT", master) == ("Fixed Income", "Treasury / T-Bills")
+    assert classify_symbol("SGOV", master) == ("Fixed Income", "Treasury / T-Bills")
+    assert classify_symbol("VTIP", master) == ("Fixed Income", "TIPS")
+    assert classify_symbol("CASH (T-BILL)", master) == ("Fixed Income", "Treasury / T-Bills")
+    assert classify_symbol("CASH", master) == ("Cash", None)
