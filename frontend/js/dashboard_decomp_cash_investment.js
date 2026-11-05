@@ -60,7 +60,7 @@ export function ciHtml(view, ledger = ciLedger, sort = ciSort) {
 }
 
 export function renderCashInvestment() {
-  if (ciView === null) setTimeout(ciLoad, 0);
+  if (ciView === null || Date.now() - (window.ciLoadedAt || 0) > 3000) setTimeout(ciLoad, 0);   // reopened after editing holdings or importing: refresh
   return `<div class="sl-import" id="ciRoot">${ciHtml(ciView)}</div>`;
 }
 
@@ -77,7 +77,7 @@ const ciPaint = () => {
   if (window.slPublish) window.slPublish("cash", ciSummary());
 };
 export async function ciLoad() {
-  try { ciView = await api("/api/cash"); ciError = ""; } catch (e) { ciView = { accounts: [] }; ciError = e.message; }
+  try { ciView = await api("/api/cash"); ciError = ""; window.ciLoadedAt = Date.now(); } catch (e) { ciView = { accounts: [] }; ciError = e.message; }
   ciPaint();
 }
 export async function ciShowLedger(account) {
