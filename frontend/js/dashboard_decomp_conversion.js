@@ -4,7 +4,7 @@
 // converts by itself. Helpers are bare globals; loadAll() calls refreshConversionNotice().
 let conversionState = null;
 let conversionBusy = false;
-let conversionDismissed = false;
+let conversionDismissed = (() => { try { return localStorage.getItem("conversionNoticeDismissed") === "1"; } catch (e) { return false; } })();
 let conversionPoll = null;
 
 const REASONS = {
@@ -140,7 +140,7 @@ export function runConversion(extra) {
 }
 
 export function dismissConversionNotice() {
-  conversionDismissed = true;
+  conversionDismissed = true; try { localStorage.setItem("conversionNoticeDismissed", "1"); } catch (e) { /* page-only dismiss */ }
   if (conversionState) conversionState = Object.assign({}, conversionState, { last_result: null, needed: false });
   renderConversionNotice();
 }
