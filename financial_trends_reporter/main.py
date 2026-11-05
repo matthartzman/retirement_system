@@ -327,7 +327,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
     @app.route("/api/realized", methods=["GET"])
     def realized_endpoint():
         # Realized gains and losses from the sales ledger. ?from= is the Time scope's first day; ?tax_year=YYYY
-        # replaces it; ?group=symbol|account, ?taxable=1, ?wash=1, ?unconfirmed=1 (display-only estimate).
+        # replaces it; ?group=symbol|account|term (comma-separated levels, outermost first), ?taxable=1, ?wash=1, ?unconfirmed=1 (display-only estimate).
         args = request.args
         flag = lambda name: str(args.get(name) or "") in {"1", "true"}
         try:

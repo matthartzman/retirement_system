@@ -73,6 +73,17 @@ def test_groups_by_symbol_or_account_with_their_lots():
     assert _build(group="nonsense")["group_by"] == "symbol"
 
 
+def test_nested_levels_and_account_labels_never_show_the_internal_id():
+    out = _build(group="account,symbol,term", people={"h_nick": "Matt", "w_nick": "Dee"})
+    assert out["levels"] == ["account", "symbol", "term"]
+    trust = next(g for g in out["groups"] if g["name"] == "Member_1_Trust")
+    assert trust["label"] == "Matt Trust" and trust["dim"] == "account" and "lots" not in trust
+    itot = next(c for c in trust["children"] if c["name"] == "ITOT")
+    assert itot["children"][0]["name"] == "long" and [l["sale_id"] for l in itot["children"][0]["lots"]] == [1]
+    assert {l["account_label"] for g in out["groups"] for c in g["children"] for t in c["children"] for l in t["lots"]} == {"Matt Trust", "Matt IRA"}
+    assert _build(group="symbol,symbol,bogus")["levels"] == ["symbol"]
+
+
 def test_1099b_status_per_lot():
     official = [dict(SALES[0], official_gain=1500.0), dict(SALES[1], official_gain=-550.0), SALES[2]]
     out = rv.build(sales=official, candidates=[], lots=[], today=TODAY, start="2026-01-01")
@@ -121,7 +132,7 @@ def test_load_reads_the_plan_and_survives_a_broken_one(tmp_path, monkeypatch):
     from src import active_plan
 
     monkeypatch.setattr(active_plan, "workspace_store", lambda root, **k: _fake_store(SALES, CANDIDATES, LOTS))
-    assert rv.load(tmp_path) == {"sales": SALES, "candidates": CANDIDATES, "lots": LOTS}
+    assert rv.load(tmp_path) == {"sales": SALES, "candidates": CANDIDATES, "lots": LOTS, "people": {"h_nick": "", "w_nick": ""}}
 
     def broken(root, **k):
         raise OSError("locked")
