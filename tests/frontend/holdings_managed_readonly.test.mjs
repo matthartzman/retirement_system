@@ -70,3 +70,14 @@ test("the CASH lot of a managed account stays editable (the log never writes it)
   assert.doesNotMatch(cash, /data-managed/);
   assert.match(cash, /oninput/);
 });
+
+test("a lot just added to a managed account (blank symbol) is editable so a CASH lot can be entered", () => {
+  window.managedHoldingAccounts = ["Member_1_IRA"];
+  window.currentHoldingAccount = "ALL";
+  window.holdingsText = "account,symbol,purchase_date,shares,purchase_price,lot_type,note\nMember_1_IRA,VTI,2023-01-10,10,100,buy,\nMember_1_IRA,,,,,buy,";
+  window.holdingRowsCache = null;
+  const parts = m.renderHoldings().split("<tr data-hidx").slice(1);
+  const blank = parts.find((x) => !x.includes("VTI"));
+  assert.doesNotMatch(blank, /readonly/);
+  assert.match(blank, /oninput/);
+});

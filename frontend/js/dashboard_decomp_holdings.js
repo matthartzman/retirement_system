@@ -480,8 +480,8 @@ export function renderHoldings() {
   const cashOnly = cashOnlyAccounts(h.data);
   visible.forEach(({ r, i }) => {
     const cash = cashOnly.has(String(r.account || "").trim().toLowerCase());
-    // The log writes an account's securities lots, never its CASH lot (that is the cash ledger's: imports write it, the owner may edit it).
-    const isCashLot = String(r.symbol || "").trim().toUpperCase() === "CASH";
+    // The log writes an account's securities lots, never its CASH lot (the cash ledger's: the owner may edit or add it); a blank new row is a draft.
+    const isCashLot = ["", "CASH"].includes(String(r.symbol || "").trim().toUpperCase());
     const managed = (isManagedHoldingAccount(r.account) && !isCashLot) || cash;
     html +=
       `<tr data-hidx="${i}"${managed ? ' data-managed="1"' : ""}>` +
