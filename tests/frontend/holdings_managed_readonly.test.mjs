@@ -39,7 +39,7 @@ const render = (body, managed = ["Member_1_IRA"]) => {
 test("the editor is for cash only: securities lots are never listed or editable", () => {
   const html = render("Member_1_IRA,VTI,2023-01-10,10,100,buy,\nMember_1_IRA,CASH,2026-10-30,2200.56,1,buy,\nMember_1_HSA,BND,2024-01-02,7,50,buy,");
   assert.match(html, /Edit cash in investment accounts/);
-  assert.doesNotMatch(html, /Edit lots|pricing tester|Add Lot|Add Account|Delete Account|replace CSV/);
+  assert.doesNotMatch(html, /Edit lots|pricing tester|Add Lot|Add Account|Delete Account/);
   const parts = html.split("<tr data-hidx").slice(1);
   assert.equal(parts.length, 1);
   assert.match(parts[0], /Member_1_IRA/);

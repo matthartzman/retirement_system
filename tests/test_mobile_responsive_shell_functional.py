@@ -39,7 +39,7 @@ def test_holdings_and_liabilities_tables_carry_data_label_for_card_layout():
     # liabilities stayed in dashboard.js -- read the assembled text so this
     # assertion targets both regardless of which file owns which table.
     js = dashboard_js_text()
-    assert 'data-label="${esc(humanLabel(c))}"' in js
+    assert 'data-label="Cash balance"' in js   # the cash editor's cells; the liabilities table below uses ${lbl}
     assert 'data-label="Actions"' in js
     assert "data-label=\"${lbl}\"" in js
 

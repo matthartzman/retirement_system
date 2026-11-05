@@ -473,7 +473,7 @@ export function renderHoldings() {
   const cashInput = (i, col, type, value, cls) =>
     `<input class="${cls}" data-hcol="${col}" type="${type}" value="${esc(value)}" oninput="updateHolding(${i},'${col}',${col === "shares" ? "currencyRaw(this.value)" : "this.value"})" ${col === "shares" ? `onfocus="this.value=currencyRaw(this.value);this.select&&this.select()" onblur="this.value=currencyDisplay(this.value,2)"` : ""}>`;
   let html = `${tree}<div class="holdings" data-help-section="holdings.plan_holdings"><details${tree && !window.holdingsEditOpen ? "" : " open"} ontoggle="window.holdingsEditOpen=this.open"><summary>Edit cash in investment accounts ${(window.RPHelp?.sectionButtonHtml("holdings.plan_holdings") || "")}</summary>`
-    + `<div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Account</th><th>Cash balance</th><th>As of</th><th></th></tr></thead><tbody>`;
+    + `<input type="file" id="holdingsImportInput" accept=".csv,text/csv" style="display:none" onchange="handleHoldingsCsvImport(this)"><div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="document.getElementById('holdingsImportInput').click()">Preview &amp; replace CSV</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Account</th><th>Cash balance</th><th>As of</th><th></th></tr></thead><tbody>`;
   cashRows.forEach(({ r, i }) => {
     html += `<tr data-hidx="${i}"><td data-label="Account">${esc(accountDisplayLabel(r.account))}</td>`
       + `<td data-label="Cash balance">${cashInput(i, "shares", "text", currencyDisplay(r.shares || "", 2), "tiny")}</td>`
