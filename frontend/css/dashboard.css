@@ -1297,6 +1297,7 @@ header :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{o
 .group-by .chip button{border:0;background:transparent;color:inherit;font:inherit;padding:0 3px;cursor:pointer}
 .group-by .chip button:disabled{opacity:.3;cursor:default}
 .ht-table{min-width:700px}.ht-table .ht-num{text-align:right;font-variant-numeric:tabular-nums}
+.ht-table .ticker-title{font-size:.85em}.ht-table .ht-asof{display:block;font-weight:400;font-size:.8em;text-transform:none}
 .ht-twisty{border:0;background:transparent;cursor:pointer;width:18px;padding:0}.ht-twisty-gap{display:inline-block;width:18px}
 .ht-row.ht-class td,.ht-row.ht-subclass td{font-weight:700}.ht-row.ht-lot td{color:var(--muted)}.ht-total td{font-weight:800}
 .ht-table .pos{color:var(--ok)}.ht-table .neg{color:var(--danger)}

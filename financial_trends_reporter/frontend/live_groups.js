@@ -180,8 +180,10 @@ export function buildTree(positions, order, { days, labelOf = (id) => id, sort =
       else node.children = grow(ms, next, node.path);
       return node;
     });
-    return sortNodes(nodes, dim, by);
+    // Sold lots stay in every total (their gain is part of the return) but get no row of their own: the Realized tab lists them.
+    return sortNodes(nodes.filter((n) => !n.members.every((m) => m.sold)), dim, by);
   };
 
-  return { nodes: grow(positions, 0, null), total: { ...aggregate(positions, totals, days), share: 1, share_of_gain: 1 } };
+  const soldHidden = positions.filter((p) => p.sold && !isCashSymbol(p.symbol)).length;
+  return { nodes: grow(positions, 0, null), soldHidden, total: { ...aggregate(positions, totals, days), share: 1, share_of_gain: 1 } };
 }

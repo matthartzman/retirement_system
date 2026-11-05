@@ -61,7 +61,15 @@ export function ciHtml(view, ledger = ciLedger, sort = ciSort) {
 
 export function renderCashInvestment() {
   if (ciView === null || Date.now() - (window.ciLoadedAt || 0) > 3000) setTimeout(ciLoad, 0);   // reopened after editing holdings or importing: refresh
-  return `<div class="sl-import" id="ciRoot">${ciHtml(ciView)}</div>`;
+  return `${ciReinvestHtml()}<div class="sl-import" id="ciRoot">${ciHtml(ciView)}</div>`;
+}
+
+// The plan-wide "reinvest dividends" switch (it used to sit in a Dividend Reinvestment section under Investment Holdings).
+// It decides whether an account's dividends and interest buy more shares or land here as cash.
+export function ciReinvestHtml() {
+  if (typeof rows === "undefined" || typeof fieldHtml !== "function") return "";
+  const r = rows.find((x) => isEditable(x) && x.section === "Economic Assumptions" && norm(x.label) === "reinvest_dividends_default");
+  return r ? `<div class="field-list ci-reinvest">${fieldHtml(r)}</div>` : "";
 }
 
 const ciUnmatched = (view) => ((view && view.accounts) || []).reduce((t, a) => t + (Number(a.unmatched) || 0), 0);

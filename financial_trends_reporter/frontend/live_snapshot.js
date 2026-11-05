@@ -315,7 +315,7 @@ function totalsHtml(t, checking, debt, tax, nonLiquid, liquid) {
 export function soldNote(L, startDay) {
   const sold = L.sold?.count ?? 0, waiting = L.unconfirmed_sales?.count ?? 0;
   const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-  const included = sold ? `Includes ${plural(sold, "position", "positions")} sold since ${startDay}.` : "";
+  const included = sold ? `Includes ${plural(sold, "position", "positions")} sold since ${startDay}; their gains are counted in the totals, and the sales are listed on the Realized tab.` : "";
   const unconfirmed = waiting ? ` ${plural(waiting, "sale", "sales")} not yet confirmed ${waiting === 1 ? "is" : "are"} not included.` : "";
   return (included + unconfirmed).trim();
 }

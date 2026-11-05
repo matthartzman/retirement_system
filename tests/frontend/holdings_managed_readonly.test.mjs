@@ -27,57 +27,45 @@ test("holdings_editor_marks_managed_rows_read_only", async () => {
   assert.deepEqual(window.managedHoldingAccounts, ["Member_1_IRA"]);
 });
 
-test("rendered rows of a managed account are readonly with a link; others stay editable", () => {
-  window.managedHoldingAccounts = ["Member_1_IRA"];
+const CSV = "account,symbol,purchase_date,shares,purchase_price,lot_type,note\n";
+const render = (body, managed = ["Member_1_IRA"]) => {
+  window.managedHoldingAccounts = managed;
   window.currentHoldingAccount = "ALL";
-  window.holdingsText = "account,symbol,purchase_date,shares,purchase_price,lot_type,note\nMember_1_IRA,VTI,2023-01-10,10,100,buy,\nMember_1_HSA,BND,2024-01-02,7,50,buy,";
+  window.holdingsText = CSV + body;
   window.holdingRowsCache = null;
-  const html = m.renderHoldings();
+  return m.renderHoldings();
+};
+
+test("the editor is for cash only: securities lots are never listed or editable", () => {
+  const html = render("Member_1_IRA,VTI,2023-01-10,10,100,buy,\nMember_1_IRA,CASH,2026-10-30,2200.56,1,buy,\nMember_1_HSA,BND,2024-01-02,7,50,buy,");
+  assert.match(html, /Edit cash in investment accounts/);
+  assert.doesNotMatch(html, /Edit lots|pricing tester|Add Lot|Add Account|Delete Account|replace CSV/);
   const parts = html.split("<tr data-hidx").slice(1);
-  const ira = parts.find((x) => x.includes("Member_1_IRA"));
-  const hsa = parts.find((x) => x.includes("Member_1_HSA"));
-  assert.match(ira, /data-managed="1"/);
-  assert.match(ira, /readonly/);
-  assert.doesNotMatch(ira, /oninput/);
-  assert.doesNotMatch(ira, /Managed in Transactions/);
-  assert.doesNotMatch(hsa, /readonly/);
-  assert.match(hsa, /oninput/);
+  assert.equal(parts.length, 1);
+  assert.match(parts[0], /Member_1_IRA/);
+  assert.match(parts[0], /data-hcol="shares"/);
+  assert.match(parts[0], /data-hcol="purchase_date"/);
+  assert.doesNotMatch(html, /data-hcol="symbol"/);
 });
 
-test("a cash-only account (one CASH lot) is hidden from the page (it lives on Checking & Savings)", () => {
-  window.managedHoldingAccounts = [];
-  window.currentHoldingAccount = "ALL";
-  window.holdingsText = "account,symbol,purchase_date,shares,purchase_price,lot_type,note\nFamily_Checking,CASH,2026-06-01,25000,1,buy,\nMember_1_HSA,BND,2024-01-02,7,50,buy,\nMember_1_HSA,CASH,2024-01-02,3,1,buy,";
-  window.holdingRowsCache = null;
+test("an investment account with no cash balance offers to add one; a cash-only account is not listed", () => {
+  const html = render("Family_Checking,CASH,2026-06-01,25000,1,buy,\nMember_1_HSA,BND,2024-01-02,7,50,buy,\nMember_1_HSA,CASH,2024-01-02,3,1,buy,\nMember_1_IRA,VTI,2023-01-10,10,100,buy,");
   assert.deepEqual([...m.cashOnlyAccounts([{ account: "A", symbol: "cash" }, { account: "B", symbol: "VTI" }, { account: "B", symbol: "CASH" }])], ["a"]);
-  const parts = m.renderHoldings().split("<tr data-hidx").slice(1);
-  assert.equal(parts.find((x) => x.includes("Family_Checking")), undefined);
-  assert.doesNotMatch(m.renderHoldings(), /Family.Checking/);
-  assert.doesNotMatch(parts.find((x) => x.includes("BND")), /readonly/);
-  assert.doesNotMatch(parts.find((x) => x.includes(",CASH") || x.includes('value="CASH"') && x.includes("Member_1_HSA")), /readonly/);
+  assert.doesNotMatch(html, /Family.Checking/);
+  assert.match(html, /addHoldingCash\('Member_1_IRA'\)/);
+  assert.doesNotMatch(html, /addHoldingCash\('Member_1_HSA'\)/);
 });
 
-test("the CASH lot of a managed account stays editable (the log never writes it); its securities lots stay read-only", () => {
-  window.managedHoldingAccounts = ["Member_1_IRA"];
-  window.currentHoldingAccount = "ALL";
-  window.holdingsText = "account,symbol,purchase_date,shares,purchase_price,lot_type,note\nMember_1_IRA,VTI,2023-01-10,10,100,buy,\nMember_1_IRA,CASH,2026-10-30,2200.56,1,buy,";
-  window.holdingRowsCache = null;
-  const parts = m.renderHoldings().split("<tr data-hidx").slice(1);
-  const vti = parts.find((x) => x.includes("VTI"));
-  const cash = parts.find((x) => x.includes('value="CASH"'));
-  assert.match(vti, /readonly/);
-  assert.doesNotMatch(cash, /readonly/);
-  assert.doesNotMatch(cash, /data-managed/);
-  assert.match(cash, /oninput/);
-});
-
-test("a lot just added to a managed account (blank symbol) is editable so a CASH lot can be entered", () => {
-  window.managedHoldingAccounts = ["Member_1_IRA"];
-  window.currentHoldingAccount = "ALL";
-  window.holdingsText = "account,symbol,purchase_date,shares,purchase_price,lot_type,note\nMember_1_IRA,VTI,2023-01-10,10,100,buy,\nMember_1_IRA,,,,,buy,";
-  window.holdingRowsCache = null;
-  const parts = m.renderHoldings().split("<tr data-hidx").slice(1);
-  const blank = parts.find((x) => !x.includes("VTI"));
-  assert.doesNotMatch(blank, /readonly/);
-  assert.match(blank, /oninput/);
+test("adding a cash balance creates one CASH lot at $1 for that account", () => {
+  render("Member_1_IRA,VTI,2023-01-10,10,100,buy,");
+  globalThis.csvEscape = (v) => String(v);
+  globalThis.lastBuildOk = true;
+  globalThis.appReady = true;
+  globalThis.updateUnsaved = () => {};
+  globalThis.setAppControls = () => {};
+  globalThis.scheduleStatusUpdate = () => {};
+  globalThis.renderMain = () => {};
+  m.addHoldingCash("Member_1_IRA");
+  const added = m.ensureHoldingRows().data.at(-1);
+  assert.deepEqual([added.account, added.symbol, added.purchase_price], ["Member_1_IRA", "CASH", "1"]);
 });

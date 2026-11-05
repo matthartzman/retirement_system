@@ -614,9 +614,9 @@ describe("sold lot labels (sales ledger 4.2)", () => {
     assert.equal(lotLabel(POS({ sold: true, symbol: "CASH", shares: 0 })), "Sale proceeds");
     assert.match(lotLabel(POS()), /120 @ /);
   });
-  test("a sold position shows as a (sold) group in the page", () => {
+  test("a sold position has no row in the page (the Realized tab lists it)", () => {
     const out = liveViewHtml({ ...DATA, liquid: { ...DATA.liquid, positions: [POS(), POS({ symbol: "AVUV", sold: true, shares: 0, start: 4500, new_money: -5500, weighted: -550, current: 0, day: null })] } }, ["symbol", "lot"]);
-    assert.ok(out.includes("AVUV (sold)"));
+    assert.ok(!out.includes("AVUV (sold)"));
   });
 });
 
