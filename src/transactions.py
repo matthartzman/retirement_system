@@ -360,11 +360,13 @@ def backfill(store: Any) -> dict[str, Any]:
 
 
 def reconcile(store: Any, account: str | None = None) -> list[dict[str, Any]]:
-    """Differences between the log's open lots and the holdings, with a plain reason. Empty means they agree."""
+    """Differences between the log's open lots and the holdings, with a plain reason. Empty means they agree. CASH lots are not compared."""
     held, logged = _holdings_by_key(store), _log_by_key(store)
     drift = []
     for k in sorted(set(held) | set(logged)):
         h, g = held.get(k), logged.get(k)
+        if str((h or g)["symbol"]).strip().upper() == "CASH":
+            continue                    # the CASH lot is the cash ledger's (imports and the owner write it); the log never owns it
         hs, gs = (h["shares"] if h else 0.0), (g["shares"] if g else 0.0)
         if abs(hs - gs) <= 1e-4:
             continue
@@ -494,7 +496,7 @@ def set_managed(input_dir: str | Path, account: str, on: bool) -> dict[str, Any]
         account = names[account.strip().lower()]
         if not started(store):
             raise ValidationError("start the transaction log before managing an account")
-        drift = [d for d in reconcile(store, account) if str(d["symbol"]).strip().upper() != "CASH"]
+        drift = reconcile(store, account)
         if drift:
             raise ValidationError(f"the log and the holdings differ for {account} ({len(drift)} lot(s), first: {drift[0]['symbol']}); "
                                   "resolve the differences before managing it")
