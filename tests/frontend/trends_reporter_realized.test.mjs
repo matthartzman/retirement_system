@@ -1,7 +1,7 @@
 // Realized gains and losses view (sales ledger 4.3): render, percent handling and the tab wiring.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { realizedViewHtml, realizedQuery, initRealized, DEFAULT_STATE } from "../../financial_trends_reporter/frontend/realized.js";
+import { realizedViewHtml, realizedQuery, initRealized, DEFAULT_STATE, sortNodes, normalizeLevels, stepLevel, toggleLevel } from "../../financial_trends_reporter/frontend/realized.js";
 import { setMoneyView } from "../../financial_trends_reporter/frontend/money_view.js";
 
 const LOT = (o = {}) => ({ sale_id: 1, symbol: "ITOT", account: "Member_1_Trust", sale_date: "2026-03-10", purchase_date: "2025-01-01", shares: 10,
@@ -81,13 +81,84 @@ describe("realizedViewHtml in the percent view", () => {
   });
 });
 
+describe("grouping, sorting and collapsible headings", () => {
+  const NODE = (dim, name, label, rest) => ({ dim, name, label, count: 1, proceeds: 100, basis: 80, net: 20, ...rest });
+  const NESTED = {
+    ...DATA, levels: ["account", "symbol"], group_by: "account",
+    groups: [
+      NODE("account", "Member_1_Trust", "Matt Trust", { count: 2, proceeds: 7500, basis: 6600, net: 900, children: [
+        NODE("symbol", "ITOT", "ITOT", { proceeds: 5500, basis: 4000, net: 1500, lots: [LOT({ account_label: "Matt Trust" })] }),
+        NODE("symbol", "AVUV", "AVUV", { proceeds: 2000, basis: 2600, net: -600, lots: [LOT({ sale_id: 2, symbol: "AVUV", gain: -600, account_label: "Matt Trust" })] })] }),
+      NODE("account", "Member_1_IRA", "Matt IRA", { proceeds: 1000, basis: 800, net: 200, children: [
+        NODE("symbol", "IXUS", "IXUS", { proceeds: 1000, basis: 800, net: 200, lots: [LOT({ sale_id: 3, symbol: "IXUS", account_label: "Matt IRA" })] })] }),
+    ],
+  };
+  const st = (o) => ({ ...DEFAULT_STATE, levels: ["account", "symbol"], ...o });
+
+  test("the Group by and Sort by rows sit in the card head, like Holdings", () => {
+    const out = realizedViewHtml(NESTED, st());
+    assert.match(out, /<div class="live-card-head"><h2>[\s\S]*class="group-by"[\s\S]*class="sort-by"/);
+    assert.match(out, /data-dim="lot"[^>]*>Sale</);
+    assert.match(out, /class="chip off" data-dim="term"/);
+    assert.match(out, /id="realizedSortField"/);
+  });
+  test("headings are collapse buttons; only the top rows start visible", () => {
+    const out = realizedViewHtml(NESTED, st());
+    assert.match(out, /<button type="button" class="expand" aria-expanded="false" data-path="\/Member_1_Trust" data-label="Matt Trust">▸ Matt Trust<\/button>/);
+    const rows = out.match(/<tr [^>]*>/g);
+    assert.ok(rows.filter((r) => r.includes("top-row")).every((r) => !r.includes("hidden")));
+    assert.ok(rows.filter((r) => !r.includes("top-row")).every((r) => r.includes("hidden") && r.includes("data-parent")));
+  });
+  test("an internal account id is never shown: groups use the label, sale rows add it when Account is not a level", () => {
+    const out = realizedViewHtml(NESTED, st());
+    assert.match(out, /Matt Trust/);
+    assert.doesNotMatch(out.replace(/data-(path|parent)="[^"]*"/g, ""), /Member_1_/);
+    const bySymbol = realizedViewHtml({ ...DATA, groups: [NODE("symbol", "ITOT", "ITOT", { lots: [LOT({ account: "Member_1_Trust", account_label: "Matt Trust" })] })] });
+    assert.match(bySymbol, /bought 2025-01-01 · Matt Trust/);
+    assert.doesNotMatch(bySymbol, /Member_1_/);
+  });
+  test("sorting orders every level; missing figures go last either way", () => {
+    const names = (nodes) => nodes.map((n) => n.name);
+    assert.deepEqual(names(sortNodes(NESTED.groups, { field: "name", dir: "asc" })), ["Member_1_IRA", "Member_1_Trust"]);   // Matt IRA, Matt Trust
+    assert.deepEqual(names(sortNodes(NESTED.groups, { field: "net", dir: "desc" })), ["Member_1_Trust", "Member_1_IRA"]);
+    const kids = NESTED.groups[0].children;
+    assert.deepEqual(names(sortNodes(kids, { field: "ret", dir: "desc" })), ["ITOT", "AVUV"]);
+    const gap = [{ name: "a", label: "a", net: null, basis: 0 }, { name: "b", label: "b", net: 5, basis: 50 }];
+    assert.deepEqual(names(sortNodes(gap, { field: "ret", dir: "asc" })), ["b", "a"]);
+    assert.deepEqual(names(sortNodes(gap, { field: "ret", dir: "desc" })), ["b", "a"]);
+    const out = realizedViewHtml(NESTED, st({ sort: { field: "net", dir: "desc" } }));
+    assert.ok(out.indexOf("Matt Trust") < out.indexOf("Matt IRA"));
+  });
+  test("terms sort short, long, unknown and read as words", () => {
+    const terms = ["unknown", "long", "short"].map((t) => ({ dim: "term", name: t, label: t }));
+    assert.deepEqual(sortNodes(terms, { field: "name", dir: "asc" }).map((n) => n.name), ["short", "long", "unknown"]);
+  });
+  test("level helpers keep the order unique and never empty", () => {
+    assert.deepEqual(normalizeLevels(["account", "account", "x"]), ["account"]);
+    assert.deepEqual(normalizeLevels([]), ["symbol"]);
+    assert.deepEqual(stepLevel(["symbol", "account"], "account", -1), ["account", "symbol"]);
+    assert.deepEqual(toggleLevel(["symbol"], "term"), ["symbol", "term"]);
+    assert.deepEqual(toggleLevel(["symbol"], "symbol"), ["symbol"]);
+  });
+  test("a percent-only person still gets collapsible group rows without sale rows", () => {
+    setMoneyView({ allowed: "percent", shown: "percent", scale: 100000 });
+    try {
+      const strip = (n) => { const { lots, ...r } = n; return { ...r, children: n.children && n.children.map(strip) }; };
+      const out = realizedViewHtml({ ...NESTED, groups: NESTED.groups.map(strip), estimate: null }, st());
+      assert.match(out, /class="expand"[^>]*>▸ Matt Trust/);
+      assert.doesNotMatch(out, /sale-lot|\$\s?\d/);
+      assert.doesNotMatch(out, /value="proceeds"/);
+    } finally { back(); }
+  });
+});
+
 describe("realizedQuery", () => {
   test("uses the scope's first day unless a tax year is picked", () => {
     assert.equal(realizedQuery(DEFAULT_STATE, "2026-01-01"), "from=2026-01-01&group=symbol");
     assert.equal(realizedQuery({ ...DEFAULT_STATE, taxYear: "2025" }, "2026-01-01"), "tax_year=2025&group=symbol");
-    assert.equal(realizedQuery({ ...DEFAULT_STATE, group: "account", taxable: true, wash: true, unconfirmed: true }, ""),
-      "group=account&taxable=1&wash=1&unconfirmed=1");
-    assert.equal(realizedQuery({ ...DEFAULT_STATE, group: "bogus" }, ""), "group=symbol");
+    assert.equal(realizedQuery({ ...DEFAULT_STATE, levels: ["account", "term"], taxable: true, wash: true, unconfirmed: true }, ""),
+      "group=account%2Cterm&taxable=1&wash=1&unconfirmed=1");
+    assert.equal(realizedQuery({ ...DEFAULT_STATE, levels: ["bogus"] }, ""), "group=symbol");
   });
 });
 
