@@ -137,3 +137,17 @@ test("ledger_offers_mark_as_rollover_on_a_plain_outflow_and_unmark_on_a_marked_o
   assert.equal((h.match(/Unmark rollover/g) || []).length, 1);
   assert.match(h, /ciMarkRollover\(&quot;Member_1_IRA&quot;, &quot;2026-04-07&quot;, -355000, true\)/);
 });
+
+test("rendering the panel again after a few seconds reloads it (holdings or imports may have changed)", () => {
+  const calls = [];
+  const orig = globalThis.setTimeout;
+  globalThis.setTimeout = (fn) => { calls.push(fn); return 0; };
+  try {
+    window.ciLoadedAt = Date.now();
+    m.renderCashInvestment();
+    const fresh = calls.length;
+    window.ciLoadedAt = Date.now() - 10000;
+    m.renderCashInvestment();
+    assert.equal(calls.length - fresh, 1);
+  } finally { globalThis.setTimeout = orig; }
+});
