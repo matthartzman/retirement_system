@@ -9,6 +9,7 @@ let stMessage = null; // { text, error }
 let stError = "";
 let stFromAll = false; // the header says All years: this tab keeps the last concrete year and says so
 let stCfDraft = null; // { year, stCfShort, stCfLong }: typed carryforward text survives any repaint until it is saved
+let stIncome = null; // GET /api/investment-income: the year's interest and dividends by type, taxable accounts only
 let stYearEnd = null; // { year, open, total } from GET /api/year-end; null when unavailable
 
 const stMoney = (v) => (Number(v) < 0 ? "-$" : "$") + Math.abs(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -82,6 +83,24 @@ export function stYearEndLinkHtml(openCount, total, year) {
   return `<p class="st-link-row"><a href="#year_end" onclick="if(window.setStep){setStep('year_end');return false}">Year-end steps (${esc(String(year))}): ${Number(openCount) || 0} of ${Number(total)} open → Year-End Transition</a></p>`;
 }
 
+// Interest and dividends by type, for the accountant: totals per account, a per-symbol type chooser and a CSV.
+export function stIncomeHtml(d) {
+  if (!d || !d.rows || !d.rows.length) return "";
+  const cols = Object.keys(d.totals).sort();
+  const acct = Object.entries(d.by_account).map(([a, t]) => `<tr><th scope="row">${esc(accountDisplayLabel(a))}</th>${cols.map((c) => `<td class="rc-num">${t[c] === undefined ? "" : stMoney(t[c])}</td>`).join("")}</tr>`).join("");
+  const total = `<tr><th scope="row">All taxable accounts</th>${cols.map((c) => `<td class="rc-num"><b>${stMoney(d.totals[c])}</b></td>`).join("")}</tr>`;
+  const opts = (cur) => Object.entries(d.labels).map(([k, l]) => `<option value="${k}"${k === cur ? " selected" : ""}>${esc(l)}</option>`).join("");
+  const syms = d.symbols.map((x) => `<label class="st-sym">${esc(x.symbol)} <select onchange="stSetSymbolType('${esc(x.symbol)}', this.value)">${opts(x.type)}</select></label>`).join(" ");
+  return `<div class="st-income"><h4>Interest and dividends ${esc(String(d.year))} (taxable accounts)</h4><div class="rc-scroll"><table class="rc-table"><thead><tr><th></th>${cols.map((c) => `<th class="rc-num">${esc(d.labels[c] || c)}</th>`).join("")}</tr></thead><tbody>${acct}${total}</tbody></table></div>` +
+    `<p class="muted">${esc(d.notes[d.notes.length - 1])}</p>${d.notes.slice(0, -1).map((n) => `<p class="field-error">${esc(n)}</p>`).join("")}` +
+    `<details><summary>Fund types (change how a symbol is counted)</summary><p>${syms}</p></details>` +
+    `<p><a href="/api/investment-income.csv?year=${encodeURIComponent(d.year)}" download>Download CSV for your accountant</a></p></div>`;
+}
+
+export function stSetSymbolType(symbol, type) {
+  return stPost("/api/investment-income/symbol-type", { symbol, type }, "Fund type saved.");
+}
+
 function stBodyHtml() {
   if (stError) return `<h3>Realized gains this year</h3><p class="field-error">${esc(stError)}</p>`;
   if (!stData) return `<h3>Realized gains this year</h3><p class="muted">Loading…</p>`;
@@ -90,7 +109,7 @@ function stBodyHtml() {
   const ye = stYearEnd ? stYearEndLinkHtml(stYearEnd.open, stYearEnd.total, stYearEnd.year) : "";
   const note = stFromAll ? `<p class="muted">The Sale year filter is set to All years; this tab shows ${esc(String(stData.year))}, the last year you selected. Pick a year above to change it.</p>` : "";
   return `<h3>Tax year ${esc(String(stData.year))} · sales dated 1/1–12/31</h3>${note}${msg}${stTilesHtml(stData)}${st1099bStatusRowHtml(b)}${ye}` +
-    `<div class="sl-tax-cols"><div>${stNettingHtml(stData)}${stTaxHtml(stData)}</div><div>${stCarryforwardHtml(stData)}</div></div>${stWashHtml(stData.wash)}`;
+    `<div class="sl-tax-cols"><div>${stNettingHtml(stData)}${stTaxHtml(stData)}</div><div>${stCarryforwardHtml(stData)}</div></div>${stWashHtml(stData.wash)}${stIncomeHtml(stIncome)}`;
 }
 
 export function renderSalesTaxYear() {
@@ -134,6 +153,7 @@ export async function loadSalesTaxYear(year, opts = {}) {
     stData = null;
     stError = "The tax-year summary could not be loaded: " + e.message;
   }
+  try { const inc = await api("/api/investment-income?year=" + encodeURIComponent(year)); stIncome = inc && inc.success ? inc : null; } catch (e) { stIncome = null; }
   stPaint();
   // /api/year-end rescans every purchase for the wash signature, so it is fetched only while the Tax tab is showing
   // (and again when the tab is next shown after a reload); the link row is the only thing that needs it.
@@ -181,4 +201,4 @@ export function stSaveCarryforward() {
 
 export const stRefreshWash = () => stPost("/api/sales/wash/refresh", null, "Wash-sale check done.");
 
-Object.assign(window, { stTilesHtml, st1099bStatusRowHtml, stYearEndLinkHtml, stSummary, stNettingHtml, stTaxHtml, stCarryforwardHtml, stCfDraftSet, stOnShown, stWashHtml, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward, stRefreshWash });
+Object.assign(window, { stTilesHtml, st1099bStatusRowHtml, stYearEndLinkHtml, stSummary, stNettingHtml, stTaxHtml, stCarryforwardHtml, stCfDraftSet, stOnShown, stWashHtml, stIncomeHtml, stSetSymbolType, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward, stRefreshWash });

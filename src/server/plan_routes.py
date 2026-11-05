@@ -1366,6 +1366,83 @@ def sales_requeue(sale_id: int):
     return response
 
 
+# ---- Investment income by type for the taxable accounts (src/investment_income.py) ----
+
+def _income_year():
+    try:
+        return int(request.args["year"]), None
+    except (KeyError, ValueError):
+        return None, (jsonify({"success": False, "error": "year (number) is required"}), 400)
+
+
+@app.route("/api/investment-income", methods=["GET"])
+def investment_income_get():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import investment_income as _ii
+    year, bad = _income_year()
+    return bad or _sales_call(_ii.build, year)
+
+
+@app.route("/api/investment-income.csv", methods=["GET"])
+def investment_income_csv():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import investment_income as _ii
+    year, bad = _income_year()
+    if bad:
+        return bad
+    body = _ii.to_csv(_ii.build(_ytd_input_root(), year))
+    return make_response(body, 200, {"Content-Type": "text/csv; charset=utf-8",
+                                     "Content-Disposition": f"attachment; filename=investment_income_{year}.csv"})
+
+
+@app.route("/api/investment-income/symbol-type", methods=["POST"])
+def investment_income_symbol_type():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import investment_income as _ii
+    b = request.get_json(silent=True) or {}
+    return _sales_call(_ii.set_symbol_type, str(b.get("symbol") or ""), str(b.get("type") or "") or None)
+
+
+# ---- Sales a history-only broker import left out (src/history_sales.py) ----
+
+@app.route("/api/sales/history", methods=["GET"])
+def sales_history_list():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import history_sales as _hs
+    return _sales_call(_hs.list_unrecorded)
+
+
+@app.route("/api/sales/history/record", methods=["POST"])
+def sales_history_record():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import history_sales as _hs
+    b = request.get_json(silent=True) or {}
+    response = _sales_call(lambda root: _hs.record(root, str(b.get("key") or ""), tax_class=str(b.get("tax_class") or "") or None))
+    if response[1] == 200:
+        _audit("history_sale_recorded", {})
+    return response
+
+
+@app.route("/api/sales/history/dismiss", methods=["POST"])
+def sales_history_dismiss():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import history_sales as _hs
+    b = request.get_json(silent=True) or {}
+    return _sales_call(lambda root: _hs.dismiss(root, str(b.get("key") or "")))
+
+
 # ---- Broker activity bulk import (src/broker_import.py) ----
 
 def _broker_args(b: dict) -> dict:

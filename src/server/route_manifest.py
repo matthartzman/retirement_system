@@ -49,7 +49,9 @@ ROUTE_MODULES = {
         "/api/sales/broker/preview", "/api/sales/broker/commit", "/api/sales/broker/imports",
         "/api/sales/broker/imports/<int:import_id>/revert", "/api/cash", "/api/cash/year-close", "/api/cash/verify-account", "/api/cash/rollover-mark", "/api/year-end", "/api/year-end/confirm", "/api/transactions", "/api/transactions/log",
         "/api/transactions/backfill", "/api/transactions/accounts", "/api/transactions/accounts/<account>/managed", "/api/transactions/<int:txn_id>/revise", "/api/transactions/<int:txn_id>/void", "/api/transactions/transfer",
-        "/api/sales/<int:sale_id>/replace", "/api/sales/<int:sale_id>/requeue"],
+        "/api/sales/<int:sale_id>/replace", "/api/sales/<int:sale_id>/requeue",
+        "/api/sales/history", "/api/sales/history/record", "/api/sales/history/dismiss",
+        "/api/investment-income", "/api/investment-income.csv", "/api/investment-income/symbol-type"],
     "reconcile": ["/api/reconcile", "/api/reconcile/map", "/api/reconcile/preview", "/api/reconcile/apply", "/api/reconcile/undo", "/api/reconcile/log", "/api/reconcile/policy", "/api/reconcile/undo-auto", "/api/reconcile/seed"],
     "strategy_assets": [
         "/api/holdings", "/api/holdings/classes", "/api/holdings/preview", "/api/cash-accounts", "/api/cash-accounts/delete",
