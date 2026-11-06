@@ -231,6 +231,21 @@ jobs:
       run: |
         pytest "tests/test_frozen_sample_plan_golden_master_regression.py::FrozenSamplePlanGoldenMasterTests::test_frozen_plan_dollar_figures_are_exact" --timeout=300 --timeout-method=thread -q
 
+    # The phase golden-equality tests are @slow, so the PR-tier run above never
+    # executes them and an engine-output change only surfaced in the nightly
+    # (red 8 nights, 2026-10-28..11-05). Run them on PRs that touch the engine
+    # or the baselines. -m golden_master overrides the "not slow" filter.
+    - name: Phase golden equality (engine / baseline changes only)
+      if: github.event_name == 'pull_request'
+      shell: bash
+      run: |
+        git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+        if git diff --name-only FETCH_HEAD HEAD | grep -qE '^(src/|tools/golden_compare\.py|tests/fixtures/golden_phase_baseline/)'; then
+          pytest tests/test_phase_golden_equality_regression.py -m golden_master --timeout=1800--timeout-method=thread -v -rfE
+        else
+          echo "No engine or baseline changes; skipping."
+        fi
+
     - name: Fail if the test suite mutated input/
       run: git diff --exit-code -- input/
 

@@ -31,6 +31,17 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/pre_push_fast_gates.py",
+            "timeout": 600,
+            "statusMessage": "Running fast-gates before push..."
+          }
+        ]
+      },
+      {
         "matcher": "Read",
         "hooks": [
           {
