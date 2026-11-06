@@ -946,6 +946,33 @@ def flow_account_for_cash_row(row: dict[str, Any], setup_map: dict[str, dict[str
     return f"Unassigned investment (via {account_label(row)})"
 
 
+TAGGED_LEG_WINDOW_DAYS = 3
+
+
+def _tagged_investment_legs(ytd_rows, setup_map) -> list[tuple[str, date, float, str]]:
+    """``(kind, date, abs amount, account)`` for each Investment-account row carrying a flow tag."""
+    legs = []
+    for _idx, d, row in ytd_rows:
+        account = account_label(row)
+        if str(setup_map.get(account.lower(), {}).get("Role", "") or "") != "Investment":
+            continue
+        kind = forced_flow_kind(row)
+        if kind:
+            legs.append((kind, d, round(abs(parse_money(row.get("Amount"))), 2), account.lower()))
+    return legs
+
+
+def _investment_leg_already_counts(kind, d, amount, row, setup_map, legs) -> bool:
+    """True when a tagged Investment-account row mirrors this tagged checking-side row: same
+    flow kind and amount, within a few days, in the account its Notes name (any account when
+    Notes name none). The user tagged both legs of one movement; it must count once."""
+    target = flow_account_for_cash_row(row, setup_map).lower()
+    unnamed = target.startswith("unassigned investment")
+    amt = round(abs(amount), 2)
+    return any(k == kind and abs(a - amt) < 0.005 and abs((ld - d).days) <= TAGGED_LEG_WINDOW_DAYS
+               and (unnamed or acct == target) for k, ld, a, acct in legs)
+
+
 def classify_investment_transaction(row: dict[str, Any]) -> str:
     amount = parse_money(row.get("Amount"))
     if is_annuity_move(row):
@@ -1605,6 +1632,7 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
     monthly = {m: {"spending": 0.0, "income": 0.0, "growth": None, "taxes": 0.0} for m in range(1, 13)}
 
     passthrough, passthrough_review = investment_passthrough_review(ytd_rows, setup_map, passthrough_decisions)
+    tagged_investment_legs = _tagged_investment_legs(ytd_rows, setup_map)
     for tx_idx, d, row in ytd_rows:
         amount = parse_money(row.get("Amount"))
         account_key = str(row.get("Account", "") or "").strip().lower()
@@ -1655,6 +1683,10 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
         # A checking-side row the user tagged invest-deposit / invest-withdrawal is a real flow
         # into or out of an Investment account whose own leg Monarch may not have.
         forced = forced_flow_kind(row)
+        if forced and _investment_leg_already_counts(forced, d, amount, row, setup_map, tagged_investment_legs):
+            # The investment account's own leg of this same movement is tagged too: count it once.
+            transfer += amount
+            continue
         if forced:
             flow_acct = flow_account_for_cash_row(row, setup_map)
             if forced == "investment_deposit":

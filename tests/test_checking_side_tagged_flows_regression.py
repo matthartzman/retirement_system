@@ -48,3 +48,18 @@ def test_untagged_checking_transfer_is_not_a_flow(tmp_path):
     snap = _snapshot(tmp_path,
         "2026-02-10,Morgan Stanley,Transfer,Hartzman Checking,MSPBNA ACH TRNSFR,,-75000,,Household\n")
     assert not snap["investment_net_flows_by_account"]
+
+
+def test_a_movement_tagged_on_both_legs_counts_once(tmp_path):
+    # The checking row (Feb 10) and the Trust row (Feb 9) are the same $75,000.
+    snap = _snapshot(tmp_path,
+        "2026-02-10,Morgan Stanley,Transfer,Hartzman Checking,MSPBNA ACH TRNSFR,to Trust - Matt,-75000,invest-deposit,Household\n"
+        "2026-02-09,Transfer In,Transfer,Trust - Matt,Transfer,,-75000,invest-deposit,Household\n")
+    assert snap["investment_net_flows_by_account"]["Trust - Matt"]["from_checking"] == 75000.0
+
+
+def test_two_different_tagged_movements_both_count(tmp_path):
+    snap = _snapshot(tmp_path,
+        "2026-02-10,Morgan Stanley,Transfer,Hartzman Checking,MSPBNA ACH TRNSFR,to Trust - Matt,-75000,invest-deposit,Household\n"
+        "2026-05-09,Transfer In,Transfer,Trust - Matt,Transfer,,-75000,invest-deposit,Household\n")
+    assert snap["investment_net_flows_by_account"]["Trust - Matt"]["from_checking"] == 150000.0

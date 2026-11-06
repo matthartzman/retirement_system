@@ -11,6 +11,7 @@ cheap checks failing again and again, each discovered only after a CI round trip
   * test_frontend_size_ratchet                  (frontend/js grew past the ceiling)
   * test_freeze_frontend_source_grep            (new test asserting on frontend source text)
   * test_no_data_file_io_enforcing              (new data-file I/O outside the allowlist)
+  * test_text_hygiene                           (literal backspace from a non-raw regex string, mixed/CRLF line endings)
 
 Usage:  python tools/fast_gates.py            # all gates, stops on first failure
         python tools/fast_gates.py --keep-going
@@ -35,6 +36,7 @@ ALWAYS = [
     "tests/test_frontend_size_ratchet.py",
     "tests/test_freeze_frontend_source_grep.py",
     "tests/test_no_data_file_io_enforcing_regression.py",
+    "tests/test_text_hygiene_regression.py",
 ]
 
 
@@ -62,6 +64,7 @@ def main() -> int:
     py = sys.executable
     gates = [
         ("Account-number scan", [py, "tools/check_no_account_numbers.py"]),
+        ("Text hygiene (control chars, line endings)", [py, "tools/check_text_hygiene.py"]),
         ("ruff", [py, "-m", "ruff", "check", "src/", "tests/"]),
         (
             "Static source-text tests",
