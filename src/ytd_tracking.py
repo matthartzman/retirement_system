@@ -133,7 +133,7 @@ INVESTMENT_INCOME_RE = re.compile(r"\b(dividend|dividends|interest|qualified div
 TAX_RE = re.compile(r"\b(irs|treasury|federal tax(?:es)?|state tax(?:es)?|income tax(?:es)?|estimated tax(?:es)?|tax payment|withholding|fica|medicare tax(?:es)?|social security tax(?:es)?)\b", re.I)
 TRANSFER_RE = re.compile(r"\b(transfer|xfer|credit card payment|cc payment|payment thank you|autopay|investment buy|investment sell|move money|internal transfer|401\s*\(?k\)?\s+match|401\s*\(?k\)?\s+contribution|hsa contribution|health savings account contribution)\b", re.I)
 INVESTMENT_DEPOSIT_RE = re.compile(r"\b(deposit|contribution|transfer in|cash in|ach in|wire in|rollover|to brokerage|to investment)\b", re.I)
-INVESTMENT_WITHDRAWAL_RE = re.compile(r"\b(withdrawal|distribution|transfer out|cash out|ach out|wire out|from brokerage|from investment|rmd)\b", re.I)
+INVESTMENT_WITHDRAWAL_RE = re.compile(r"\b(withdrawa?l|distribution|transfer out|cash out|ach out|wire out|from brokerage|from investment|rmd)\b", re.I)
 
 EXCLUDED_SPENDING_CATEGORIES = {
     "buy",
@@ -903,8 +903,17 @@ def classify_cash_transaction(row: dict[str, Any]) -> str:
     return "neutral"
 
 
+FORCED_FLOW_TAG_RE = re.compile(r"\binvest(?:ment)?[- ](deposit|withdrawal)\b", re.I)
+
+
 def classify_investment_transaction(row: dict[str, Any]) -> str:
     amount = parse_money(row.get("Amount"))
+    # A Monarch tag (or note) the user adds beats any text guess: ``invest-deposit`` /
+    # ``invest-withdrawal`` force the flow kind, e.g. for an IRA-to-annuity wire or an
+    # HSA excess-contribution return whose statement text no pattern recognises.
+    override = FORCED_FLOW_TAG_RE.search(f"{row.get('Tags', '')} {row.get('Notes', '')}")
+    if override:
+        return "investment_deposit" if override.group(1).lower() == "deposit" else "investment_withdrawal"
     text = transaction_text(row)
     if TAX_RE.search(text):
         return "tax"
