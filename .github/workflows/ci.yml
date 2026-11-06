@@ -241,7 +241,7 @@ jobs:
       run: |
         git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
         if git diff --name-only FETCH_HEAD HEAD | grep -qE '^(src/|tools/golden_compare\.py|tests/fixtures/golden_phase_baseline/)'; then
-          pytest tests/test_phase_golden_equality_regression.py -m golden_master --timeout=1800--timeout-method=thread -v -rfE
+          pytest tests/test_phase_golden_equality_regression.py -m golden_master --timeout=1800 --timeout-method=thread -v -rfE
         else
           echo "No engine or baseline changes; skipping."
         fi
