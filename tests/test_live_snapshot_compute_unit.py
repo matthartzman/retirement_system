@@ -263,6 +263,20 @@ def test_gap_explained_by_todays_market_move_is_volatile_not_flagged():
     assert _row_by(rec["accounts"], "Member_1_IRA")["flag"] is True
 
 
+def test_balance_synced_partway_through_a_down_day_is_volatile():
+    # Yesterday's close value was 27000 and the live value is 26200; Monarch synced in between (26600).
+    quotes = {**QUOTES, "ITOT": {**QUOTES["ITOT"], "previous_close": 134.0}, "IXUS": {**QUOTES["IXUS"], "previous_close": 68.0}}
+    values = {"IRA - Matt": 26600.0, "Trust - Matt": 5950.0}
+    monarch = {**MONARCH, "latest_date": TODAY.isoformat(),
+               "by_account": [dict(a, value=values.get(a["account"], a["value"])) for a in MONARCH["by_account"]]}
+    ira = _row_by(_compute(quotes=quotes, monarch=monarch)["reconciliation"]["accounts"], "Member_1_IRA")
+    assert ira["delta"] == pytest.approx(-400) and ira["flag"] is False and ira["volatile"] is True
+    # A balance well above even yesterday's close is not the market.
+    monarch["by_account"] = [dict(a, value=29000.0) if a["account"] == "IRA - Matt" else a for a in monarch["by_account"]]
+    ira = _row_by(_compute(quotes=quotes, monarch=monarch)["reconciliation"]["accounts"], "Member_1_IRA")
+    assert ira["flag"] is True and ira["volatile"] is False
+
+
 # ---- reconciliation by account ----
 # Member_1_IRA: ITOT 13000 (day +100) + IXUS 13200 (day -50) = 26200, at Monarch's date 26150 vs 26000: +150 (0.58%).
 # Member_1_Trust: AVUV 5000 (day +50) + CASH 1000 (day 0) = 6000, at Monarch's date 5950 vs 6000: -50.
