@@ -41,4 +41,11 @@ def test_untagged_hsa_correction_rows_stay_out_of_the_flows():
 
 
 def test_wire_out_merchant_counts_as_a_withdrawal_without_a_tag():
-    assert classify_investment_transaction(_row("WIRE OUT - IRA TO ANNUITY", "-860000.00")) == "investment_withdrawal"
+    assert classify_investment_transaction(_row("WIRE OUT - TO BANK", "-860000.00")) == "investment_withdrawal"
+
+
+def test_moves_into_an_annuity_are_not_investment_flows_even_when_tagged():
+    # Liquid Investments and Cash shows the balance drop; Investment Net Flows must not.
+    for text in ("WIRE OUT - IRA/401K TO ANNUITY", "Wire Out - IRA to Annuity"):
+        assert classify_investment_transaction(_row(text, "-804000.00")) == "transfer"
+        assert classify_investment_transaction(_tagged(text, "-804000.00", "invest-withdrawal")) == "transfer"
