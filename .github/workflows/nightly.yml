@@ -22,6 +22,9 @@ on:
 jobs:
   full-suite:
     runs-on: windows-latest
+    permissions:
+      contents: read
+      issues: write
     steps:
     - uses: actions/checkout@v7
 
@@ -58,3 +61,21 @@ jobs:
 
     - name: Fail if the test suite mutated input/
       run: git diff --exit-code -- input/
+
+    # The 2026-10-28..11-05 nightlies were red for 8 nights running and nobody
+    # was told. Open (or comment on) one issue per failing day-streak so a red
+    # nightly is visible without anyone opening the Actions tab.
+    - name: Open or update a tracking issue on failure
+      if: failure()
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+        existing=$(gh issue list --state open --label nightly-failure --json number -q '.[0].number')
+        if [ -n "$existing" ]; then
+          gh issue comment "$existing" --body "Nightly failed again: $url"
+        else
+          gh label create nightly-failure --color B60205 2>/dev/null || true
+          gh issue create --label nightly-failure --title "Nightly full suite is failing" --body "First failing run: $url. Failures: see the run's pytest summary. Close this issue when the nightly is green."
+        fi
