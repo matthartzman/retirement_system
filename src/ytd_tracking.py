@@ -906,14 +906,38 @@ def classify_cash_transaction(row: dict[str, Any]) -> str:
 FORCED_FLOW_TAG_RE = re.compile(r"\binvest(?:ment)?[- ](deposit|withdrawal)\b", re.I)
 
 
+def forced_flow_kind(row: dict[str, Any]) -> str | None:
+    """``investment_deposit`` / ``investment_withdrawal`` when the row's Monarch tag (or note)
+    says ``invest-deposit`` / ``invest-withdrawal``, else None. A tag the user adds beats any
+    text guess, e.g. for an IRA-to-annuity wire or an HSA excess-contribution return whose
+    statement text no pattern recognises."""
+    override = FORCED_FLOW_TAG_RE.search(f"{row.get('Tags', '')} {row.get('Notes', '')}")
+    if not override:
+        return None
+    return "investment_deposit" if override.group(1).lower() == "deposit" else "investment_withdrawal"
+
+
+def flow_account_for_cash_row(row: dict[str, Any], setup_map: dict[str, dict[str, Any]]) -> str:
+    """The Investment account a tagged checking-side row moved money into or out of.
+
+    Monarch often has only the checking leg of a contribution. The user names the investment
+    account in the row's Notes (``Trust - Matt``); the longest Investment-role account name found
+    there wins. With none named the flow is kept, labelled by the checking account it came from,
+    so it still reaches the total rather than vanishing."""
+    notes = str(row.get("Notes", "") or "").lower()
+    named = [a for a, r in setup_map.items()
+             if str(r.get("Role", "") or "") == "Investment" and a and a in notes]
+    if named:
+        best = max(named, key=len)
+        return str(setup_map[best].get("Account") or best).strip()
+    return f"Unassigned investment (via {account_label(row)})"
+
+
 def classify_investment_transaction(row: dict[str, Any]) -> str:
     amount = parse_money(row.get("Amount"))
-    # A Monarch tag (or note) the user adds beats any text guess: ``invest-deposit`` /
-    # ``invest-withdrawal`` force the flow kind, e.g. for an IRA-to-annuity wire or an
-    # HSA excess-contribution return whose statement text no pattern recognises.
-    override = FORCED_FLOW_TAG_RE.search(f"{row.get('Tags', '')} {row.get('Notes', '')}")
-    if override:
-        return "investment_deposit" if override.group(1).lower() == "deposit" else "investment_withdrawal"
+    forced = forced_flow_kind(row)
+    if forced:
+        return forced
     text = transaction_text(row)
     if TAX_RE.search(text):
         return "tax"
@@ -1611,6 +1635,22 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
                 monthly[d.month]["spending"] += val
             else:
                 transfer += amount
+            continue
+
+        # A checking-side row the user tagged invest-deposit / invest-withdrawal is a real flow
+        # into or out of an Investment account whose own leg Monarch may not have.
+        forced = forced_flow_kind(row)
+        if forced:
+            flow_acct = flow_account_for_cash_row(row, setup_map)
+            if forced == "investment_deposit":
+                investment_deposits += abs(amount)
+            else:
+                investment_withdrawals += abs(amount)
+            accumulate_investment_flow(investment_flows, flow_acct, forced, amount)
+            accumulate_investment_flow_monthly(investment_flows_monthly, flow_acct, d, forced, amount)
+            accumulate_investment_flow_daily(investment_flows_daily, flow_acct, d, forced, amount)
+            transaction_type_totals[kind] -= amount  # re-file under the forced kind, not twice
+            transaction_type_totals[forced] = transaction_type_totals.get(forced, 0.0) + amount
             continue
 
         if kind == "transfer":
