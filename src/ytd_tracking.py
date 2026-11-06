@@ -903,7 +903,18 @@ def classify_cash_transaction(row: dict[str, Any]) -> str:
     return "neutral"
 
 
+# Money moved from an IRA/401k into an annuity stays in net worth but leaves the liquid balance.
+# That shows in Liquid Investments and Cash (a balance drop) and must NOT appear in Investment
+# Net Flows, even when the row also carries an invest-withdrawal tag or a "wire out" description.
+ANNUITY_MOVE_RE = re.compile(r"\b(?:to|into)\s+(?:an?\s+)?annuit(?:y|ies)\b", re.I)
+
 FORCED_FLOW_TAG_RE = re.compile(r"\binvest(?:ment)?[- ](deposit|withdrawal)\b", re.I)
+
+
+def is_annuity_move(row: dict[str, Any]) -> bool:
+    """True when the row describes a transfer into an annuity (merchant, statement, notes or tags)."""
+    return bool(ANNUITY_MOVE_RE.search(" ".join(
+        str(row.get(k, "") or "") for k in ("Merchant", "Original Statement", "Notes", "Tags"))))
 
 
 def forced_flow_kind(row: dict[str, Any]) -> str | None:
@@ -911,6 +922,8 @@ def forced_flow_kind(row: dict[str, Any]) -> str | None:
     says ``invest-deposit`` / ``invest-withdrawal``, else None. A tag the user adds beats any
     text guess, e.g. for an IRA-to-annuity wire or an HSA excess-contribution return whose
     statement text no pattern recognises."""
+    if is_annuity_move(row):
+        return None
     override = FORCED_FLOW_TAG_RE.search(f"{row.get('Tags', '')} {row.get('Notes', '')}")
     if not override:
         return None
@@ -935,6 +948,8 @@ def flow_account_for_cash_row(row: dict[str, Any], setup_map: dict[str, dict[str
 
 def classify_investment_transaction(row: dict[str, Any]) -> str:
     amount = parse_money(row.get("Amount"))
+    if is_annuity_move(row):
+        return "transfer"
     forced = forced_flow_kind(row)
     if forced:
         return forced
