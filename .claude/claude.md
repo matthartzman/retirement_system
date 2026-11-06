@@ -70,3 +70,11 @@ A review of 40 failed CI runs (2026-10-22 to 11-05) found the same few cheap che
 - **Never encode a tracking id in a test file name:** no `test_<N>_`, `test_wave<N>_`, `test_phase<N>_`, `test_item_<N>_` (`test_no_tracking_id_test_names_regression.py`). Name by what it covers, not which roadmap item shipped it.
 - **Specs and plans:** `documentation/future/...` or `documentation/archive/superpowers/{specs,plans}/YYYY-MM-DD-<topic>-{design,plan}.md`, with a `Status:` line in the first 20 lines.
 - Don't misspell a name to match source data (e.g. `withdrawl`) — name the file for the concept; the misspelling belongs only in test inputs.
+
+## Script-written files — escaping and line endings
+Ad-hoc scripts (heredocs, `python -c`, PowerShell here-strings) have repeatedly produced a literal backspace (0x08) where a regex `\b` belonged, and files with mixed or wrong line endings. `tools/check_text_hygiene.py` (run by `fast_gates.py`, CI via `tests/test_text_hygiene_regression.py`, and after every Write/Edit by `.claude/hooks/post_edit_text_hygiene.py`) now flags both. To avoid them:
+- **Prefer the Edit/Write tools** over scripts that rewrite files.
+- **Regexes are raw strings** (`r"\bword\b"`). In a plain Python string `"\b"` is a backspace, and `"\d"`/`"\s"` only work by accident. In JS use regex literals, not `new RegExp("\b...")` built through a shell.
+- **Quote heredocs** (`<<'EOF'`) so the shell doesn't touch backslashes; in PowerShell use single-quoted here-strings (`@'...'@`).
+- **Preserve line endings.** The repo stores LF; this Windows checkout is CRLF via `core.autocrlf`. Scripts must read and write with `newline=''` (or in binary mode) and keep the file's existing ending, never mix. Don't hand-convert a file to CRLF.
+- If the hook reports a finding, fix the file before doing anything else.

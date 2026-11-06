@@ -53,6 +53,19 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/post_edit_text_hygiene.py",
+            "timeout": 15,
+            "statusMessage": "Checking text hygiene..."
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
