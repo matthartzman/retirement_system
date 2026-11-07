@@ -60,13 +60,14 @@ def _drop(ws, section, subsection=None):
 
 
 # ------------------------------------------------------------------------ other assets
-def test_add_other_asset_adds_the_seven_rows_and_numbers_after_the_highest(ws, client):
+def test_add_other_asset_adds_the_nine_rows_and_numbers_after_the_highest(ws, client):
     before = _subs(ws, "Other Assets")
     n = max(int(s.rsplit(" ", 1)[1]) for s in before if s.startswith("Other Asset ")) + 1
     status, out = _post(client, "/api/other-asset/add", {"asset_type": "Boat"})
     assert (status, out) == (200, {"success": True, "section": f"Other Asset {n}", "message": "Added Boat other asset."})
     rows = _rows(ws, "Other Assets", f"Other Asset {n}")
-    assert [r["label"] for r in rows] == ["type", "name", "value", "as_of_date", "annual_appreciation_pct", "basis", "sell_date"]
+    assert [r["label"] for r in rows] == ["type", "name", "value", "as_of_date", "annual_appreciation_pct", "basis", "sell_date",
+                                         "purchase_date", "tax_treatment"]
     assert [r["value"] for r in rows][:3] == ["Boat", "Boat", "$0"]
     assert [r["units"] for r in rows][:3] == ["choice", "text", "dollars"]
     assert _subs(ws, "Other Assets") == [*before, f"Other Asset {n}"]
@@ -95,7 +96,8 @@ def test_note_receivable_add_and_delete_with_its_interest_rows(ws, client):
     status, out = _post(client, "/api/note-receivable/add", {"name": "Seller Note"})
     assert (status, out) == (200, {"success": True, "section": "Note 2", "message": "Added note Seller Note."})
     assert [r["label"] for r in _rows(ws, "Note Receivable", "Note 2")] == [
-        "name", "face_value", "first_payment", "last_payment", "annual_principal_base_period", "final_principal_2033"]
+        "name", "face_value", "first_payment", "last_payment", "annual_principal_base_period", "final_principal_2033",
+        "st_proceeds", "st_basis", "lt_proceeds", "lt_basis"]
     assert _rows(ws, "Note Receivable", "Note 2")[0]["value"] == "Seller Note"
     assert _post(client, "/api/note-receivable/add")[1]["message"] == "Added note New Note."
     assert _post(client, "/api/note-receivable/delete", {"subsection": "x"})[0] == 400

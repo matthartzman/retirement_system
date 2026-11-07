@@ -207,7 +207,11 @@ def test_surplus_plug_tracks_real_engine_surplus_closely():
                      + r.get('heloc_interest', 0) + r.get('heloc_repayment_principal', 0)
                      + r.get('fed_tax', 0) + r.get('state_tax', 0) + r.get('niit', 0)
                      + r.get('payroll_tax', 0) + r.get('irmaa', 0) + r.get('home_sale_tax', 0)
-                     + r.get('other_cash_need_yr', 0))
+                     + r.get('other_cash_need_yr', 0)
+                     # The chart itemizes capital-gains tax too ("LTCG Tax", state tax on gains in the state
+                     # series, "Other Asset Sale Tax"); a year with an Other Asset sale has a lot of it.
+                     + r.get('ltcg_tax', 0) - r.get('home_sale_tax', 0) + r.get('state_tax_on_capital_gains', 0)
+                     + r.get('other_asset_sale_stacked_tax', 0))
         local_plug = max(0, inc_total - exp_total)
         real_surplus = r.get('surplus', 0)
         assert abs(local_plug - real_surplus) <= 5000, (

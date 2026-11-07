@@ -251,7 +251,24 @@ function reconciliationHtml(rec) {
     + accountsSectionHtml(rec);
 }
 
-const TREATMENT = { pre_tax: "Taxed in full", after_tax: "Taxed above premium", note_interest: "Interest taxed", none: "Not taxed" };
+const TREATMENT = { pre_tax: "Taxed in full", after_tax: "Taxed above premium", note_interest: "Interest taxed", none: "Not taxed",
+  gains: "Taxed on gains", collectible_gains: "Taxed on gains (collectible)" };
+
+// Alternatives linked to a Planner Other Asset taxed on gains: the gain if sold today, at its own rate.
+export function alternativeLines(tax) {
+  const rate = { ltcg: tax.alternatives_ltcg_rate, collectible: tax.alternatives_collectible_rate, ordinary: tax.pre_tax_rate };
+  const how = { ltcg: "long-term gain", collectible: "collectible gain", ordinary: "held a year or less" };
+  return (tax.alternatives_rows || []).map((a) => [`${a.name}: ${how[a.kind]} if sold today`, a.gain, a.gain * (rate[a.kind] ?? 0), rate[a.kind]]);
+}
+
+function alternativesNote(tax) {
+  const rows = tax.alternatives_rows || [];
+  const noBasis = rows.filter((a) => a.basis_missing).map((a) => esc(a.name));
+  const noDate = rows.filter((a) => a.purchase_missing).map((a) => esc(a.name));
+  const parts = [noBasis.length ? `no basis for ${noBasis.join(", ")} (the whole value is taxed)` : "",
+    noDate.length ? `no purchase date for ${noDate.join(", ")} (counted as held over a year)` : ""].filter(Boolean);
+  return parts.length ? `<p class="note warn-text">Alternatives: ${parts.join("; ")}. Set them on the Retirement Planner's Other Asset Items.</p>` : "";
+}
 
 function taxHtml(tax) {
   const planner = tax.method === "planner";
@@ -265,6 +282,7 @@ function taxHtml(tax) {
   ];
   // Notes receivable: only the interest in the remaining payments is income (the Planner's interest schedule).
   for (const n of tax.note_rows || []) lines.splice(3, 0, [`Note interest still to be paid (${n.name})`, n.interest, ord(n.interest), tax.pre_tax_rate]);
+  lines.push(...alternativeLines(tax));
   if (planner && tax.hsa_balance) lines.push(["HSA balance (taxed if not left to a spouse)", tax.hsa_balance, tax.hsa_tax, tax.hsa_balance ? tax.hsa_tax / tax.hsa_balance : null]);
   const missing = (tax.basis_missing || []).length
     ? `<p class="note warn-text">After-tax premium not set for ${tax.basis_missing.map(esc).join(", ")}: not taxed until it is (Tax Treatment and After-Tax Premium on the Retirement Planner's Accounts &amp; Sources page).</p>`
@@ -278,7 +296,7 @@ function taxHtml(tax) {
     : planner
     ? `<p class="note">Same method as the Retirement Planner's after-tax figures, applied to today's balances: pre-tax money at the heirs' 10-year bracket rate${tax.rate_source === "settings" ? " (overridden in live_snapshot_settings.json)" : ""}; taxable-account gains${d ? ` (federal ${fmtUsd(d.federal)}, NIIT ${fmtUsd(d.niit)}, state ${fmtUsd(d.state)})` : ""} from the lots' cost basis with no step-up, since nobody has died yet. Assumes no other income. Flat 25% / 15% rates would give ${fmtUsd(tax.flat_total)} (${fmtUsd(tax.total - tax.flat_total)} different). The Planner's report figure is for the end of the plan, so it will differ.</p>`
     : `<p class="note">Flat rates (the Planner's plan could not be read): ordinary income at ${fmtPct(tax.pre_tax_rate, 0)}, taxable-account gains at ${fmtPct(tax.ltcg_rate, 0)}. An estimate, not a tax calculation.</p>`;
-  return `<div class="table-wrap"><table class="live-table simple">${head}<tbody>${body}</tbody></table></div>` + how + missing + realizedTaxHtml(tax);
+  return `<div class="table-wrap"><table class="live-table simple">${head}<tbody>${body}</tbody></table></div>` + how + missing + alternativesNote(tax) + realizedTaxHtml(tax);
 }
 
 // Tax on gains realized this year is a line of its own beside the unrealized estimate: a sold lot has left holdings,
