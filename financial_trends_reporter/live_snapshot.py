@@ -802,6 +802,52 @@ def note_interest_to_come(name: str, note_items: list[dict] | None, today: date)
     return None
 
 
+GAIN_TREATMENTS = ("gains", "collectible_gains")
+
+
+def other_asset_for(name: str, links: dict[str, str] | None, items: list[dict] | None) -> dict | None:
+    """The Planner Other Asset item behind a non-liquid row: the one the reconcile page linked it to
+    (``links`` = {imported account name: "Other Asset N"}), else the one whose name the row's name starts with."""
+    items = items or []
+    sub = _by_name(links, name)
+    if sub:
+        hit = next((i for i in items if str(i.get("section", "")).casefold() == str(sub).casefold()), None)
+        if hit:
+            return hit
+    folded = name.casefold()
+    named = [i for i in items if str(i.get("name") or "").strip() and folded.startswith(str(i["name"]).strip().casefold())]
+    return max(named, key=lambda i: len(str(i["name"]))) if named else None
+
+
+def alternative_gain(row_value: float, item: dict, today: date) -> dict[str, Any]:
+    """Unrealized gain on a linked Other Asset at today's value, and how it would be taxed if sold today:
+    kind ``ltcg`` (held over a year), ``collectible`` (art/collectibles held over a year, capped at 28%) or
+    ``ordinary`` (held a year or less). A blank basis taxes the whole value; a blank purchase date counts as
+    long-term. Both are reported so the page can say so."""
+    from src import other_asset_tax
+
+    purchased = other_asset_tax.parse_date(item.get("purchase_date", ""))
+    long_term = other_asset_tax.is_long_term(purchased, today)
+    basis = max(0.0, _num(item.get("basis")))
+    gain = max(0.0, row_value - basis)
+    kind = "ordinary" if not long_term else ("collectible" if item.get("tax_treatment") == "collectible_gains" else "ltcg")
+    return {"item": item.get("name", ""), "gain": round(gain, 2), "basis": round(basis, 2), "kind": kind,
+            "long_term": long_term, "basis_missing": not item.get("basis_entered"), "purchase_missing": purchased is None}
+
+
+def _collectible_rate(ordinary_rate: float, ltcg_rate: float) -> float:
+    """A collectible's long-term gain is taxed at ordinary rates but never above 28%; never below regular LTCG."""
+    from src.other_asset_tax import COLLECTIBLE_LTCG_CAP
+
+    return max(ltcg_rate, min(ordinary_rate, COLLECTIBLE_LTCG_CAP))
+
+
+def _alternatives_tax(gain: dict[str, float], ordinary_rate: float, ltcg_rate: float) -> float:
+    """Tax on the alternatives' long-term gains (regular and collectible). Short-term gains are ordinary income
+    and taxed with the ordinary total, not here."""
+    return gain["ltcg"] * ltcg_rate + gain["collectible"] * _collectible_rate(ordinary_rate, ltcg_rate)
+
+
 def _monarch_sections(monarch: dict | None, tax_overrides: dict[str, str] | None = None) -> dict[str, Any]:
     """Non-liquid assets, checking and debt from the latest Monarch balances (by account type)."""
     rows = (monarch or {}).get("by_account") or []
@@ -948,10 +994,18 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
     pre_tax_nl = annuity_gain = note_interest = 0.0
     basis_missing, note_rows = [], []
     note_items = (planner_cfg or {}).get("note_items")
+    # Alternatives (start-up equity, art ...) linked to a Planner Other Asset taxed on gains: the gain if sold today.
+    other_items, other_links = (planner_cfg or {}).get("other_asset_items"), tax_rates.get("other_asset_links")
+    alt_rows: list[dict[str, Any]] = []
     for r in sections["non_liquid"]["rows"]:
+        explicit = _by_name(tax_rates.get("non_liquid_tax"), r["name"]) is not None
         # A Planner note with no explicit treatment: its future interest is ordinary income.
         note = note_interest_to_come(r["name"], note_items, today) if r["tax_treatment"] == "none" else None
-        if note and _by_name(tax_rates.get("non_liquid_tax"), r["name"]) is None:
+        item = other_asset_for(r["name"], other_links, other_items) if r["tax_treatment"] == "none" and not explicit else None
+        if item and not note and item.get("tax_treatment") in GAIN_TREATMENTS:
+            r["tax_treatment"] = item["tax_treatment"]
+            alt_rows.append({"name": r["name"], **alternative_gain(r["value"], item, today)})
+        elif note and not explicit:
             r["tax_treatment"] = "note_interest"
             interest = min(note[1], max(0.0, r["value"]))
             note_interest += interest
@@ -964,8 +1018,10 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
                 annuity_gain += max(0.0, r["value"] - _num(premium))
             else:
                 basis_missing.append(r["name"])  # premium unknown: not taxed, listed so the page can say so
-    ordinary = pre_tax_balance + pre_tax_nl + annuity_gain + note_interest
-    flat_total = ordinary * pre_rate + unrealized * ltcg_rate
+    alt_gain = {k: sum(a["gain"] for a in alt_rows if a["kind"] == k) for k in ("ltcg", "collectible", "ordinary")}
+    # A short-term gain is ordinary income: it joins the ordinary total (and the Planner's rate on it).
+    ordinary = pre_tax_balance + pre_tax_nl + annuity_gain + note_interest + alt_gain["ordinary"]
+    flat_total = ordinary * pre_rate + unrealized * ltcg_rate + _alternatives_tax(alt_gain, pre_rate, ltcg_rate)
     tax = {"pre_tax_balance": round(pre_tax_balance, 2), "pre_tax_non_liquid": round(pre_tax_nl, 2),
            "annuity_taxable_gain": round(annuity_gain, 2), "basis_missing": basis_missing,
            "note_interest": round(note_interest, 2), "note_rows": note_rows, "pre_tax_rate": pre_rate,
@@ -977,6 +1033,23 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
     if planner:
         tax.update(planner)
         tax["total"] = round(tax["ordinary_tax"] + tax["ltcg_tax"] + tax["hsa_tax"], 2)
+    # Alternatives' long-term gains: with the Planner's method they are priced stacked on top of the holdings' gains
+    # (extra lots in the same federal + NIIT + state estimate) and the difference is theirs; otherwise the flat LTCG
+    # rate. Collectibles pay no less than min(ordinary, 28%). Short-term gains are inside ordinary_tax.
+    alt_ltcg_rate = ltcg_rate
+    if planner and alt_gain["ltcg"] > 0 and "ltcg_rate" not in (tax_rates.get("explicit") or []):
+        lots_alt = [{"tax": "taxable", "account": "Alternatives", "symbol": f"ALT:{a['name']}",
+                     "current": a["gain"] + a["basis"], "basis": a["basis"]} for a in alt_rows if a["kind"] == "ltcg"]
+        stacked = _planner_tax(planner_cfg, today, ordinary, positions + lots_alt, tax_rates)
+        if stacked:
+            alt_ltcg_rate = max(0.0, stacked["ltcg_tax"] - tax["ltcg_tax"]) / alt_gain["ltcg"]
+    alt_tax = _alternatives_tax(alt_gain, tax["pre_tax_rate"], alt_ltcg_rate)
+    tax.update({"alternatives_rows": alt_rows, "alternatives_gain": {k: round(v, 2) for k, v in alt_gain.items()},
+                "alternatives_ltcg_rate": round(alt_ltcg_rate, 4),
+                "alternatives_collectible_rate": round(_collectible_rate(tax["pre_tax_rate"], alt_ltcg_rate), 4),
+                "alternatives_tax": round(alt_tax, 2)})
+    if planner:
+        tax["total"] = round(tax["total"] + alt_tax, 2)
 
     # Tax on gains realized this year is its own line, beside (never inside) the unrealized estimate above.
     if sales or adjustments:
@@ -1080,6 +1153,24 @@ def saved_setup_aliases(base_dir: Path, balances_db: Path) -> dict[str, str]:
     return aliases
 
 
+def saved_other_asset_links(base_dir: Path, balances_db: Path) -> dict[str, str]:
+    """{imported account display name: "Other Asset N"}: the Other Asset Items the Planner's reconcile page
+    matched imported accounts to (mapping kind ``other_asset:Other Asset N``)."""
+    from . import account_registry
+
+    try:
+        names = {a["account_key"]: a["display_name"] for a in account_registry.list_accounts(balances_db)}
+        from src import active_plan
+        from src.reconcile import DYN_OTHER_ASSET
+
+        with active_plan.workspace_store(base_dir) as store:
+            mapping = store.monarch.mapping()
+    except Exception:  # no balances store or no plan store: fall back to matching by name
+        return {}
+    return {names[key]: str(m["kind"])[len(DYN_OTHER_ASSET):] for key, m in mapping.items()
+            if str(m.get("kind") or "").startswith(DYN_OTHER_ASSET) and key in names}
+
+
 def tax_rates(data_dir: str | Path, *, plan_ltcg: Any = "") -> dict[str, float]:
     """Rates for the estimated tax line. The plan has no rate for pre-tax balances, so it defaults
     to 25%; LTCG comes from the plan's tax-aware trades setting. ``live_snapshot_settings.json``
@@ -1158,6 +1249,7 @@ def _with_setup_tax(rates: dict[str, Any], base_dir: Path, balances_db: Path) ->
     treatment, premium = setup_tax_inputs(base_dir / "input", saved_setup_aliases(base_dir, balances_db))
     rates["non_liquid_tax"] = {**treatment, **rates.get("non_liquid_tax", {})}
     rates["annuity_basis"] = {**premium, **rates.get("annuity_basis", {})}
+    rates["other_asset_links"] = saved_other_asset_links(base_dir, balances_db)
     return rates
 
 
