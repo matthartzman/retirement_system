@@ -325,6 +325,8 @@ Other Assets,Other Asset 1,as_of_date,standard
 Other Assets,Other Asset 1,annual_appreciation_pct,standard
 Other Assets,Other Asset 1,basis,standard
 Other Assets,Other Asset 1,sell_date,standard
+Other Assets,Other Asset 1,purchase_date,standard
+Other Assets,Other Asset 1,tax_treatment,standard
 Other Assets,Other Asset 2,type,simple
 Other Assets,Other Asset 2,name,simple
 Other Assets,Other Asset 2,value,simple
@@ -332,6 +334,8 @@ Other Assets,Other Asset 2,as_of_date,standard
 Other Assets,Other Asset 2,annual_appreciation_pct,standard
 Other Assets,Other Asset 2,basis,standard
 Other Assets,Other Asset 2,sell_date,standard
+Other Assets,Other Asset 2,purchase_date,standard
+Other Assets,Other Asset 2,tax_treatment,standard
 Other Assets,Other Asset 3,type,simple
 Other Assets,Other Asset 3,name,simple
 Other Assets,Other Asset 3,value,simple
@@ -339,6 +343,8 @@ Other Assets,Other Asset 3,as_of_date,standard
 Other Assets,Other Asset 3,annual_appreciation_pct,standard
 Other Assets,Other Asset 3,basis,standard
 Other Assets,Other Asset 3,sell_date,standard
+Other Assets,Other Asset 3,purchase_date,standard
+Other Assets,Other Asset 3,tax_treatment,standard
 Other Assets,Other Asset 4,type,simple
 Other Assets,Other Asset 4,name,simple
 Other Assets,Other Asset 4,value,simple
@@ -346,6 +352,8 @@ Other Assets,Other Asset 4,as_of_date,standard
 Other Assets,Other Asset 4,annual_appreciation_pct,standard
 Other Assets,Other Asset 4,basis,standard
 Other Assets,Other Asset 4,sell_date,standard
+Other Assets,Other Asset 4,purchase_date,standard
+Other Assets,Other Asset 4,tax_treatment,standard
 Other Assets,Other Asset 5,type,simple
 Other Assets,Other Asset 5,name,simple
 Other Assets,Other Asset 5,value,simple
@@ -353,6 +361,8 @@ Other Assets,Other Asset 5,as_of_date,standard
 Other Assets,Other Asset 5,annual_appreciation_pct,standard
 Other Assets,Other Asset 5,basis,standard
 Other Assets,Other Asset 5,sell_date,standard
+Other Assets,Other Asset 5,purchase_date,standard
+Other Assets,Other Asset 5,tax_treatment,standard
 Other Assets,Other Asset 6,type,simple
 Other Assets,Other Asset 6,name,simple
 Other Assets,Other Asset 6,value,simple
@@ -360,6 +370,8 @@ Other Assets,Other Asset 6,as_of_date,standard
 Other Assets,Other Asset 6,annual_appreciation_pct,standard
 Other Assets,Other Asset 6,basis,standard
 Other Assets,Other Asset 6,sell_date,standard
+Other Assets,Other Asset 6,purchase_date,standard
+Other Assets,Other Asset 6,tax_treatment,standard
 Other Assets,Other Asset 7,type,simple
 Other Assets,Other Asset 7,name,simple
 Other Assets,Other Asset 7,value,simple
@@ -367,6 +379,8 @@ Other Assets,Other Asset 7,as_of_date,standard
 Other Assets,Other Asset 7,annual_appreciation_pct,standard
 Other Assets,Other Asset 7,basis,standard
 Other Assets,Other Asset 7,sell_date,standard
+Other Assets,Other Asset 7,purchase_date,standard
+Other Assets,Other Asset 7,tax_treatment,standard
 Other Assets,Other Asset 8,type,simple
 Other Assets,Other Asset 8,name,simple
 Other Assets,Other Asset 8,value,simple
@@ -374,6 +388,8 @@ Other Assets,Other Asset 8,as_of_date,standard
 Other Assets,Other Asset 8,annual_appreciation_pct,standard
 Other Assets,Other Asset 8,basis,standard
 Other Assets,Other Asset 8,sell_date,standard
+Other Assets,Other Asset 8,purchase_date,standard
+Other Assets,Other Asset 8,tax_treatment,standard
 Other Assets,Other Asset 9,type,simple
 Other Assets,Other Asset 9,name,simple
 Other Assets,Other Asset 9,value,simple
@@ -381,6 +397,8 @@ Other Assets,Other Asset 9,as_of_date,standard
 Other Assets,Other Asset 9,annual_appreciation_pct,standard
 Other Assets,Other Asset 9,basis,standard
 Other Assets,Other Asset 9,sell_date,standard
+Other Assets,Other Asset 9,purchase_date,standard
+Other Assets,Other Asset 9,tax_treatment,standard
 Other Assets,Other Asset 10,type,simple
 Other Assets,Other Asset 10,name,simple
 Other Assets,Other Asset 10,value,simple
@@ -388,6 +406,8 @@ Other Assets,Other Asset 10,as_of_date,standard
 Other Assets,Other Asset 10,annual_appreciation_pct,standard
 Other Assets,Other Asset 10,basis,standard
 Other Assets,Other Asset 10,sell_date,standard
+Other Assets,Other Asset 10,purchase_date,standard
+Other Assets,Other Asset 10,tax_treatment,standard
 Other Assets,Other Asset 11,type,simple
 Other Assets,Other Asset 11,name,simple
 Other Assets,Other Asset 11,value,simple
@@ -395,6 +415,8 @@ Other Assets,Other Asset 11,as_of_date,standard
 Other Assets,Other Asset 11,annual_appreciation_pct,standard
 Other Assets,Other Asset 11,basis,standard
 Other Assets,Other Asset 11,sell_date,standard
+Other Assets,Other Asset 11,purchase_date,standard
+Other Assets,Other Asset 11,tax_treatment,standard
 Other Assets,Other Asset 12,type,simple
 Other Assets,Other Asset 12,name,simple
 Other Assets,Other Asset 12,value,simple
@@ -402,6 +424,8 @@ Other Assets,Other Asset 12,as_of_date,standard
 Other Assets,Other Asset 12,annual_appreciation_pct,standard
 Other Assets,Other Asset 12,basis,standard
 Other Assets,Other Asset 12,sell_date,standard
+Other Assets,Other Asset 12,purchase_date,standard
+Other Assets,Other Asset 12,tax_treatment,standard
 Other Assets,Other Asset 13,type,simple
 Other Assets,Other Asset 13,name,simple
 Other Assets,Other Asset 13,value,simple
@@ -409,6 +433,8 @@ Other Assets,Other Asset 13,as_of_date,standard
 Other Assets,Other Asset 13,annual_appreciation_pct,standard
 Other Assets,Other Asset 13,basis,standard
 Other Assets,Other Asset 13,sell_date,standard
+Other Assets,Other Asset 13,purchase_date,standard
+Other Assets,Other Asset 13,tax_treatment,standard
 Other Assets,Other Asset 14,type,simple
 Other Assets,Other Asset 14,name,simple
 Other Assets,Other Asset 14,value,simple
@@ -416,6 +442,8 @@ Other Assets,Other Asset 14,as_of_date,standard
 Other Assets,Other Asset 14,annual_appreciation_pct,standard
 Other Assets,Other Asset 14,basis,standard
 Other Assets,Other Asset 14,sell_date,standard
+Other Assets,Other Asset 14,purchase_date,standard
+Other Assets,Other Asset 14,tax_treatment,standard
 Other Assets,Other Asset 15,type,simple
 Other Assets,Other Asset 15,name,simple
 Other Assets,Other Asset 15,value,simple
@@ -423,6 +451,8 @@ Other Assets,Other Asset 15,as_of_date,standard
 Other Assets,Other Asset 15,annual_appreciation_pct,standard
 Other Assets,Other Asset 15,basis,standard
 Other Assets,Other Asset 15,sell_date,standard
+Other Assets,Other Asset 15,purchase_date,standard
+Other Assets,Other Asset 15,tax_treatment,standard
 Other Assets,Other Asset 16,type,simple
 Other Assets,Other Asset 16,name,simple
 Other Assets,Other Asset 16,value,simple
@@ -430,6 +460,8 @@ Other Assets,Other Asset 16,as_of_date,standard
 Other Assets,Other Asset 16,annual_appreciation_pct,standard
 Other Assets,Other Asset 16,basis,standard
 Other Assets,Other Asset 16,sell_date,standard
+Other Assets,Other Asset 16,purchase_date,standard
+Other Assets,Other Asset 16,tax_treatment,standard
 Other Assets,Other Asset 17,type,simple
 Other Assets,Other Asset 17,name,simple
 Other Assets,Other Asset 17,value,simple
@@ -437,6 +469,8 @@ Other Assets,Other Asset 17,as_of_date,standard
 Other Assets,Other Asset 17,annual_appreciation_pct,standard
 Other Assets,Other Asset 17,basis,standard
 Other Assets,Other Asset 17,sell_date,standard
+Other Assets,Other Asset 17,purchase_date,standard
+Other Assets,Other Asset 17,tax_treatment,standard
 Other Assets,Other Asset 18,type,simple
 Other Assets,Other Asset 18,name,simple
 Other Assets,Other Asset 18,value,simple
@@ -444,6 +478,8 @@ Other Assets,Other Asset 18,as_of_date,standard
 Other Assets,Other Asset 18,annual_appreciation_pct,standard
 Other Assets,Other Asset 18,basis,standard
 Other Assets,Other Asset 18,sell_date,standard
+Other Assets,Other Asset 18,purchase_date,standard
+Other Assets,Other Asset 18,tax_treatment,standard
 Other Assets,Other Asset 19,type,simple
 Other Assets,Other Asset 19,name,simple
 Other Assets,Other Asset 19,value,simple
@@ -451,6 +487,8 @@ Other Assets,Other Asset 19,as_of_date,standard
 Other Assets,Other Asset 19,annual_appreciation_pct,standard
 Other Assets,Other Asset 19,basis,standard
 Other Assets,Other Asset 19,sell_date,standard
+Other Assets,Other Asset 19,purchase_date,standard
+Other Assets,Other Asset 19,tax_treatment,standard
 Other Assets,Other Asset 20,type,simple
 Other Assets,Other Asset 20,name,simple
 Other Assets,Other Asset 20,value,simple
@@ -458,6 +496,8 @@ Other Assets,Other Asset 20,as_of_date,standard
 Other Assets,Other Asset 20,annual_appreciation_pct,standard
 Other Assets,Other Asset 20,basis,standard
 Other Assets,Other Asset 20,sell_date,standard
+Other Assets,Other Asset 20,purchase_date,standard
+Other Assets,Other Asset 20,tax_treatment,standard
 Optional Functions,,ltc_life_policy,standard
 Cashflow,Charitable Giving,qcd_enabled,advanced
 Cashflow,Charitable Giving,h_qcd_annual_amount,advanced

@@ -6524,6 +6524,46 @@
    {
     "$tuple": [
      "Other Assets",
+     "Other Asset 1",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 1",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 1",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 1",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
      "Other Asset 2",
      "type"
     ]
@@ -6658,6 +6698,46 @@
     "min": "",
     "max": "",
     "description": "Optional planned sale date."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 2",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 2",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 2",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 2",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
    }
   ],
   [
@@ -6804,6 +6884,46 @@
    {
     "$tuple": [
      "Other Assets",
+     "Other Asset 3",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 3",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 3",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 3",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
      "Other Asset 4",
      "type"
     ]
@@ -6938,6 +7058,46 @@
     "min": "",
     "max": "",
     "description": "Optional planned sale date."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 4",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 4",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 4",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 4",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
    }
   ],
   [
@@ -7084,6 +7244,46 @@
    {
     "$tuple": [
      "Other Assets",
+     "Other Asset 5",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 5",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 5",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 5",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
      "Other Asset 6",
      "type"
     ]
@@ -7218,6 +7418,46 @@
     "min": "",
     "max": "",
     "description": "Optional planned sale date."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 6",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 6",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 6",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 6",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
    }
   ],
   [
@@ -7364,6 +7604,46 @@
    {
     "$tuple": [
      "Other Assets",
+     "Other Asset 7",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 7",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 7",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 7",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
      "Other Asset 8",
      "type"
     ]
@@ -7498,6 +7778,46 @@
     "min": "",
     "max": "",
     "description": "Optional planned sale date."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 8",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 8",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 8",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 8",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
    }
   ],
   [
@@ -7644,6 +7964,46 @@
    {
     "$tuple": [
      "Other Assets",
+     "Other Asset 9",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 9",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 9",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 9",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
      "Other Asset 10",
      "type"
     ]
@@ -7778,6 +8138,46 @@
     "min": "",
     "max": "",
     "description": "Optional planned sale date."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 10",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 10",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 10",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 10",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
    }
   ],
   [
@@ -7924,6 +8324,46 @@
    {
     "$tuple": [
      "Other Assets",
+     "Other Asset 11",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 11",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 11",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 11",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
      "Other Asset 12",
      "type"
     ]
@@ -8058,6 +8498,46 @@
     "min": "",
     "max": "",
     "description": "Optional planned sale date."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 12",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 12",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 12",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 12",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
    }
   ],
   [
@@ -8204,6 +8684,46 @@
    {
     "$tuple": [
      "Other Assets",
+     "Other Asset 13",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 13",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 13",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 13",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
      "Other Asset 14",
      "type"
     ]
@@ -8338,6 +8858,46 @@
     "min": "",
     "max": "",
     "description": "Optional planned sale date."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 14",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 14",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 14",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 14",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
    }
   ],
   [
@@ -8484,6 +9044,46 @@
    {
     "$tuple": [
      "Other Assets",
+     "Other Asset 15",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 15",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 15",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 15",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
      "Other Asset 16",
      "type"
     ]
@@ -8624,6 +9224,46 @@
    {
     "$tuple": [
      "Other Assets",
+     "Other Asset 16",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 16",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 16",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 16",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
      "Other Asset 17",
      "type"
     ]
@@ -8764,6 +9404,46 @@
    {
     "$tuple": [
      "Other Assets",
+     "Other Asset 17",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 17",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 17",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 17",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
      "Other Asset 18",
      "type"
     ]
@@ -8904,6 +9584,46 @@
    {
     "$tuple": [
      "Other Assets",
+     "Other Asset 18",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 18",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 18",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 18",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
      "Other Asset 19",
      "type"
     ]
@@ -9044,6 +9764,46 @@
    {
     "$tuple": [
      "Other Assets",
+     "Other Asset 19",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 19",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 19",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 19",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
      "Other Asset 20",
      "type"
     ]
@@ -9178,6 +9938,46 @@
     "min": "",
     "max": "",
     "description": "Optional planned sale date."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 20",
+     "purchase_date"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 20",
+    "label": "purchase_date",
+    "type": "date",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Date the asset was bought. Held more than one year is taxed as a long-term gain; one year or less as ordinary income."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Other Asset 20",
+     "tax_treatment"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Other Asset 20",
+    "label": "tax_treatment",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "How a sale is taxed: Not taxed | Taxed on gains | Taxed on gains (collectible). Blank = the type's default: autos and boats not taxed, art and collectibles collectible gains (long-term rate capped at 28%), everything else ordinary capital gains."
    }
   ],
   [
