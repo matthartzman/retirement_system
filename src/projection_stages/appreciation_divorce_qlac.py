@@ -5,6 +5,7 @@ from typing import Any, NamedTuple
 from .. import core as _aa  # consolidated from account_access
 from .. import core as _ar  # consolidated from account_registry
 from ..core import qlac_premium_limit
+from . import other_asset_sale_tax as _oas
 
 
 class Stage3Result(NamedTuple):
@@ -62,9 +63,11 @@ def apply_appreciation_divorce_qlac(
     2. **Auto depreciation** -- straight-line to zero over
        ``auto_dep_yrs``; a pure function of ``year``, carrying no state
        from prior years despite living next to two stateful events.
-    3. **Startup equity** -- grows at ``startup_gr`` until the
-       configured sale year, then liquidates in full to the first
-       taxable account (a one-time, non-recurring deposit).
+    3. **Other Assets** (start-up equity, art, collectibles) -- each
+       item grows, or shrinks with a negative rate, at its own rate and
+       is sold in its own sell year to the first taxable account; an
+       item with no sell date is held. ``startup`` comes back as the
+       value of the items still held.
     4. **Divorce/QDRO split** -- in the configured year, removes a flat
        percentage from every investment account. Not a taxable event
        (IRC S1041): dollars leave the household balance sheet with no
@@ -95,25 +98,20 @@ def apply_appreciation_divorce_qlac(
         cst_balance *= (1 + float(c.get('ret', 0.0) or 0.0))
     # Note: home_val appreciation is handled inside the home sale block below
     autos_val = max(0, c['autos'] - c['autos'] / max(1, c['auto_dep_yrs']) * (year - c['plan_start'] + 1))
-    # Startup equity: grow until sale year, then sell and deposit proceeds to Trust
-    sale_yr = c.get('startup_sale_year', 0)
-    sale_px = c.get('startup_sale_price', 0)
-    if sale_yr and year == sale_yr and startup > 0:
-        # Sale proceeds deposit to the first available taxable account.
-        proceeds = sale_px if sale_px > 0 else startup
-        _startup_acct = _aa.first_taxable(c)
-        _aa.deposit(bal, _startup_acct, proceeds)
-        _add_account_flow(account_deposits, _startup_acct, proceeds)
-        _tag_deposit_source(account_deposit_sources, _startup_acct, 'Startup Equity Sale', proceeds)
-        startup = 0.0
-        startup_sale_proceeds = proceeds
-    elif startup > 0 and (not sale_yr or year < sale_yr):
-        # Only appreciate if growth_rate > 0; stays flat when 0
-        if c['startup_gr'] > 0:
-            startup *= (1 + c['startup_gr'])
-        startup_sale_proceeds = 0.0
+    if _oas.startup_items(c):
+        # Each Other Asset (start-up equity, art ...) grows or shrinks at its own rate and is sold in its own
+        # sell year; one with no sell date is held. A pure function of the year, like the autos above.
+        startup_sale_proceeds = sum(p for _i, p in _oas.year_sales(c, year))
+        if startup_sale_proceeds > 0:
+            _startup_acct = _aa.first_taxable(c)
+            _aa.deposit(bal, _startup_acct, startup_sale_proceeds)
+            _add_account_flow(account_deposits, _startup_acct, startup_sale_proceeds)
+            _tag_deposit_source(account_deposit_sources, _startup_acct, 'Startup Equity Sale', startup_sale_proceeds)
+        startup = _oas.held_value(c, year)
     else:
-        startup_sale_proceeds = 0.0
+        # Legacy lump (a config built without other_asset_items): grow until the sale year, then sell it all.
+        startup, startup_sale_proceeds = _legacy_lump(c, year, startup, bal, account_deposits,
+                                                      account_deposit_sources)
 
     # ── Divorce/QDRO asset split (optimization-refactor Phase 6) ─────────
     # A one-time reduction of every investment account at a configured
@@ -167,6 +165,22 @@ def apply_appreciation_divorce_qlac(
         divorce_split_amount=divorce_split_amount,
         qlac_purchase_yr=qlac_purchase_yr,
     )
+
+
+def _legacy_lump(c, year, startup, bal, account_deposits, account_deposit_sources):
+    """Pre-2026-11 lump: ``startup`` grows at ``startup_gr`` (when positive) and sells whole in ``startup_sale_year``."""
+    sale_yr = c.get('startup_sale_year', 0)
+    sale_px = c.get('startup_sale_price', 0)
+    if sale_yr and year == sale_yr and startup > 0:
+        proceeds = sale_px if sale_px > 0 else startup
+        _startup_acct = _aa.first_taxable(c)
+        _aa.deposit(bal, _startup_acct, proceeds)
+        _add_account_flow(account_deposits, _startup_acct, proceeds)
+        _tag_deposit_source(account_deposit_sources, _startup_acct, 'Startup Equity Sale', proceeds)
+        return 0.0, proceeds
+    if startup > 0 and (not sale_yr or year < sale_yr) and float(c.get('startup_gr', 0) or 0) > 0:
+        startup *= (1 + c['startup_gr'])
+    return startup, 0.0
 
 
 def _add_account_flow(target: dict[str, float], acct: str | None, amount: float) -> None:
