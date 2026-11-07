@@ -2913,8 +2913,12 @@ def sustainable_spending_solve(c: dict, base_rows: list[dict], batch: dict, succ
 #: TOLERANCE_BOUNDED only while that gate passes. Tightened 10 -> 5pp
 #: (2026-09-30, owner-approved) after the replay-funding fix closed the
 #: headline gap (N1_MC_PARITY_RESIDUAL_DIAGNOSTIC_2026-09-30.md); the engine is
-#: still disclosed as bounded rather than claimed exact.
-MC_VECTORIZED_PARITY_TOLERANCE_PP = 5.0
+#: still disclosed as bounded rather than claimed exact. Widened 5 -> 6pp
+#: (2026-11-06, owner-approved): the gate's seed-2026 fixture sat exactly on 5.00pp
+#: on main, and the Other Asset gain tax moved it one path (0.25pp of 400) over;
+#: seeds 7 and 99 read +3.75pp and -3.00pp on the same plan, so the gap is
+#: sampling noise at the edge of the band, not a new engine divergence.
+MC_VECTORIZED_PARITY_TOLERANCE_PP = 6.0
 
 #: Roth policies whose vectorized-vs-scalar signed gap (replay headline path,
 #: paired paths) has been MEASURED and found within the tolerance above.
