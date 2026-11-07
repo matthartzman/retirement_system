@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .. import platform_runtime as _platform_runtime
+from .. import other_asset_tax
 from .. import plan_overrides as _plan_overrides
 from ..plan_data_backfill import insert_rows_at
 from ..spending_adjustments import ADJ_SUBSECTION, adjustment_dicts_from_plan_rows, adjustment_plan_rows, validate_adjustment_dicts
@@ -1028,6 +1029,7 @@ class StrategyAssetService:
                 ["Other Assets", sub, "annual_appreciation_pct", "0.00%", "percent", "Annual appreciation (+) or depreciation (-)."],
                 ["Other Assets", sub, "basis", "", "dollars", "Purchase price or tax basis for appreciating assets."],
                 ["Other Assets", sub, "sell_date", "", "date", "Optional planned sale date."],
+                *other_asset_tax.added_field_rows(sub),
             ])
             return ({"success": True, "section": sub, "message": f"Added {typ} other asset."}, 200,
                     ("other_asset_item_added", {"section": sub, "asset_type": typ}))

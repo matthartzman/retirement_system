@@ -723,6 +723,7 @@ def parse_spending_and_home_sale(data, c):
 def parse_housing_and_other_assets(data, c):
     """Housing steps, typed other assets, note receivable, HSA policy and the liquidity-reserve start."""
     from ..data_io import _n, _v, _y, parse_hsa_policy, parse_note_receivable, re
+    from .. import other_asset_tax as _oat
     # Future housing steps (rent/buy) are entered on the Housing page and feed
     # both annual cash flow and net worth.  A blank start year disables a step.
     c['next_housing_steps'] = []
@@ -771,9 +772,13 @@ def parse_housing_and_other_assets(data, c):
     # Other Assets > Other Asset N.  The UI stores the estimated value, the
     # date of that estimate, an annual appreciation/depreciation rate, optional
     # basis for appreciating assets, and an optional sell date.  Convert those
-    # rows into the legacy aggregate fields used by the projection/report tabs
-    # (startup_val/autos_val) without supporting the old Startup Equity/Autos
-    # subsections.
+    # rows into other_asset_items plus the aggregate fields used by the
+    # projection/report tabs (startup_eq = plan-start total of the non-vehicle
+    # items, autos) without supporting the old Startup Equity/Autos
+    # subsections. The engine grows and sells each non-vehicle item on its own
+    # (projection_stages/other_asset_sale_tax.py); startup_gr/startup_sale_year/
+    # startup_sale_price only drive the legacy lump for configs without items,
+    # so they stay 0 here.
     c['other_asset_items'] = []
     c['startup_eq'] = 0.0
     c['startup_gr'] = 0.0
@@ -781,7 +786,6 @@ def parse_housing_and_other_assets(data, c):
     c['startup_sale_price'] = 0.0
     c['autos'] = 0.0
     c['auto_dep_yrs'] = 7
-    _startup_weight = 0.0
     _auto_dep_years_weight = 0.0
     _auto_weight = 0.0
     for _sub, _vals in (data.get('Other Assets') or {}).items():
@@ -799,11 +803,19 @@ def parse_housing_and_other_assets(data, c):
             _current_value = _value * (_base ** (c['plan_start'] - _asof_year)) if _base > 0 else _value
         except Exception:
             _current_value = _value
+        _purchased = _oat.parse_date(_vals.get('purchase_date', ''))
+        _sold = _oat.parse_date(_vals.get('sell_date', ''))
         _item = {
             'section': _sub, 'type': _typ, 'name': _name,
             'value': _current_value, 'as_of_year': _asof_year,
             'annual_appreciation_pct': _rate, 'basis': _basis,
             'sell_year': _sell_year,
+            # ISO strings ('' when blank): the config is serialized.
+            'sell_date': _sold.isoformat() if _sold else '',
+            'purchase_date': _purchased.isoformat() if _purchased else '',
+            # none | gains | collectible_gains (src/other_asset_tax.py); blank takes the type's default.
+            'tax_treatment': _oat.resolve_treatment(_typ, _vals.get('tax_treatment', '')),
+            'basis_entered': bool(str(_vals.get('basis', '') or '').strip()),
         }
         c['other_asset_items'].append(_item)
         _ntyp = re.sub(r'[^a-z0-9]+', '_', _typ.lower()).strip('_')
@@ -814,20 +826,11 @@ def parse_housing_and_other_assets(data, c):
                 _auto_dep_years_weight += _yrs * max(0.0, _current_value)
                 _auto_weight += max(0.0, _current_value)
         else:
+            # Grown at its own rate and sold in its own sell_year (projection_stages/other_asset_sale_tax.py).
+            _item['in_startup'] = True
             c['startup_eq'] += _current_value
-            _startup_weight += max(0.0, _current_value)
-            c['startup_gr'] += _rate * max(0.0, _current_value)
-            if _sell_year and (not c['startup_sale_year'] or _sell_year < c['startup_sale_year']):
-                c['startup_sale_year'] = _sell_year
-    if _startup_weight > 0:
-        c['startup_gr'] = c['startup_gr'] / _startup_weight
     if _auto_weight > 0:
         c['auto_dep_yrs'] = int(round(_auto_dep_years_weight / _auto_weight)) if _auto_dep_years_weight else 7
-    if c['startup_sale_year'] and c['startup_eq'] > 0:
-        # When no explicit sale price exists in the new compact table, project
-        # sale proceeds from the current value and annual appreciation rate.
-        _years_to_sale = max(0, c['startup_sale_year'] - c['plan_start'])
-        c['startup_sale_price'] = c['startup_eq'] * ((1.0 + c['startup_gr']) ** _years_to_sale if (1.0 + c['startup_gr']) > 0 else 1.0)
     # Straight-line depreciation: value / depreciation_years per year → $0 at end of life.
 
     # Note Receivable — see src/parsing/note_receivable.py for the full

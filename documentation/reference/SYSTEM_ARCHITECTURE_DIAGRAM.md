@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 316 Python files under `src/`, 69 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 318 Python files under `src/`, 69 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,10 +24,10 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (228 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (229 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
-    subgraph L_Projection_Stages["Projection Stages (24 modules)"]
+    subgraph L_Projection_Stages["Projection Stages (25 modules)"]
         L_Projection_Stages_d["Deterministic year-by-year projection engine internals"]
     end
     subgraph L_Reporting___Workbook["Reporting / Workbook (26 modules)"]
@@ -651,6 +651,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/observability.py` | — | — |
 | `src/onedrive_guard.py` | — | — |
 | `src/optimization.py` | `allocation_policy`, `holding_period`, `real_loss_curves`, `stores.ref_getters.cma`, `vectorized_fast_core` | `numpy`, `scipy` |
+| `src/other_asset_tax.py` | — | — |
 | `src/parsing/__init__.py` | — | — |
 | `src/parsing/advanced_modules.py` | `data_io` | — |
 | `src/parsing/allocation_optimizer_inputs.py` | `data_io` | — |
@@ -767,7 +768,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 |---|---|---|
 | `src/projection_stages/__init__.py` | `projection_stages.deterministic_engine`, `projection_stages.year_state` | — |
 | `src/projection_stages/amt_equity_comp_true_up.py` | `core` | — |
-| `src/projection_stages/appreciation_divorce_qlac.py` | `core` | — |
+| `src/projection_stages/appreciation_divorce_qlac.py` | `core`, `projection_stages` | — |
 | `src/projection_stages/budget_rollups.py` | `fallback_log` | — |
 | `src/projection_stages/cashflow_breakdown.py` | — | — |
 | `src/projection_stages/deaths_and_spousal_rollover.py` | `engine_kernels` | — |
@@ -775,6 +776,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/projection_stages/effective_marginal_rate.py` | `core`, `engine_kernels` | — |
 | `src/projection_stages/home_sale.py` | `engine_kernels`, `rental_tax` | — |
 | `src/projection_stages/income.py` | `engine_kernels`, `equity_comp`, `ss_earnings_test`, `tax_law` | — |
+| `src/projection_stages/other_asset_sale_tax.py` | `core` | — |
 | `src/projection_stages/portfolio_growth_and_net_worth.py` | `engine_kernels` | — |
 | `src/projection_stages/rental_property.py` | `module_catalog`, `projection_stages.home_sale`, `rental_tax`, `tax_law` | — |
 | `src/projection_stages/roth_conversion_and_agi_tax.py` | `core`, `engine_kernels`, `projection_stages.home_sale`, `projection_stages.spending_tiers`, `tax_law` | — |

@@ -112,6 +112,11 @@ except ImportError:
     from src import plan_data_backfill
 
 try:
+    from .. import other_asset_tax
+except ImportError:
+    from src import other_asset_tax
+
+try:
     from .. import platform_runtime
 except ImportError:  # direct execution fallback
     from src import platform_runtime
@@ -665,6 +670,8 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
         ],
     ),
     _BF.BackfillEntry(TLH_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Identity"))),
+    # Purchase date and tax treatment on every Other Asset item made before they existed (2026-11).
+    _BF.BackfillEntry(other_asset_tax.backfill_rows, from_plan=True),
 ]
 
 

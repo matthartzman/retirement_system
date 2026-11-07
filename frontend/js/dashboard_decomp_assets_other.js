@@ -82,6 +82,14 @@ export function otherAssetInputCell(sub, label, placeholder = "") {
   return `<input class="year-cell" type="${isDateField(r) ? "date" : "text"}" value="${esc(displayValueForInput(r, valOf(r)))}" placeholder="${esc(placeholder || r.schema?.default || "")}" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)">`;
 }
 
+// How a sale is taxed (src/other_asset_tax.py); blank = the type's default, named in the first option.
+export function otherAssetTreatmentCell(sub) {
+  const r = otherAssetRow(sub, "tax_treatment"), t = norm(valOf(otherAssetRow(sub, "type")) || "");
+  if (!r) return '<span class="small">—</span>';
+  const def = /auto|boat|vehicle|car|truck|rv/.test(t) ? "Not taxed" : /(^|_)art($|_)|collectible/.test(t) ? "Taxed on gains (collectible)" : "Taxed on gains";
+  return `<select aria-label="Tax treatment" onchange="editValue(${r.row_index},this.value,this)" onfocus="showFieldHelp(${r.row_index})">${["", "Not taxed", "Taxed on gains", "Taxed on gains (collectible)"].map((o) => `<option value="${esc(o)}" ${o === String(valOf(r) || "") ? "selected" : ""}>${esc(o || `Default: ${def}`)}</option>`).join("")}</select>`;
+}
+
 export function renderOtherAssetItemsTable() {
   const subs = otherAssetSubsections();
   let html = `<details data-help-section="assets_special.other_asset_items"><summary>Other Asset Items</summary><div class="field-list">`;
@@ -92,9 +100,9 @@ export function renderOtherAssetItemsTable() {
       "<p>No typed other assets yet. Add an asset to track an auto, boat, start-up equity, art, or other non-portfolio item.</p></div></details>"
     );
   }
-  html += `<div class="matrix-wrap" role="region" aria-label="Other assets" tabindex="0"><table class="matrix-table"><thead><tr><th>Type</th><th>Name</th><th>Value</th><th>As-of date</th><th>Annual +/- %</th><th>Basis</th><th>Sell date</th><th></th></tr></thead><tbody>`;
+  html += `<div class="matrix-wrap" role="region" aria-label="Other assets" tabindex="0"><table class="matrix-table"><thead><tr><th>Type</th><th>Name</th><th>Value</th><th>As-of date</th><th>Annual +/- %</th><th>Basis</th><th>Purchase date</th><th>Sell date</th><th>Tax treatment</th><th></th></tr></thead><tbody>`;
   subs.forEach((sub) => {
-    html += `<tr><td>${otherAssetTypeCell(otherAssetRow(sub, "type"))}</td><td>${otherAssetInputCell(sub, "name")}</td><td>${otherAssetInputCell(sub, "value")}</td><td>${otherAssetInputCell(sub, "as_of_date")}</td><td>${otherAssetInputCell(sub, "annual_appreciation_pct")}</td><td>${otherAssetInputCell(sub, "basis")}</td><td>${otherAssetInputCell(sub, "sell_date")}</td><td>${deleteIconBtn(`deleteOtherAssetItem('${escJs(sub)}')`)}</td></tr>`;
+    html += `<tr><td>${otherAssetTypeCell(otherAssetRow(sub, "type"))}</td><td>${otherAssetInputCell(sub, "name")}</td><td>${otherAssetInputCell(sub, "value")}</td><td>${otherAssetInputCell(sub, "as_of_date")}</td><td>${otherAssetInputCell(sub, "annual_appreciation_pct")}</td><td>${otherAssetInputCell(sub, "basis")}</td><td>${otherAssetInputCell(sub, "purchase_date")}</td><td>${otherAssetInputCell(sub, "sell_date")}</td><td>${otherAssetTreatmentCell(sub)}</td><td>${deleteIconBtn(`deleteOtherAssetItem('${escJs(sub)}')`)}</td></tr>`;
   });
   html +=
     '</tbody></table></div></div></details>';
@@ -689,6 +697,7 @@ Object.assign(window, {
   otherAssetRow,
   otherAssetTypeCell,
   otherAssetInputCell,
+  otherAssetTreatmentCell,
   renderOtherAssetItemsTable,
   addOtherAssetItem,
   deleteOtherAssetItem,

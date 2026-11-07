@@ -60,13 +60,14 @@ def _drop(ws, section, subsection=None):
 
 
 # ------------------------------------------------------------------------ other assets
-def test_add_other_asset_adds_the_seven_rows_and_numbers_after_the_highest(ws, client):
+def test_add_other_asset_adds_the_nine_rows_and_numbers_after_the_highest(ws, client):
     before = _subs(ws, "Other Assets")
     n = max(int(s.rsplit(" ", 1)[1]) for s in before if s.startswith("Other Asset ")) + 1
     status, out = _post(client, "/api/other-asset/add", {"asset_type": "Boat"})
     assert (status, out) == (200, {"success": True, "section": f"Other Asset {n}", "message": "Added Boat other asset."})
     rows = _rows(ws, "Other Assets", f"Other Asset {n}")
-    assert [r["label"] for r in rows] == ["type", "name", "value", "as_of_date", "annual_appreciation_pct", "basis", "sell_date"]
+    assert [r["label"] for r in rows] == ["type", "name", "value", "as_of_date", "annual_appreciation_pct", "basis", "sell_date",
+                                         "purchase_date", "tax_treatment"]
     assert [r["value"] for r in rows][:3] == ["Boat", "Boat", "$0"]
     assert [r["units"] for r in rows][:3] == ["choice", "text", "dollars"]
     assert _subs(ws, "Other Assets") == [*before, f"Other Asset {n}"]
