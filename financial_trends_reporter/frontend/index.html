@@ -101,6 +101,9 @@
   .pop-val { text-align: right; font-variant-numeric: tabular-nums; }
   .pop-change { display: flex; justify-content: space-between; gap: 12px; margin: 2px 0 6px; font-size: 12px; }
   .pop-total { display: flex; justify-content: space-between; gap: 12px; margin: 2px 0; font-weight: 600; }
+  /* The Change line's three parts (Liquid Investments and Cash), indented under it. */
+  .pop-parts { margin: -4px 0 6px; padding-left: 10px; border-left: 2px solid rgba(127,127,127,.3); }
+  .pop-parts .pop-row { grid-template-columns: 140px 1fr 80px; }
   .legend { font-size: 11px; color: #888; margin-top: 6px; }
   .error { color: #b91c1c; font-size: 13px; }
   @media (prefers-color-scheme: dark) { .error { color: #f87171; } }
@@ -382,7 +385,7 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, toPercentChange, toShareOfTotal, flowsAsShareOfLiquid, setSpendShareBase, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, nearMatchClause, priceErrorText, rolloverModel, rolloverHtml, rolloverChange, flowRolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText, setShowFullYear, fullYearDefault } from "./charts.js";
+import { fmtMoney, toPercentChange, toShareOfTotal, flowsAsShareOfLiquid, setSpendShareBase, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, nearMatchClause, priceErrorText, rolloverModel, rolloverHtml, rolloverChange, changeParts, flowRolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText, setShowFullYear, fullYearDefault } from "./charts.js";
 import { initSpendingDock } from "./spending_dock.js";
 import { setMoneyView, moneyView, onMoneyViewChange, netWorthScale, fmtSharePct } from "./money_view.js";
 import { formatElapsed, recordPopupRuntime, averageRuntimeText, loadPopupRuntimeHistory } from "/shared/runtime_history.js";
@@ -432,6 +435,7 @@ let chartRows = [];
 // imported data (best effort: the page still works from the plan-derived log without it).
 let balances = null;      // /api/balances
 let flowsData = null;     // /api/flows
+let liquidChange = null;  // /api/liquid-change: the Liquid pop-up's Change parts
 
 // Charts are drawn at their card's measured width (no horizontal scrolling); 0 = unknown.
 const FITTED_CHARTS = ["chartNetWorth", "chartHoldings", "chartInvFlows", "chartCategories"];
@@ -673,6 +677,12 @@ async function loadMonarch() {
   } catch (err) {
     flowsData = null;
   }
+  try {
+    const resp = await fetch("/api/liquid-change");
+    liquidChange = resp.ok ? await resp.json() : null;
+  } catch (err) {
+    liquidChange = null;
+  }
 }
 
 async function loadHistory() {
@@ -746,6 +756,7 @@ function showRollover(dot, kind) {
   const model = row && row.source && hasMonarchBalances(balances) ? monarchRolloverModel(row, balances, kind) : rolloverModel(row, kind);
   if (!model) { hideRollover(); return; }
   model.prior = rolloverChange(chartRows, Number(dot.dataset.i), kind);
+  if (kind === "investments") model.parts = changeParts(model.total, model.prior, row.as_of_date, liquidChange, balances);
   rollPopup.innerHTML = rolloverHtml(model);
   rollPopup.style.display = "block";
   const r = dot.getBoundingClientRect(), pw = rollPopup.offsetWidth;

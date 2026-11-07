@@ -31,6 +31,7 @@ K = 2_000_000.0
 KNOWN_SCALED = {
     "/api/history", "/api/accounts", "/api/balances", "/api/flows", "/api/spending",
     "/api/live-snapshot", "/api/app-accounts", "/api/account", "/api/run-now", "/api/exit", "/api/realized", "/api/projections",
+    "/api/liquid-change",
 }
 
 
@@ -94,7 +95,18 @@ def _realized(tmp_path):
     return rv.build(sales=rvu.SALES, candidates=rvu.CANDIDATES, lots=rvu.LOTS, today=rvu.TODAY, start="2026-01-01", include_unconfirmed=True)
 
 
+def _liquid_change(tmp_path):
+    from financial_trends_reporter import liquid_change as lc
+
+    tx = [{"Date": "2026-10-01", "Account": "Checking", "Category": "Paychecks", "Amount": "5000"},
+          {"Date": "2026-10-02", "Account": "Checking", "Category": "Interest", "Amount": "3.5"}]
+    broker = [{"run_date": "2026-09-30", "account": "Member_1_IRA", "kind": "dividend", "amount": 120.0,
+               "fees": 1.0, "commission": None, "action": ""}]
+    return lc.ledger(tx, broker, {"Member_1_IRA": "IRA - Matt"})
+
+
 BUILDERS = {
+    "/api/liquid-change": lambda client, tmp: _liquid_change(tmp),
     "/api/realized": lambda client, tmp: _realized(tmp),
     "/api/balances": lambda client, tmp: _get(client, "/api/balances"),
     "/api/flows": lambda client, tmp: _get(client, "/api/flows"),
