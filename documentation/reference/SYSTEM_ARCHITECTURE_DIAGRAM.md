@@ -768,7 +768,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 |---|---|---|
 | `src/projection_stages/__init__.py` | `projection_stages.deterministic_engine`, `projection_stages.year_state` | — |
 | `src/projection_stages/amt_equity_comp_true_up.py` | `core` | — |
-| `src/projection_stages/appreciation_divorce_qlac.py` | `core` | — |
+| `src/projection_stages/appreciation_divorce_qlac.py` | `core`, `projection_stages` | — |
 | `src/projection_stages/budget_rollups.py` | `fallback_log` | — |
 | `src/projection_stages/cashflow_breakdown.py` | — | — |
 | `src/projection_stages/deaths_and_spousal_rollover.py` | `engine_kernels` | — |

@@ -1297,7 +1297,7 @@ def run_deterministic_projection_stage(c):
             row['realized_ledger_ltcg_gain'] = float(_seed_yr['gain_ltcg'])
         # Other Asset sale (start-up equity, art ...): the long-term gain rides the same LTCG line; collectible
         # and short-term gains are taxed as a fixed amount below (projection_stages/other_asset_sale_tax.py).
-        _oa_gains = _other_asset_sale.sale_gains(c, year, row.get('startup_sale_proceeds', 0.0))
+        _oa_gains = _other_asset_sale.sale_gains(c, year)
         if _oa_gains.ltcg_gain > 0:
             home_sale_ltcg_gain = float(home_sale_ltcg_gain or 0.0) + _oa_gains.ltcg_gain
         sale_gain_in_agi = max(0.0, float(home_sale_ltcg_gain or 0.0))
