@@ -70,6 +70,11 @@ export async function deleteLiquidityBuffer(i) {
   markLiquidityDirty();
   renderMain();
 }
+// Standard checking / credit-card balances for the forecast years (src/working_balances.py).
+export function renderStandardCashBalances() {
+  const std = rowsForStep("assets_home_cash").filter((r) => /_(standard_balance|annual_change_pct)$/.test(r.label));
+  return std.length ? `<details open><summary>Checking & credit-card balances in forecast years</summary><div class="field-list">${std.map(fieldHtml).join("")}</div></details>` : "";
+}
 export function renderLiquidityBuffers() {
   let html = `<div class="holdings" data-help-section="assets_home_cash.reserve_rules"><h3 class="group-title">Reserve requirements ${window.RPHelp?.sectionButtonHtml("assets_home_cash.reserve_rules") || ""}</h3><div class="table-actions"><button class="btn" type="button" onclick="addLiquidityBuffer()">Add reserve rule</button></div><div class="lot-table-wrap"><table class="lot-table liquidity-table"><thead><tr><th>Start year</th><th>End year</th><th>Years of expenses to retain</th><th>Reserve account</th><th></th></tr></thead><tbody>`;
   if (!liquidityBuffers.length) {
@@ -378,12 +383,12 @@ export function renderResidencySchedule() {
 // functions below need the window bridge, for dashboard.js's calls and this
 // file's own inline onclick/oninput HTML attributes.
 Object.assign(window, {
-  
-  
-  
-  
-  
-  
+  renderStandardCashBalances,
+
+
+
+
+
   loadTravelExtras,
   saveTravelExtras,
   markLiquidityDirty,

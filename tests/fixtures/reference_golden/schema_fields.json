@@ -1903,6 +1903,86 @@
   [
    {
     "$tuple": [
+     "Other Assets",
+     "Cash",
+     "checking_standard_balance"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Cash",
+    "label": "checking_standard_balance",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "0",
+    "max": "",
+    "description": "Standard balance for all checking accounts together, used for every year after the current one. The current year keeps today's balances. Blank = hold today's balance. A change from the prior year moves between checking and your first taxable account."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Cash",
+     "checking_annual_change_pct"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Cash",
+    "label": "checking_annual_change_pct",
+    "type": "percent",
+    "required": "FALSE",
+    "default": "",
+    "min": "-100",
+    "max": "100",
+    "description": "Yearly percent change in the standard checking balance, applied from the year after the first forecast year (1.5% grows it, -1.5% shrinks it). Blank = 0%."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Cash",
+     "credit_card_standard_balance"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Cash",
+    "label": "credit_card_standard_balance",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "0",
+    "max": "",
+    "description": "Standard balance for all credit cards together, used for every year after the current one. The current year keeps today's balances. Blank = hold today's balance. A card with a payoff date is left out."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Other Assets",
+     "Cash",
+     "credit_card_annual_change_pct"
+    ]
+   },
+   {
+    "section": "Other Assets",
+    "subsection": "Cash",
+    "label": "credit_card_annual_change_pct",
+    "type": "percent",
+    "required": "FALSE",
+    "default": "",
+    "min": "-100",
+    "max": "100",
+    "description": "Yearly percent change in the standard credit-card balance, applied from the year after the first forecast year. Blank = 0%."
+   }
+  ],
+  [
+   {
+    "$tuple": [
      "Scenarios",
      "Retire Later",
      "member_1_retire_year"

@@ -94,6 +94,10 @@ Other Assets,Home,home_sale_year,year,TRUE,0,0,,0=no sale; >0=sale year
 Other Assets,Home,home_sale_price,dollars,FALSE,,,Gross sale price,
 Other Assets,Home,home_basis,dollars,FALSE,,,Cost basis,
 Other Assets,Home,home_sale_proceeds_account,text,FALSE,Member_2_Trust,,,Destination account
+Other Assets,Cash,checking_standard_balance,dollars,FALSE,,0,,"Standard balance for all checking accounts together, used for every year after the current one. The current year keeps today's balances. Blank = hold today's balance. A change from the prior year moves between checking and your first taxable account."
+Other Assets,Cash,checking_annual_change_pct,percent,FALSE,,-100,100,"Yearly percent change in the standard checking balance, applied from the year after the first forecast year (1.5% grows it, -1.5% shrinks it). Blank = 0%."
+Other Assets,Cash,credit_card_standard_balance,dollars,FALSE,,0,,"Standard balance for all credit cards together, used for every year after the current one. The current year keeps today's balances. Blank = hold today's balance. A card with a payoff date is left out."
+Other Assets,Cash,credit_card_annual_change_pct,percent,FALSE,,-100,100,"Yearly percent change in the standard credit-card balance, applied from the year after the first forecast year. Blank = 0%."
 Scenarios,Retire Later,member_1_retire_year,year,TRUE,2029,,,Extended retire year
 Scenarios,Retire Later,income_growth_rate_override,percent,TRUE,0.00%,0,10,Extension year growth
 Scenarios,Retire Later,salary_override,dollars,TRUE,50000,0,,Extension year salary
