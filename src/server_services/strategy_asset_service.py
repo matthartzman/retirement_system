@@ -16,6 +16,7 @@ from typing import Any, Callable
 
 from .. import platform_runtime as _platform_runtime
 from .. import other_asset_tax
+from .. import note_installment_tax
 from .. import plan_overrides as _plan_overrides
 from ..plan_data_backfill import insert_rows_at
 from ..spending_adjustments import ADJ_SUBSECTION, adjustment_dicts_from_plan_rows, adjustment_plan_rows, validate_adjustment_dicts
@@ -1064,6 +1065,7 @@ class StrategyAssetService:
                 ["Note Receivable", sub, "last_payment", "", "date", "Final scheduled payment date; balance reaches 0 after this date."],
                 ["Note Receivable", sub, "annual_principal_base_period", "$0", "USD", "Fixed annual principal for the base repayment period."],
                 ["Note Receivable", sub, "final_principal_2033", "$0", "USD", "Final-year principal payment."],
+                *note_installment_tax.added_field_rows(sub),
             ])
             return ({"success": True, "section": sub, "message": f"Added note {name}."}, 200,
                     ("note_receivable_added", {"section": sub, "name": name}))

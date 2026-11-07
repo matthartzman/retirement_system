@@ -113,8 +113,10 @@ except ImportError:
 
 try:
     from .. import other_asset_tax
+    from .. import note_installment_tax
 except ImportError:
     from src import other_asset_tax
+    from src import note_installment_tax
 
 try:
     from .. import platform_runtime
@@ -672,6 +674,8 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     _BF.BackfillEntry(TLH_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Identity"))),
     # Purchase date and tax treatment on every Other Asset item made before they existed (2026-11).
     _BF.BackfillEntry(other_asset_tax.backfill_rows, from_plan=True),
+    # Form 8949 installment-sale inputs on every note made before they existed (2026-11).
+    _BF.BackfillEntry(note_installment_tax.backfill_rows, from_plan=True),
 ]
 
 

@@ -26,8 +26,9 @@ from __future__ import annotations
 
 import re
 
+from .. import note_installment_tax as _nit
 from ..core import TAX_BASE_YEAR
-from ..data_io import _n, _v, _y
+from ..data_io import _n, _y
 
 
 def parse_note_receivable(data, plan_start):
@@ -66,15 +67,21 @@ def parse_note_receivable(data, plan_start):
         # The legacy single-note shape (subsection "Summary") kept its
         # interest schedule under "Interest by Year" rather than
         # "{subsection} Interest" -- matches the fallback above.
+        # Every year row from plan_start on is read (no fixed 8-year window),
+        # so a note paying past plan_start + 7 keeps its interest.
         _nint_sub = 'Interest by Year' if _nsub == 'Summary' else f'{_nsub} Interest'
-        for yr in range(plan_start, plan_start + 8):
-            iv = _v(data, 'Note Receivable', _nint_sub, str(yr), '0')
-            _ninterest[yr] = _n(iv, 0)
+        for _ylabel, iv in (_note_section.get(_nint_sub) or {}).items():
+            _ys = str(_ylabel).strip()
+            if re.fullmatch(r'\d{4}', _ys) and int(_ys) >= plan_start:
+                _ninterest[int(_ys)] = _n(iv, 0)
+        # Installment-sale gain per dollar of principal (Form 8949 inputs, src/note_installment_tax.py).
+        _st_gain, _lt_gain = _nit.gain_ratios(*(_n(_nvals.get(f, '0'), 0.0) for f in _nit.FIELDS))
         note_items.append({
             'section': _nsub, 'name': _nname, 'face_value': _nface,
             'first_payment_year': _nfirst, 'last_payment_year': _nlast,
             'annual_principal': _nprinc, 'final_principal': _nprinc_final,
             'interest_by_year': _ninterest,
+            'st_gain_per_principal': _st_gain, 'lt_gain_per_principal': _lt_gain,
         })
 
     # Legacy scalar aggregates used by the deterministic engine, balance
@@ -87,7 +94,7 @@ def parse_note_receivable(data, plan_start):
     note_princ  = sum(n['annual_principal'] for n in note_items) if note_items else 0.0
     note_princ_final = sum(n['final_principal'] for n in note_items) if note_items else 0.0
     note_interest = {}
-    for yr in range(plan_start, plan_start + 8):
+    for yr in sorted({y for n in note_items for y in n['interest_by_year']}):
         note_interest[yr] = sum(n['interest_by_year'].get(yr, 0) for n in note_items)
 
     return {
