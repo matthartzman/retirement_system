@@ -1483,6 +1483,9 @@ def parse_hsa_schedule_and_account_income(data, c, lots_by_account, lots_reconci
         balances[acct] = total
     c['balances'] = balances
     c['cash_other'] = sum(v for k, v in balances.items() if k.endswith('_Checking'))
+    # Standard checking / credit-card balances for the forecast years (src/working_balances.py); blank = held flat.
+    from .. import working_balances as _wb
+    c.update(_wb.parse(data))
 
     # #339 spec §8 (2026-09-24 W-F Task F2): the legacy Reserve Requirements
     # "Checking accounts" field (Other Assets,Cash,value) was removed from the
