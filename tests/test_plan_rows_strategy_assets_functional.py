@@ -96,7 +96,8 @@ def test_note_receivable_add_and_delete_with_its_interest_rows(ws, client):
     status, out = _post(client, "/api/note-receivable/add", {"name": "Seller Note"})
     assert (status, out) == (200, {"success": True, "section": "Note 2", "message": "Added note Seller Note."})
     assert [r["label"] for r in _rows(ws, "Note Receivable", "Note 2")] == [
-        "name", "face_value", "first_payment", "last_payment", "annual_principal_base_period", "final_principal_2033"]
+        "name", "face_value", "first_payment", "last_payment", "annual_principal_base_period", "final_principal_2033",
+        "st_proceeds", "st_basis", "lt_proceeds", "lt_basis"]
     assert _rows(ws, "Note Receivable", "Note 2")[0]["value"] == "Seller Note"
     assert _post(client, "/api/note-receivable/add")[1]["message"] == "Added note New Note."
     assert _post(client, "/api/note-receivable/delete", {"subsection": "x"})[0] == 400
