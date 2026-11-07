@@ -94,6 +94,16 @@ def test_short_term_gain_pushes_long_term_gain_up_the_ltcg_brackets(runs):
     assert row["cashflow_breakdown"]["tax"]["ltcg"] >= on_top - 1
 
 
+def test_note_gain_tax_is_charged_once(runs):
+    # Every dollar the note adds to total_tax is in a named line: the leftover 'other' does not move, so the stacked
+    # tax was not charged twice (e.g. on the Priority-4b re-tax path), alone or beside an Other Asset sale.
+    for taxed, base, year in (("taxed", "untaxed", 2028), ("both", "asset_only", 2029)):
+        t, b = runs[taxed][year]["cashflow_breakdown"]["tax"], runs[base][year]["cashflow_breakdown"]["tax"]
+        assert t["other"] == pytest.approx(b["other"], abs=0.01)
+    both, asset = runs["both"][2029], runs["asset_only"][2029]
+    assert both["other_asset_sale_stacked_tax"] + both["note_gain_stacked_tax"] >= asset["other_asset_sale_stacked_tax"]
+
+
 def test_final_year_uses_final_principal(runs):
     row = runs["taxed"][LAST]
     assert row["note_gain_st"] == pytest.approx(10_679, abs=1)
