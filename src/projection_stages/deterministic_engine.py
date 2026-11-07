@@ -955,6 +955,10 @@ def run_deterministic_projection_stage(c):
                 note_princ_yr += _nprinc_yr
                 note_int_yr += _nitem.get('interest_by_year', {}).get(year, 0)
                 _note_bals[id(_nitem)] = max(0.0, _note_bals[id(_nitem)] - _nprinc_yr)
+            if year >= _nlast:
+                # No payment is received after the last one, so nothing is left to count in net worth (a face value
+                # above the scheduled principal would otherwise sit in net worth for every later year).
+                _note_bals[id(_nitem)] = 0.0
         note_bal = sum(_note_bals.values()) if _note_items else max(0, note_bal - note_princ_yr)
 
         # ── Income (extracted stage) ─────────────────────────────────────────
