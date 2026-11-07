@@ -1,3 +1,15 @@
+## 2026-11-06 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5322999.38 lifetime_tax=1252241.40 -->
+
+**Old pins.** terminal_nw=5,376,101.29, lifetime_tax=1,239,362.22
+
+**New pins.** terminal_nw=5,322,999.38, lifetime_tax=1,252,241.40
+
+**Reason.**
+
+Other Asset sales are now taxed on the gain (alt-asset gain tax, 2026-11-06). The frozen plan sells $66,000 of start-up equity in 2030 with a $15,000 basis: a $51,000 long-term gain. Hand-checked the 2030 row: federal LTCG 15% and Illinois 4.95% on ~$52.1k (the gain plus the brokerage gain of the draws that pay the tax) and NIIT 3.8% above the $250k MAGI threshold add $12,268 of tax. With the new tax disabled the old pins reproduce exactly (5,376,101.29 / 1,239,362.22).
+
 ## 2026-10-29 — Synthetic golden master and full-row snapshot regenerated: state tax on capital gains (PR #327)
 
 <!-- fixture-provenance: synthetic_golden_master_cases.json sha256=963a6639be940b899b2f9248af1ab5867be29b8fb08403cc4d98effce555df9e -->

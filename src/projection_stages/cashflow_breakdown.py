@@ -145,6 +145,18 @@ def compute_cashflow_breakdown(row: dict[str, Any]) -> tuple[dict[str, Any], flo
     if early_dist_tax:
         cashflow_breakdown['tax']['early_distribution'] = early_dist_tax
         cashflow_breakdown['tax']['other'] -= early_dist_tax
+    # Federal, state and NIIT on an Other Asset sale's collectible and short-term gain (a fixed addend outside the
+    # named taxes, projection_stages/other_asset_sale_tax.py); its long-term gain is already inside 'ltcg'.
+    other_asset_sale_tax = row.get('other_asset_sale_stacked_tax', 0.0)
+    if other_asset_sale_tax:
+        cashflow_breakdown['tax']['other_asset_sale'] = other_asset_sale_tax
+        cashflow_breakdown['tax']['other'] -= other_asset_sale_tax
+    # The same, on a Note Receivable's short-term installment gain (projection_stages/note_installment_gain.py);
+    # its long-term gain is inside 'ltcg'.
+    note_gain_tax = row.get('note_gain_stacked_tax', 0.0)
+    if note_gain_tax:
+        cashflow_breakdown['tax']['note_installment_gain'] = note_gain_tax
+        cashflow_breakdown['tax']['other'] -= note_gain_tax
     gross_cash_flow_yr = (
         sum(cashflow_breakdown['income'].values())
         + sum(cashflow_breakdown['draws'].values())

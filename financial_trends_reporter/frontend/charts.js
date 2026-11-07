@@ -786,14 +786,52 @@ export function rolloverChange(rows, i, kind) {
   return null;
 }
 
-function changeLineHtml(total, prior) {
+function changeLineHtml(total, prior, parts) {
   if (!prior || total === null || total === undefined) return "";
   const d = total - prior.total;
   const pct = prior.total ? ` (${d < 0 ? "-" : "+"}${Math.abs(d / prior.total * 100).toFixed(1)}%)` : "";
   const text = isPercent()
     ? fmtSharePct(prior.total > 0 ? d / prior.total : null)
     : `${d < 0 ? "-" : "+"}${fmtMoney(Math.abs(d))}${pct}`;
-  return `<div class="pop-change${d < 0 ? " pop-neg" : ""}"><span>Change since ${escSvg(String(prior.date).slice(0, 10))}</span><span class="pop-val">${escSvg(text)}</span></div>`;
+  return `<div class="pop-change${d < 0 ? " pop-neg" : ""}"><span>Change since ${escSvg(String(prior.date).slice(0, 10))}</span><span class="pop-val">${escSvg(text)}</span></div>`
+    + changePartsHtml(d, prior, parts);
+}
+
+// Liquid Investments and Cash: the Change line's three parts (they add up to it). `liquid` is /api/liquid-change
+// ({daily: {account name: {day: {flows, income}}}, broker_covered}); the accounts are the ones switched on for the
+// chart. Deposits & withdrawals and Income less fees are summed over (prior date, date]; Market gain/loss is the rest.
+export const accountMatchKey = (name) => String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+const INCOME_COVERED_TYPES = new Set(["Investment", "Retirement", "HSA", "Brokerage"]);
+
+export function changeParts(total, prior, date, liquid, balances) {
+  if (!prior || total === null || total === undefined || !liquid || !liquid.daily || !hasMonarchBalances(balances)) return null;
+  const on = balances.accounts.filter(a => a.enabled && a.enabled.holdings);
+  const wanted = new Set(on.map(a => accountMatchKey(a.display_name)));
+  const from = String(prior.date).slice(0, 10), to = String(date).slice(0, 10);
+  let flows = 0, income = 0;
+  for (const [account, days] of Object.entries(liquid.daily)) {
+    if (!wanted.has(accountMatchKey(account))) continue;
+    for (const [day, cell] of Object.entries(days)) {
+      if (day > from && day <= to) { flows += cell.flows || 0; income += cell.income || 0; }
+    }
+  }
+  const covered = new Set((liquid.broker_covered || []).map(accountMatchKey));
+  const uncovered = on.filter(a => INCOME_COVERED_TYPES.has(a.type) && !covered.has(accountMatchKey(a.display_name))).length;
+  const change = total - prior.total;
+  return { flows, income, market: change - flows - income, uncovered };
+}
+
+function changePartsHtml(change, prior, parts) {
+  if (!parts) return "";
+  const fmt = v => (isPercent() ? fmtSharePct(prior.total > 0 ? v / prior.total : null) : `${v < 0 ? "-" : "+"}${fmtMoney(Math.abs(v))}`);
+  const line = (label, v, title) => `<div class="pop-row pop-part${v < 0 ? " pop-neg" : ""}" title="${escSvg(title)}"><span class="pop-name">${escSvg(label)}</span><span></span><span class="pop-val">${escSvg(fmt(v))}</span></div>`;
+  const note = parts.uncovered
+    ? `<div class="pop-hint">Income less fees has no broker file for ${parts.uncovered} account${parts.uncovered === 1 ? "" : "s"}: their dividends and interest are in Market gain/loss.</div>` : "";
+  return `<div class="pop-parts">`
+    + line("Deposits & withdrawals", parts.flows, "Money in from outside these accounts (paychecks, contributions) less money out (spending, transfers to other accounts).")
+    + line("Income less fees", parts.income, "Dividends, interest and fund distributions paid in cash, less fees, commissions and foreign tax withheld.")
+    + line("Market gain/loss", parts.market, "Everything else: the change in price of what is held.")
+    + `</div>` + note;
 }
 
 export function rolloverHtml(model) {
@@ -804,8 +842,8 @@ export function rolloverHtml(model) {
   const fmtRow = v => (pct ? shareOf(v) : fmtMoney(v));
   const head = `<div class="pop-title">${escSvg(model.title)} - ${escSvg(model.date)}${pct ? unitChip("% of total") : ""}</div>`;
   const total = pct
-    ? changeLineHtml(model.total, model.prior)
-    : `<div class="pop-total"><span>${escSvg(model.title)}</span><span>${escSvg(fmtMoney(model.total))}</span></div>` + changeLineHtml(model.total, model.prior);
+    ? changeLineHtml(model.total, model.prior, model.parts)
+    : `<div class="pop-total"><span>${escSvg(model.title)}</span><span>${escSvg(fmtMoney(model.total))}</span></div>` + changeLineHtml(model.total, model.prior, model.parts);
   if (!model.groups.length) {
     return head + total + `<div class="pop-hint">${escSvg(model.emptyNote || "No per-account detail was logged for this date.")}</div>`;
   }

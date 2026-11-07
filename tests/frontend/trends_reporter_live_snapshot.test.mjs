@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  parseSavedView, shouldPoll, changeHtml, statusText, liveViewHtml, fmtPct, hintText, lotLabel, startDayText, isYearToDate, initLiveView,
+  parseSavedView, shouldPoll, changeHtml, statusText, liveViewHtml, fmtPct, hintText, lotLabel, startDayText, isYearToDate, initLiveView, alternativeLines,
 } from "../../financial_trends_reporter/frontend/live_snapshot.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -656,3 +656,16 @@ describe("sales ledger 4.5: reconcile hints and the realized tax line", () => {
   });
 });
 
+describe("alternatives taxed on gains (tax card lines)", () => {
+  test("each linked alternative is a line at its own rate", () => {
+    const tax = { pre_tax_rate: 0.3, alternatives_ltcg_rate: 0.2, alternatives_collectible_rate: 0.28, alternatives_rows: [
+      { name: "hucu.ai", kind: "ltcg", gain: 50000 }, { name: "Masterworks", kind: "collectible", gain: 1000 },
+      { name: "New", kind: "ordinary", gain: 100 }] };
+    const lines = alternativeLines(tax);
+    assert.deepEqual(lines.map((l) => l[0]), ["hucu.ai: long-term gain if sold today", "Masterworks: collectible gain if sold today",
+      "New: held a year or less if sold today"]);
+    assert.deepEqual(lines.map((l) => [l[1], l[3]]), [[50000, 0.2], [1000, 0.28], [100, 0.3]]);
+    assert.ok(Math.abs(lines[1][2] - 280) < 1e-9);
+    assert.deepEqual(alternativeLines({}), []);
+  });
+});

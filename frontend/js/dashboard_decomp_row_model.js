@@ -433,12 +433,10 @@ export function humanLabel(label, row) {
     return "Area Type";
   if (row && row.section === "Housing" && norm(row.label) === "population_size")
     return "Population (approx.)";
-  if (
-    row &&
-    row.section === "Housing" &&
-    norm(row.label) === "mortgage_rate_pct"
-  )
-    return "Mortgage Rate";
+  if (row && row.section === "Housing" && norm(row.label) === "mortgage_rate_pct") return "Mortgage Rate";
+  // Note Receivable installment-sale inputs (Form 8949 figures; src/note_installment_tax.py).
+  const _p = /^(st|lt)_(proceeds|basis)$/.exec(row && row.section === "Note Receivable" ? norm(row.label) : "");
+  if (_p) return `${_p[1] === "st" ? "Short" : "Long"}-term ${_p[2]} per payment (8949 Part ${_p[1] === "st" ? "I" : "II"})`;
   if (row && row.section === "Housing" && norm(row.label) === "down_payment")
     return "Down Payment";
   if (row && row.section === "Housing" && norm(row.label) === "bedrooms")

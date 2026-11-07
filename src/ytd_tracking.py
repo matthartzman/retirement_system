@@ -892,7 +892,11 @@ def classify_cash_transaction(row: dict[str, Any]) -> str:
     income_kind = income_kind_for_category(row)
     if amount > 0 and income_kind:
         return income_kind
-    if INVESTMENT_DEPOSIT_RE.search(text) or INVESTMENT_WITHDRAWAL_RE.search(text):
+    # Free-text Notes ("50% of carpet - deposit", "Cash in Sitges") must not turn spending into an
+    # investment transfer; only the explicit invest-deposit/withdrawal override counts there.
+    flow_text = " ".join(str(row.get(k, "")) for k in ("Category", "Tags", "Merchant", "Original Statement"))
+    if (INVESTMENT_DEPOSIT_RE.search(flow_text) or INVESTMENT_WITHDRAWAL_RE.search(flow_text)
+            or FORCED_FLOW_TAG_RE.search(str(row.get("Notes", "") or ""))):
         return "transfer"
     if amount > 0:
         # Positive flows in cash/spending accounts are treated as merchant/category

@@ -66,6 +66,9 @@ def label_is(label: str) -> Callable[[PlanRow], bool]:
 class BackfillEntry(NamedTuple):
     rows: RowSource
     anchor: Optional[Anchor] = None  # None = always the end of the section
+    # True: ``rows`` is a callable of the open plan store instead of ``source_dir``, for rows that depend
+    # on the plan's own rows (one pair per Other Asset item).
+    from_plan: bool = False
 
 
 def insert_rows_at(store: Any, section: str, rows: Sequence[Row], at: Optional[int]) -> None:
@@ -95,7 +98,8 @@ def pending_rows(store: Any, entries: Sequence[BackfillEntry], source_dir: Path 
     seen = {(r["section"], r["subsection"], r["label"]) for r in store.all_rows()}
     out: list[tuple[BackfillEntry, list[Row]]] = []
     for entry in entries:
-        candidates = entry.rows(source_dir) if callable(entry.rows) else entry.rows
+        candidates = (entry.rows(store if entry.from_plan else source_dir) if callable(entry.rows)
+                      else entry.rows)
         missing: list[Row] = []
         for row in candidates:
             cells = _cells(row)
