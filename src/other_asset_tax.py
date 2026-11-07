@@ -53,13 +53,19 @@ def _norm(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", str(text or "").lower()).strip("_")
 
 
+def is_collectible_type(asset_type: str) -> bool:
+    """Art and collectibles: the types net worth shows apart from start-up equity."""
+    t = _norm(asset_type)
+    return "art" in t.split("_") or "collectible" in t
+
+
 def default_treatment(asset_type: str) -> str:
     """Vehicles are personal-use property (a gain is rare and a loss is never deductible): not taxed.
     Art and collectibles: collectible gains. Start-up equity and everything else: ordinary capital gains."""
     t = _norm(asset_type)
     if any(tok in t for tok in _VEHICLE_TOKENS):
         return NONE
-    if "art" in t.split("_") or "collectible" in t:
+    if is_collectible_type(asset_type):
         return COLLECTIBLE_GAINS
     return GAINS
 

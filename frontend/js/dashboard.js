@@ -1976,7 +1976,7 @@ function renderAssetsCashReserves() {
     return renderFields("assets_home_cash") + renderLiquidityBuffers();
   let html =
     '<div class="section-note" data-kind="state">Home value and mortgage are on <a href="#" onclick="navigateTo(\'assets_special\');return false">Other Assets & Debts</a>; home sale is in <a href="#" onclick="navigateTo(\'strategy_optimize\');return false">Optimize → Next Housing Move</a>.</div>';
-  html += renderLiquidityBuffers();
+  html += renderStandardCashBalances() + renderLiquidityBuffers();
   return html;
 }
 // #266: housing-estimate apply/restore helpers live in dashboard_decomp_misc.js.

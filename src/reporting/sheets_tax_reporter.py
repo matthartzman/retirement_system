@@ -105,6 +105,7 @@ def build_sheet3(ws, c, rows):
     other_items = [
         ('Primary Residence', home_gross_value, 'Gross home value; mortgage shown in Liabilities'),
         ('Startup Equity',    startup_val, 'Illiquid'),
+        *([('Art & Collectibles', float(yr0.get('art_val') or 0.0), 'Illiquid')] if 'art_val' in yr0 else []),
         ('Autos',             autos_val, 'Depreciated Y0 value'),
         ('Cash (Checking Accounts)', cash_val, 'Sum of _Checking positions'),
         ('Note Receivable',  note_val, f"Projected balance through {c['note_last']}"),

@@ -94,6 +94,10 @@ Other Assets,Home,home_sale_year,simple
 Other Assets,Home,home_sale_price,standard
 Other Assets,Home,home_basis,standard
 Other Assets,Home,home_sale_proceeds_account,standard
+Other Assets,Cash,checking_standard_balance,standard
+Other Assets,Cash,checking_annual_change_pct,standard
+Other Assets,Cash,credit_card_standard_balance,standard
+Other Assets,Cash,credit_card_annual_change_pct,standard
 Scenarios,Retire Later,member_1_retire_year,advanced
 Scenarios,Retire Later,income_growth_rate_override,advanced
 Scenarios,Retire Later,salary_override,advanced

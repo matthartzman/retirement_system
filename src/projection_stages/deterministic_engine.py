@@ -77,6 +77,7 @@ from ..module_catalog import module_enabled
 from . import rental_property as _rental
 from . import other_asset_sale_tax as _other_asset_sale
 from . import note_installment_gain as _note_installment
+from . import working_balance_transfer as _working_balance_transfer
 from .roth_conversion_and_agi_tax import rental_passive_magi as _rental_passive_magi
 
 # withdrawal_engine/conversion_engine/inheritance_engine/growth_engine were
@@ -1357,6 +1358,15 @@ def run_deterministic_projection_stage(c):
 
         # ── Spending gap and withdrawal cascade (design doc Stage 10, sub-stage #0) ──
         other_cash_need_yr = float(row.get('other_cash_need_yr', 0.0) or 0.0)
+        # Checking accounts and credit cards move to the year's standard balance (src/working_balances.py). The
+        # cash need is the part the withdrawal order funds; the part freed goes to the first taxable account.
+        if (c.get('checking_std_balance') is not None or c.get('checking_change_pct')
+                or c.get('cc_std_balance') is not None or c.get('cc_change_pct')):
+            _wb_need = _working_balance_transfer.apply_working_balance_transfers(
+                c, bal, year, account_deposits=row['_account_deposits'],
+                account_deposit_sources=row['_account_deposit_sources'], account_withdrawals=row['_account_withdrawals'])
+            row['working_balance_cash_need'] = _wb_need
+            other_cash_need_yr += _wb_need
         gap = _apply_gap_assembly(
             c, bal, row,
             year=year, h_ss=h_ss, w_ss=w_ss, pension=pension,

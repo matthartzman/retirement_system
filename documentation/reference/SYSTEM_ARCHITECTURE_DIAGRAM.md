@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 320 Python files under `src/`, 69 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 322 Python files under `src/`, 69 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,10 +24,10 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (230 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (231 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
-    subgraph L_Projection_Stages["Projection Stages (26 modules)"]
+    subgraph L_Projection_Stages["Projection Stages (27 modules)"]
         L_Projection_Stages_d["Deterministic year-by-year projection engine internals"]
     end
     subgraph L_Reporting___Workbook["Reporting / Workbook (26 modules)"]
@@ -758,6 +758,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/version.py` | — | — |
 | `src/wash_sales.py` | — | — |
 | `src/withdrawal_strategy_comparison.py` | `core` | — |
+| `src/working_balances.py` | — | — |
 | `src/workspace_context.py` | `runtime_config` | — |
 | `src/year_end.py` | `local_store`, `platform_runtime`, `workspace_context` | — |
 | `src/ytd_projection_blend.py` | `module_catalog`, `spending_tracker`, `ytd_tracking` | — |
@@ -779,7 +780,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/projection_stages/income.py` | `engine_kernels`, `equity_comp`, `ss_earnings_test`, `tax_law` | — |
 | `src/projection_stages/note_installment_gain.py` | — | — |
 | `src/projection_stages/other_asset_sale_tax.py` | `core` | — |
-| `src/projection_stages/portfolio_growth_and_net_worth.py` | `engine_kernels` | — |
+| `src/projection_stages/portfolio_growth_and_net_worth.py` | `engine_kernels`, `projection_stages` | — |
 | `src/projection_stages/rental_property.py` | `module_catalog`, `projection_stages.home_sale`, `rental_tax`, `tax_law` | — |
 | `src/projection_stages/roth_conversion_and_agi_tax.py` | `core`, `engine_kernels`, `projection_stages.home_sale`, `projection_stages.spending_tiers`, `tax_law` | — |
 | `src/projection_stages/spending_and_rmd.py` | `engine_kernels`, `projection_stages.budget_rollups`, `spending_adjustments` | — |
@@ -792,6 +793,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/projection_stages/withdrawal_cascade_investment_tax.py` | `core`, `engine_kernels`, `taxes` | — |
 | `src/projection_stages/withdrawal_cascade_ira_true_up.py` | `engine_kernels` | — |
 | `src/projection_stages/withdrawal_cascade_taxable_trust.py` | `engine_kernels` | — |
+| `src/projection_stages/working_balance_transfer.py` | `projection_stages.appreciation_divorce_qlac` | — |
 | `src/projection_stages/year_state.py` | — | — |
 
 ### Reporting / Workbook
