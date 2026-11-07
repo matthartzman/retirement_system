@@ -103,6 +103,14 @@ class ReleaseMonteCarloBehaviorTests(unittest.TestCase):
         shock-free paired harness does not exercise. The margin to 5pp is thin
         for seeds other than 2026; if a legitimate change trips this gate,
         check the signed gap first and re-measure across seeds before widening.
+
+        Widened to 6pp (2026-11-06, owner-approved) -- the constant is
+        MC_VECTORIZED_PARITY_TOLERANCE_PP in src/planning_engines.py. Seed 2026
+        already read exactly 5.00pp on main (vec 0.6025 vs scalar 0.6525); the
+        Other Asset gain tax moved the vectorized rate one path (0.25pp of 400)
+        to 0.6000, i.e. 5.25pp. Seed 7 reads +3.75pp and seed 99 -2.75pp (main) /
+        -3.00pp (branch), one path of the same noise, so this is not a new
+        divergence between the engines.
         """
         data = plan_data()
         cfg = prepare_config_from_sectioned_data(data, "")
