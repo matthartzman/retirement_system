@@ -655,6 +655,7 @@ def _balance_sheet_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[s
     other_items = [
         ('Primary Residence', home_gross_value, 'Gross home value; mortgage shown in Liabilities'),
         ('Startup Equity', startup_val, 'Illiquid'),
+        *([('Art & Collectibles', _n(yr0.get('art_val')), 'Illiquid')] if 'art_val' in yr0 else []),
         ('Autos', autos_val, 'Depreciated Y0 value'),
         ('Cash (Checking Accounts)', cash_val, 'Sum of _Checking positions'),
         ('Note Receivable', note_val, f"Projected balance through {c.get('note_last', '')}"),

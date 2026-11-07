@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from .. import engine_kernels as _legacy_pe
+from .. import other_asset_tax as _oat
+from . import other_asset_sale_tax as _oas
 from ..engine_kernels import EvGrowth, EvWarning, annuity_cash_income
 
 
@@ -208,6 +210,13 @@ def apply_portfolio_growth_and_net_worth(
     if rental_equity is not None:
         total_liabilities += rental_mortgage_balance
 
+    # Art & Collectibles are shown apart from Start-up Equity (both are inside ``startup``, hence in other_nw and
+    # total_nw). The art_val key exists only while the plan holds an art or collectible item.
+    _has_art = any(_oat.is_collectible_type(i.get('type', '')) for i in _oas.startup_items(c))
+    _art_val = _oas.held_value_split(c, year)[1] if _has_art else 0.0
+    if _has_art:
+        row['art_val'] = _art_val
+
     row.update({
         'ann_nw': ann_nw,
         'pretax_nw': pretax_nw,
@@ -224,7 +233,7 @@ def apply_portfolio_growth_and_net_worth(
         'next_housing_equity': next_housing_equity,
         'next_housing_home_value': float(row.get('next_housing_home_value', 0.0) or 0.0),
         'next_housing_mortgage_balance': next_housing_mortgage_balance,
-        'startup_val': float(startup or 0.0),
+        'startup_val': float(startup or 0.0) - _art_val,
         'autos_val': float(autos_val or 0.0),
         'note_bal': float(note_bal or 0.0),
         'mort_bal_yr': mort_bal_yr,

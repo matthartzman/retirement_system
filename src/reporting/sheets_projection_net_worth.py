@@ -57,10 +57,15 @@ def build_sheet5(ws, c, rows):
     # which is already inside the engine's other_nw and total_nw) before Σ Other, only while
     # the feature ran. Off, the historic layout is unchanged.
     rental_on = any(r.get('rental_equity') is not None for r in rows)
-    if rental_on:
-        COLS['Rental Equity'] = 27
-        COLS['Σ Other'] = 28
-        COLS['TOTAL NW'] = 29
+    # Art & Collectibles are shown apart from Startup (both are Other Assets), only while the plan holds art.
+    art_on = any('art_val' in r for r in rows)
+    _next_col = 27
+    for _flag, _name in ((rental_on, 'Rental Equity'), (art_on, 'Art & Collectibles')):
+        if _flag:
+            COLS[_name] = _next_col
+            _next_col += 1
+    COLS['Σ Other'] = _next_col
+    COLS['TOTAL NW'] = _next_col + 1
     # The engine's TOTAL NW subtracts additional_liabilities (auto/student/other loan balances);
     # shown as a negative Loans & Other Liabilities column after Σ Other, only while the plan has
     # any, so the visible columns foot to TOTAL NW. Off, the layout is unchanged.
@@ -249,9 +254,10 @@ def build_sheet5(ws, c, rows):
         # was already correct.
         cash_val = row.get('cash_nw', 0)
         rental_eq = row.get('rental_equity') or 0
+        art_val = row.get('art_val') or 0
         other_tot  = (row.get('home_equity',0)+row.get('next_housing_equity',0)+
                       row.get('startup_val',0)+row.get('autos_val',0)+
-                      row.get('note_bal',0)+cash_val+rental_eq)
+                      row.get('note_bal',0)+cash_val+rental_eq+art_val)
 
         # Keep the TOTAL NW column footing to the values shown. When the current
         # year uses opening (current-holdings) balances for investment accounts,
@@ -272,7 +278,7 @@ def build_sheet5(ws, c, rows):
                 hsa_val,
                 row.get('home_equity',0), row.get('next_housing_equity',0), row.get('startup_val',0),
                 row.get('autos_val',0), row.get('note_bal',0), cash_val,
-                *([rental_eq] if rental_on else []), other_tot,
+                *([rental_eq] if rental_on else []), *([art_val] if art_on else []), other_tot,
                 *([-float(row.get('additional_liabilities') or 0) + 0.0] if liab_on else []),
                 total_nw]
 

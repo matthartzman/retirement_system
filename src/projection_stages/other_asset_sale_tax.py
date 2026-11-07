@@ -93,6 +93,14 @@ def held_value(c: dict[str, Any], year: int) -> float:
     return sum(item_value(c, i, year) for i in startup_items(c))
 
 
+def held_value_split(c: dict[str, Any], year: int) -> tuple[float, float]:
+    """End-of-``year`` value of the items not yet sold, as (start-up equity and other, art and collectibles).
+
+    Net worth shows the two on separate lines (``row['startup_val']``, ``row['art_val']``) and adds both."""
+    art = sum(item_value(c, i, year) for i in startup_items(c) if _oat.is_collectible_type(i.get('type', '')))
+    return held_value(c, year) - art, art
+
+
 def _sale_date(item: dict[str, Any], year: int) -> date:
     """The item's sell date when it falls in ``year``, else 31 December."""
     sold = _oat.parse_date(item.get('sell_date', ''))
