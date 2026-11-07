@@ -32,7 +32,7 @@ from src.http_runtime.server import LocalHTTPServer, _configured_token  # noqa: 
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 from src.stores import SchemaVersionError  # noqa: E402
 
-from financial_trends_reporter import account_registry, balance_series, flows, live_snapshot, percent_view, plan_annuity_values, projections, realized_view, spending_window  # noqa: E402
+from financial_trends_reporter import account_registry, balance_series, flows, liquid_change, live_snapshot, percent_view, plan_annuity_values, projections, realized_view, spending_window  # noqa: E402
 from financial_trends_reporter.access_routes import register_access  # noqa: E402
 from financial_trends_reporter.access_store import DB_FILENAME as ACCESS_DB_FILENAME, AccessStore  # noqa: E402
 from financial_trends_reporter.listeners import ListenerApp, check_funnel_target  # noqa: E402
@@ -236,6 +236,19 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
         # Monthly investment flows from the latest log entry, toggled by the registry's Flows prefs.
         history = read_history(resolved_log_path)
         return _json(flows.flows_payload(history[-1] if history else None, account_registry.list_accounts(balances_db)))
+
+    liquid_change_cache: dict = {}
+
+    @app.route("/api/liquid-change", methods=["GET"])
+    def liquid_change_endpoint():
+        # Per-account daily deposits/withdrawals and income less fees: the Liquid pop-up splits its Change line
+        # with them. Built from the plan file (transactions, broker activity), so cached on its mtime.
+        key = plan_path_for_workspace(retirement_system_dir).stat().st_mtime_ns \
+            if plan_path_for_workspace(retirement_system_dir).exists() else None
+        if key is None or liquid_change_cache.get("key") != key:
+            liquid_change_cache.update(key=key, body=json.dumps(liquid_change.payload(
+                retirement_system_dir / "input", retirement_system_dir, balances_db)))
+        return Response(liquid_change_cache["body"], content_type="application/json")
 
     # /api/spending: the Spending card for any window. Results are cached per (from, to) and the
     # plan file's mtime (transactions, taxonomy, aliases and budget all live in it); a run-now
