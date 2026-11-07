@@ -379,6 +379,9 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
     if rental_on:
         exp_values["Rental Net Cost"] = [round(max(0, -_n(bd['income'].get('rental')))) for bd in bds]
         exp_values["Rental Sale Tax"] = _tax_series('rental_sale')
+    if any('other_asset_sale' in bd['tax'] for bd in bds):
+        # Collectible / short-term gain tax on an Other Asset sale (its long-term part is in "LTCG Tax").
+        exp_values["Other Asset Sale Tax"] = _tax_series('other_asset_sale')
 
     add_xy("Cash Flow — Income (gross) & Portfolio Draws", "stacked_bar", [
         {"label": label, "values": vals} for label, vals in inc_values.items()
