@@ -10692,7 +10692,7 @@
   "lcv_all_in_including_taxes": 15512099.93,
   "lifetime_tax": 999209.07,
   "mc_approximation_status": "TOLERANCE_BOUNDED",
-  "mc_parity_tolerance_pp": 5.0,
+  "mc_parity_tolerance_pp": 6.0,
   "mc_success": 0.69,
   "mc_success_within_tier_policy": 0.44,
   "model_risk_label": "Tolerance-bounded vectorized Monte Carlo",
