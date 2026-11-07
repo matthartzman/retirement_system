@@ -76,6 +76,7 @@ from ..core import qlac_premium_limit
 from ..module_catalog import module_enabled
 from . import rental_property as _rental
 from . import other_asset_sale_tax as _other_asset_sale
+from . import note_installment_gain as _note_installment
 from .roth_conversion_and_agi_tax import rental_passive_magi as _rental_passive_magi
 
 # withdrawal_engine/conversion_engine/inheritance_engine/growth_engine were
@@ -944,11 +945,13 @@ def run_deterministic_projection_stage(c):
         # payment schedule, and interest-by-year detail.
         note_princ_yr = 0.0
         note_int_yr = 0.0
+        _note_paid = []  # (note, principal paid this year), for the installment-sale gain
         for _nitem in _note_items:
             _nfirst = _nitem.get('first_payment_year', c['plan_start'])
             _nlast = _nitem.get('last_payment_year', c['plan_start'])
             if _nfirst <= year <= _nlast:
                 _nprinc_yr = _nitem.get('annual_principal', 0.0) if year < _nlast else _nitem.get('final_principal', 0.0)
+                _note_paid.append((_nitem, _nprinc_yr))
                 note_princ_yr += _nprinc_yr
                 note_int_yr += _nitem.get('interest_by_year', {}).get(year, 0)
                 _note_bals[id(_nitem)] = max(0.0, _note_bals[id(_nitem)] - _nprinc_yr)
@@ -1300,12 +1303,19 @@ def run_deterministic_projection_stage(c):
         _oa_gains = _other_asset_sale.sale_gains(c, year, row.get('startup_sale_proceeds', 0.0))
         if _oa_gains.ltcg_gain > 0:
             home_sale_ltcg_gain = float(home_sale_ltcg_gain or 0.0) + _oa_gains.ltcg_gain
+        # Note Receivable installment gain (projection_stages/note_installment_gain.py): long-term on the same
+        # LTCG line; short-term stacked on ordinary income together with the Other Asset ordinary gains.
+        _note_gains = _note_installment.year_gains(_note_paid)
+        if _note_gains.lt > 0:
+            home_sale_ltcg_gain = float(home_sale_ltcg_gain or 0.0) + _note_gains.lt
+        _stack_gains = _oa_gains._replace(ordinary_gain=_oa_gains.ordinary_gain + _note_gains.st)
+        _note_stack_share = (_note_gains.st / _stack_gains.stacked_gain) if _stack_gains.stacked_gain > 0 else 0.0
         sale_gain_in_agi = max(0.0, float(home_sale_ltcg_gain or 0.0))
         if sale_gain_in_agi > 0:
             irmaa_magi_current += sale_gain_in_agi
             row['irmaa_magi_current'] = irmaa_magi_current
             row['sale_cap_gain_in_agi'] = sale_gain_in_agi
-        def _oa_stacked_tax(_taxable, _agi, _g=_oa_gains, _sg=sale_gain_in_agi,
+        def _oa_stacked_tax(_taxable, _agi, _g=_stack_gains, _sg=sale_gain_in_agi,
                             _sb=_state_investment_inc + _rental_state_taxed_gain):
             # Stacked on the year's ordinary taxable income; re-run after Priority 4b at the converged one.
             return _other_asset_sale.stacked_gain_tax(
@@ -1315,21 +1325,28 @@ def run_deterministic_projection_stage(c):
                           + row.get('_niit_hs_taxable', 0) + _sg),
                 magi=_agi + _sg, filing=filing, model_niit=bool(c.get('model_niit')))
 
-        if _oa_gains.items:
+        _stack_tax_total = 0.0  # federal + state + NIIT on the stacked (collectible / short-term) gains
+        if _oa_gains.items or _note_gains.st > 0:
             _oa_tax = _oa_stacked_tax(taxable_inc, agi)
+            _stack_tax_total = _oa_tax.total
             if _oa_tax.total > 0:
                 total_tax += _oa_tax.total
                 total_tax_pre_niit += _oa_tax.total
                 _rental_fixed_tax += _oa_tax.total
                 row['total_tax'] = total_tax
                 row['net_income'] = row['gross_income'] - total_tax
-            if _oa_gains.stacked_gain > 0:
-                irmaa_magi_current += _oa_gains.stacked_gain
+            if _stack_gains.stacked_gain > 0:
+                irmaa_magi_current += _stack_gains.stacked_gain
                 row['irmaa_magi_current'] = irmaa_magi_current
+        if _oa_gains.items:
             row['other_asset_sale_ltcg_gain'] = _oa_gains.ltcg_gain
             row['other_asset_sale_collectible_gain'] = _oa_gains.collectible_gain
             row['other_asset_sale_ordinary_gain'] = _oa_gains.ordinary_gain
-            row['other_asset_sale_stacked_tax'] = _oa_tax.total
+            row['other_asset_sale_stacked_tax'] = _stack_tax_total * (1.0 - _note_stack_share)
+        if _note_gains.total > 0:
+            row['note_gain_st'] = _note_gains.st
+            row['note_gain_lt'] = _note_gains.lt
+            row['note_gain_stacked_tax'] = _stack_tax_total * _note_stack_share
 
         # ── Apply Trust portfolio growth BEFORE withdrawal cascade ────────────
         # (Trust growth is now applied at end-of-year with all other accounts below)
@@ -1481,9 +1498,14 @@ def run_deterministic_projection_stage(c):
             # The stage-9 state base carries no capital gain: the cascade adds state tax on the
             # year's net gain (home sale, ledger, brokerage draws), stacked above the rental sale's
             # long-term gain, which apply_sale_tax already state-taxed.
-            state_gain_tax_fn=(lambda g, _b=_state_investment_inc + _rental_state_taxed_gain:
+            # The stacked (short-term / collectible) gains were state-taxed on that same base, so they sit
+            # under this gain too.
+            state_gain_tax_fn=(lambda g, _b=_state_investment_inc + _rental_state_taxed_gain
+                               + _stack_gains.stacked_gain:
                                _state_tax_at(_b + g) - _state_tax_at(_b)),
             state_taxed_gain_already=_rental_state_taxed_gain,
+            # Schedule D: long-term gain is stacked on all ordinary income, the stacked gains included.
+            ltcg_stack_extra=_stack_gains.stacked_gain,
         )
         gap = _inv_tax.gap
         ltcg_gain = _inv_tax.ltcg_gain
@@ -1583,12 +1605,16 @@ def run_deterministic_projection_stage(c):
                 gap += _cap_delta
                 row['total_tax'] = total_tax
                 row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr
-        if _oa_gains.stacked_gain > 0:
+        if _stack_gains.stacked_gain > 0:
             # The elective draws sized above sit under the collectible / short-term gain in the stack: re-tax it at
             # the converged taxable income (as the rental 1250 cap is), and fund the difference.
-            _oa_delta = _oa_stacked_tax(taxable_inc, agi).total - row['other_asset_sale_stacked_tax']
+            _oa_delta = _oa_stacked_tax(taxable_inc, agi).total - _stack_tax_total
             if abs(_oa_delta) > 1e-9:
-                row['other_asset_sale_stacked_tax'] += _oa_delta
+                _stack_tax_total += _oa_delta
+                if _oa_gains.items:
+                    row['other_asset_sale_stacked_tax'] = _stack_tax_total * (1.0 - _note_stack_share)
+                if _note_gains.total > 0:
+                    row['note_gain_stacked_tax'] = _stack_tax_total * _note_stack_share
                 _rental_fixed_tax += _oa_delta
                 total_tax_pre_niit += _oa_delta
                 total_tax += _oa_delta
@@ -1600,10 +1626,10 @@ def run_deterministic_projection_stage(c):
             # Reported AGI = the ordinary-income AGI the brackets ran on + the sale gain.
             row['agi_ordinary'] = row['agi']
             row['agi'] = row['agi'] + sale_gain_in_agi
-        if _oa_gains.stacked_gain > 0:
+        if _stack_gains.stacked_gain > 0:
             # The collectible / short-term gain is income too (taxed above as a fixed amount, not in the brackets).
             row.setdefault('agi_ordinary', row['agi'])
-            row['agi'] = row['agi'] + _oa_gains.stacked_gain
+            row['agi'] = row['agi'] + _stack_gains.stacked_gain
 
         # ── DAF carryforward make-up (design doc Stage 10, sub-stage #8) ─────
         # `agi` above is a first-pass estimate computed before the elective-

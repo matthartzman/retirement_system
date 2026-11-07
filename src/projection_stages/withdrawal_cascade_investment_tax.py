@@ -104,6 +104,9 @@ class _InvestmentTaxState:
     state_gain_tax_fn: Any = None
     state_taxed_gain_already: float = 0.0
     state_gain_tax: float = 0.0
+    # Ordinary-rate gains taxed outside the brackets as a fixed amount (Other Asset short-term / collectible gain,
+    # a note's short-term installment gain): still ordinary income under the LTCG stack (Schedule D worksheet).
+    ltcg_stack_extra: float = 0.0
 
 
 def _apply_tax_loss_harvesting(
@@ -267,7 +270,7 @@ def _refresh_investment_taxes(
         delta_ss = max(0.0, ss_tax - state.ss_tax)
         state.ss_tax = ss_tax
     state.ss_extra = ss_extra
-    stack_base = max(0, state.taxable_inc + ss_extra)
+    stack_base = max(0, state.taxable_inc + ss_extra + state.ltcg_stack_extra)
     new_ltcg_tax = _tk.ltcg_tax_on_gain(c, net_gain, stack_base, year, state.filing) if net_gain > 0 else 0.0
     delta_ltcg = max(0.0, new_ltcg_tax - state.ltcg_tax)
     state.ltcg_tax = new_ltcg_tax
@@ -330,6 +333,7 @@ def apply_investment_tax_cascade(
     ss_extra_fn: Callable[[float], float] | None = None,
     state_gain_tax_fn: Callable[[float], float] | None = None,
     state_taxed_gain_already: float = 0.0,
+    ltcg_stack_extra: float = 0.0,
 ) -> WithdrawalCascadeInvestmentTaxResult:
     """Withdrawal Cascade sub-stage #6 (design doc addendum, "step 4"):
     the LTCG/NIIT fixed point + tax-loss harvesting + 0%-bracket gain
@@ -389,6 +393,7 @@ def apply_investment_tax_cascade(
         fed_tax_fn=(lambda t: compute_fed_tax_fn(t, year, filing)),
         state_gain_tax_fn=state_gain_tax_fn,
         state_taxed_gain_already=max(0.0, float(state_taxed_gain_already or 0.0)),
+        ltcg_stack_extra=max(0.0, float(ltcg_stack_extra or 0.0)),
     )
 
     model_niit = c['model_niit']

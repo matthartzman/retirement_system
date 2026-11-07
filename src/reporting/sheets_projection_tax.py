@@ -36,7 +36,10 @@ def build_sheet7(ws, c, rows):
     # outside the named columns; the long-term part's federal tax is inside Total Tax via the LTCG line.
     other_sale_on = any(x.get('other_asset_sale_ltcg_gain') or x.get('other_asset_sale_collectible_gain')
                         or x.get('other_asset_sale_ordinary_gain') for x in rows)
-    n_cols = (18 if rental_on else 16) + (2 if other_sale_on else 0)
+    # A Note Receivable with installment-sale gain adds two more: the gain in that year's principal and the tax
+    # on its short-term part (the long-term part's tax is inside Total Tax via the LTCG line).
+    note_gain_on = any(x.get('note_gain_st') or x.get('note_gain_lt') for x in rows)
+    n_cols = (18 if rental_on else 16) + (2 if other_sale_on else 0) + (2 if note_gain_on else 0)
     section_title(ws, 1, 'LIFETIME TAX PROJECTION', n_cols)
 
     r = 2
@@ -62,6 +65,8 @@ def build_sheet7(ws, c, rows):
         hdrs += ['Rental Schedule E in AGI', 'Rental Sale Tax']
     if other_sale_on:
         hdrs += ['Other Asset Sale Gain', 'Collectible / Short-Term Gain Tax']
+    if note_gain_on:
+        hdrs += ['Note Installment Gain (ST + LT)', 'Note Short-Term Gain Tax']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, NAVY, WHITE, size=9)
     r += 1
@@ -101,6 +106,9 @@ def build_sheet7(ws, c, rows):
             vals += [row.get('other_asset_sale_ltcg_gain', 0.0) + row.get('other_asset_sale_collectible_gain', 0.0)
                      + row.get('other_asset_sale_ordinary_gain', 0.0),
                      row.get('other_asset_sale_stacked_tax', 0.0)]
+        if note_gain_on:
+            vals += [row.get('note_gain_st', 0.0) + row.get('note_gain_lt', 0.0),
+                     row.get('note_gain_stacked_tax', 0.0)]
         for col_idx, val in enumerate(vals, 1):
             if col_idx == 1:
                 fmt = FMT_YEAR
