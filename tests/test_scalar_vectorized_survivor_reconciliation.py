@@ -26,7 +26,8 @@ WI-404 (system review 2026-09-25-2, QA-006): this test used to sit behind
 the repo ever set, so it never ran. It now carries ``@pytest.mark.nightly``
 (an engine-equivalence check -- the local fast tier and the nightly workflow
 run it, the PR-tier CI filter skips it) and a reduced default path count
-(``RETIREMENT_SURVIVOR_RECON_SIMS``, default 200; the old opt-in used 800),
+(``RETIREMENT_SURVIVOR_RECON_SIMS``, default 800 -- 200 was tried and is too
+noisy for the strict ON-vs-OFF comparison),
 with one Monte Carlo run shared by both assertions.
 
 Running it again surfaced that the strict "ON narrows the gap" criterion no
@@ -64,7 +65,10 @@ from src.planning_engines import monte_carlo, monte_carlo_exact_scalar, project
 
 pytestmark = pytest.mark.nightly
 
-N_SIMS = int(os.environ.get("RETIREMENT_SURVIVOR_RECON_SIMS", "200"))
+# 800 paths: the ON-vs-OFF gap comparison was calibrated at n=800 (see module
+# docstring). At n=200 the two gaps differ by only 1-3 paths and the strict
+# "ON narrows the gap" assertion fails on sampling noise (nightly 2026-11-04..08).
+N_SIMS = int(os.environ.get("RETIREMENT_SURVIVOR_RECON_SIMS", "800"))
 SEED = 123
 
 
