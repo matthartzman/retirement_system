@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Ledger v3 mockups</title>
+<!-- Status: draft. Mockup for item 378 (Investment Sales Ledger usability redesign, 2026-11-09). Not product code. -->
+<style>
+:root{--navy:#1b2a4a;--ink:#1f2933;--muted:#6b7480;--line:#e3ddd0;--card:#fbf9f4;--bg:#f4f1ea;--accent:#1f4fa3;--good:#1d7a3e;--bad:#b3261e;--warn:#9a6700;--warnbg:#fff6dc;--pill:#eef2fa}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+header.app{background:var(--navy);color:#fff;padding:10px 20px;font-weight:600}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+.switch{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.switch button{border:1px solid #c9c2b2;background:#fff;border-radius:18px;padding:6px 14px;cursor:pointer;font:inherit}
+.switch button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.note{background:#eef4ff;border-left:4px solid var(--accent);padding:8px 12px;margin:0 0 14px;border-radius:4px;font-size:13px}
+.note b{color:var(--accent)}
+.page{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+h1{font-size:22px;margin:0}
+.kicker{font-size:11px;letter-spacing:.08em;color:var(--muted);font-weight:700;text-transform:uppercase}
+.toolbar{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin:12px 0 4px}
+.toolbar label{display:flex;align-items:center;gap:6px}
+select,input{font:inherit;padding:5px 8px;border:1px solid #c9c2b2;border-radius:6px;background:#fff}
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--line);margin:14px 0 16px}
+.tabs button{border:0;background:none;padding:9px 14px;font:inherit;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+.tabs button.on{color:var(--accent);border-color:var(--accent)}
+.badge{display:inline-block;min-width:18px;padding:0 6px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;line-height:18px;text-align:center;margin-left:4px}
+.badge.n{background:#8a93a0}
+.card{border:1px solid var(--line);background:var(--card);border-radius:8px;margin:0 0 12px}
+.card>h3,.card>summary{margin:0;padding:10px 14px;font-size:15px;display:flex;align-items:center;gap:8px;cursor:default}
+details.card>summary{cursor:pointer;list-style:none}
+details.card>summary::before{content:"▸";color:var(--muted)}
+details.card[open]>summary::before{content:"▾"}
+.card .body{padding:0 14px 12px}
+.sub{color:var(--muted);font-weight:400;font-size:13px}
+.ok{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+.statusline{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;margin:0 0 12px;color:var(--muted)}
+.statusline span::before{content:"✓ ";color:var(--good)}
+table{width:100%;border-collapse:collapse;font-size:13px;background:#fff}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:6px 8px;border-bottom:1px solid #f0ece3;vertical-align:top}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.lot td{background:#faf8f3;color:#4a525c;font-size:12px}
+tr.lot td:first-child{padding-left:28px}
+.btn{font:inherit;font-size:13px;padding:5px 11px;border-radius:6px;border:1px solid #c9c2b2;background:#fff;cursor:pointer;white-space:nowrap}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.link{border:0;background:none;color:var(--accent);padding:2px 4px}
+.btn.sm{font-size:12px;padding:3px 8px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 12px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.kpi .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.form{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px;margin:0 0 12px}
+.grid{display:grid;gap:10px 14px}
+.g3{grid-template-columns:2fr 1fr 1fr}
+.g3b{grid-template-columns:1fr 1fr 1fr}
+.f label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px;font-weight:600}
+.f input,.f select{width:100%}
+.legend{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px}
+.preview{display:flex;gap:22px;align-items:center;background:var(--pill);border-radius:6px;padding:8px 12px;margin:12px 0 0;font-size:13px}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.alert{background:var(--warnbg);border:1px solid #edd9a3;border-radius:8px;padding:10px 14px;margin:0 0 12px}
+.wash{display:grid;grid-template-columns:1fr 1fr auto;gap:0;border:1px solid var(--line);border-radius:8px;background:#fff;margin:0 0 8px;overflow:hidden}
+.wash>div{padding:8px 12px}
+.wash .side{font-size:11px;text-transform:uppercase;color:var(--muted);font-weight:700;letter-spacing:.05em}
+.wash .sold{border-right:1px dashed var(--line)}
+.wash .act{display:flex;align-items:center;border-left:1px solid var(--line);background:var(--card)}
+.chip{display:inline-block;background:var(--pill);border-radius:10px;padding:1px 8px;font-size:12px}
+.removed{background:#fdecea;border:1px dashed #e0a39e;border-radius:8px;padding:10px 14px;font-size:13px;margin:16px 0 0}
+.removed b{color:var(--bad)}
+.drop{border:2px dashed #c9c2b2;border-radius:8px;padding:16px;text-align:center;color:var(--muted);background:#fff}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.menu{position:relative;display:inline-block}
+.dim{opacity:.55}
+.callout{font-size:12px;color:var(--accent);font-style:italic}
+.hide{display:none}
+table.entry td{padding:4px 5px;vertical-align:middle}
+table.entry input,table.entry select{width:100%;padding:4px 6px}
+input.num{text-align:right;max-width:110px}
+tr.sel>td{background:#eef4ff}
+tr.lotpick>td{background:#f7f9fd;padding:8px 10px 10px}
+.pickbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.btn.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+table.picker td{padding:3px 6px;vertical-align:middle}
+table.picker input.num{max-width:80px}
+tr.tot td{border-top:1px solid var(--line);background:#fff}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+@media (max-width:760px){.kpis,.g3,.g3b,.two{grid-template-columns:1fr}.wash{grid-template-columns:1fr}.wash .sold{border-right:0;border-bottom:1px dashed var(--line)}}
+</style>
+</head>
+<body>
+<header class="app">Retirement Planner · mockup</header>
+<div class="wrap">
+
+<div class="switch" id="opt">
+  <button data-o="B">Option B (chosen): Sales Ledger</button>
+  <button data-o="H">Option B (chosen): Investment Holdings</button>
+  <button class="on" data-o="A">Option A (not chosen): Sales and Tax year tabs still apply</button>
+  <button data-o="Y">Where the cash section goes (Year-End Transition)</button>
+</div>
+
+<!-- ===================== OPTION A ===================== -->
+<section id="A">
+<div class="note"><b>Option A (not chosen).</b> Kept for reference: its <b>Sales</b> and <b>Tax year</b> tabs (and the wash cards and Record sales grid) are the ones Option B uses. Same four tabs, but each tab has one job: <b>Fix lots</b> holds everything that needs a decision, <b>Sales</b> is the record, <b>Tax year</b> is the result, <b>Import</b> is how data gets in. One <b>Year</b> and one <b>Taxable accounts only</b> switch drive every tab. Removed: Sale year label, Show voided, Density, More views, managed-account checkboxes, cash section, Sales CSV, 1099-B paste box.</div>
+<div class="page">
+  <div class="kicker">Track &amp; Reconcile</div>
+  <h1>Investment Sales Ledger</h1>
+  <div class="toolbar">
+    <label>Year <select id="yr"><option>2026</option><option>2025</option><option>All years</option></select></label>
+    <label><input type="checkbox" id="taxonly" checked> Taxable accounts only</label>
+    <span class="sub">Showing Matt's Trust, Pat's Trust · <a href="#" class="btn link">voided rows (6)</a></span>
+  </div>
+  <div class="tabs" id="tabsA">
+    <button class="on" data-t="fix">Fix lots &amp; transactions<span class="badge">10</span></button>
+    <button data-t="sales">Sales<span class="badge n">12</span></button>
+    <button data-t="tax">Tax year <span class="y">2026</span></button>
+    <button data-t="imp">Import</button>
+  </div>
+
+  <!-- FIX LOTS -->
+  <div data-p="fix">
+    <div class="statusline"><span>No sales waiting for lots</span><span>Log agrees with holdings</span><span>1099-B: nothing to tie yet</span></div>
+
+    <div class="alert"><b>Holding periods look wrong.</b> All 74 sales in <span class="y">2026</span> are short-term, including Roth and IRA positions held for years. 22 lots have filled-in purchase dates (“lot with no purchase on file”). <button class="btn sm">Review 22 lots</button> <span class="callout">new check, proposed</span></div>
+
+    <details class="card" open>
+      <summary>Found in broker history <span class="chip">1</span><span class="sub">imported as history only, so never queued</span><span style="flex:1"></span><label class="sub" style="font-size:12px"><input type="checkbox" id="showHidden"> show hidden (2)</label></summary>
+      <div class="body">
+        <table><tr><th>Date</th><th>Account</th><th>Security</th><th class="n">Face</th><th class="n">Received</th><th>What it is</th><th></th></tr>
+        <tr><td>2026-10-27</td><td>Matt's Trust</td><td>T-bill 912797VN4</td><td class="n">120,000</td><td class="n">$120,000.00</td><td>Treasury bill maturity: counted as <b>interest income</b>, not a sale</td><td><button class="btn sm">Got it, hide</button></td></tr>
+        <tr class="lot hiddenrow hide"><td>2026-07-28</td><td>Pat's Trust</td><td>T-bill 912797QX3</td><td class="n">50,000</td><td class="n">$50,000.00</td><td>Treasury bill maturity: interest income · <i>hidden 2026-11-09</i></td><td><button class="btn sm">Unhide</button></td></tr>
+        <tr class="lot hiddenrow hide"><td>2026-02-14</td><td>Matt's Trust</td><td>BIL</td><td class="n">12.5</td><td class="n">$1,146.20</td><td>Sale, already on your 1099-B · <i>hidden 2026-11-05</i></td><td><button class="btn sm">Unhide</button></td></tr></table>
+        <p class="sub">Hide is saved per row. <b>Show hidden (n)</b> lists hidden rows greyed out, with the date they were hidden and an <b>Unhide</b> button. The count follows the Year. When nothing is visible, the card shrinks to its title with “show hidden (n)” still available. (Today's Dismiss is a bug: T-bill rows skip the dismissed list.) The hidden rows here are illustrative.</p>
+      </div>
+    </details>
+
+    <details class="card" open>
+      <summary>Wash sales <span class="chip">2 sales · $1.07 disallowed</span><span class="sub">of $123.70 in losses with a replacement buy</span></summary>
+      <div class="body">
+        <div class="alert" style="margin-bottom:10px"><b>Open window:</b> none right now. When a loss sale is under 31 days old, this lists the accounts that have reinvested the same fund, e.g. “Turn off reinvest for VTI in Pat's IRA, Pat's Roth until 12-06.”</div>
+        <div class="wash">
+          <div class="sold"><div class="side">Sold at a loss</div><b>MUB</b> · Matt's Trust · 2026-04-01<br>160.848 sh · $17,087.40 · <span class="bad">−$123.61</span> <span class="sub">(4 lots)</span><br><b>Disallowed $0.98</b> · $122.63 still deductible</div>
+          <div><div class="side">Replacement purchases (61-day window)</div><b>MUB</b> · Matt's Trust · 2026-04-07 · 0.860 sh · $91.30 <span class="sub">(dividend reinvest)</span><br>→ adds <b>$0.66</b> to this lot's cost; holding period from the sold lot<br><b>MUB</b> · Pat's Trust · 2026-04-07 · 0.412 sh · $43.75 <span class="sub">(dividend reinvest)</span><br>→ adds <b>$0.32</b> to this lot's cost · <span class="sub">other account: not on any 1099-B</span></div>
+          <div class="act"><select><option>Wash sale</option><option>Broker already reported it</option><option>Not a wash sale…</option></select></div>
+        </div>
+        <div class="wash">
+          <div class="sold"><div class="side">Sold at a loss</div><b>MUB</b> · Matt's Trust · 2026-04-16<br>0.426 sh · $45.58 · <span class="bad">−$0.09</span><br><b>Disallowed $0.09</b> · $0.00 still deductible</div>
+          <div><div class="side">Replacement purchases (61-day window)</div><b>MUB</b> · Pat's IRA · 2026-04-07 · 0.500 sh · $53.20 <span class="sub">(dividend reinvest)</span><br>→ <b class="bad">lost permanently</b> (IRA repurchase, no basis add-back)</div>
+          <div class="act"><select><option>Wash sale</option><option>Broker already reported it</option><option>Not a wash sale…</option></select></div>
+        </div>
+        <p class="sub">The VGSH and VTEB flags from today are gone: their “replacement” reinvests were sold in the same 4-01 sale (rule W1). One card per sale. Disallowed = loss × replacement shares ÷ shares sold. <a href="#">Reviewed (0)</a>. Buy-side amounts and the IRA example are illustrative.</p>
+      </div>
+    </details>
+
+    <details class="card" open>
+      <summary>Transaction log <span class="chip">86 entries</span><span class="sub">writes the holdings for every investment account</span></summary>
+      <div class="body">
+        <div class="toolbar" style="margin-top:0">
+          <select><option>All accounts</option><option>Matt's Trust</option><option>Pat's Trust</option></select>
+          <input placeholder="Symbol" size="8">
+          <select><option>All types</option><option>Buy</option><option>Reinvest</option><option>Sale</option><option>Transfer</option><option>Opening lot</option></select>
+          <label><input type="checkbox"> Show cash opening rows (14)</label>
+          <span style="flex:1"></span>
+          <button class="btn">＋ Add transaction</button><button class="btn">⇄ Transfer</button>
+        </div>
+        <table><tr><th>Date</th><th>Account</th><th>Type</th><th>Symbol</th><th class="n">Shares</th><th class="n">Price</th><th>Source</th><th>Note</th><th></th></tr>
+        <tr><td>2026-10-30</td><td>Matt's Trust</td><td>Buy</td><td>IJH</td><td class="n">825</td><td class="n">73.055</td><td>manual</td><td>Import was Record only: no lot created</td><td><button class="btn link">Edit</button></td></tr>
+        <tr><td>2026-09-22</td><td>Matt's Trust</td><td>Sale</td><td>ITOT</td><td class="n">647.896</td><td class="n">169.08</td><td>broker</td><td>5 lots, see Sales</td><td><button class="btn link">Edit</button></td></tr>
+        <tr><td>2026-09-18</td><td>Matt's HSA</td><td>Reinvest</td><td>ITOT</td><td class="n">1.177</td><td class="n">166.11</td><td>broker</td><td></td><td><button class="btn link">Edit</button></td></tr>
+        <tr><td>2026-06-30</td><td>Pat's Trust</td><td>Opening lot</td><td>VTI</td><td class="n">1.911</td><td class="n">368.91</td><td>backfill</td><td>No purchase on file</td><td><button class="btn link">Edit</button></td></tr>
+        </table>
+        <p class="sub">One log view (no Edit log / History &amp; held lots modes). Void moves into the Edit dialog. Checking accounts never appear. Year filter comes from the top of the page.</p>
+      </div>
+    </details>
+  </div>
+
+  <!-- SALES -->
+  <div data-p="sales" class="hide">
+    <div class="kpis">
+      <div class="kpi"><div class="l">Sales</div><div class="v">12</div></div>
+      <div class="kpi"><div class="l">Short-term net</div><div class="v ok">+$15,726</div></div>
+      <div class="kpi"><div class="l">Long-term net</div><div class="v">$0</div></div>
+      <div class="kpi"><div class="l">Fees</div><div class="v">$3.62</div></div>
+    </div>
+    <p class="sub" style="margin-top:-4px">Same totals as the Tax year tab when <b>Taxable accounts only</b> is on (today the two tabs disagree: +$11,848 vs $15,726).</p>
+
+    <div style="display:flex;justify-content:flex-end;margin:0 0 8px"><button class="btn pri" id="rsBtn">＋ Record sales</button></div>
+
+    <div class="form" id="rsForm">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>Record sales</b><span class="sub">One row per sale · gain and term are worked out for you</span></div>
+      <table class="entry">
+        <tr><th></th><th style="width:22%">Account</th><th>Symbol</th><th>Sale date</th><th class="n">Shares</th><th class="n">Proceeds</th><th class="n">Fees</th><th>Lots</th><th class="n">Gain</th><th></th></tr>
+        <tr class="sel"><td>▾</td><td><select><option>Matt's Trust (taxable)</option><option>Pat's Trust (taxable)</option><option>Matt's IRA (pre-tax)</option></select></td><td><input value="ITOT" size="6"></td><td><input type="date" value="2026-11-06"></td><td class="n"><input class="num" value="100"></td><td class="n"><input class="num" value="17,250.00"></td><td class="n"><input class="num" value="0.35"></td><td><span class="chip ok">2 lots ✓</span></td><td class="n ok">+$4,757.25</td><td><button class="btn link" title="Remove row">✕</button></td></tr>
+        <tr class="lotpick"><td></td><td colspan="9">
+          <div class="pickbar"><b>Choose lots</b> <span class="sub">open ITOT lots in Matt's Trust, from the transaction log</span><span style="flex:1"></span>
+            <span class="sub">Fill:</span> <button class="btn sm on">FIFO</button><button class="btn sm">Highest cost</button><button class="btn sm">Losses first</button><button class="btn sm">Clear</button></div>
+          <table class="picker"><tr><th></th><th>Bought</th><th class="n">Open shares</th><th class="n">Cost / share</th><th class="n">Sell shares</th><th class="n">Basis</th><th class="n">Gain</th><th>Term</th></tr>
+            <tr><td><input type="checkbox" checked></td><td>2024-02-12</td><td class="n">60</td><td class="n">$108.00</td><td class="n"><input class="num" value="60"></td><td class="n">$6,480.00</td><td class="n ok">+$3,869.79</td><td>Long</td></tr>
+            <tr><td><input type="checkbox" checked></td><td>2025-12-30</td><td class="n">95</td><td class="n">$150.31</td><td class="n"><input class="num" value="40"></td><td class="n">$6,012.40</td><td class="n ok">+$887.46</td><td>Short</td></tr>
+            <tr class="dim"><td><input type="checkbox"></td><td>2026-09-18 <span class="sub">reinvest</span></td><td class="n">1.177</td><td class="n">$166.11</td><td class="n"><input class="num" value=""></td><td class="n">—</td><td class="n">—</td><td>Short</td></tr>
+            <tr class="tot"><td></td><td><b>Selected</b></td><td></td><td></td><td class="n"><b>100 / 100 ✓</b></td><td class="n"><b>$12,492.40</b></td><td class="n ok"><b>+$4,757.25</b></td><td>Mixed</td></tr>
+          </table>
+          <p class="sub" style="margin:4px 0 0">Tick a lot to sell all its open shares, or type a smaller number in <b>Sell shares</b>. The Fill buttons tick lots for you in that order. No log for this account? The picker becomes blank rows (Bought, Shares, Basis) with <b>＋ add lot</b>.</p>
+        </td></tr>
+        <tr><td>▸</td><td><select><option>Pat's Trust (taxable)</option></select></td><td><input value="VXUS" size="6"></td><td><input type="date" value="2026-11-06"></td><td class="n"><input class="num" value="200"></td><td class="n"><input class="num" value="14,820.00"></td><td class="n"><input class="num" value="0.00"></td><td><span class="chip warn">0 / 200 · pick</span></td><td class="n">—</td><td><button class="btn link">✕</button></td></tr>
+      </table>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px"><button class="btn link">＋ Add row</button><span class="sub">Tab through a row; Enter adds the next one. ▸ opens a row's lot chooser.</span></div>
+      <div class="actions"><button class="btn" id="rsCancel">Cancel</button><button class="btn pri" disabled title="Every row needs its lots matched">Save 2 sales</button></div>
+      <p class="sub">The account sets the tax type. For IRA, Roth and HSA accounts the Gain column reads “not taxable”. A taxable loss row with a replacement buy in the log shows a <span class="chip warn">wash?</span> chip.</p>
+    </div>
+
+    <table id="salesT"><tr><th></th><th>Sale date</th><th>Account</th><th>Symbol</th><th class="n">Shares</th><th class="n">Proceeds</th><th class="n">Basis</th><th class="n">Gain</th><th>Term</th><th></th></tr>
+      <tr><td>▸</td><td>2026-09-22</td><td>Matt's Trust</td><td>ITOT</td><td class="n">647.896</td><td class="n">$109,546.39</td><td class="n">$96,389.32</td><td class="n ok">+$13,157.07</td><td>Short</td><td><button class="btn link">⋯</button></td></tr>
+      <tr><td>▸</td><td>2026-05-11</td><td>Matt's Trust</td><td>PDBC</td><td class="n">550</td><td class="n">$10,097.68</td><td class="n">$9,421.50</td><td class="n ok">+$676.18</td><td>Short</td><td><button class="btn link">⋯</button></td></tr>
+      <tr><td>▸</td><td>2026-04-09</td><td>Pat's Trust</td><td>VXUS</td><td class="n">690.633</td><td class="n">$55,998.84</td><td class="n">$53,517.00</td><td class="n ok">+$2,481.84</td><td>Short</td><td><button class="btn link">⋯</button></td></tr>
+      <tr><td>▾</td><td>2026-04-01</td><td>Pat's Trust</td><td>VTEB</td><td class="n">1,050.840</td><td class="n">$52,421.13</td><td class="n">$52,806.87</td><td class="n bad">−$385.74</td><td>Short</td><td><button class="btn link">⋯</button></td></tr>
+      <tr class="lot"><td colspan="4">lot bought 2025-04-01 (backfill)</td><td class="n">1,044.876</td><td class="n">$52,123.62</td><td class="n">$52,505.00</td><td class="n">−$381.38</td><td>Short</td><td></td></tr>
+      <tr class="lot"><td colspan="4">lot bought 2025-06-30 (reinvest)</td><td class="n">2.889</td><td class="n">$144.12</td><td class="n">$146.07</td><td class="n">−$1.95</td><td>Short</td><td></td></tr>
+      <tr class="lot"><td colspan="4">lot bought 2025-09-30 (reinvest)</td><td class="n">3.075</td><td class="n">$153.39</td><td class="n">$155.80</td><td class="n">−$2.41</td><td>Short</td><td></td></tr>
+      <tr><td>▸</td><td>2026-04-01</td><td>Matt's Trust</td><td>MUB <span class="chip warn">wash $0.98</span></td><td class="n">160.848</td><td class="n">$17,087.40</td><td class="n">$17,211.67</td><td class="n bad">−$123.61</td><td>Short</td><td><button class="btn link">⋯</button></td></tr>
+    </table>
+    <p class="sub">One row per sale; ▸ opens its lots. Every row has the same ⋯ menu: Edit, Send back to queue, Void (a choice is greyed with a reason when it doesn't apply, instead of buttons appearing and disappearing). Lot dates above are illustrative.</p>
+  </div>
+
+  <!-- TAX -->
+  <div data-p="tax" class="hide">
+    <h2 style="font-size:17px;margin:0 0 4px">Tax year <span class="y">2026</span> <span class="sub">· sales dated 1/1–12/31 · taxable accounts</span></h2>
+    <div class="kpis" style="margin-top:10px">
+      <div class="kpi"><div class="l">Short-term net</div><div class="v">$15,726</div></div>
+      <div class="kpi"><div class="l">Long-term net</div><div class="v">$0</div></div>
+      <div class="kpi"><div class="l">Estimated tax on gains</div><div class="v">$5,150</div></div>
+      <div class="kpi"><div class="l">Loss carried forward</div><div class="v">$0</div></div>
+    </div>
+    <div class="statusline"><span>1099-B: no differences recorded</span><span style="color:var(--warn)">⚠ 2 wash sales, $1.07 disallowed, <a href="#">review in Fix lots</a></span><span style="color:var(--muted)">Year-end steps: 7 of 13 open, <a href="#">Year-End Transition →</a></span></div>
+    <div class="two">
+      <details class="card" open><summary>How the gain is taxed</summary><div class="body"><table>
+        <tr><td>Taxed as ordinary income</td><td class="n">$15,726.10</td></tr>
+        <tr><td>Taxed at long-term rates</td><td class="n">$0.00</td></tr>
+        <tr><td>Wash-sale losses disallowed <span class="sub">(deferred $0.98 · lost in IRA $0.09)</span></td><td class="n">+$1.07</td></tr>
+        <tr><td>Loss deducted against other income <span class="sub">($3,000 limit, MFJ)</span></td><td class="n">$0.00</td></tr>
+        <tr><td>Federal tax</td><td class="n">$3,774.26</td></tr>
+        <tr><td>Net investment income tax</td><td class="n">$597.59</td></tr>
+        <tr><td>State tax</td><td class="n">$778.44</td></tr>
+        <tr><td><b>Estimated tax on <span class="y">2026</span> gains</b></td><td class="n"><b>$5,150.30</b></td></tr>
+      </table></div></details>
+      <details class="card" open><summary>Loss carried in from <span class="y0">2025</span></summary><div class="body">
+        <div class="grid g3b"><div class="f"><label>Short-term ($)</label><input value="0"></div><div class="f"><label>Long-term ($)</label><input value="0"></div><div class="f"><label>&nbsp;</label><button class="btn">Save</button></div></div>
+        <p class="sub">From your <span class="y0">2025</span> Schedule D.</p></div></details>
+    </div>
+    <details class="card" open><summary>Interest and dividends <span class="y">2026</span></summary><div class="body">
+      <table><tr><th>Account</th><th class="n">Ordinary dividends</th><th class="n">Municipal (fed-exempt)</th><th class="n">Treasury funds (state-exempt share)</th><th class="n">U.S. Treasury interest</th></tr>
+      <tr><td>Matt's Trust</td><td class="n">$1,918.12</td><td class="n">$136.91</td><td class="n">$97.09</td><td class="n">$406.61</td></tr>
+      <tr><td>Pat's Trust</td><td class="n">$2,463.17</td><td class="n">$450.56</td><td class="n">$323.08</td><td class="n">—</td></tr>
+      <tr><td><b>Total</b></td><td class="n"><b>$4,381.29</b></td><td class="n"><b>$587.47</b></td><td class="n"><b>$420.17</b></td><td class="n"><b>$406.61</b></td></tr></table>
+      <div class="legend">How each fund is counted</div>
+      <table><tr><th>Symbol</th><th>Counted as</th><th>Symbol</th><th>Counted as</th></tr>
+        <tr><td>BIL</td><td><select><option>Treasury funds (state-exempt share)</option></select></td><td>MUB</td><td><select><option>Municipal (federal-exempt)</option></select></td></tr>
+        <tr><td>ITOT</td><td><select><option>Dividends (ordinary)</option></select></td><td>VGSH</td><td><select><option>Treasury funds (state-exempt share)</option></select></td></tr>
+        <tr><td>IXUS</td><td><select><option>Dividends (ordinary)</option></select></td><td>VTEB</td><td><select><option>Municipal (federal-exempt)</option></select></td></tr>
+      </table>
+      <p class="sub">One dropdown per symbol replaces 72 radio buttons.</p>
+      <div class="actions"><button class="btn">Download CSV for your accountant</button></div>
+    </div></details>
+  </div>
+
+  <!-- IMPORT -->
+  <div data-p="imp" class="hide">
+    <div class="two">
+      <div class="card"><h3>Brokerage activity</h3><div class="body">
+        <div class="drop">Drop a Fidelity, E*Trade or Vanguard activity file<br><button class="btn" style="margin-top:6px">Choose file</button></div>
+        <div class="grid g3b" style="margin-top:10px">
+          <div class="f"><label>Broker</label><select><option>Detect from file</option></select></div>
+          <div class="f"><label>Account</label><select><option>From the file</option><option>Matt's Trust</option><option>Matt's IRA</option></select></div>
+          <div class="f"><label>Lot method</label><select><option>FIFO</option><option>HIFO</option><option>Losses first</option></select></div>
+        </div>
+        <div class="actions"><button class="btn pri">Preview</button></div>
+        <p class="sub">Re-importing an overlapping file adds only new rows. Investment accounts only.</p>
+      </div></div>
+      <div class="card"><h3>Broker 1099-B</h3><div class="body">
+        <div class="drop">Drop the 1099-B (PDF with text, or E*Trade Gains &amp; Losses CSV)<br><button class="btn" style="margin-top:6px">Choose file</button></div>
+        <div class="grid g3b" style="margin-top:10px;grid-template-columns:1fr 1fr">
+          <div class="f"><label>Broker</label><select><option>E*Trade</option><option>Vanguard</option></select></div>
+          <div class="f"><label>Account</label><select><option>Matt's Trust</option><option>Pat's Trust</option></select></div>
+        </div>
+        <div class="actions"><button class="btn pri">Preview</button></div>
+        <p class="sub">Taxable accounts only. Preview never changes the ledger.</p>
+      </div></div>
+    </div>
+    <details class="card" open><summary>Import history <span class="chip">17 in <span class="y">2026</span></span><span style="flex:1"></span><label class="sub" style="font-size:12px"><input type="checkbox"> show reverted (4)</label></summary><div class="body">
+      <table><tr><th>#</th><th>Account</th><th>Covers</th><th class="n">New rows</th><th>Imported</th><th></th></tr>
+      <tr><td>22</td><td>Matt's Trust</td><td>2026-10-27 → 11-03</td><td class="n">3</td><td>2026-11-04</td><td><button class="btn link">Revert</button></td></tr>
+      <tr><td>21</td><td>Matt's HSA</td><td>2026-02-05 → 10-30</td><td class="n">2</td><td>2026-11-04</td><td><button class="btn link">Revert</button></td></tr>
+      <tr><td>19</td><td>Matt's Trust</td><td>2025-02-13 → 2026-10-30</td><td class="n">60</td><td>2026-11-03</td><td><button class="btn link">Revert</button></td></tr>
+      </table></div></details>
+    <div class="removed"><b>Removed:</b> Sales CSV import (brokerage activity covers it) · 1099-B “paste statement text” box · 1 Source / 2 Preview / 3 Apply step labels · checking accounts in every account list.</div>
+  </div>
+</div>
+</section>
+
+<!-- ===================== OPTION B ===================== -->
+<section id="B" class="hide">
+<div class="note"><b>Option B.</b> The ledger becomes three tabs (<b>To fix</b>, <b>Sales</b>, <b>Tax year</b>) and the <b>Transaction log + Import</b> move to Investment Holdings as an “Activity” tab, because the log is what writes the holdings. <b>Chosen 2026-11-09.</b> Fixes that need the log deep-link to Holdings › Activity already filtered, with a link back.</div>
+<div class="page">
+  <div class="kicker">Track &amp; Reconcile</div><h1>Investment Sales Ledger</h1>
+  <div class="toolbar"><label>Year <select><option>2026</option></select></label><label><input type="checkbox" checked> Taxable accounts only</label></div>
+  <div class="tabs"><button class="on">To fix<span class="badge">5</span></button><button>Sales<span class="badge n">12</span></button><button>Tax year 2026</button></div>
+  <div class="statusline"><span>No sales waiting for lots</span><span>Log agrees with holdings</span></div>
+  <table><tr><th>Item</th><th>Why it needs you</th><th></th></tr>
+    <tr><td>Holding periods</td><td>22 lots have filled-in purchase dates; all sales read short-term</td><td><button class="btn sm">Review</button></td></tr>
+    <tr><td>Wash sale · MUB · Matt's Trust 04-01</td><td>Reinvested 6 days later in Matt's Trust and Pat's Trust</td><td><button class="btn sm">Open</button></td></tr>
+    <tr><td>Wash sale · VGSH · Pat's Trust 04-01</td><td>Reinvested 28 days before</td><td><button class="btn sm">Open</button></td></tr>
+    <tr><td>Wash sale · VTEB · Pat's Trust 04-01</td><td>Reinvested 28 days before</td><td><button class="btn sm">Open</button></td></tr>
+    <tr><td>T-bill 912797VN4 · Matt's Trust 10-27</td><td>Maturity counted as interest income</td><td><button class="btn sm">Got it, hide</button></td></tr>
+  </table>
+  <p class="sub" style="margin-top:14px">Sales and Tax year tabs are the same as Option A. The <b>1099-B import</b> moves into Tax year (it's a tax document). “Review” on the holding-period item opens Holdings › Activity already filtered to the 22 backfilled lots, and the ← Back link returns here.</p>
+</div>
+
+</section>
+
+<!-- ===================== OPTION B: HOLDINGS ===================== -->
+<section id="H" class="hide">
+<div class="note"><b>Investment Holdings in Option B.</b> One page for “what I own and how I got it”. <b>Positions</b> is today's grouped table, plus lot-level markers. <b>Activity</b> is the transaction log that writes those positions. <b>Import</b> is the broker activity files that feed the log.</div>
+<div class="page">
+  <div class="kicker">Accounts &amp; Property</div><h1>Investment Holdings</h1>
+  <div class="tabs" id="tabsH">
+    <button class="on" data-h="pos">Positions</button>
+    <button data-h="act">Activity<span class="badge n">86</span></button>
+    <button data-h="himp">Import</button>
+  </div>
+
+  <div data-hp="pos">
+    <div class="toolbar" style="margin-top:0"><span class="sub">Group by</span> <span class="chip">Asset class ×</span> <span class="chip">Symbol ×</span> <span class="chip">Account ×</span> <span class="chip">Lot</span> <span style="flex:1"></span><span class="statusline" style="margin:0"><span>Log agrees with holdings</span></span></div>
+    <table>
+      <tr><th>Name</th><th class="n">Shares</th><th class="n">Unit cost</th><th class="n">Cost basis</th><th class="n">Current value</th><th class="n">Gain</th><th class="n">Share</th><th></th></tr>
+      <tr><td>▸ Cash</td><td class="n">22,683.93</td><td class="n">$1.00</td><td class="n">$22,683.93</td><td class="n">$22,683.93</td><td class="n">$0</td><td class="n">0.8%</td><td></td></tr>
+      <tr><td>▸ Commodities</td><td class="n">10,505</td><td class="n">$17.539</td><td class="n">$184,246.93</td><td class="n">$197,178.85</td><td class="n ok">$12,931.92</td><td class="n">7.4%</td><td></td></tr>
+      <tr><td>▾ Equity</td><td class="n">18,698.319</td><td class="n">$124.1459</td><td class="n">$2,321,320.14</td><td class="n">$2,457,509.03</td><td class="n ok">$136,188.89</td><td class="n">91.8%</td><td></td></tr>
+      <tr><td style="padding-left:22px">▾ MUB</td><td class="n">…</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td style="padding-left:40px">▾ Matt's Trust</td><td class="n">…</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr class="lot"><td style="padding-left:58px">2026-04-07 reinvest <span class="chip warn" title="Disallowed loss from the 2026-04-01 MUB sale added to cost; holding period from 2024-03-12">incl. $0.66 wash</span></td><td class="n">0.860</td><td class="n">$106.93</td><td class="n">$91.96</td><td class="n">$92.10</td><td class="n">$0.14</td><td class="n"></td><td><button class="btn link">History</button></td></tr>
+      <tr class="lot"><td style="padding-left:58px">2025-04-01 <span class="chip" title="No purchase on file; date filled in by backfill">date not on file</span></td><td class="n">212.000</td><td class="n">$106.40</td><td class="n">$22,556.80</td><td class="n">$22,705.20</td><td class="n ok">$148.40</td><td class="n"></td><td><button class="btn link">Fix date</button></td></tr>
+      <tr><td>▸ Sold positions <span class="sub">(this year)</span></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td><b>Total</b></td><td class="n">51,887.249</td><td></td><td class="n"><b>$2,528,251</b></td><td class="n"><b>$2,677,371.81</b></td><td class="n ok"><b>$149,120.81</b></td><td class="n">100%</td><td></td></tr>
+    </table>
+    <p class="sub">The lot markers are new: <b>wash adjustment</b> (cost includes a disallowed loss, with tacked date in the tooltip) and <b>date not on file</b> (a backfilled purchase date). <b>History</b> opens Activity filtered to that lot; <b>Fix date</b> opens its opening row for editing. Lot values are illustrative.</p>
+  </div>
+
+  <div data-hp="act" class="hide">
+    <div class="toolbar" style="margin-top:0">
+      <label>Year <select><option>2026</option><option>All years</option></select></label>
+      <select><option>All accounts</option><option>Matt's Trust</option></select>
+      <input placeholder="Symbol" size="8">
+      <select><option>All types</option><option>Buy</option><option>Reinvest</option><option>Sale</option><option>Transfer</option><option>Opening lot</option></select>
+      <label><input type="checkbox"> Show cash opening rows (14)</label>
+      <span style="flex:1"></span>
+      <button class="btn">＋ Add transaction</button><button class="btn">⇄ Transfer</button>
+    </div>
+    <table><tr><th>Date</th><th>Account</th><th>Type</th><th>Symbol</th><th class="n">Shares</th><th class="n">Price</th><th>Source</th><th>Note</th><th></th></tr>
+      <tr><td>2026-10-30</td><td>Matt's Trust</td><td>Buy</td><td>IJH</td><td class="n">825</td><td class="n">73.055</td><td>manual</td><td>Import was Record only: no lot created</td><td><button class="btn link">Edit</button></td></tr>
+      <tr><td>2026-09-22</td><td>Matt's Trust</td><td>Sale</td><td>ITOT</td><td class="n">647.896</td><td class="n">169.08</td><td>broker</td><td><a href="#">5 lots → Sales ledger</a></td><td><button class="btn link">Edit</button></td></tr>
+      <tr><td>2026-09-18</td><td>Matt's HSA</td><td>Reinvest</td><td>ITOT</td><td class="n">1.177</td><td class="n">166.11</td><td>broker</td><td></td><td><button class="btn link">Edit</button></td></tr>
+      <tr><td>2026-06-30</td><td>Pat's Trust</td><td>Opening lot</td><td>VTI</td><td class="n">1.911</td><td class="n">368.91</td><td>backfill</td><td>No purchase on file</td><td><button class="btn link">Edit</button></td></tr>
+    </table>
+    <p class="sub">Identical to the Option A log; only the page changes. A sale row links to its sale on the ledger.</p>
+  </div>
+
+  <div data-hp="himp" class="hide">
+    <div class="card"><h3>Brokerage activity</h3><div class="body">
+      <div class="drop">Drop a Fidelity, E*Trade or Vanguard activity file<br><button class="btn" style="margin-top:6px">Choose file</button></div>
+      <div class="grid g3b" style="margin-top:10px">
+        <div class="f"><label>Broker</label><select><option>Detect from file</option></select></div>
+        <div class="f"><label>Account</label><select><option>From the file</option></select></div>
+        <div class="f"><label>Lot method</label><select><option>FIFO</option></select></div>
+      </div>
+      <div class="actions"><button class="btn pri">Preview</button></div></div></div>
+    <details class="card" open><summary>Import history <span class="chip">17 in 2026</span><span style="flex:1"></span><label class="sub" style="font-size:12px"><input type="checkbox"> show reverted (4)</label></summary><div class="body">
+      <table><tr><th>#</th><th>Account</th><th>Covers</th><th class="n">New rows</th><th>Imported</th><th></th></tr>
+      <tr><td>22</td><td>Matt's Trust</td><td>2026-10-27 → 11-03</td><td class="n">3</td><td>2026-11-04</td><td><button class="btn link">Revert</button></td></tr></table></div></details>
+  </div>
+</div>
+</section>
+
+<!-- ===================== YEAR-END ===================== -->
+<section id="Y" class="hide">
+<div class="note"><b>Year-End Transition.</b> The cash material leaves the ledger and becomes steps in the year-end checklist. Past closed years are one collapsed list; years with no data (2024, 2025 all zeros) aren't shown. Floor-feed verification turns into a one-time setup step that disappears once done.</div>
+<div class="page">
+  <div class="kicker">Track &amp; Reconcile</div><h1>Year-End Transition</h1>
+  <div class="toolbar"><label>Closing year <select><option>2026</option></select></label><span class="sub">7 of 13 steps open</span></div>
+  <details class="card" open><summary>Investment cash agrees with the broker <span class="chip ok">8 of 8 accounts match</span></summary><div class="body">
+    <table><tr><th>Account</th><th class="n">Broker balance</th><th>As of</th><th class="n">Cash lot</th><th class="n">Difference</th></tr>
+    <tr><td>Matt's 401k</td><td class="n">$12,102.22</td><td>11-04</td><td class="n">$12,102.22</td><td class="n ok">$0.00</td></tr>
+    <tr><td>Matt's Trust</td><td class="n">$259.00</td><td>11-04</td><td class="n">$259.00</td><td class="n ok">$0.00</td></tr>
+    <tr><td>Pat's Trust</td><td class="n">$5,724.27</td><td>11-04</td><td class="n">$5,724.27</td><td class="n ok">$0.00</td></tr></table>
+    <p class="sub">Only rows with a difference show by default. Reinvest dividends default moves to Plan Features.</p></div></details>
+  <details class="card" open><summary>Withdrawals: actual vs plan <span class="sub">year to date</span></summary><div class="body">
+    <table><tr><th>Account</th><th class="n">Withdrawn</th><th class="n">Plan, full year</th><th class="n">Unmatched</th></tr>
+    <tr><td>Matt's Trust</td><td class="n">$60,000.00</td><td class="n">$46,365.66</td><td class="n">$0.00</td></tr>
+    <tr><td>Pat's Trust</td><td class="n">$56,000.00</td><td class="n">$102,374.89</td><td class="n">$0.00</td></tr></table>
+    <p class="sub">Accounts with $0 on both sides are hidden. Matt's HSA: $1,502.65 excess contribution returned, <a href="#">enter its earnings</a>.</p></div></details>
+  <details class="card"><summary>One-time: verify accounts for the tax feed <span class="chip ok">done for 8 accounts</span></summary><div class="body"><p class="sub">Shown expanded only until every account is verified.</p></div></details>
+  <details class="card"><summary>Closed years <span class="chip">2025 · closed 2026-11-04</span></summary><div class="body"><p class="sub">Each closed year opens to its reported table with a Reopen button. Years with nothing reported are left out.</p></div></details>
+</div>
+</section>
+
+</div>
+<script>
+const $=s=>document.querySelectorAll(s);
+$('#opt button').forEach(b=>b.onclick=()=>{$('#opt button').forEach(x=>x.classList.toggle('on',x===b));['A','B','H','Y'].forEach(i=>document.getElementById(i).classList.toggle('hide',i!==b.dataset.o));});
+$('#tabsA button').forEach(b=>b.onclick=()=>{$('#tabsA button').forEach(x=>x.classList.toggle('on',x===b));$('[data-p]').forEach(p=>p.classList.toggle('hide',p.dataset.p!==b.dataset.t));});
+const yr=document.getElementById('yr');
+yr.onchange=()=>{const v=yr.value==='All years'?'(all years)':yr.value;$('.y').forEach(e=>e.textContent=v);$('.y0').forEach(e=>e.textContent=yr.value==='All years'?'prior year':String(+yr.value-1));};
+$('#tabsH button').forEach(b=>b.onclick=()=>{$('#tabsH button').forEach(x=>x.classList.toggle('on',x===b));$('[data-hp]').forEach(p=>p.classList.toggle('hide',p.dataset.hp!==b.dataset.h));});
+document.getElementById('showHidden').onchange=e=>$('.hiddenrow').forEach(r=>r.classList.toggle('hide',!e.target.checked));
+const f=document.getElementById('rsForm');document.getElementById('rsBtn').onclick=()=>f.classList.toggle('hide');document.getElementById('rsCancel').onclick=()=>f.classList.add('hide');
+</script>
+</body>
+</html>
