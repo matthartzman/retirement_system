@@ -19,7 +19,6 @@ before(async () => {
   };
   await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
   await import("../../frontend/js/dashboard_decomp_sales_ledger.js");
-  await import("../../frontend/js/dashboard_decomp_transactions.js");
   m = await import("../../frontend/js/dashboard_decomp_transactions_log.js");
 });
 // Swap window.confirm for one test and always put the original back (no leakage into later tests).
@@ -37,18 +36,39 @@ const LOG = {
   drift: [{ account: "Member_1_IRA", symbol: "ZZZ", purchase_date: "2024-06-01", holdings_shares: 9, log_shares: 7, reason: "the holdings have more shares than the log" }],
 };
 
+// ---- Task 9: filters, pagination, drawers --------------------------------------------------------------------
+const BIG = (n) => ({ started: true, drift: [], open: [], rows: Array.from({ length: n }, (_, i) => ({ txn_id: i + 1, txn_date: `${2020 + (i % 5)}-03-01`, account: i % 2 ? "Member_1_IRA" : "Member_1_Roth", type: i % 3 ? "buy" : "sell", symbol: i % 4 ? "TOTL" : "vxus", shares: 1, price: 2, source: "manual" })) });
+const rowIds = (h) => [...h.matchAll(/<tr id="tlRow(\d+)"/g)].map((x) => Number(x[1]));
+// A document whose elements remember innerHTML/focus so repaints and focus moves can be observed.
+function fakeDom() {
+  const els = {}, focused = [], live = {}, boxes = [];
+  const get = (id) => (els[id] ||= { id, innerHTML: "", focus() { focused.push(id); }, scrollIntoView() { focused.push("scroll:" + id); } });
+  globalThis.document = { getElementById: get, querySelectorAll: (sel) => (sel === "input[data-managed]" ? boxes : []) };
+  globalThis.slAnnounce = (t) => { live.text = t; };
+  return { els, focused, live, boxes, restore() { globalThis.document = { getElementById: () => null }; delete globalThis.slAnnounce; } };
+}
+async function loadLog(log) {
+  const orig = globalThis.api;
+  globalThis.api = async (url) => (url === "/api/transactions/log" ? log : { success: true });
+  await m.tlLoad();
+  globalThis.api = orig;
+  m.tlApplyFilters({});
+}
+const PLAIN = [];
+
 test("not started shows the start button only", () => {
   const h = m.tlHtml({ started: false, rows: [], open: [], drift: [] });
   assert.match(h, /Start the transaction log/);
   assert.doesNotMatch(h, /Add transaction/);
 });
 
-test("started log shows friendly names, drift banner, and escapes notes", () => {
+test("started log shows friendly names, escapes notes and saves immediately; drift lives on the ledger, not here", () => {
   const h = m.tlHtml(LOG);
   assert.match(h, /Matt's IRA/);
-  assert.match(h, /The log and the holdings differ/);
+  assert.match(h, /Changes here save immediately\./);
+  assert.doesNotMatch(h, /The log and the holdings differ|managed/i);
   assert.doesNotMatch(h, /<i>x<\/i>/);
-  assert.match(m.tlHtml({ ...LOG, drift: [] }), /agrees with the holdings/);
+  assert.match(m.tlHealthHtml({ ...LOG, drift: [] }), /agrees with the holdings/);
 });
 
 test("start posts backfill; add and edit post the right routes", async () => {
@@ -79,23 +99,11 @@ test("void asks to confirm then posts; transfer lists only the source account's 
   assert.equal(calls[0][0], "/api/transactions/transfer");
 });
 
-test("managed toggle shows each account's state and posts the route", async () => {
-  const h = m.tlHtml({ ...LOG, managed: ["Member_1_IRA"] });
-  assert.match(h, /data-managed="Member_1_IRA" checked/);
-  await m.tlLoad(); calls.length = 0;
-  await m.tlSetManaged("Member_1_IRA", true);
-  assert.equal(calls[0][0], "/api/transactions/accounts/Member_1_IRA/managed");
-  assert.equal(calls[0][1], "POST");
-  assert.deepEqual(calls[0][2], { managed: true });
-  assert.doesNotMatch(m.tlHtml(LOG), /data-managed="Member_1_IRA" checked/);
-});
-
 test("summary: health counts drifting accounts, log counts rows, not started is bad; paint without slPublish is safe", async () => {
   const pub = {};
   globalThis.slPublish = (k, s) => { pub[k] = s; };
   await m.tlLoad();
   assert.deepEqual(pub.health, { count: 1, tone: "bad", text: "drift: 1 accounts" });
-  assert.deepEqual(pub.log, { count: 1, tone: "", text: "" });
   const orig = globalThis.api;
   globalThis.api = async () => ({ started: false, rows: [], open: [], drift: [] });
   await m.tlLoad();
@@ -112,21 +120,11 @@ test("health: 7 drift items show 5 rows and Show all 7; show all reveals every r
   assert.match(h, /The log and the holdings differ/);
   assert.equal((h.match(/<li>/g) || []).length, 5);
   assert.match(h, /Show all 7/);
-  assert.match(h, /tlFocusRow\(/);
+  assert.match(h, /<a href="#holdings\/activity\?account=Member_1_IRA&amp;symbol=S0&amp;back=sales">Show in Activity<\/a>/);
   m.tlShowAllHealth(true);
   assert.equal((m.tlHealthHtml({ ...LOG, drift: DRIFT7 }).match(/<li>/g) || []).length, 7);
   m.tlShowAllHealth(false);
   assert.match(m.tlHealthHtml({ ...LOG, drift: [] }), /agrees with the holdings/);
-});
-
-test("managed chips mark managed accounts and keep the checkbox list in an Edit details", () => {
-  const h = m.tlManagedChipsHtml({ ...LOG, managed: ["Member_1_IRA"] });
-  assert.match(h, /Managed accounts \(1\)/);
-  assert.match(h, /<span[^>]*>Matt's IRA · managed<\/span>/);
-  assert.match(h, /· managed/);
-  assert.match(h, /<details/);
-  assert.match(h, /data-managed="Member_1_IRA" checked/);
-  assert.doesNotMatch(m.tlManagedChipsHtml({ ...LOG, managed: [] }), /· managed/);
 });
 
 test("not-started health render has the Start button and no details; started shows drift only", async () => {
@@ -143,44 +141,6 @@ test("not-started health render has the Start button and no details; started sho
   assert.match(s, /id="tlHealthRoot"/);
   assert.match(s, /The log and the holdings differ/);
 });
-
-test("tlHtml default keeps drift and managed; health:false omits the drift block", () => {
-  const withManaged = { ...LOG, managed: ["Member_1_IRA"] };
-  assert.match(m.tlHtml(withManaged), /The log and the holdings differ/);
-  const h = m.tlHtml(withManaged, undefined, undefined, undefined, { health: false });
-  assert.doesNotMatch(h, /The log and the holdings differ/);
-  assert.doesNotMatch(h, /agrees with the holdings/);
-  assert.match(h, /Add transaction/);
-});
-
-test("tlFocusRow goes to the log via slGo when defined and is safe when not", () => {
-  const seen = [];
-  globalThis.slGo = (...a) => seen.push(a);
-  m.tlFocusRow("Member_1_IRA", "ZZZ", "2024-06-01");
-  assert.deepEqual(seen[0], ["fix", "log"]);
-  delete globalThis.slGo;
-  assert.doesNotThrow(() => m.tlFocusRow("Member_1_IRA", "ZZZ", "2024-06-01"));
-});
-
-// ---- Task 9: filters, pagination, drawers --------------------------------------------------------------------
-const BIG = (n) => ({ started: true, drift: [], open: [], rows: Array.from({ length: n }, (_, i) => ({ txn_id: i + 1, txn_date: `${2020 + (i % 5)}-03-01`, account: i % 2 ? "Member_1_IRA" : "Member_1_Roth", type: i % 3 ? "buy" : "sell", symbol: i % 4 ? "TOTL" : "vxus", shares: 1, price: 2, source: "manual" })) });
-const rowIds = (h) => [...h.matchAll(/<tr id="tlRow(\d+)"/g)].map((x) => Number(x[1]));
-// A document whose elements remember innerHTML/focus so repaints and focus moves can be observed.
-function fakeDom() {
-  const els = {}, focused = [], live = {}, boxes = [];
-  const get = (id) => (els[id] ||= { id, innerHTML: "", focus() { focused.push(id); }, scrollIntoView() { focused.push("scroll:" + id); } });
-  globalThis.document = { getElementById: get, querySelectorAll: (sel) => (sel === "input[data-managed]" ? boxes : []) };
-  globalThis.slAnnounce = (t) => { live.text = t; };
-  return { els, focused, live, boxes, restore() { globalThis.document = { getElementById: () => null }; delete globalThis.slAnnounce; } };
-}
-async function loadLog(log) {
-  const orig = globalThis.api;
-  globalThis.api = async (url) => (url === "/api/transactions/log" ? log : { success: true });
-  await m.tlLoad();
-  globalThis.api = orig;
-  m.tlSetFilter("account", ""); m.tlSetFilter("symbol", ""); m.tlSetFilter("year", ""); m.tlSetFilter("type", "");
-}
-const PLAIN = [undefined, undefined, undefined, { health: false }];
 
 test("tlFilterRows: account exact, symbol case-insensitive, year prefix, type exact, empty = no constraint", () => {
   const rows = BIG(40).rows;
@@ -249,16 +209,15 @@ test("a filter with no match says so; changing a filter resets paging and repain
 test("filter controls have real labels, including Filter year", async () => {
   await loadLog(BIG(3));
   const h = m.tlHtml(BIG(3), ...PLAIN);
-  for (const t of ["Account", "Symbol", "Filter year", "Type"]) assert.match(h, new RegExp(`<label for="tlF[A-Za-z]+">${t} `));
+  for (const t of ["Year", "Account", "Symbol", "Type"]) assert.match(h, new RegExp(`<label for="tlF[A-Za-z]+">${t} `));
 });
 
 test("layout: both drawers sit above the filters and the entries", async () => {
   const h = m.tlHtml(BIG(3), ...PLAIN);
   const at = (re) => h.search(re);
-  assert.ok(at(/＋ Add transaction/) > 0 && at(/＋ Add transaction/) < at(/＋ Transfer between accounts/));
-  assert.ok(at(/＋ Transfer between accounts/) < at(/class="sl-filters tl-filters"/));
+  assert.ok(at(/＋ Add transaction/) > 0 && at(/＋ Add transaction/) < at(/⇄ Transfer/));
+  assert.ok(at(/⇄ Transfer/) < at(/class="sl-filters tl-filters"/));
   assert.ok(at(/class="sl-filters tl-filters"/) < at(/id="tlEntries"/));
-  assert.ok(at(/tl-managed-chips/) < at(/＋ Add transaction/));
   assert.match(h, /<details class="drawer" id="tlAddDrawer" ontoggle/);
 });
 
@@ -275,31 +234,6 @@ test("tlEditRow renders the drawer open before values are set, scrolls and focus
   dom.restore();
   assert.doesNotThrow(() => m.tlEditRow(2));
   m.tlCancel();
-});
-
-test("tlFocusRow filters by account and symbol, resets paging and keeps the slGo call", async () => {
-  await loadLog(BIG(100));
-  const dom = fakeDom(), seen = [];
-  globalThis.slGo = (...a) => seen.push(a);
-  m.tlShowMore();
-  m.tlFocusRow("Member_1_IRA", "TOTL", "2024-06-01");
-  const h = dom.els.tlRoot.innerHTML;
-  assert.match(h, /<option value="Member_1_IRA" selected>/);
-  assert.match(h, /id="tlFSym" size="7" value="TOTL"/);
-  assert.ok(rowIds(h).length <= 25);
-  assert.deepEqual(seen[0], ["fix", "log"]);
-  delete globalThis.slGo; dom.restore();
-  await loadLog(BIG(1));
-});
-
-test("tlFocusRow arguments with an apostrophe and a backslash yield a valid, escaped handler", () => {
-  const acct = "O'Brien\\IRA";
-  const h = m.tlHealthHtml({ ...LOG, drift: [{ ...LOG.drift[0], account: acct, symbol: "A'B" }] });
-  const attr = h.match(/onclick="(tlFocusRow\([^"]*\))"/)[1];
-  const raw = attr.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
-  let got;
-  new Function("tlFocusRow", raw)((...a) => { got = a; });
-  assert.deepEqual(got, [acct, "A'B", "2024-06-01"]);
 });
 
 test("health: Show all repaints only #tlHealthRoot and refocuses the toggle", async () => {
@@ -332,7 +266,8 @@ test("health slot: one Start button when not started, none when started; repaint
   const orig = globalThis.api;
   globalThis.api = async () => ({ started: false, rows: [], open: [], drift: [] });
   await m.tlLoad();
-  assert.equal(startBtns(window.slHealthSlotHtml() + m.renderTransactionLog()), 1);
+  assert.equal(startBtns(window.slHealthSlotHtml()), 1);
+  assert.equal(startBtns(m.renderTransactionLog()), 1);                 // Activity carries its own Start prompt when the log is not started
   globalThis.api = orig;
   await m.tlLoad();
   assert.equal(startBtns(window.slHealthSlotHtml() + m.renderTransactionLog()), 0);
@@ -396,43 +331,6 @@ test("start asks to confirm: cancel makes no call, OK posts once", async () => {
 
 // Task 10 review minor (a), deliberate update: cancel puts only the checkbox back; the log is not repainted, so the open
 // "Edit…" details does not snap shut.
-test("managed off asks to confirm: cancel posts nothing, re-checks only the checkbox and repaints nothing; OK posts once; turning on never asks", async () => {
-  await loadLog({ ...LOG, managed: ["Member_1_IRA", "O'Brien\\IRA"] });
-  const dom = fakeDom();
-  const asked = [];
-  let answer = false;
-  dom.els.tlRoot = { innerHTML: "untouched" };
-  const box = (a) => ({ checked: false, getAttribute: (n) => (n === "data-managed" ? a : null) });
-  const ira = box("Member_1_IRA"), other = box("O'Brien\\IRA");
-  dom.boxes.push(other, ira);
-  try {
-    await withConfirm((msg) => { asked.push(msg); return answer; }, async () => {
-      calls.length = 0;
-      assert.equal(await m.tlSetManaged("Member_1_IRA", false), false);
-      assert.equal(calls.length, 0);
-      assert.equal(ira.checked, true);
-      assert.equal(other.checked, false);
-      assert.equal(dom.els.tlRoot.innerHTML, "untouched");
-      assert.equal(await m.tlSetManaged("O'Brien\\IRA", false), false);
-      assert.equal(other.checked, true);
-      answer = true;
-      await m.tlSetManaged("Member_1_IRA", false);
-      assert.equal(calls.filter((c) => c[0].endsWith("/managed")).length, 1);
-      calls.length = 0; asked.length = 0;
-      await m.tlSetManaged("Member_1_IRA", true);
-      assert.equal(asked.length, 0);
-    });
-  } finally { dom.restore(); }
-  globalThis.document = { getElementById: () => null }; // no querySelectorAll: cancel is still safe
-  await withConfirm(() => false, async () => assert.equal(await m.tlSetManaged("Member_1_IRA", false), false));
-});
-
-test("managed-off confirm text is exact", async () => {
-  const asked = [];
-  await withConfirm((msg) => { asked.push(msg); return false; }, () => m.tlSetManaged("Member_1_IRA", false));
-  assert.deepEqual(asked, ["Holdings freeze at their last state and the log stops updating them."]);
-});
-
 test("void uses the shared confirm: cancel posts nothing; no dialog available proceeds by design", async () => {
   await loadLog(LOG);
   calls.length = 0;
@@ -518,208 +416,77 @@ async function inMode(mode, body) { // run body, then always return to edit mode
   }
 }
 
-test("mode toggle: Edit log is the default; the toggle names both modes and marks the active one", async () => {
-  await loadLog(BIG(3));
-  const h = m.tlHtml(BIG(3), ...PLAIN);
-  assert.match(h, /<button[^>]*aria-pressed="true"[^>]*>Edit log<\/button>/);
-  assert.match(h, /<button[^>]*aria-pressed="false"[^>]*>History &amp; held lots<\/button>/);
-  assert.ok(h.indexOf("Edit log</button>") < h.indexOf('class="sl-filters tl-filters"'));
-  assert.doesNotMatch(h, /Held only/);
+// ---- Activity on Investment Holdings (Sales Ledger v3) ----
+const CASH_LOG = () => ({ ...LOG, rows: [
+  { txn_id: 20, txn_date: "2026-11-02", account: "Member_1_IRA", type: "opening", symbol: "CASH", shares: 500, price: 1, source: "backfill", note: "" },
+  { txn_id: 21, txn_date: "2026-11-02", account: "Member_1_IRA", type: "opening", symbol: "TOTL", shares: 4, price: 100, source: "backfill", note: "" },
+  ...LOG.rows] });
+
+test("cash opening rows are hidden by default and counted in the toolbar; the box shows them", async () => {
+  await loadLog(CASH_LOG());
+  const h = m.tlHtml(CASH_LOG());
+  assert.equal(rowIds(h).includes(20), false);
+  assert.equal(rowIds(h).includes(21), true);
+  assert.match(h, /Show cash opening rows \(1\)/);
+  m.tlSetFilter("showCashOpening", true);
+  assert.equal(rowIds(m.tlHtml(CASH_LOG())).includes(20), true);
+  assert.deepEqual(m.tlFilterRows(CASH_LOG().rows, { showCashOpening: false }).map((r) => r.txn_id), [21, 7]);
+  m.tlApplyFilters({});
 });
 
-test("history mode: Transactions columns, server called with the shared filters; switching back keeps every filter", async () => {
-  await loadLog(BIG(200));
-  const dom = fakeDom();
-  await inMode("history", async () => {
-    m.tlSetFilter("account", "Member_1_IRA"); m.tlSetFilter("symbol", "TOTL"); m.tlSetFilter("year", "2021"); m.tlSetFilter("type", "buy");
-    hist = HVIEW(2); calls.length = 0;
-    await m.tlSetMode("history");
-    assert.deepEqual(histUrls(), ["/api/transactions?account=Member_1_IRA&symbol=TOTL&year=2021&type=buy"]);
-    const root = dom.els.tlRoot.innerHTML, ent = dom.els.tlEntries.innerHTML;
-    for (const re of [/<option value="Member_1_IRA" selected>/, /id="tlFSym" size="7" value="TOTL"/, /<option value="2021" selected>/, /<option value="buy" selected>/]) assert.match(root, re);
-    assert.match(root, /<label for="tlFHeld"><input type="checkbox" id="tlFHeld"[^>]*> Held only<\/label>/);
-    assert.match(root, /aria-pressed="true"[^>]*>History &amp; held lots/);
-    assert.deepEqual(heads(ent), ["Date", "Account", "Type", "Symbol", "Shares", "Price", "Amount", "Remaining", "Sale", "Source"]);
-    assert.doesNotMatch(ent, /tlVoid|tlEditRow/);
-    assert.doesNotMatch(root, /<details ontoggle="trToggle/);
-    await m.tlSetMode("edit");
-    const back = dom.els.tlRoot.innerHTML;
-    for (const re of [/<option value="Member_1_IRA" selected>/, /id="tlFSym" size="7" value="TOTL"/, /<option value="2021" selected>/, /<option value="buy" selected>/]) assert.match(back, re);
-    assert.doesNotMatch(back, /Held only/);
-    assert.match(back, /Showing 14 of 14/);
-    assert.match(back, /tlVoid\(/);
-    assert.equal(histUrls().length, 1); // edit mode filters client-side
-  });
-  dom.restore();
-});
-
-test("switching mode keeps the edit-mode paging", async () => {
-  await loadLog(BIG(200));
-  const dom = fakeDom();
-  await inMode("history", async () => {
-    m.tlShowMore();
-    await m.tlSetMode("history");
-    await m.tlSetMode("edit");
-    assert.match(dom.els.tlRoot.innerHTML, /Showing 50 of 200/);
-    assert.equal(rowIds(dom.els.tlRoot.innerHTML).length, 50);
-  });
-  dom.restore();
-});
-
-test("history mode: 0, 1 and many rows, and a filter that matches nothing, each update from the server", async () => {
-  await loadLog(BIG(3));
-  const dom = fakeDom();
-  await inMode("history", async () => {
-    await m.tlSetMode("history");
-    for (const n of [0, 1, 30]) {
-      hist = HVIEW(n); calls.length = 0;
-      await m.tlSetFilter("symbol", `S${n}`);
-      assert.deepEqual(histUrls(), [`/api/transactions?symbol=S${n}`]);
-      const ent = dom.els.tlEntries.innerHTML;
-      if (n === 0) assert.match(ent, /No transactions match\./); else assert.equal(histRows(ent), n);
-    }
-    hist = { rows: [], held: [] }; calls.length = 0;
-    await m.tlSetFilter("type", "opening");
-    assert.match(histUrls()[0], /type=opening/);
-    assert.match(dom.els.tlEntries.innerHTML, /No transactions match\./);
-  });
-  dom.restore();
-});
-
-test("history mode: Held only lists the Lots held table; unchecked hides it", async () => {
-  await loadLog(BIG(3));
-  const dom = fakeDom();
-  await inMode("history", async () => {
-    await m.tlSetMode("history");
-    hist = HVIEW(1); calls.length = 0;
-    await m.tlSetFilter("held", true);
-    assert.deepEqual(histUrls(), ["/api/transactions?held=1"]);
-    const ent = dom.els.tlEntries.innerHTML;
-    assert.match(ent, /<h4>Lots held<\/h4>/);
-    assert.match(ent, /<th>Account<\/th><th>Symbol<\/th><th>Purchased<\/th><th class="rc-num">Shares<\/th><th class="rc-num">Price<\/th>/);
-    assert.match(ent, /2025-01-02/);
-    assert.match(m.tlHtml(BIG(3), ...PLAIN), /id="tlFHeld" checked/);
-    await m.tlSetFilter("held", false);
-    assert.doesNotMatch(dom.els.tlEntries.innerHTML, /Lots held/);
-  });
-  dom.restore();
-});
-
-test("a save in edit mode reloads history once (tlReloadAll), and the fresh history shows after switching", async () => {
-  await loadLog(BIG(3));
-  const dom = fakeDom();
-  await inMode("history", async () => {
-    await m.tlSetMode("history");
-    await m.tlSetMode("edit");
-    hist = HVIEW(1, "NEWX"); calls.length = 0;
-    m.tlSetForm("txn_date", "2026-06-01"); m.tlSetFormAccount("Member_1_IRA"); m.tlSetForm("symbol", "NEWX"); m.tlSetForm("shares", "2");
-    await m.tlSave();
-    assert.equal(calls.filter((c) => c[0] === "/api/transactions" && c[1] === "POST").length, 1);
-    assert.equal(histUrls().length, 1);
-    assert.equal(calls.filter((c) => c[0] === "/api/transactions/log").length, 1);
-    const n = calls.length;
-    await m.tlSetMode("history");
-    assert.equal(calls.length, n); // already fresh for these filters: no second fetch
-    assert.match(dom.els.tlRoot.innerHTML, /<div id="tlEntries"><p class="muted tl-count">1 transaction<\/p><table class="rc-table">.*NEWX/s); // repainted from the cached history
-  });
-  dom.restore();
-});
-
-test("tlReloadAll refreshes the log and, in history mode, the history once; unknown modes fall back to edit", async () => {
-  await loadLog(BIG(3));
-  await inMode("history", async () => {
-    await m.tlSetMode("history"); calls.length = 0;
-    await m.tlReloadAll();
-    assert.deepEqual(calls.map((c) => c[0]), ["/api/transactions/log", "/api/transactions?"]);
-    await m.tlSetMode("bogus");
-    assert.match(m.tlHtml(LOG, ...PLAIN), /aria-pressed="true"[^>]*>Edit log/);
-  });
-});
-
-test("log summary is unchanged with history loaded: count = log rows, tone empty", async () => {
-  const pub = {};
-  globalThis.slPublish = (k, s) => { pub[k] = s; };
-  try {
-    await inMode("history", async () => {
-      await m.tlSetMode("history");
-      hist = HVIEW(9);
-      await m.tlReloadAll();
-      assert.deepEqual(pub.log, { count: LOG.rows.length, tone: "", text: "" });
-    });
-  } finally { delete globalThis.slPublish; }
-});
-
-// ---- Task 11 fix round 1: history without a started log, latest request wins, parity -----------------------------
-const NOT_STARTED = { started: false, rows: [], open: [], drift: [] };
-const HCOLS = ["Date", "Account", "Type", "Symbol", "Shares", "Price", "Amount", "Remaining", "Sale", "Source"];
-
-test("not-started log: the section shows history (10 columns, held lots) with Edit log disabled; Start stays only in the health slot", async () => {
-  const dom = fakeDom();
-  const orig = globalThis.api;
-  globalThis.api = async (url, o) => (url === "/api/transactions/log" ? NOT_STARTED : orig(url, o));
-  try {
-    await inMode("history", async () => {
-      hist = HVIEW(2); calls.length = 0;
-      await m.tlReloadAll();
-      assert.deepEqual(histUrls(), ["/api/transactions?"]);
-      const h = m.renderTransactionLog();
-      assert.match(h, /Start it in the log health section/);
-      assert.match(h, /<button[^>]*aria-pressed="false" disabled[^>]*>Edit log<\/button>/);
-      assert.match(h, /aria-pressed="true"[^>]*>History &amp; held lots/);
-      assert.deepEqual(heads(h.slice(h.indexOf('id="tlEntries"'))), HCOLS);
-      assert.match(h, /2 transactions/);
-      assert.match(h, /id="tlFHeld"/);
-      assert.equal(((window.slHealthSlotHtml() + h).match(/Start the transaction log/g) || []).length, 1);
-      await m.tlSetFilter("held", true);
-      assert.match(histUrls().at(-1), /held=1/);
-      assert.match(dom.els.tlEntries.innerHTML, /<h4>Lots held<\/h4>/);
-      await m.tlSetMode("edit"); // not reachable from the UI (button disabled); still shows history
-      assert.match(dom.els.tlRoot.innerHTML, /Start it in the log health section/);
-      assert.doesNotMatch(dom.els.tlRoot.innerHTML, /tlVoid\(|Add transaction/);
-    });
-  } finally { globalThis.api = orig; dom.restore(); }
+test("no managed checkboxes or chips are rendered, and no history mode", async () => {
   await loadLog(LOG);
+  const h = m.tlHtml(LOG);
+  assert.doesNotMatch(h, /type="checkbox"[^>]*data-managed|tl-managed|Managed accounts|History &amp; held|tlModeEdit|Held only/);
+  assert.equal(typeof m.tlSetManaged, "undefined");
+  assert.equal(typeof m.tlSetMode, "undefined");
 });
 
-test("history: latest request wins when responses arrive out of order", async () => {
-  await loadLog(BIG(3));
+test("Void is inside the edit dialog, not on the table rows", async () => {
+  await loadLog(LOG);
+  assert.doesNotMatch(m.tlHtml(LOG), /Void this transaction|tlVoid\(/);
   const dom = fakeDom();
-  const orig = globalThis.api, pending = {};
-  globalThis.api = (url, o) => (url.startsWith("/api/transactions?") ? new Promise((r) => { pending[new URLSearchParams(url.split("?")[1]).get("symbol") || ""] = r; }) : orig(url, o));
-  try {
-    await inMode("history", async () => {
-      const p0 = m.tlSetMode("history");
-      if (pending[""]) pending[""](HVIEW(1, "INIT"));
-      await p0;
-      const a = m.tlSetFilter("symbol", "AAA"), b = m.tlSetFilter("symbol", "BBB");
-      pending.BBB(HVIEW(2, "BBB")); await b;
-      pending.AAA(HVIEW(3, "AAA")); await a;
-      const ent = dom.els.tlEntries.innerHTML;
-      assert.match(ent, /BBB/);
-      assert.doesNotMatch(ent, /AAA|Loading…/);
-      assert.match(ent, /2 transactions/);
-      assert.match(m.tlHtml(BIG(3), ...PLAIN), /<div id="tlEntries"><p class="muted tl-count">2 transactions/);
-    });
-  } finally { globalThis.api = orig; dom.restore(); }
-});
-
-test("history parity: type options are the history types, accounts include the history view's, and a row count shows", async () => {
-  await loadLog(BIG(3));
-  const dom = fakeDom();
-  const opts = (h, id) => [...h.match(new RegExp(`<select id="${id}".*?</select>`))[0].matchAll(/<option value="([^"]*)"/g)].map((x) => x[1]);
-  await inMode("history", async () => {
-    hist = { rows: [{ ...HROW(0), account: "Member_1_Hist" }], held: [{ account: "Member_1_Held", symbol: "X", purchase_date: "2025-01-02", shares: 1, price: 1 }] };
-    m.tlSetFilter("symbol", "P1"); // edit mode: client-side only
-    await m.tlSetMode("history");
-    const h = m.tlHtml(BIG(3), ...PLAIN);
-    assert.deepEqual(opts(h, "tlFType"), ["", "buy", "reinvest", "sell"]);
-    for (const a of ["Member_1_Hist", "Member_1_Held", "Member_1_IRA"]) assert.ok(opts(h, "tlFAcct").includes(a), a);
-    assert.ok(opts(h, "tlFYear").includes("2026"));
-    assert.match(dom.els.tlEntries.innerHTML, /<p class="muted tl-count">1 transaction<\/p><table/);
-    await m.tlSetMode("edit");
-    const e = m.tlHtml(BIG(3), ...PLAIN);
-    assert.ok(opts(e, "tlFType").includes("opening"));
-    assert.ok(!opts(e, "tlFAcct").includes("Member_1_Hist"));
-  });
+  m.tlEditRow(7);
+  const h = m.tlHtml(LOG);
+  assert.match(h, /Void this transaction/);
+  assert.match(h, /tlVoid\(7\)/);
+  assert.equal((h.match(/tlVoid\(/g) || []).length, 1);
+  m.tlCancel();
   dom.restore();
+});
+
+test("a sale row links to Sales Ledger › Sales", async () => {
+  const log = { ...LOG, rows: [{ ...LOG.rows[0], txn_id: 9, type: "sell" }] };
+  assert.match(m.tlHtml(log), /<a href="#sales_ledger\?tab=ledger">Sale in Sales Ledger<\/a>/);
+  assert.doesNotMatch(m.tlHtml(LOG), /Sale in Sales Ledger/);
+});
+
+test("Activity shows a bank-account cleanup banner when the preview is non-empty; Clean up asks, then posts the explicit list", async () => {
+  const orig = globalThis.api;
+  globalThis.api = async (url, opts) => {
+    calls.push([url, opts && opts.method, opts && opts.body ? JSON.parse(opts.body) : null]);
+    if (url === "/api/transactions/log") return LOG;
+    if (url === "/api/transactions/bank-cleanup" && !opts) return { success: true, accounts: [{ account: "Business_Checking", managed: false, opening_rows: [3] }, { account: "Family_Checking", managed: true, opening_rows: [4] }] };
+    return { success: true };
+  };
+  try {
+    await m.tlLoad();
+    const h = m.tlHtml(LOG);
+    assert.match(h, /2 bank accounts have log rows that do not belong here: Business_Checking, Family_Checking/);
+    calls.length = 0;
+    await withConfirm(() => false, () => m.tlCleanBank());
+    assert.equal(calls.filter((c) => c[1] === "POST").length, 0);
+    await withConfirm(() => true, () => m.tlCleanBank());
+    assert.deepEqual(calls.find((c) => c[1] === "POST"), ["/api/transactions/bank-cleanup", "POST", { accounts: ["Business_Checking", "Family_Checking"] }]);
+  } finally { globalThis.api = orig; }
+  await m.tlLoad();
+  assert.doesNotMatch(m.tlHtml(LOG), /bank account/);
+});
+
+test("a deep link applies its filters; source=backfill reveals the backfilled cash opening rows", () => {
+  m.tlApplyFilters({ account: "Member_1_IRA", type: "opening", year: "2026", source: "backfill" });
+  const h = m.tlHtml(CASH_LOG());
+  assert.deepEqual(rowIds(h), [21, 20]);
+  assert.match(h, /id="tlFYear"[^>]*>[^]*?<option value="2026" selected>/);
+  m.tlApplyFilters({});
 });

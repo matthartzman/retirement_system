@@ -26,7 +26,6 @@ before(async () => {
   globalThis.api = defaultApi;
   ui = await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
   tax = await import("../../frontend/js/dashboard_decomp_sales_tax.js");
-  tr = await import("../../frontend/js/dashboard_decomp_transactions.js");
   ye = await import("../../frontend/js/dashboard_decomp_year_end.js");
   tl = await import("../../frontend/js/dashboard_decomp_transactions_log.js");
 });
@@ -178,17 +177,6 @@ describe("9 smaller items", () => {
   test("next-step paragraph is not a live region", () => {
     ui.slPublish("queue", { count: 0, tone: "", text: "" });
     assert.doesNotMatch(ui.slNextStepHtml({ wash: true }), /role="status"/);
-  });
-  test("trLoad returns the error with its view", async () => {
-    globalThis.api = async () => { throw new Error("boom"); };
-    const v = await tr.trLoad({});
-    assert.equal(v.error, "boom");
-    assert.match(tr.trHtml(v), /boom/);
-    globalThis.api = async () => ({ rows: [], held: [] });
-    const ok = await tr.trLoad({});
-    assert.equal(ok.error, "");
-    assert.doesNotMatch(tr.trHtml(ok), /boom/);
-    assert.match(tr.trHtml(v), /boom/);
   });
   test("a failed log load publishes neutral, not 'log not started'", async () => {
     globalThis.api = async () => { throw new Error("net"); };

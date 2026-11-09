@@ -276,10 +276,6 @@ export function slSecAll(tab, open) { // no tab: the active one
 
 slOnSummary((key, summary) => slSecUpdate(key, summary));
 
-// Shared Source -> Preview -> Apply skeleton: a text row (current step in bold and aria-current, never colour alone).
-export const slStepsHtml = (current) => `<ol class="sl-steps" aria-label="Import steps">` + ["Source", "Preview", "Apply"].map((t, i) =>
-  (i + 1 === current ? `<li class="sl-step on" aria-current="step"><strong>${i + 1} ${t}</strong></li>` : `<li class="sl-step">${i + 1} ${t}</li>`)).join("") + `</ol>`;
-
 // Post-apply links: re-run the wash check after a 1099-B apply, and Fix lots when sales are waiting.
 export function slNextStepHtml(result) {
   if (!result) return "";
@@ -289,4 +285,4 @@ export function slNextStepHtml(result) {
   return items.length ? `<p class="sl-next">Next: ${items.join(" · ")}</p>` : "";
 }
 
-Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSecHtml, slAlertCountOf, slSecAlert, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecSetState, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slCurrentTab, slSetCurrentTab, slTabKeydown, slHeadControlState, slHeadSync, slStepsHtml, slNextStepHtml });
+Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSecHtml, slAlertCountOf, slSecAlert, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecSetState, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slCurrentTab, slSetCurrentTab, slTabKeydown, slHeadControlState, slHeadSync, slNextStepHtml });
