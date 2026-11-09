@@ -1097,7 +1097,30 @@ def sales_years_route():
     if denied:
         return denied
     from .. import sales_service as _sales
-    return _sales_call(lambda root: {"years": _sales.sales_years(root), "taxable_accounts": _sales.taxable_accounts(root)})
+    return _sales_call(lambda root: {"years": _sales.sales_years(root), "taxable_accounts": _sales.taxable_accounts(root),
+                                         "account_classes": _sales.account_classes(root)})
+
+
+@app.route("/api/sales/open-lots", methods=["GET"])
+def sales_open_lots():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    a = request.args
+    return _sales_call(_sales.open_lots, a.get("account", ""), a.get("symbol", ""), a.get("as_of") or None)
+
+
+@app.route("/api/sales/batch", methods=["POST"])
+def sales_batch():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    rows = (request.get_json(silent=True) or {}).get("rows")
+    if not isinstance(rows, list) or not rows:
+        return jsonify({"success": False, "error": "add at least one sale"}), 400
+    return _sales_call(_sales.add_sales, rows)
 
 
 @app.route("/api/sales", methods=["POST"])

@@ -20,6 +20,7 @@ before(async () => {
     return { success: true };
   };
   await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
+  await import("../../frontend/js/dashboard_decomp_sales_entry.js");
   m = await import("../../frontend/js/dashboard_decomp_sales_ledger.js");
 });
 beforeEach(() => { calls.length = 0; });
@@ -63,15 +64,6 @@ describe("table", () => {
 });
 
 describe("actions", () => {
-  test("slSubmit posts the form fields and reloads the list", async () => {
-    Object.assign(globalThis.__fields, { slDate: "2026-06-10", slAccount: "Trust", slClass: "taxable", slSymbol: "vti", slShares: "10",
-      slProceeds: "2000", slFees: "5", slBasis: "1500", slPurchase: "2025-01-02" });
-    await m.slSubmit();
-    const post = calls.find((c) => c[0] === "/api/sales" && c[1] === "POST");
-    assert.deepEqual(post[2], { sale_date: "2026-06-10", account: "Trust", tax_class: "taxable", symbol: "vti", shares: "10",
-      proceeds: "2000", fees: "5", basis: "1500", purchase_date: "2025-01-02" });
-    assert.ok(calls.some((c) => c[0].startsWith("/api/sales?")));
-  });
   test("void and restore post to the sale", async () => {
     await m.slVoid(7);
     await m.slUnvoid(7);
@@ -95,79 +87,33 @@ describe("tax-year panel hook", () => {
   });
 });
 
-describe("scoped repaint keeps drafts (F10)", () => {
-  const clearFields = () => { for (const k of Object.keys(globalThis.__fields)) delete globalThis.__fields[k]; };
-  const unesc = (t) => t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
-  // Root stubs behave like the DOM: writing innerHTML re-creates the inputs, so their live value comes from the new markup.
-  const mountRoots = () => {
-    for (const id of ["slHeadRoot", "slFormRoot", "slCsvRoot", "slListRoot"]) {
-      globalThis.__roots[id] = { writes: 0, _h: "", get innerHTML() { return this._h; }, set innerHTML(v) {
-        this.writes++; this._h = v;
-        if (id === "slCsvRoot") {
-          const t = /<textarea id="slCsv"[^>]*>([\s\S]*?)<\/textarea>/.exec(v);
-          if (t) globalThis.__fields.slCsv = unesc(t[1]); else delete globalThis.__fields.slCsv;
-        }
-        if (id === "slFormRoot") {
-          for (const mt of v.matchAll(/<input id="(sl\w+)"[^>]*value="([^"]*)"/g)) globalThis.__fields[mt[1]] = unesc(mt[2]);
-        }
-      } };
-    }
-  };
-  const type = (id, v) => { globalThis.__fields[id] = v; m.slDraftSet(id, v); }; // what a keystroke does
-  beforeEach(() => { clearFields(); mountRoots(); });
-
-  test("a ledger load repaints the list and head only, and keeps the form draft", async () => {
-    type("slSymbol", "VXUS");
+describe("scoped repaint keeps the entry card", () => {
+  beforeEach(() => {
+    for (const id of ["slHeadRoot", "slListRoot", "seCard"]) globalThis.__roots[id] = { writes: 0, _h: "", get innerHTML() { return this._h; }, set innerHTML(v) { this.writes++; this._h = v; } };
+  });
+  test("a ledger load repaints the list and head, never the entry card", async () => {
     await m.loadSalesLedger();
     const r = globalThis.__roots;
     assert.ok(r.slListRoot.writes >= 1);
-    assert.equal(r.slFormRoot.writes, 0);
-    calls.length = 0;
-    await m.slSubmit();
-    assert.equal(calls.find((c) => c[0] === "/api/sales" && c[1] === "POST")[2].symbol, "VXUS");
+    assert.equal(r.seCard.writes, 0);
   });
-
-  test("changing the year does not rewrite the form root", async () => {
+  test("changing the year does not rewrite the entry card", async () => {
     await m.slSetYear("2025");
-    assert.equal(globalThis.__roots.slFormRoot.writes, 0);
+    assert.equal(globalThis.__roots.seCard.writes, 0);
     await m.slSetYear(String(new Date().getFullYear()));
   });
-
-  test("typing during an in-flight save is kept; a failed save restores the sent draft", async () => {
-    const realApi = globalThis.api;
-    let release;
-    globalThis.api = async (url, opts) => {
-      if (url === "/api/sales" && opts && opts.method === "POST") { await new Promise((r) => { release = r; }); return { success: true }; }
-      return realApi(url, opts);
-    };
+  test("Edit hands the lot row to the entry grid; a save reloads with a message", async () => {
+    await m.loadSalesLedger();
+    let got = null;
+    globalThis.seEdit = (sale) => { got = sale; };
     try {
-      type("slSymbol", "VTI");
-      const p = m.slSubmit();
-      await new Promise((r) => setTimeout(r, 0));
-      type("slShares", "5"); // typed while the save is in flight
-      release();
-      await p;
-      const html = m.renderSalesLedger();
-      assert.match(html, /id="slShares"[^>]*value="5"/);
-      assert.match(html, /id="slSymbol"[^>]*value=""/);
-      globalThis.api = async (url, opts) => {
-        if (url === "/api/sales" && opts && opts.method === "POST") throw new Error("nope");
-        return realApi(url, opts);
-      };
-      type("slSymbol", "BND");
-      await m.slSubmit();
-      assert.match(m.renderSalesLedger(), /id="slSymbol"[^>]*value="BND"/);
-    } finally {
-      globalThis.api = realApi;
-      m.slCancelEdit();
-    }
+      m.slEdit(7);
+      assert.equal(got, null);                                   // not in the (empty) ledger
+    } finally { delete globalThis.seEdit; }
+    calls.length = 0;
+    await m.slAfterEntry("Recorded 2 sales.");
+    assert.ok(calls.some((c) => c[0].startsWith("/api/sales?")));
   });
-
-  test("the form is drawn from the draft", () => {
-    m.slDraftSet("slShares", "42");
-    assert.match(m.renderSalesLedger(), /id="slShares"[^>]*value="42"/);
-  });
-
   test("header says Year with an All years option, the Taxable switch and a Voided rows link; ids appear once", () => {
     const html = m.renderSalesLedger();
     assert.match(html, /<label>Year <select id="slYear"/);
@@ -175,9 +121,7 @@ describe("scoped repaint keeps drafts (F10)", () => {
     assert.match(html, /<select id="slYear"[^>]*>\s*<option value="" ?[^>]*>All years/);
     assert.match(html, /id="slTaxableBox"\s+checked\s/);
     assert.match(html, /id="slVoidedLink"[^>]*>Voided rows \(\d+\)</);
-    for (const id of ["slAccount", "slDate", "slClass", "slSymbol", "slShares", "slProceeds", "slFees", "slBasis", "slPurchase", "slYear", "slTaxableBox"]) {
-      assert.equal(html.split(`id="${id}"`).length - 1, 1, id);
-    }
+    for (const id of ["slYear", "slTaxableBox", "seCard"]) assert.equal(html.split(`id="${id}"`).length - 1, 1, id);
   });
   test("year options list only years returned by the server plus All years", () => {
     const h = m.slYearOptionsHtml([2024, 2026], "2026");
@@ -250,7 +194,7 @@ describe("three tabs", () => {
     };
     assert.ok(inPanel("fix", "renderSalesQueue"));
     for (const n of ["renderTransactionLog", "renderCashInvestment", "renderBrokerImport"]) assert.ok(!html.includes(n), n + " no longer mounts on the ledger");
-    for (const t of ['id="slFormRoot"', 'id="slListRoot"']) assert.ok(inPanel("ledger", t), t);
+    for (const t of ['id="seCard"', 'id="slListRoot"']) assert.ok(inPanel("ledger", t), t);
     assert.ok(!html.includes("slCsvRoot") && !html.includes("More views"));
     for (const n of ["renderSalesTaxYear", "renderSalesBroker1099b"]) assert.ok(inPanel("tax", n), n);
   }));
@@ -475,7 +419,6 @@ describe("ledger tab (Task 12)", () => {
     const h = globalThis.__roots.slListRoot.innerHTML;
     assert.match(h, /<strong>2<\/strong> sales · short-term net .*\$0\.00.* · long-term net .*\+\$495\.00/);
     assert.match(h, /tax-deferred — no gain reported/);
-    assert.match(h, /＋ Record a sale/);
     assert.match(m.slRowHtml(SALE({ gain: null })), /tax-deferred — no gain reported/);
     assert.doesNotMatch(m.slRowHtml(SALE()), /tax-deferred/);
     delete globalThis.__roots.slListRoot;
@@ -501,23 +444,6 @@ describe("ledger tab (Task 12)", () => {
       await m.slVoid(8);
       assert.equal(msgs[2], "Remove this sale from 2026 totals?");
     } finally { if (real === undefined) delete globalThis.confirm; else globalThis.confirm = real; }
-  }));
-
-  test("the drawer opens before Edit sets the values; ids stay unique", withApi(loadWith(), async () => {
-    await m.loadSalesLedger();
-    const order = [];
-    const form = mkRoot("slFormRoot"); form.log = order;
-    globalThis.__roots.slFormDrawer = { set open(v) { order.push("open:" + v); } };
-    m.slEdit(7);
-    assert.deepEqual(order, ["open:true", "slFormRoot"]);
-    order.length = 0;
-    m.slCancelEdit();
-    assert.deepEqual(order, ["open:false", "slFormRoot"]);
-    delete globalThis.__roots.slFormDrawer; delete globalThis.__roots.slFormRoot;
-    const html = m.renderSalesLedger();
-    assert.equal(html.split('id="slFormDrawer"').length - 1, 1);
-    assert.match(html, /<details class="drawer" id="slFormDrawer">/);
-    assert.match(html, /id="sl-sec-ledger"/);
   }));
 
   test("hidden voided count comes from one extra fetch; absent on failure", withApi(loadWith(), async () => {

@@ -6,13 +6,14 @@ Manual and CSV rows are one lot (or part of a lot) each, with the lot's basis an
 Nothing reads the ledger yet (Phase 1)."""
 from __future__ import annotations
 
-from datetime import date
+import json
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
 from . import active_plan, sales_tax_year
 from .csv_exchange import text_csv
-from .sales_ledger import ValidationError, validate_sale_row
+from .sales_ledger import ValidationError, holding_period, validate_sale_row
 
 CSV_REQUIRED = ("sale_date", "account", "tax_class", "symbol", "shares", "proceeds", "basis")
 CSV_COLUMNS = CSV_REQUIRED + ("fees", "purchase_date")
@@ -90,6 +91,79 @@ def sales_years(input_dir: str | Path) -> list[int]:
     return sorted(int(y) for y in found if y.isdigit() and 1900 < int(y) <= this_year)
 
 
+def open_lots(input_dir: str | Path, account: str, symbol: str, as_of: str | None) -> dict[str, Any]:
+    """The lot chooser's data: the account's open lots of ``symbol`` on ``as_of`` (the sale date), from the transaction log.
+    ``log_started`` is False when the account has no log rows at all (the chooser then offers blank lot rows)."""
+    from . import transactions
+    with active_plan.workspace_store(_base(input_dir)) as store:
+        started = any(r["account"] == account for r in store.transactions.list())
+        lots = []
+        for l in transactions.open_lots(store, account=account, symbol=symbol, as_of=as_of or None):
+            lots.append({"txn_id": l["lot_txn_id"], "purchase_date": l["purchase_date"], "open_shares": l["shares"],
+                         "unit_cost": float(l["price"] or 0.0), "source": store.transactions.get(l["lot_txn_id"])["source"],
+                         "term": holding_period(l["purchase_date"], as_of) if as_of and l["purchase_date"] else "unknown"})
+        near = []
+        if as_of:
+            lo, hi = (date.fromisoformat(as_of) + timedelta(days=d) for d in (-30, 30))
+            near = [{"txn_id": r["txn_id"], "txn_date": r["txn_date"]} for r in store.transactions.list(symbol=symbol)
+                    if r["type"] in ("buy", "reinvest") and lo.isoformat() <= r["txn_date"] <= hi.isoformat()]
+    return {"lots": lots, "log_started": started, "nearby_buys": near}
+
+
+_ENTRY_FIELDS = ("sale_date", "account", "symbol", "shares", "proceeds", "fees", "basis", "purchase_date", "settle_date", "wash_note")
+
+
+def add_sales(input_dir: str | Path, rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Record several lot rows at once, all or none. A row that names ``txn_lot`` (a lot of the transaction log) is also
+    written to the log as a sell of those shares, so holdings follow; its ``lot_key`` carries both ids so a later Void
+    gives the shares back. The tax class comes from the account."""
+    from . import transactions
+    from .sales_confirm import default_tax_class
+    if not rows:
+        raise ValidationError("add at least one sale")
+    ids: list[int] = []
+    accounts: set[str] = set()
+    try:
+        with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
+            for raw in rows:
+                base = {k: raw[k] for k in _ENTRY_FIELDS if k in raw}
+                account = str(base.get("account") or "").strip()
+                lot_id = raw.get("txn_lot")
+                key: dict[str, Any] = {}
+                if lot_id not in (None, ""):
+                    lot = store.transactions.get(int(lot_id))
+                    if lot["account"] != account or str(lot["symbol"]).upper() != str(base.get("symbol") or "").strip().upper():
+                        raise ValidationError("the chosen lot belongs to another account or symbol")
+                    base.setdefault("purchase_date", transactions.lot_date(lot))
+                    if not base.get("purchase_date"):
+                        base["purchase_date"] = transactions.lot_date(lot)
+                    key = {"txn_lot": int(lot_id)}
+                clean = validate_sale_row({**base, "tax_class": default_tax_class(store, account) if account else "taxable", "source": "manual"})
+                clean.pop("status", None)
+                if key:
+                    sell_id = transactions._add(store, {
+                        "txn_date": clean["sale_date"], "account": account, "type": "sell", "symbol": clean["symbol"],
+                        "shares": clean["shares"], "price": clean["proceeds"] / clean["shares"], "amount": clean["proceeds"],
+                        "fees": clean["fees"], "source": "manual"}, {int(lot_id): clean["shares"]})
+                    clean["lot_key"] = json.dumps({**key, "log_sell": sell_id}, sort_keys=True)
+                    accounts.add(account)
+                ids.append(store.sales.insert_sale(**clean))
+            if accounts:
+                transactions.materialize_managed(store, accounts)
+    except active_plan.StoreError as exc:
+        raise ValidationError(str(exc)) from exc
+    sales_tax_year.auto_refresh(input_dir)
+    return {"ids": ids}
+
+
+def account_classes(input_dir: str | Path) -> dict[str, str]:
+    """``{investment account: tax class}`` for the entry grid's account list (the class sets the gain rule; no form field)."""
+    from .broker_import import investment_accounts
+    from .sales_confirm import default_tax_class
+    with active_plan.workspace_store(_base(input_dir)) as store:
+        return {a: default_tax_class(store, a) for a in investment_accounts(store)}
+
+
 def taxable_accounts(input_dir: str | Path) -> list[str]:
     """Investment accounts a sale in which is taxable (the Taxable-only switch covers these), by the account-name rule."""
     from .broker_import import investment_accounts
@@ -108,6 +182,8 @@ def replace_sale(input_dir: str | Path, sale_id: int, row: dict[str, Any]) -> di
             old = store.sales.get_sale(int(sale_id))
             if old["status"] != "confirmed":
                 raise ValidationError("only a confirmed sale can be edited")
+            if "log_sell" in (old.get("lot_key") or ""):
+                raise ValidationError("this lot is linked to the transaction log; void it and record the sale again")
             if old["source"] != "manual":
                 raise ValidationError("this sale came from the queue or a statement; send it back to the queue "
                                       "(or correct it through the 1099-B import) instead of editing it")
@@ -120,8 +196,18 @@ def replace_sale(input_dir: str | Path, sale_id: int, row: dict[str, Any]) -> di
 
 
 def _set_voided(input_dir: str | Path, sale_id: int, voided: bool) -> None:
+    from . import transactions
     try:
-        with active_plan.workspace_store(_base(input_dir), write=True) as store:
+        with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
+            row = store.sales.get_sale(int(sale_id))
+            sell_id = (json.loads(row["lot_key"]) if (row.get("lot_key") or "").startswith("{") else {}).get("log_sell")
+            if sell_id is not None:
+                sell = store.transactions.get(int(sell_id))
+                if voided and sell["status"] == "active":
+                    store.transactions.void(int(sell_id))            # the shares go back to their lot
+                    transactions.materialize_managed(store, [row["account"]])
+                elif not voided and sell["status"] != "active":
+                    raise ValidationError("this lot's log sale was removed with the void; record the sale again")
             (store.sales.void_sale if voided else store.sales.unvoid_sale)(int(sale_id))
     except active_plan.StoreError as exc:
         raise ValidationError(str(exc)) from exc
