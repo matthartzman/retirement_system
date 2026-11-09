@@ -1203,6 +1203,26 @@ def sales_wash_refresh():
     return _sales_call(_tax_year.refresh_wash_flags)
 
 
+@app.route("/api/sales/wash/review", methods=["POST"])
+def sales_wash_review():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import sales_tax_year as _tax_year
+    b = request.get_json(silent=True) or {}
+    return _sales_call(_tax_year.set_wash_review, str(b.get("sale_key") or ""), str(b.get("outcome") or ""), reason=b.get("reason"),
+                       broker_amount=b.get("broker_amount"))
+
+
+@app.route("/api/sales/wash/review/clear", methods=["POST"])
+def sales_wash_review_clear():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import sales_tax_year as _tax_year
+    return _sales_call(_tax_year.clear_wash_review, str((request.get_json(silent=True) or {}).get("sale_key") or ""))
+
+
 # ---- Sale queue: confirm against specific lots, undo, dismiss (step 2.2; logic in src/sales_confirm.py) ----
 
 def _confirm_call(permission: str, fn_name: str, candidate_id: int, *args, **kwargs):

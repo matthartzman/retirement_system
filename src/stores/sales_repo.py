@@ -94,6 +94,19 @@ CREATE TABLE realized_adjustments (
 
 STATEMENT_STATUSES = ("applied", "superseded")
 AUDIT_ACTIONS = ("correct", "add", "revert")
+REVIEW_OUTCOMES = ("wash", "broker_reported", "not_wash")
+
+# v23 (Sales Ledger v3): the user's decision on a wash-sale flag, keyed by the sale's grouping key ``account|symbol|sale_date`` so it
+# survives Send back to queue and re-recording (the new rows get new sale_ids). ``wash_flag`` itself is untouched.
+SCHEMA_V23_DDL = """
+CREATE TABLE wash_reviews (
+    sale_key       TEXT PRIMARY KEY,
+    outcome        TEXT NOT NULL CHECK (outcome IN ('wash', 'broker_reported', 'not_wash')),
+    reason         TEXT,
+    broker_amount  REAL,
+    updated_at     TEXT NOT NULL
+);
+"""
 
 # v18 (plan step 5.2): imported broker 1099-B statements, their lines, and the before/after of every ledger change a
 # statement made (so a corrected statement can supersede an earlier one by reverting it first).
@@ -265,6 +278,27 @@ class SalesRepo:
 
     def unvoid_sale(self, sale_id: int) -> None:
         self._set_status(sale_id, "confirmed")
+
+    # ------------------------------------------------------------------ wash_reviews
+    def set_review(self, sale_key: str, outcome: str, reason: str | None = None, broker_amount: float | None = None) -> None:
+        _one_of("outcome", outcome, REVIEW_OUTCOMES)
+        if not str(sale_key or "").strip():
+            raise ValidationError("a review needs a sale key")
+        if outcome == "not_wash" and not str(reason or "").strip():
+            raise ValidationError("Not a wash sale needs a reason")
+        with self._store._write() as con:
+            con.execute("INSERT INTO wash_reviews (sale_key, outcome, reason, broker_amount, updated_at) VALUES (?, ?, ?, ?, ?) "
+                        "ON CONFLICT(sale_key) DO UPDATE SET outcome = excluded.outcome, reason = excluded.reason, "
+                        "broker_amount = excluded.broker_amount, updated_at = excluded.updated_at",
+                        (sale_key, outcome, (reason or "").strip() or None, None if broker_amount is None else float(broker_amount), self._store._clock()))
+
+    def reviews(self) -> dict[str, dict[str, Any]]:
+        with self._store._read() as con:
+            return {r["sale_key"]: dict(r) for r in con.execute("SELECT * FROM wash_reviews")}
+
+    def clear_review(self, sale_key: str) -> None:
+        with self._store._write() as con:
+            con.execute("DELETE FROM wash_reviews WHERE sale_key = ?", (sale_key,))
 
     # ------------------------------------------------------------------ sale_candidates
     def add_candidate(self, *, source: str, sale_date: str, account: str, symbol: str | None = None,

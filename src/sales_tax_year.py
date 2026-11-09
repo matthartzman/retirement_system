@@ -125,6 +125,23 @@ def tax_year_summary(input_dir: str | Path, year: int, *, filing: str | None = N
     return out
 
 
+def set_wash_review(input_dir: str | Path, sale_key: str, outcome: str, *, reason: str | None = None,
+                    broker_amount: float | None = None) -> None:
+    """Record the user's outcome for a wash flag (wash / broker_reported / not_wash with a reason); the flags are refreshed after."""
+    try:
+        with active_plan.workspace_store(_base(input_dir), write=True) as store:
+            store.sales.set_review(sale_key, outcome, reason, broker_amount)
+    except active_plan.StoreError as exc:
+        raise ValidationError(str(exc)) from exc
+    auto_refresh(input_dir)
+
+
+def clear_wash_review(input_dir: str | Path, sale_key: str) -> None:
+    with active_plan.workspace_store(_base(input_dir), write=True) as store:
+        store.sales.clear_review(sale_key)
+    auto_refresh(input_dir)
+
+
 def _figure(name: str, value: Any) -> float:
     try:
         out = float(value)
