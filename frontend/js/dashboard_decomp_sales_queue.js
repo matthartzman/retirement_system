@@ -75,25 +75,34 @@ export function sqPanelHtml(panel, draft) {
     `<button class="btn" type="button" onclick="sqDismiss('not_a_sale')">Not a sale</button></div>`;
 }
 
-let sqHistory = []; // sales (and matured bills) a history-only import left out of the ledger
+let sqHistory = []; // sales (and matured bills) a history-only import left out of the ledger, hidden ones included (marked)
+let sqShowHidden = false;
 
-export function sqHistoryHtml(items) {
+export function sqHistoryHtml(items, showHidden = sqShowHidden) {
   if (!items || !items.length) return "";
-  const rows = items.map((h, i) => {
+  const vis = items.filter((h) => !h.hidden), nHidden = items.length - vis.length;
+  const head = `<h3>Sales found in history imports (${vis.length})</h3>` + (nHidden ? `<label><input type="checkbox" ${showHidden ? "checked" : ""} onchange="sqToggleHidden(this.checked)"> show hidden (${nHidden})</label>` : "");
+  const shown = showHidden ? items : vis;
+  if (!shown.length) return head;
+  const rows = shown.map((h) => {
+    const i = items.indexOf(h);
     const what = h.kind === "interest"
-      ? `<span class="muted">Treasury bill maturity: interest income, not a sale</span>`
+      ? `<span class="muted">Treasury bill maturity: counted as interest income</span>`
       : h.complete ? `${sqMoney(h.gain)} gain from ${h.pieces.length} lot${h.pieces.length === 1 ? "" : "s"}`
-        : `<span class="muted">lots not in the files: use Record a sale</span>`;
-    return `<tr><td>${esc(h.sale_date)}</td><td>${esc(accountDisplayLabel(h.account))}</td><td>${esc(h.symbol)}</td><td class="rc-num">${esc(String(h.shares))}</td>` +
-      `<td class="rc-num">${sqMoney(h.proceeds)}</td><td>${what}</td><td>${h.kind === "sale" && h.complete ? `<button class="btn" type="button" onclick="sqHistoryRecord(${i})">Record</button> ` : ""}` +
-      `<button class="btn" type="button" onclick="sqHistoryDismiss(${i})">Dismiss</button></td></tr>`;
+        : `<span class="muted">lots not in the files: use Record sales</span>`;
+    const act = h.hidden ? `<span class="muted">hidden${h.hidden_on ? ` ${esc(h.hidden_on)}` : ""}</span> <button class="btn" type="button" onclick="sqHistoryUnhide(${i})">Unhide</button>`
+      : (h.kind === "sale" && h.complete ? `<button class="btn" type="button" onclick="sqHistoryRecord(${i})">Record</button> ` : "") + `<button class="btn" type="button" onclick="sqHistoryDismiss(${i})">Got it, hide</button>`;
+    return `<tr class="${h.hidden ? "sq-hidden muted" : ""}"><td>${esc(h.sale_date)}</td><td>${esc(accountDisplayLabel(h.account))}</td><td>${esc(h.symbol)}</td><td class="rc-num">${esc(String(h.shares))}</td>` +
+      `<td class="rc-num">${sqMoney(h.proceeds)}</td><td>${what}</td><td>${act}</td></tr>`;
   }).join("");
-  return `<h3>Sales found in history imports (${items.length})</h3><p class="muted">These were imported as history only, so they never reached the queue. Record writes the ledger rows from the buys in your broker files.</p>` +
+  return `${head}<p class="muted">These were imported as history only, so they never reached the queue. Record writes the ledger rows from the buys in your broker files.</p>` +
     `<div class="rc-scroll"><table class="rc-table"><thead><tr><th>Date</th><th>Account</th><th>Symbol</th><th class="rc-num">Shares</th><th class="rc-num">Proceeds</th><th>Result</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
+export function sqToggleHidden(on) { sqShowHidden = !!on; sqPaint(); }
 
-async function sqLoadHistory() {
-  try { const out = await api("/api/sales/history"); sqHistory = out && out.success ? out.items : []; } catch (e) { sqHistory = []; }
+export async function sqLoadHistory() {
+  const year = window.slCurrentYear ? window.slCurrentYear() : "";
+  try { const out = await api(`/api/sales/history?include_hidden=1${year ? `&year=${encodeURIComponent(year)}` : ""}`); sqHistory = out && out.success ? out.items : []; } catch (e) { sqHistory = []; }
   sqPaint();
 }
 
@@ -108,7 +117,8 @@ async function sqHistoryPost(action, i, okText) {
 }
 
 export const sqHistoryRecord = (i) => sqHistoryPost("record", i, "Sale recorded in the ledger from your broker history.");
-export const sqHistoryDismiss = (i) => sqHistoryPost("dismiss", i, "Dismissed.");
+export const sqHistoryDismiss = (i) => sqHistoryPost("dismiss", i, "Hidden. Show hidden brings it back.");
+export const sqHistoryUnhide = (i) => sqHistoryPost("undismiss", i, "Back in the list.");
 
 function sqBodyHtml() {
   const msg = sqMessage ? `<p class="${sqMessage.error ? "field-error" : "muted"}" role="status">${esc(sqMessage.text)}` +
@@ -216,5 +226,5 @@ export const sqDismiss = (reason) => sqPost(sqPanel.candidate.candidate_id, "dis
 
 Object.assign(window, {
   renderSalesQueue, loadSalesQueue, sqSummary, sqOpen, sqReload, sqSetAlloc, sqSetClass, sqFill, sqConfirm, sqUndo, sqDismiss,
-  sqHistoryRecord, sqHistoryDismiss,
+  sqHistoryRecord, sqHistoryDismiss, sqHistoryUnhide, sqToggleHidden, sqLoadHistory, sqHistoryHtml,
 });

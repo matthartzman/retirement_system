@@ -282,7 +282,7 @@ export async function slVoid(id) {
   return slPost(`/api/sales/${Number(id)}/void`, null, "Sale voided. Use Restore to bring it back.");
 }
 export const slUnvoid = (id) => slPost(`/api/sales/${Number(id)}/unvoid`, null, "Sale restored.");
-export function slSetYear(v) { slYear = String(v || "").trim(); slYearChosen = true; return loadSalesLedger(); }
+export function slSetYear(v) { slYear = String(v || "").trim(); slYearChosen = true; if (window.sqLoadHistory) window.sqLoadHistory(); return loadSalesLedger(); }
 export function slSetShowVoided(on) { slShowVoided = !!on; return loadSalesLedger(); }
 export function slSetTaxableOnly(on) {
   if (window.slUiLoad) window.slUiSave({ ...window.slUiLoad(), taxableOnly: !!on });
