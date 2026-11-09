@@ -228,6 +228,19 @@ describe("sold lots (sales ledger 4.2)", () => {
     assert.equal(soldHidden, 1);
     near(total.market_gain, 2000, "total gain still includes the sold lot");
   });
+  test("a group of only sold lots folds into one Sold positions row so the rows add up to the total", () => {
+    const BOND = LOT({ symbol: "BND", asset_class: "Fixed Income", subclass: "Core Bonds", sold: true, shares: 0, start: 8000, new_money: -8100, weighted: -800, current: 0, day: null });
+    for (const order of [["class", "lot"], ["class", "subclass", "lot"]]) {
+      const { nodes, total } = buildTree([...ALL, BOND], order, { days: 300 });
+      assert.equal(nodes.some((n) => n.name === "Fixed Income"), false);
+      const sold = nodes.at(-1);
+      assert.equal(sold.name, "Sold positions");
+      near(sold.row.start, 8000,"sold row holds only the hidden class");
+      near(nodes.reduce((s, n) => s + n.row.start, 0), total.start, "start foots");
+      near(nodes.reduce((s, n) => s + n.row.new_money, 0), total.new_money, "bought since foots");
+      near(nodes.reduce((s, n) => s + n.row.current, 0), total.current, "current foots");
+    }
+  });
   test("per-group returns come from the signed money out and in", () => {
     const { nodes } = buildTree(ALL, ["class", "lot"], { days: 300 });
     const equity = nodes.find((n) => n.name === "Equity"), cash = nodes.find((n) => n.name === "Cash");
@@ -235,10 +248,10 @@ describe("sold lots (sales ledger 4.2)", () => {
     near(equity.row.return_pct, 2000 / (16500 - 550), "equity return");
     near(cash.row.market_gain, 0, "cash gain");
   });
-  test("a sold ticker gets no (sold) row; the held lot of the same ticker is unaffected", () => {
+  test("a sold ticker gets no (sold) row of its own; the held lot of the same ticker is unaffected", () => {
     const held = LOT({ symbol: "AVUV", subclass: "Small-Cap Value", start: 900, current: 1000 });
     const { nodes } = buildTree([held, SOLD], ["symbol", "lot"], { days: 300 });
-    assert.deepEqual(nodes.map((n) => n.name).sort(), ["AVUV"]);
+    assert.deepEqual(nodes.map((n) => n.name), ["AVUV", "Sold positions"]);
     near(nodes.find((n) => n.name === "AVUV").row.market_gain, 100, "held lot gain only: the sold lot's gain is in the totals, not its own row");
     assert.equal(groupLabel(SWAP, "symbol"), "CASH");    // the Cash row stays in Cash
   });
