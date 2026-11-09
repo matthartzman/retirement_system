@@ -1417,7 +1417,11 @@ def sales_history_list():
     if denied:
         return denied
     from .. import history_sales as _hs
-    return _sales_call(_hs.list_unrecorded)
+    try:
+        year = int(request.args["year"]) if request.args.get("year") else None
+    except ValueError:
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(_hs.list_unrecorded, year=year, include_hidden=request.args.get("include_hidden") == "1")
 
 
 @app.route("/api/sales/history/record", methods=["POST"])
@@ -1441,6 +1445,16 @@ def sales_history_dismiss():
     from .. import history_sales as _hs
     b = request.get_json(silent=True) or {}
     return _sales_call(lambda root: _hs.dismiss(root, str(b.get("key") or "")))
+
+
+@app.route("/api/sales/history/undismiss", methods=["POST"])
+def sales_history_undismiss():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import history_sales as _hs
+    b = request.get_json(silent=True) or {}
+    return _sales_call(lambda root: _hs.undismiss(root, str(b.get("key") or "")))
 
 
 # ---- Broker activity bulk import (src/broker_import.py) ----
