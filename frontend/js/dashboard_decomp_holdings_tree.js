@@ -142,6 +142,14 @@ function htGainCell(gain, unpriced) {
   return unpriced ? '<td class="ht-num" title="No price yet for some lots: build the plan to price them">—</td>' : `<td class="ht-num ${gain < 0 ? "neg" : "pos"}">${esc(htMoney(gain))}</td>`;
 }
 
+// Lot-row cross-links to Holdings > Activity: a managed account's lots are edited there, and an undated lot came from the log's backfill.
+function htLotLinks(l) {
+  if (!window.hsActivityLink || !l.account) return "";
+  const a = (f, text) => ` <a class="ht-link" href="${esc(window.hsActivityLink({ account: l.account, symbol: l.symbol, ...f }))}">${text}</a>`;
+  const managed = window.isManagedHoldingAccount && window.isManagedHoldingAccount(l.account);
+  return (managed && !l.purchase_date ? ` <span class="sl-chip">date not on file</span>${a({ type: "opening", source: "backfill" }, "Fix date")}` : "") + a({}, "History") + (managed ? a({}, "Edit in Activity") : "");
+}
+
 function htRows(nodes, depth, total, out) {
   for (const n of nodes) {
     const open = window.holdingsTreeOpen.has(n.path), has = n.children.length > 0;
@@ -149,7 +157,7 @@ function htRows(nodes, depth, total, out) {
     const lot = n.dim === "lot";
     out.push(`<tr class="ht-row ht-${n.dim}" data-depth="${depth}"><td style="padding-left:${depth * 18 + 6}px">`
       + (has ? `<button type="button" class="ht-twisty" aria-expanded="${open}" onclick="toggleHoldingsTreeNode('${esc(n.path.replace(/'/g, "\\'"))}')">${open ? "▾" : "▸"}</button> ` : '<span class="ht-twisty-gap"></span>')
-      + `<span title="${esc(HT_DIMENSIONS[n.dim])}">${esc(n.label)}</span>${n.title ? ` <span class="muted ticker-title">${esc(n.title)}</span>` : ""}</td>`
+      + `<span title="${esc(HT_DIMENSIONS[n.dim])}">${esc(n.label)}</span>${n.title ? ` <span class="muted ticker-title">${esc(n.title)}</span>` : ""}${lot ? htLotLinks(n.lot) : ""}</td>`
       + `<td class="ht-num">${esc(htShares(n.row.shares))}</td><td class="ht-num">${esc(htUnit(n.row.unitCost))}</td><td class="ht-num">${esc(htMoney(n.row.basis))}</td>`
       + `<td class="ht-num">${esc(htMoney(n.row.value))}</td>${htGainCell(gain, n.row.unpriced)}`
       + `<td class="ht-num">${lot ? "" : esc(share.toFixed(1) + "%")}</td></tr>`);

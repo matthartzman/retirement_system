@@ -39,6 +39,12 @@ export function tlHealthHtml(log) {
     (drift.length > TL_HEALTH_MAX ? `<button type="button" class="btn" id="tlHealthToggle" onclick="tlShowAllHealth(${!tlHealthAll})">${tlHealthAll ? "Show fewer" : `Show all ${drift.length}`}</button>` : "") + `</div>`;
 }
 
+// "Log agrees with holdings" for the Positions toolbar; loads the log when nothing has yet.
+export function tlStatusHtml() {
+  if (tlLog === null) setTimeout(tlLoad, 0);
+  const n = tlLog && tlLog.started ? new Set((tlLog.drift || []).map((d) => d.account)).size : -1;
+  return `<span id="tlStatusRoot" class="muted">${n < 0 ? "" : n ? `Log differs for ${n} account${n === 1 ? "" : "s"} → <a href="${esc(window.hsActivityLink ? window.hsActivityLink({}) : "#holdings/activity")}">Activity</a>` : "Log agrees with holdings"}</span>`;
+}
 const tlHealthInner = () => !tlLog ? `<p class="muted">Loading…</p>` : !tlLog.started ? tlNotStartedHtml(tlMsgHtml()) : tlHealthHtml(tlLog);
 export function renderLogHealth() {
   if (tlLog === null) setTimeout(tlLoad, 0);
@@ -154,6 +160,8 @@ function tlPaintRoot() {
 }
 function tlPaint() {
   tlPaintRoot();
+  const st = document.getElementById("tlStatusRoot");
+  if (st) st.outerHTML = tlStatusHtml();
   const slot = document.getElementById("tlHealthSlot"), hroot = document.getElementById("tlHealthRoot");
   const started = tlStarted();
   if (slot && window.slHealthSlotHtml && started !== tlSlotStarted) slot.innerHTML = window.slHealthSlotInnerHtml ? window.slHealthSlotInnerHtml() : ""; // content only: the slot node stays, never a nested wrapper; shell <-> bare prompt only when the started state flips
@@ -225,5 +233,5 @@ export function tlTransfer() {
   return tlPost("/api/transactions/transfer", { from_account: tlXfer.from_account, to_account: tlXfer.to_account, symbol: tlXfer.symbol, txn_date: tlXfer.txn_date, allocation }, "Shares transferred.");
 }
 
-Object.assign(window, { tlHealthHtml, renderLogHealth, tlStarted, tlShowAllHealth, tlSummary, renderTransactionLog, tlHtml, tlFilterRows, tlPage, tlSetFilter, tlApplyFilters, tlReloadAll, tlShowMore, tlDrawerToggle, tlLoad, tlStart, tlCleanBank, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlOnKeydown, tlVoid,
+Object.assign(window, { tlStatusHtml, tlHealthHtml, renderLogHealth, tlStarted, tlShowAllHealth, tlSummary, renderTransactionLog, tlHtml, tlFilterRows, tlPage, tlSetFilter, tlApplyFilters, tlReloadAll, tlShowMore, tlDrawerToggle, tlLoad, tlStart, tlCleanBank, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlOnKeydown, tlVoid,
   tlSetXfer, tlSetXferFrom, tlSetXferTo, tlPick, tlTransfer });

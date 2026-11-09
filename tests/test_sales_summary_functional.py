@@ -65,3 +65,29 @@ def test_years_exclude_future_and_empty(input_dir):
                                   amount=-1.0, source="manual")
     years = sales_service.sales_years(input_dir)
     assert years == [2024, 2025, 2026]
+
+
+def test_holding_period_check_counts_backfilled_lots(tmp_path):
+    from src import transactions
+    (tmp_path / "input").mkdir()
+    acct = "Matt_Trust"
+    with active_plan.workspace_store(tmp_path, write=True) as store:
+        store.dataset("ytd_account_setup").replace_all([{"Account": "Trust", "Role": "Investment", "Mapped Investment Account": acct}])
+        store.dataset("holdings").replace_all([{"account": acct, "symbol": "ITOT", "purchase_date": "", "shares": "20", "purchase_price": "90", "lot_type": "buy", "note": ""}])
+    with active_plan.workspace_store(tmp_path, write=True) as store, store.transaction():
+        transactions.backfill(store)
+        real = store.transactions.insert(txn_date="2025-01-02", account=acct, type="buy", symbol="ITOT", shares=10.0, price=95.0, amount=-950.0, source="manual")
+    inp = tmp_path / "input"
+    lots = {l["txn_id"]: l["source"] for l in sales_service.open_lots(inp, acct, "ITOT", "2026-09-01")["lots"]}
+    opening = next(i for i, src in lots.items() if src == "backfill")
+    rows = [dict(sale_date="2026-09-01", account=acct, symbol="ITOT", shares=5, proceeds=500.0, fees=0.0, basis=450.0, purchase_date="2025-01-01", txn_lot=opening),
+            dict(sale_date="2026-09-02", account=acct, symbol="ITOT", shares=5, proceeds=500.0, fees=0.0, basis=475.0, purchase_date="2025-01-02", txn_lot=real)]
+    sales_service.add_sales(inp, rows)
+    assert sales_service.holding_period_check(inp, 2026) == {"lots": 1, "sales": 1}
+    assert sales_service.holding_period_check(inp, 2025) == {"lots": 0, "sales": 0}
+    flags = {l["txn_id"]: l["source"] for l in sales_service.open_lots(inp, acct, "ITOT", "2026-09-01")["lots"]}
+    with active_plan.workspace_store(tmp_path) as store:
+        payload = transactions.open_lots(store, account=acct, symbol="ITOT")
+    assert sorted(l["date_not_on_file"] for l in payload) == [False, True]
+    assert all(l["wash_adjustment"] is None and l["tacked_date"] is None for l in payload)
+    assert flags

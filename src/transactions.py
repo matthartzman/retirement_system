@@ -80,7 +80,9 @@ def open_lots(store: Any, *, account: str | None = None, symbol: str | None = No
         if shares <= _EPS or (account and r["account"] != account) or (symbol and r["symbol"].upper() != symbol.upper()):
             continue
         out.append({"lot_txn_id": lid, "account": r["account"], "symbol": r["symbol"], "purchase_date": lot_date(r),
-                    "price": r["price"], "lot_type": r["lot_type"], "shares": round(shares, 6), "note": r["note"]})
+                    "price": r["price"], "lot_type": r["lot_type"], "shares": round(shares, 6), "note": r["note"],
+                    "date_not_on_file": r["source"] == "backfill" and r["type"] == "opening",   # the date came from the backfill, not a broker or the user
+                    "wash_adjustment": None, "tacked_date": None})                              # filled in by the wash adjustments (phase 3)
     return sorted(out, key=lambda x: (x["account"], x["symbol"], x["purchase_date"], x["lot_txn_id"]))
 
 

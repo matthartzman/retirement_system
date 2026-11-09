@@ -17,6 +17,7 @@ let slMessage = null; // { text, error }
 let slLoading = false;
 let slError = "";
 let slAccounts = [];
+let slHp = null; // GET /api/sales/holding-period-check for the Year
 let slSum = null; // GET /api/sales/summary for the current Year and switch
 let slHiddenVoids = 0; // voided rows the current selection hides (one extra fetch when Voided rows is off)
 export const slCurrentYear = () => slYear;
@@ -103,6 +104,13 @@ function slListHtml() {
   return msg + bar + (slError ? `<p class="field-error">${esc(slError)}</p>` : slData ? slTableHtml(slData.sales) : `<p class="muted">Loading…</p>`);
 }
 
+// Holding-period check: sales of the Year whose lot has no purchase date on file (the log's backfill), so the term is a guess.
+export function slHpHtml(c = slHp, year = slYear) {
+  if (!c || !c.lots) return "";
+  const link = window.hsActivityLink ? window.hsActivityLink({ type: "opening", source: "backfill", year, back: "sales" }) : "#holdings/activity";
+  return `<div class="sl-hp" role="alert"><b>Holding-period check:</b> ${c.sales} sale row${c.sales === 1 ? "" : "s"} use ${c.lots} lot${c.lots === 1 ? "" : "s"} with no purchase date on file, so short- or long-term is a guess. ` +
+    `<a href="${esc(link)}">Review in Activity</a> <span class="muted">(sales in accounts the log does not manage are not covered)</span></div>`;
+}
 let slHashApplied = null;
 const SL_SECS = ["queue", "health", "wash", "cf", "b1099"];
 function slConsumeHash() { // true when the hash was dropped from the address
@@ -170,7 +178,7 @@ function slBodyHtml() {
   }
   const active = window.slCurrentTab();
   const panel = (id, body) => window.slTabPanelHtml(id, body, active);
-  const fix = slSection("queue", "Sales waiting for lots", "renderSalesQueue", "slQueueStateText") + slHealthSlotHtml();
+  const fix = slHpHtml() + slSection("queue", "Sales waiting for lots", "renderSalesQueue", "slQueueStateText") + slHealthSlotHtml();
   const ledger = slSection("ledger", "Sales", "slLedgerBodyHtml");
   return `<div id="slHeadRoot">${slHeadHtml()}</div>${window.slLiveHtml()}<div id="slStripRoot">${window.slStripHtml(window.slSummaries())}</div>` +
     `<div id="slTabsRoot">${slTabsHtml(active)}</div>` +
@@ -218,6 +226,7 @@ export async function loadSalesLedger() {
       window.bbSetState({ year: year ? Number(year) : null, taxableSales: taxable.length, has1099b: taxable.some((x) => x.statement_id != null) });
     }
     try { slSum = ((await api(`/api/sales/summary?${year ? `year=${encodeURIComponent(year)}&` : ""}taxable_only=${slTaxableOnly() ? 1 : 0}`)) || {}).summary || null; } catch (e) { slSum = null; }
+    try { slHp = year ? ((await api(`/api/sales/holding-period-check?year=${encodeURIComponent(year)}`)) || {}).check || null : null; } catch (e) { slHp = null; }
     if (!slData) slError = "The ledger could not be loaded.";
     await slLoadHiddenVoids(year, showVoided);
     if (window.slPublish && slData) window.slPublish("ledger", { count: slData.sales.length, tone: "", text: `${slData.sales.length} sale${slData.sales.length === 1 ? "" : "s"}` });
@@ -281,6 +290,6 @@ export function slSetTaxableOnly(on) {
 }
 
 Object.assign(window, {
-  slMoney, slGainHtml, slLotRowHtml, slSaleRowHtml, slTableHtml, slToggleSale, slKpiHtml, renderSalesLedger, slHashTarget, loadSalesLedger, slAfterEntry, slVoid, slUnvoid,
+  slMoney, slGainHtml, slHpHtml, slLotRowHtml, slSaleRowHtml, slTableHtml, slToggleSale, slKpiHtml, renderSalesLedger, slHashTarget, loadSalesLedger, slAfterEntry, slVoid, slUnvoid,
   slSetYear, slSetShowVoided, slSetTaxableOnly, slCurrentYear, slTaxableOnly, slYearOptionsHtml, slHeadHtml, slEdit, slRequeue, slHealthSlotHtml, slHealthSlotInnerHtml, slQueueStateText, slHealthStateText, slLedgerBodyHtml, slHiddenVoidCount,
 });

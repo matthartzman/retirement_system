@@ -1091,6 +1091,17 @@ def sales_summary_route():
     return _sales_call(lambda root: {"summary": _sales.sales_summary(root, year, taxable_only=taxable_only)})
 
 
+@app.route("/api/sales/holding-period-check", methods=["GET"])
+def sales_holding_period_check():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    if not request.args.get("year", "").isdigit():
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(lambda root: {"check": _sales.holding_period_check(root, int(request.args["year"]))})
+
+
 @app.route("/api/sales/years", methods=["GET"])
 def sales_years_route():
     denied = _require("view_dashboard")

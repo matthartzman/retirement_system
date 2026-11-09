@@ -142,6 +142,21 @@ def add_sales(input_dir: str | Path, rows: list[dict[str, Any]]) -> dict[str, An
     return {"ids": ids}
 
 
+def holding_period_check(input_dir: str | Path, year: int) -> dict[str, int]:
+    """Sales of ``year`` whose lot's purchase date is only the log's backfill (an ``opening`` row with no date on file): their
+    short/long term is a guess. Counts the distinct lots and the ledger rows. Sales in accounts the log does not manage carry no
+    ``txn_lot`` and are not covered."""
+    lots, rows = set(), 0
+    with active_plan.workspace_store(_base(input_dir)) as store:
+        for s in store.sales.list_sales():
+            if s["status"] != "confirmed" or str(s["sale_date"])[:4] != str(int(year)) or not (s.get("lot_key") or "").startswith("{"):
+                continue
+            lot = json.loads(s["lot_key"]).get("txn_lot")
+            if lot is not None and store.transactions.get(int(lot))["source"] == "backfill" and store.transactions.get(int(lot))["type"] == "opening":
+                lots.add(int(lot)); rows += 1
+    return {"lots": len(lots), "sales": rows}
+
+
 def account_classes(input_dir: str | Path) -> dict[str, str]:
     """``{investment account: tax class}`` for the entry grid's account list (the class sets the gain rule; no form field)."""
     from .broker_import import investment_accounts

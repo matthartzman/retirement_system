@@ -42,7 +42,7 @@ export function hsBack() { if (typeof setStep === "function") setStep("sales_led
 export function renderHoldingsTabs(positionsFn) {
   const body = hsState.tab === "activity" ? window.renderTransactionLog()
     : hsState.tab === "import" ? window.renderBrokerImport() : positionsFn();
-  return `${hsTabBarHtml(hsState.tab)}${hsState.tab === "positions" ? "" : hsBackHtml(hsState.filters)}<div role="tabpanel" id="hs-p-${hsState.tab}">${body}</div>`;
+  return `${hsTabBarHtml(hsState.tab)}${hsState.tab === "positions" ? (window.tlStatusHtml ? `<p>${window.tlStatusHtml()}</p>` : "") : hsBackHtml(hsState.filters)}<div role="tabpanel" id="hs-p-${hsState.tab}">${body}</div>`;
 }
 
 // Follow #holdings/... links (from the ledger, the chooser, Activity rows) and restore one after a reload.

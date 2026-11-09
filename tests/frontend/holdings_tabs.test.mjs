@@ -2,10 +2,15 @@
 import { test, describe, before } from "node:test";
 import assert from "node:assert/strict";
 
-let m;
+let m, tree;
 before(async () => {
   globalThis.window = globalThis;
+  globalThis.esc = (t) => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  globalThis.renderMain = () => {};
+  globalThis.setTimeout = () => 0;
+  Object.assign(globalThis, { holdingLotCurrentValue: (r) => ({ value: Number(r.shares) * 100, isEstimate: false }), isCash: (s) => s === "CASH", isTBill: () => false });
   m = await import("../../frontend/js/dashboard_decomp_holdings_tabs.js");
+  tree = await import("../../frontend/js/dashboard_decomp_holdings_tree.js");
 });
 const mem = (v) => ({ getItem: () => v ?? null, setItem(_k, x) { v = x; }, get raw() { return v; } });
 
@@ -54,5 +59,45 @@ describe("holdings tabs", () => {
     assert.match(h, /<p>POS<\/p>/);
     assert.doesNotMatch(h, /hs-back/);
     delete globalThis.localStorage;
+  });
+});
+
+describe("Positions markers and cross-links", () => {
+  const LOTS = [
+    { account: "Matt_Trust", symbol: "ITOT", purchase_date: "", shares: 10, basis: 900, value: 1000, asset_class: "Equity", subclass: "US" },
+    { account: "Matt_Trust", symbol: "ITOT", purchase_date: "2025-03-04", shares: 5, basis: 500, value: 520, asset_class: "Equity", subclass: "US" },
+    { account: "Hand_Brokerage", symbol: "QQQ", purchase_date: "", shares: 2, basis: 100, value: 120, asset_class: "Equity", subclass: "US" }];
+  const render = () => {
+    window.holdingsTreeOrder = ["lot"];
+    window.managedHoldingAccounts = ["Matt_Trust"];
+    window.isManagedHoldingAccount = (a) => window.managedHoldingAccounts.includes(a);
+    return tree.renderHoldingsTree(LOTS.map((l) => ({ ...l, purchase_price: l.basis / l.shares })), (a) => a);
+  };
+  const lotRow = (h, i) => h.split('<tr class="ht-row ht-lot"')[i + 1].split("</tr>")[0];
+  test("backfilled lot row shows the date-not-on-file chip and Fix date", () => {
+    const h = render();
+    const undated = lotRow(h, 1);                                         // newest first: 2025-03-04 is row 0, the undated lot row 1
+    assert.match(undated, /date not on file/);
+    assert.match(undated, /href="#holdings\/activity\?account=Matt_Trust&amp;symbol=ITOT&amp;type=opening&amp;source=backfill">Fix date</);
+    assert.doesNotMatch(lotRow(h, 0), /date not on file/);
+  });
+  test("managed row shows an Edit in Activity link; an unmanaged row does not", () => {
+    const h = render();
+    assert.match(lotRow(h, 0), />Edit in Activity</);
+    assert.doesNotMatch(h.slice(h.indexOf("Hand_Brokerage")), /Edit in Activity|date not on file/);
+  });
+  test("History link opens Activity filtered to the account and symbol", () => {
+    assert.match(lotRow(render(), 0), /href="#holdings\/activity\?account=Matt_Trust&amp;symbol=ITOT">History</);
+  });
+  test("a holding-period check Review link carries source=backfill and the year", async () => {
+    const led = await import("../../frontend/js/dashboard_decomp_sales_ledger.js");
+    const h = led.slHpHtml({ lots: 2, sales: 3 }, "2026");
+    assert.match(h, /3 sale rows use 2 lots with no purchase date on file/);
+    assert.match(h, /href="#holdings\/activity\?type=opening&amp;source=backfill&amp;year=2026&amp;back=sales">Review in Activity</);
+    assert.equal(led.slHpHtml({ lots: 0, sales: 0 }, "2026"), "");
+  });
+  test("the toolbar says whether the log agrees with the holdings", async () => {
+    const log = await import("../../frontend/js/dashboard_decomp_transactions_log.js");
+    assert.match(log.tlStatusHtml(), /id="tlStatusRoot"/);
   });
 });
