@@ -280,7 +280,9 @@ def backfill(store: Any) -> dict[str, Any]:
     """Build the log from what exists, idempotently (call inside ``store.transaction()``). Broker buys and reinvestments
     whose lot reached the holdings, and broker sales that were confirmed, become rows; Monarch sales are skipped. Every
     open holdings lot the log cannot explain then gets an ``opening`` row, so ``open_lots`` equals the holdings."""
+    from .broker_import import investment_accounts
     t = store.transactions
+    investing = set(investment_accounts(store))      # a bank account never gets log rows
     done = {r["activity_id"] for r in t.list(include_voided=True) if r["activity_id"] is not None}
     added = {"buy": 0, "reinvest": 0, "sell": 0, "opening": 0}
     warnings: list[str] = []
@@ -318,7 +320,7 @@ def backfill(store: Any) -> dict[str, Any]:
             slot[0] += float(s["shares"])
     for k, (sold, src) in need.items():
         missing = held.get(k, {}).get("shares", 0.0) + sold - logged.get(k, {}).get("shares", 0.0)
-        if missing > _ZERO:
+        if missing > _ZERO and src["account"] in investing:
             t.insert(txn_date=k[2], account=src["account"], type="opening", symbol=src["symbol"], shares=missing, price=k[3],
                      lot_type=k[4], source="backfill", note=_OPENING_NOTE)
             added["opening"] += 1
@@ -352,7 +354,7 @@ def backfill(store: Any) -> dict[str, Any]:
     held, logged = _holdings_by_key(store), _log_by_key(store)
     for k, h in held.items():
         short = h["shares"] - logged.get(k, {}).get("shares", 0.0)
-        if short > _ZERO:
+        if short > _ZERO and h["account"] in investing:
             t.insert(txn_date=h["purchase_date"], account=h["account"], type="opening", symbol=h["symbol"], shares=short,
                      price=h["price"], lot_type=h["lot_type"], source="backfill", note=h["note"] or _OPENING_NOTE)
             added["opening"] += 1
