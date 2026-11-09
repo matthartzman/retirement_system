@@ -162,7 +162,7 @@ export function slAnnounce(text, assertive = false) {
   if (el) el.textContent = String(text);
 }
 
-const SL_SEC_META = { queue: ["Sales waiting for lots", false], health: ["Log health", false], ledger: ["Sales", true], wash: ["Realized gains & wash sales", true], cf: ["Carryforward", false], b1099: ["Broker 1099-B", false] };
+const SL_SEC_META = { queue: ["Sales waiting for lots", false], health: ["Log health", false], ledger: ["Sales", true], wash: ["Realized gains & wash sales", true], cf: ["Carryforward", false], b1099: ["Import a 1099-B", false] };
 const SL_TAB_SECS = { fix: ["queue", "health"], ledger: ["ledger"], tax: ["wash", "cf", "b1099"] };
 // Only real alerts (same predicate as the strip) count; informational counts such as row totals never open or pin a section.
 // A countless alert (stale, never run, log not started) gets a stable negative signature from its text, so the persisted-collapse

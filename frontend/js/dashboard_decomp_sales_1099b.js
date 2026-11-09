@@ -1,6 +1,6 @@
 // 1099-B import panel, mounted on the Sales Ledger page (plan 5.4, step 5.2 UI). All logic is on the server
 // (src/sales_1099b.py, /api/sales/1099b/preview and /apply): this chooses the Planner account and broker, takes the
-// statement as pasted text, a text file or a PDF (base64), shows the difference report (matched / unmatched / unreported
+// statement as a text file or a PDF (base64), shows the difference report (matched / unmatched / unreported
 // lines, totals, the wash-sale loss disallowed from column 1g), applies it, and exports the report as CSV.
 // The Planner account is always the user's choice, never read from the statement. Helpers are bare globals.
 
@@ -11,7 +11,7 @@ const BB_FIELD = { proceeds: "Proceeds", basis: "Basis", gain: "Gain", holding_p
 let bbBroker = "etrade";
 let bbAccount = "";
 let bbText = "";
-let bbPdf = ""; // base64 of an uploaded PDF; wins over pasted text
+let bbPdf = ""; // base64 of an uploaded PDF; wins over the file's text
 let bbFile = "";
 let bbAccounts = null; // null = not loaded yet
 let bbPreview = null;
@@ -20,6 +20,7 @@ let bbMessage = null; // { text, error }
 let bbBusy = false;
 let bbViewed = false; // the user ticked "I have reviewed this difference report" for the current preview
 let bbDone = null; // set after a successful apply: drives the next-step links
+let bbState = null; // { year, taxableSales, has1099b } from the ledger load: decides whether the card opens itself
 
 const bbMoney = (v) => (Number(v) < 0 ? "-$" : "$") + Math.abs(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const bbQty = (v) => esc(String(Math.round(Number(v) * 1e3) / 1e3));
@@ -104,14 +105,12 @@ export function bbPreviewHtml(p) {
 function bbBodyHtml() {
   const accounts = bbAccounts || [];
   const msg = bbMessage ? `<p class="${bbMessage.error ? "field-error" : "muted"}" role="status">${esc(bbMessage.text)}</p>` : "";
-  const steps = window.slStepsHtml ? window.slStepsHtml(bbPreview ? 2 : 1) : "";
-  return `${steps}<h3>Import a broker 1099-B</h3><p class="muted">Paste the statement text or choose the file (text or PDF with a text layer). Preview never changes the ledger; ` +
+  return `<h3>Import a broker 1099-B</h3><p class="muted">Choose the statement file (text or PDF with a text layer). Preview never changes the ledger; ` +
     `applying writes the broker's official numbers and keeps the earlier values in an audit trail.</p>` +
     `<div class="field-grid"><label>Broker<select aria-label="1099-B broker" onchange="bbSetBroker(this.value)">${BB_BROKERS.map(([v, l]) => `<option value="${v}" ${v === bbBroker ? "selected" : ""}>${l}</option>`).join("")}</select></label>` +
     `<label>Planner account<select aria-label="1099-B Planner account" onchange="bbSetAccount(this.value)"><option value="">Choose…</option>` +
     accounts.map((a) => `<option value="${esc(a)}" ${a === bbAccount ? "selected" : ""}>${esc(bbLabel(a))}</option>`).join("") + `</select></label>` +
     `<label>Statement file<input type="file" accept=".txt,.csv,.pdf,text/plain,application/pdf" aria-label="1099-B statement file" onchange="bbFileChosen(this)"></label></div>` +
-    `<label>Or paste the statement text<textarea id="bbText" rows="4" aria-label="1099-B statement text" oninput="bbSetText(this.value)">${esc(bbPdf ? "" : bbText)}</textarea></label>` +
     `${bbFile ? `<p class="muted">File: ${esc(bbFile)}</p>` : ""}` +
     `<button class="btn" type="button" onclick="bbPreviewStatement()" ${bbBusy ? "disabled" : ""}>Preview</button>${msg}${bbPreview ? bbPreviewHtml(bbPreview) : ""}${bbDone && window.slNextStepHtml ? window.slNextStepHtml(bbDone) : ""}`;
 }
@@ -121,9 +120,14 @@ export function renderSalesBroker1099b() {
   return `<div class="sl-import bb-panel" id="bbRoot">${bbBodyHtml()}</div>`;
 }
 
-// The panel holds no per-account "tied" data yet, so nothing is reported as untied.
+// The card opens itself (as a warning) when the Year's taxable sales have no 1099-B and the statement is due: after January 31 of the next year.
+export function s1099bAutoOpen(year, state, today) {
+  if (!year || !state) return false;
+  return !state.has1099b && Number(state.taxableSales) > 0 && new Date(today) > new Date(Number(year) + 1, 0, 31, 23, 59, 59);
+}
+export function bbSetState(state) { bbState = state; if (window.slPublish) window.slPublish("b1099", bbSummary()); }
 export const bbStateText = () => (bbPreview ? `Preview ready · tax year ${bbPreview.tax_year}` : "");
-export const bbSummary = () => ({ count: 0, tone: "", text: "" });
+export const bbSummary = () => (s1099bAutoOpen(bbState && bbState.year, bbState, new Date()) ? { count: 0, tone: "warn", text: "1099-B not imported" } : { count: 0, tone: "", text: "" });
 
 function bbPaint() {
   if (window.slPublish) window.slPublish("b1099", bbSummary());
@@ -131,28 +135,25 @@ function bbPaint() {
   const root = document.getElementById("bbRoot");
   if (!root) return;
   const old = root.querySelector('input[type="file"]');
-  const ta = root.querySelector("textarea");
-  const typed = ta ? ta.value : null;
   root.innerHTML = bbBodyHtml();
   const fresh = old && old.files && old.files.length && root.querySelector('input[type="file"]');
   if (fresh) fresh.replaceWith(old);
-  const ta2 = root.querySelector("textarea");
-  if (ta2 && typed !== null && !bbPdf) ta2.value = typed;
 }
 
 export async function bbLoadAccounts() {
-  try { bbAccounts = (await api("/api/sales/broker/imports")).accounts || []; } catch (e) { bbAccounts = []; }
+  try { bbAccounts = (await api("/api/sales/years")).taxable_accounts || []; } catch (e) { bbAccounts = []; }
   bbPaint();
 }
 
 export function bbSetBroker(v) { bbBroker = v; bbPreview = null; bbDone = null; bbPaint(); }
 export function bbSetAccount(v) { bbAccount = v; bbPreview = null; bbDone = null; bbPaint(); }
-export function bbSetText(v) {
+// A new statement (file text, or a PDF as base64) replaces the old one; the preview, the apply links and the stale next-step text go with it.
+export function bbSetStatement(text, name = "", pdf = "") {
   const hadDone = !!bbDone;
-  bbText = v; bbPdf = ""; bbFile = ""; bbPreview = null; bbDone = null;
+  bbText = text; bbPdf = pdf; bbFile = name; bbPreview = null; bbDone = null;
   const next = hadDone && typeof document !== "undefined" && document.getElementById("bbRoot");
   const el = next && next.querySelector && next.querySelector(".sl-next");
-  if (el && el.remove) el.remove(); // drop the stale next-step links without repainting (a repaint would move the caret)
+  if (el && el.remove) el.remove(); // drop the stale next-step links without repainting
 }
 
 export function bbFileChosen(input) {
@@ -162,8 +163,7 @@ export function bbFileChosen(input) {
   const pdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
   reader.onload = () => {
     const out = String(reader.result || "");
-    bbFile = file.name; bbPreview = null; bbDone = null;
-    if (pdf) { bbPdf = out.slice(out.indexOf(",") + 1); bbText = ""; } else { bbText = out; bbPdf = ""; }
+    bbSetStatement(pdf ? "" : out, file.name, pdf ? out.slice(out.indexOf(",") + 1) : "");
     bbPaint();
   };
   if (pdf) reader.readAsDataURL(file); else reader.readAsText(file);
@@ -173,7 +173,7 @@ const bbBody = () => ({ broker: bbBroker, account: bbAccount, ...(bbPdf ? { pdf_
 
 export async function bbPreviewStatement() {
   if (!bbAccount) { bbMessage = { text: "Choose the Planner account this statement belongs to.", error: true }; return bbPaint(); }
-  if (!bbText && !bbPdf) { bbMessage = { text: "Paste the statement text or choose a file first.", error: true }; return bbPaint(); }
+  if (!bbText && !bbPdf) { bbMessage = { text: "Choose the statement file first.", error: true }; return bbPaint(); }
   bbBusy = true; bbViewed = false; bbDone = null; bbMessage = { text: "Previewing…", error: false }; bbPaint();
   const key = JSON.stringify(bbBody()); // the account, broker or statement may change while the request is in flight
   try {
@@ -216,5 +216,5 @@ export function bbExportCsv() {
 Object.assign(window, {
   bbSummary, bbCanApply, bbMarkViewed, bbStateText,
   bbSuggestionsHtml, bbReportRowHtml, bbTotalsHtml, bbReportHtml, bbControlHtml, bbChangesHtml, bbPreviewHtml, renderSalesBroker1099b, bbLoadAccounts,
-  bbSetBroker, bbSetAccount, bbSetText, bbFileChosen, bbPreviewStatement, bbApply, bbExportCsv,
+  bbSetBroker, bbSetAccount, bbSetStatement, bbSetState, s1099bAutoOpen, bbFileChosen, bbPreviewStatement, bbApply, bbExportCsv,
 });

@@ -175,7 +175,7 @@ function slBodyHtml() {
   return `<div id="slHeadRoot">${slHeadHtml()}</div>${window.slLiveHtml()}<div id="slStripRoot">${window.slStripHtml(window.slSummaries())}</div>` +
     `<div id="slTabsRoot">${slTabsHtml(active)}</div>` +
     panel("fix", fix) + panel("ledger", ledger) +
-    panel("tax", slSection("wash", "Realized gains & wash sales", "renderSalesTaxYear") + slSection("b1099", "Broker 1099-B", "renderSalesBroker1099b", "bbStateText"));
+    panel("tax", slSection("wash", "Realized gains & wash sales", "renderSalesTaxYear") + slSection("b1099", "Import a 1099-B", "renderSalesBroker1099b", "bbStateText"));
 }
 
 export function renderSalesLedger() {
@@ -213,6 +213,10 @@ export async function loadSalesLedger() {
     if (out && out.sales) slAccounts = [...new Set([...slAccounts, ...out.sales.map((x) => x.account)])].sort();
     if (out && out.sales && slTaxableOnly()) out.sales = out.sales.filter((x) => x.tax_class === "taxable");
     slData = out && out.success ? out : null;
+    if (window.bbSetState) {
+      const taxable = ((out && out.sales) || []).filter((x) => x.tax_class === "taxable" && x.status === "confirmed");
+      window.bbSetState({ year: year ? Number(year) : null, taxableSales: taxable.length, has1099b: taxable.some((x) => x.statement_id != null) });
+    }
     try { slSum = ((await api(`/api/sales/summary?${year ? `year=${encodeURIComponent(year)}&` : ""}taxable_only=${slTaxableOnly() ? 1 : 0}`)) || {}).summary || null; } catch (e) { slSum = null; }
     if (!slData) slError = "The ledger could not be loaded.";
     await slLoadHiddenVoids(year, showVoided);

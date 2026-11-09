@@ -42,7 +42,7 @@ export function stCarryforwardHtml(s) {
   const how = cf.entered ? "Entered from your Schedule D." : "Estimated from your earlier sales; enter last year's Schedule D figures to replace this.";
   const d = stCfDraft && stCfDraft.year === s.year ? stCfDraft : {};
   const input = (id, label, v) => `<label>${label}<input id="${id}" type="number" min="0" step="any" value="${esc(String(d[id] ?? v))}" oninput="stCfDraftSet('${id}',this.value)"></label>`;
-  return `<div class="st-carry"><h4>Capital-loss carryforward into ${esc(String(s.year))}</h4>` +
+  return `<div class="st-carry"><h4>Loss carried in from ${esc(String(Number(s.year) - 1))}</h4>` +
     `<div class="field-grid">${input("stCfShort", "Short-term ($, positive)", cf.short)}${input("stCfLong", "Long-term ($, positive)", cf.long)}</div>` +
     `<p class="muted">${esc(how)}</p><button class="btn" type="button" onclick="stSaveCarryforward()">Save carryforward</button></div>`;
 }
@@ -89,10 +89,10 @@ export function stIncomeHtml(d) {
   const acct = Object.entries(d.by_account).map(([a, t]) => `<tr><th scope="row">${esc(accountDisplayLabel(a))}</th>${cols.map((c) => `<td class="rc-num">${t[c] === undefined ? "" : stMoney(t[c])}</td>`).join("")}</tr>`).join("");
   const total = `<tr><th scope="row">All taxable accounts</th>${cols.map((c) => `<td class="rc-num"><b>${stMoney(d.totals[c])}</b></td>`).join("")}</tr>`;
   const opts = (cur) => Object.entries(d.labels).map(([k, l]) => `<option value="${k}"${k === cur ? " selected" : ""}>${esc(l)}</option>`).join("");
-  const syms = d.symbols.map((x) => `<label class="st-sym">${esc(x.symbol)} <select onchange="stSetSymbolType('${esc(x.symbol)}', this.value)">${opts(x.type)}</select></label>`).join(" ");
+  const syms = `<table class="rc-table st-types"><thead><tr><th>Symbol</th><th>Counted as</th></tr></thead><tbody>${d.symbols.map((x) => `<tr><th scope="row">${esc(x.symbol)}</th><td><select aria-label="Fund type of ${esc(x.symbol)}" onchange="stSetSymbolType('${esc(x.symbol)}', this.value)">${opts(x.type)}</select></td></tr>`).join("")}</tbody></table>`;
   return `<div class="st-income"><h4>Interest and dividends ${esc(String(d.year))} (taxable accounts)</h4><div class="rc-scroll"><table class="rc-table"><thead><tr><th></th>${cols.map((c) => `<th class="rc-num">${esc(d.labels[c] || c)}</th>`).join("")}</tr></thead><tbody>${acct}${total}</tbody></table></div>` +
     `<p class="muted">${esc(d.notes[d.notes.length - 1])}</p>${d.notes.slice(0, -1).map((n) => `<p class="field-error">${esc(n)}</p>`).join("")}` +
-    `<details><summary>Fund types (change how a symbol is counted)</summary><p>${syms}</p></details>` +
+    `<details><summary>Fund types (change how a symbol is counted)</summary>${syms}</details>` +
     `<p><a href="/api/investment-income.csv?year=${encodeURIComponent(d.year)}" download>Download CSV for your accountant</a></p></div>`;
 }
 
