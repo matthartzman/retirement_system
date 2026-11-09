@@ -103,6 +103,11 @@ def detect_wash_sales(sales: Iterable[Mapping[str, Any]], buys: Iterable[Mapping
     accounts, reviews = accounts or {}, reviews or {}
     buy_list = [dict(b, symbol=str(b["symbol"]).strip().upper(), _d=_day(b["date"]), _left=float(b["shares"])) for b in buys]
     buy_list.sort(key=lambda b: (b["_d"] or date.max, str(b.get("account")), b["symbol"]))
+    sales = list(sales)
+    sold_in_sale: dict[str, set[tuple]] = {}          # W1: every lot of a sale (gain or loss), by its own purchase
+    for s in sales:
+        if s.get("status", "confirmed") == "confirmed":
+            sold_in_sale.setdefault(sale_key(s), set()).add((s.get("account"), str(s["symbol"]).strip().upper(), _day(s.get("purchase_date"))))
     sales_by_key: dict[str, list[Mapping[str, Any]]] = {}
     for s in sales:
         gain = s.get("gain")
@@ -118,7 +123,7 @@ def detect_wash_sales(sales: Iterable[Mapping[str, Any]], buys: Iterable[Mapping
         loss = -sum(float(l["gain"]) for l in lots)
         shares_sold = sum(float(l.get("shares") or 0.0) for l in lots)
         group = groups.get(symbol)
-        own = {(l.get("account"), symbol, _day(l.get("purchase_date"))) for l in lots}          # W1
+        own = sold_in_sale.get(key, set())                                                         # W1
         matches, room = [], shares_sold
         for b in buy_list:
             if b["_d"] is None or b["_left"] <= 1e-9 or (b["account"], b["symbol"], b["_d"]) in own:
@@ -150,6 +155,9 @@ def detect_wash_sales(sales: Iterable[Mapping[str, Any]], buys: Iterable[Mapping
         matches.sort(key=lambda m: (abs(m["days"]), m["date"], m["account"]))
         used_total = sum(m["used_shares"] for m in matches)
         disallowed = round(loss * used_total / shares_sold, 2)
+        review = reviews.get(key) or {}
+        if review.get("outcome") == "broker_reported" and review.get("broker_amount") is not None:
+            disallowed = round(min(float(review["broker_amount"]), loss), 2)                       # the broker's figure replaces ours
         first = matches[0]
         n = abs(first["days"])
         bought = (f"bought {first['symbol']} the same day" if n == 0 else
@@ -180,8 +188,44 @@ def plan_flag_updates(sales: Iterable[Mapping[str, Any]], detected: Mapping[str,
         sid, current = int(s["sale_id"]), s.get("wash_flag", "none")
         if current == "confirmed_by_user":
             continue
-        hit = detected.get(sale_key(s)) if (s.get("gain") is not None and s["gain"] < 0) else None
+        live = s.get("status", "confirmed") == "confirmed" and s.get("tax_class", "taxable") == "taxable" and s.get("gain") is not None and s["gain"] < 0
+        hit = detected.get(sale_key(s)) if live else None
         want = (hit["flag"], hit["note"]) if hit else ("none", "")
         if (current, s.get("wash_note", "")) != want:
             updates.append((sid, want[0], want[1]))
     return updates
+
+
+def open_windows(store, today: date, *, label=lambda a: a, identical_groups: Mapping[str, str] | None = None) -> list[dict[str, Any]]:
+    """Prevention: for every confirmed taxable loss sale less than 31 days old, the household accounts that hold the same fund and
+    have reinvested it in the last 12 months (they would buy replacement shares before the window closes), and those that hold it
+    without a recent reinvest (a 401(k) can buy through payroll). The window closes on the sale date plus 30 days. The app cannot see a
+    broker's DRIP setting, so this only ever says an account "has reinvested"."""
+    groups = {str(k).strip().upper(): v for k, v in (identical_groups or {}).items()}
+
+    def alike(symbol: str, target: str) -> bool:
+        s, t = str(symbol).strip().upper(), str(target).strip().upper()
+        return s == t or (groups.get(t) is not None and groups.get(s) == groups.get(t))
+
+    since = date.fromordinal(today.toordinal() - 365).isoformat()
+    log = store.transactions.list()
+    holders: dict[str, set[str]] = {}
+    for r in store.dataset("holdings").rows():
+        if _num(r.get("shares")) and (_num(r.get("shares")) or 0) > 0:
+            holders.setdefault(str(r.get("symbol") or "").strip().upper(), set()).add(str(r.get("account") or ""))
+    out, seen = [], set()
+    for s in store.sales.list_sales():
+        gain, sold_on = s.get("gain"), _day(s["sale_date"])
+        if s["status"] != "confirmed" or s["tax_class"] != "taxable" or gain is None or gain >= 0 or sold_on is None:
+            continue
+        key = sale_key(s)
+        age = (today - sold_on).days
+        if key in seen or age < 0 or age > WINDOW_DAYS:
+            continue
+        seen.add(key)
+        symbol = str(s["symbol"]).strip().upper()
+        reinvesting = sorted({r["account"] for r in log if r["type"] == "reinvest" and r["txn_date"] >= since and alike(r["symbol"], symbol)})
+        holding = sorted({a for sym, accts in holders.items() if alike(sym, symbol) for a in accts} - set(reinvesting))
+        out.append({"sale_key": key, "symbol": symbol, "closes_on": date.fromordinal(sold_on.toordinal() + WINDOW_DAYS).isoformat(),
+                    "reinvesting": [label(a) for a in reinvesting], "also_holds": [label(a) for a in holding]})
+    return sorted(out, key=lambda w: (w["closes_on"], w["sale_key"]))

@@ -106,9 +106,19 @@ def _wash_offsets(sales: list[dict[str, Any]], detected: dict[str, dict[str, Any
 
 def _wash_totals(detected: dict[str, dict[str, Any]], year: int) -> dict[str, Any]:
     mine = [d for k, d in detected.items() if k.rsplit("|", 1)[-1][:4] == str(year)]
-    deferred = sum(m["amount"] for d in mine for m in d["matches"] if m["taxable"])
     lost = sum(m["amount"] for d in mine for m in d["matches"] if not m["taxable"])
-    return {"disallowed": round(deferred + lost, 2), "deferred": round(deferred, 2), "lost_permanently": round(lost, 2), "sales": len(mine)}
+    total = sum(d["disallowed"] for d in mine)               # a sale the broker reported carries the broker's figure
+    return {"disallowed": round(total, 2), "deferred": round(max(total - lost, 0.0), 2), "lost_permanently": round(lost, 2), "sales": len(mine)}
+
+
+def wash_open_windows(input_dir: str | Path) -> dict[str, Any]:
+    """The open-window warnings (see ``wash_sales.open_windows``) with friendly account names, as of today."""
+    from datetime import date
+    from .person_labels import display_account
+    from .wash_sales import open_windows
+    cfg = _plan_config(input_dir) or {}
+    with active_plan.workspace_store(_base(input_dir)) as store:
+        return {"windows": open_windows(store, date.today(), label=lambda a: display_account(a, cfg))}
 
 
 def wash_cards(input_dir: str | Path, year: int) -> dict[str, Any]:
@@ -139,6 +149,9 @@ def wash_cards(input_dir: str | Path, year: int) -> dict[str, Any]:
                          "where": f"adds ${m['amount']:,.2f} to the cost of this lot" if m["taxable"] else "lost permanently"} for m in d["matches"]]})
     done = [{"sale_key": k, "outcome": v["outcome"], "reason": v["reason"], "updated_at": v["updated_at"]}
             for k, v in sorted(reviews.items()) if k.rsplit("|", 1)[-1][:4] == str(year)]
+    for r in done:
+        a, sym, day = r["sale_key"].split("|")
+        r["label"] = f"{sym} {day} in {label(a)}"          # the key holds the raw account id; the list shows the friendly name
     return {"cards": cards, "reviewed": done, "run": run}
 
 
@@ -303,6 +316,10 @@ def refresh_wash_flags_in(store) -> dict[str, int]:
     updates = plan_flag_updates(sales, detected)
     for sale_id, flag, note in updates:
         store.sales.set_wash_flag(sale_id, flag, note)
+    from . import transactions
+    from .wash_adjustments import recompute_adjustments
+    if recompute_adjustments(store) or store.transactions.managed_accounts():
+        transactions.materialize_managed(store)           # holdings follow the add-backs
     store.set_meta(WASH_MARKER_KEY, json.dumps({"at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                                                  "signature": _wash_signature(sales, buys, reviews)}))
     return {"flagged": len(detected), "updated": len(updates)}

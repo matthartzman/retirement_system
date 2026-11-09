@@ -98,7 +98,8 @@ def _log_lots(store, account: str, symbol: str, trade_date: str | None, price: f
         pd = "" if l["purchase_date"] == transactions._NO_DATE else l["purchase_date"]
         if trade_date and pd and pd > trade_date:
             continue
-        basis = float(l["price"] or 0.0)
+        pd = l["tacked_date"] or pd
+        basis = float(l["adjusted_unit_cost"] or 0.0)        # includes any wash-sale add-back
         out.append({"lot_id": str(l["lot_txn_id"]), "purchase_date": pd, "remaining": float(l["shares"]), "basis_per_share": basis,
                     "holding_period": holding_period(pd or None, trade_date) if trade_date else "unknown",
                     "lot_type": l["lot_type"], "implied_gain": None if price is None else float(l["shares"]) * (price - basis),
@@ -243,8 +244,8 @@ def confirm_in(store, candidate_id: int, *, allocation: Mapping[str, float], tax
         q = picked[lot_id]
         if managed:
             lot = info[lot_id]
-            pd = "" if lot["purchase_date"] == transactions._NO_DATE else lot["purchase_date"]
-            r = {"account": c["account"], "symbol": sym, "purchase_date": pd, "purchase_price": _fmt(float(lot["price"] or 0.0)),
+            pd = lot["tacked_date"] or ("" if lot["purchase_date"] == transactions._NO_DATE else lot["purchase_date"])
+            r = {"account": c["account"], "symbol": sym, "purchase_date": pd, "purchase_price": _fmt(float(lot["adjusted_unit_cost"] or 0.0)),
                  "lot_type": lot["lot_type"], "note": "", "shares": ""}
             key = {"txn_lot": int(lot_id), "index": 0}
         else:

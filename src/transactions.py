@@ -74,15 +74,21 @@ def open_lots(store: Any, *, account: str | None = None, symbol: str | None = No
     for d in disposals:
         if d["lot_txn_id"] in left and (as_of is None or by_id[d["txn_id"]]["txn_date"] <= as_of):
             left[d["lot_txn_id"]] -= float(d["shares"])
+    from .wash_adjustments import by_lot
+    adj = by_lot(store)
     out = []
     for lid, shares in left.items():
         r = by_id[lid]
         if shares <= _EPS or (account and r["account"] != account) or (symbol and r["symbol"].upper() != symbol.upper()):
             continue
+        a = adj.get(lid)
+        # the add-back is spread over the lot's shares (no share-level identification), so open shares carry their pro rata part
+        per_share = (a["amount"] / float(r["shares"])) if a and float(r["shares"]) > _EPS else 0.0
         out.append({"lot_txn_id": lid, "account": r["account"], "symbol": r["symbol"], "purchase_date": lot_date(r),
                     "price": r["price"], "lot_type": r["lot_type"], "shares": round(shares, 6), "note": r["note"],
                     "date_not_on_file": r["source"] == "backfill" and r["type"] == "opening",   # the date came from the backfill, not a broker or the user
-                    "wash_adjustment": None, "tacked_date": None})                              # filled in by the wash adjustments (phase 3)
+                    "wash_adjustment": round(per_share * shares, 2) if a else None,
+                    "adjusted_unit_cost": float(r["price"] or 0.0) + per_share, "tacked_date": a["tacked"] if a else None})
     return sorted(out, key=lambda x: (x["account"], x["symbol"], x["purchase_date"], x["lot_txn_id"]))
 
 
@@ -272,7 +278,7 @@ def _holdings_by_key(store: Any) -> dict[tuple, dict[str, Any]]:
 def _log_by_key(store: Any) -> dict[tuple, dict[str, Any]]:
     out: dict[tuple, dict[str, Any]] = {}
     for lot in open_lots(store):
-        k = _key(lot["account"], lot["symbol"], lot["purchase_date"], lot["price"], lot["lot_type"])
+        k = _key(lot["account"], lot["symbol"], lot["tacked_date"] or lot["purchase_date"], lot["adjusted_unit_cost"], lot["lot_type"])
         slot = out.setdefault(k, {**lot, "shares": 0.0})
         slot["shares"] += lot["shares"]
     return out
@@ -456,8 +462,8 @@ def materialize(store: Any, account: str) -> int:
     rows = repo.rows()
     mine = [i for i, r in enumerate(rows) if str(r.get("account", "")).strip().lower() == account.strip().lower()
             and str(r.get("symbol", "")).strip().upper() != "CASH"]
-    new = [{"account": account, "symbol": l["symbol"], "purchase_date": "" if l["purchase_date"] == _NO_DATE else l["purchase_date"],
-            "shares": _fmt(l["shares"]), "purchase_price": _fmt(float(l["price"] or 0.0)), "lot_type": l["lot_type"], "note": "" if l["note"] == _OPENING_NOTE else l["note"] or ""}
+    new = [{"account": account, "symbol": l["symbol"], "purchase_date": "" if (l["tacked_date"] or l["purchase_date"]) == _NO_DATE else (l["tacked_date"] or l["purchase_date"]),
+            "shares": _fmt(l["shares"]), "purchase_price": _fmt(float(l["adjusted_unit_cost"] or 0.0)), "lot_type": l["lot_type"], "note": "" if l["note"] == _OPENING_NOTE else l["note"] or ""}
            for l in open_lots(store, account=account) if l["symbol"].strip().upper() != "CASH"]
     at = mine[0] if mine else len(rows)
     kept_before = sum(1 for i in range(at) if i not in set(mine))
@@ -478,6 +484,8 @@ def is_managed(store: Any, account: str) -> bool:
 def materialize_managed(store: Any, accounts: Iterable[Any] | None = None) -> int:
     """Rewrite the holdings of every managed account in ``accounts`` (default: all managed accounts); an unmanaged account
     is left alone. Call inside the transaction of the log write that changed the account."""
+    from .wash_adjustments import recompute_adjustments
+    recompute_adjustments(store)                      # W4: every log write, sale confirm or void, and review change lands here or in the wash refresh
     managed = store.transactions.managed_accounts()
     if not managed:
         return 0

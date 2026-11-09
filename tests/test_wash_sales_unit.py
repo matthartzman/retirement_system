@@ -180,3 +180,19 @@ def test_two_same_day_orders_one_key_do_not_double_count_replacements():
 
 def test_gain_sales_never_flag():
     assert detect([buy("2026-06-12")], sale=dict(LOSS, gain=250.0)) == {}
+
+
+def test_w1_a_gain_lots_own_purchase_is_not_a_replacement():
+    """Review finding: every lot of the sale is excluded as a replacement, gain lots too."""
+    loss = lot(1, "Brokerage", "VTI", "2026-06-10", "2025-01-02", 10.0, -100.0)
+    gain = lot(2, "Brokerage", "VTI", "2026-06-10", "2026-06-01", 5.0, 40.0)
+    assert detect_wash_sales([loss, gain], [buy("2026-06-01", shares=5.0, account="Brokerage")]) == {}
+
+
+def test_broker_reported_amount_replaces_ours_and_a_pending_row_gets_no_flag():
+    sale = lot(1, "Brokerage", "VTI", "2026-06-10", "2025-01-02", 10.0, -100.0)
+    r = detect_wash_sales([sale], [buy("2026-06-12", shares=10.0)], reviews={KEY: {"outcome": "broker_reported", "broker_amount": 30.0}})[KEY]
+    assert r["disallowed"] == 30.0 and r["deductible"] == 70.0
+    pending = dict(sale, sale_id=2, status="pending")
+    detected = detect_wash_sales([sale], [buy("2026-06-12", shares=10.0)])
+    assert [u[0] for u in plan_flag_updates([sale, pending], detected)] == [1]

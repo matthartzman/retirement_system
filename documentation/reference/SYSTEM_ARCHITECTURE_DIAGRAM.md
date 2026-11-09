@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 322 Python files under `src/`, 72 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 323 Python files under `src/`, 72 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (231 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (232 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (27 modules)"]
@@ -707,13 +707,13 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/results_model.py` | `balance_sheet_liabilities`, `person_labels`, `version` | — |
 | `src/roth_ui_build_guard.py` | — | — |
 | `src/runtime_config.py` | `system_config` | — |
-| `src/sales_1099b.py` | `broker_1099b`, `core`, `sales_ledger` | — |
+| `src/sales_1099b.py` | `broker_1099b`, `core`, `person_labels`, `sales_ledger`, `sales_tax_year`, `wash_sales` | — |
 | `src/sales_confirm.py` | `core`, `sales_ledger` | — |
 | `src/sales_confirm_bulk.py` | `sales_confirm`, `sales_ledger` | — |
 | `src/sales_ledger.py` | — | — |
 | `src/sales_matching.py` | `ytd_tracking` | — |
 | `src/sales_service.py` | `broker_import`, `history_sales`, `sales_confirm`, `sales_ledger` | — |
-| `src/sales_tax_year.py` | `core`, `data_io`, `person_labels`, `realized_income_stack`, `realized_seed`, `realized_tax`, `sales_ledger`, `sales_matching`, `taxes`, `wash_sales` | — |
+| `src/sales_tax_year.py` | `core`, `data_io`, `person_labels`, `realized_income_stack`, `realized_seed`, `realized_tax`, `sales_ledger`, `sales_matching`, `taxes`, `wash_adjustments`, `wash_sales` | — |
 | `src/schema_registry.py` | `plan_data_registry`, `stores.ref_getters.schema_fields` | — |
 | `src/secrets_store.py` | `app_state`, `platform_runtime` | `keyring` |
 | `src/security.py` | `app_state`, `runtime_config` | — |
@@ -757,11 +757,12 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/tax_law.py` | `stores.ref_getters.tax_law` | — |
 | `src/taxes.py` | `tax_law` | — |
 | `src/tlh.py` | `stores.ref_getters.security_master` | — |
-| `src/transactions.py` | `broker_import`, `sales_confirm`, `sales_ledger` | — |
+| `src/transactions.py` | `broker_import`, `sales_confirm`, `sales_ledger`, `wash_adjustments` | — |
 | `src/transactions_view.py` | — | — |
 | `src/us_states.py` | — | — |
 | `src/vectorized_fast_core.py` | — | `numpy` |
 | `src/version.py` | — | — |
+| `src/wash_adjustments.py` | `sales_tax_year`, `wash_sales` | — |
 | `src/wash_sales.py` | — | — |
 | `src/withdrawal_strategy_comparison.py` | `core` | — |
 | `src/working_balances.py` | — | — |

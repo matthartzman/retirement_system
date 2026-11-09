@@ -132,7 +132,7 @@ export function slOnSummary(cb) { slSubs.add(cb); return () => { slSubs.delete(c
 export const slSummaries = () => Object.fromEntries(Object.entries(slSums).map(([k, v]) => [k, { ...v }]));
 
 // Alert strip: one text badge per open item (warn/bad, stale/never run, or counted + toned), across all years.
-const SL_KEY_TAB = { queue: "fix", health: "fix", wash: "fix", cf: "tax", b1099: "tax" };
+const SL_KEY_TAB = { queue: "fix", health: "fix", wash: "fix", windows: "fix", cf: "tax", b1099: "tax" };
 const slEsc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const slIsAlert = (s) => !!s && (s.tone === "warn" || s.tone === "bad" || /^(stale|never run)$/i.test(String(s.text).trim()) || (s.count > 0 && s.tone !== ""));
 const slAlertItems = (sums) => Object.keys(SL_KEY_TAB).filter((k) => slIsAlert(sums && sums[k])).map((k) => [k, SL_KEY_TAB[k], sums[k]]);

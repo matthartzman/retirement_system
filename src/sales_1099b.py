@@ -12,11 +12,12 @@ from __future__ import annotations
 import json
 from collections import Counter
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping, Sequence
 
 from . import active_plan, broker_1099b, sales_tax_year
 from .broker_1099b import matching, report as _report
 from .sales_ledger import ValidationError
+from .wash_sales import sale_key
 
 
 def _base(input_dir: str | Path) -> Path:
@@ -141,9 +142,31 @@ def apply(input_dir: str | Path, *, broker: str, account: str, text: str | None 
             added += 1
         for i, ln in enumerate(lines):
             store.sales.add_line(sid, i, dict(ln), placed.get(i, []))
+        _broker_reviews(store, lines, placed)
     sales_tax_year.auto_refresh(input_dir)
     return {"statement_id": sid, "corrected": corrected, "added": added, "superseded": superseded,
             "unmatched_ledger": result["unmatched_ledger"]}
+
+
+def _broker_amounts(store, lines: Sequence[Mapping[str, Any]], placed: Mapping[int, Sequence[int]]) -> dict[str, float]:
+    """Column 1g of each line, summed per sale (the grouping key of the ledger rows the line landed on)."""
+    out: dict[str, float] = {}
+    for i, ln in enumerate(lines):
+        amount = float(ln.get("wash_disallowed") or 0.0)
+        ids = list(placed.get(i, []))
+        if amount > 0 and ids:
+            key = sale_key(store.sales.get_sale(ids[0]))
+            out[key] = round(out.get(key, 0.0) + amount, 2)
+    return out
+
+
+def _broker_reviews(store, lines, placed) -> None:
+    """A sale whose 1099-B line shows a wash-sale loss becomes "Broker already reported it" (with the broker's amount) unless the
+    user already chose an outcome for it."""
+    have = store.sales.reviews()
+    for key, amount in _broker_amounts(store, lines, placed).items():
+        if key not in have:
+            store.sales.set_review(key, "broker_reported", broker_amount=amount)
 
 
 def _any_class(broker: str) -> bool:
@@ -187,4 +210,34 @@ def wash_adjustments(input_dir: str | Path, tax_year: int) -> dict[str, Any]:
             stored = store.sales.statement_lines(st["statement_id"])
             found = _report.wash_adjustments([s["line"] for s in stored], [s["sale_ids"] for s in stored])
             items += [{**w, "account": st["account"], "broker": st["broker"], "statement_id": st["statement_id"]} for w in found]
-    return {"tax_year": int(tax_year), "adjustments": items, "total": round(sum(w["wash_disallowed"] for w in items), 2)}
+    return {"tax_year": int(tax_year), "adjustments": items, "total": round(sum(w["wash_disallowed"] for w in items), 2),
+            "tie": wash_tie(input_dir, tax_year)}
+
+
+def wash_tie(input_dir: str | Path, tax_year: int) -> dict[str, Any]:
+    """The Wash sales block of the tie report: per sale, the broker's amount against ours for replacements in the same account, and what
+    our rules disallow for replacements in OTHER accounts, which are on no 1099-B (the return must include them)."""
+    from .person_labels import display_account
+    from .sales_tax_year import _detected, _plan_config
+    cfg = _plan_config(input_dir) or {}
+    broker: dict[str, float] = {}
+    with active_plan.workspace_store(_base(input_dir)) as store:
+        for st in store.sales.list_statements():
+            if st["status"] == "applied" and st["tax_year"] == int(tax_year):
+                stored = store.sales.statement_lines(st["statement_id"])
+                broker.update({k: round(broker.get(k, 0.0) + v, 2) for k, v in
+                               _broker_amounts(store, [s["line"] for s in stored], {i: s["sale_ids"] for i, s in enumerate(stored)}).items()})
+        detected = _detected(store, store.sales.list_sales(), {})            # ours, before any review
+    same, cross = [], []
+    for key, d in sorted(detected.items()):
+        if key.rsplit("|", 1)[-1][:4] != str(int(tax_year)):
+            continue
+        acct = key.split("|")[0]
+        mine = round(sum(m["amount"] for m in d["matches"] if m["account"] == acct), 2)
+        if mine or key in broker:
+            same.append({"sale_key": key, "broker": broker.get(key, 0.0), "computed": mine})
+        cross += [{"sale_key": key, "amount": m["amount"], "label": display_account(m["account"], cfg)} for m in d["matches"] if m["account"] != acct]
+    for key, amount in sorted(broker.items()):
+        if not any(s["sale_key"] == key for s in same):
+            same.append({"sale_key": key, "broker": amount, "computed": 0.0})
+    return {"same_account": same, "cross_account": cross}

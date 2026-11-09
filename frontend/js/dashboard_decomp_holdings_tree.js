@@ -147,7 +147,9 @@ function htLotLinks(l) {
   if (!window.hsActivityLink || !l.account) return "";
   const a = (f, text) => ` <a class="ht-link" href="${esc(window.hsActivityLink({ account: l.account, symbol: l.symbol, ...f }))}">${text}</a>`;
   const managed = window.isManagedHoldingAccount && window.isManagedHoldingAccount(l.account);
-  return (managed && !l.purchase_date ? ` <span class="sl-chip">date not on file</span>${a({ type: "opening", source: "backfill" }, "Fix date")}` : "") + a({}, "History") + (managed ? a({}, "Edit in Activity") : "");
+  const w = window.tlWashFor && l.shares ? window.tlWashFor(l.account, l.symbol, l.purchase_date, l.basis / l.shares) : null;
+  const mark = w ? ` <a class="sl-chip" href="#sales_ledger?tab=fix&amp;sec=wash" onclick="if(window.slGo){slGo('fix','wash');return false}" title="Includes $${esc(w.wash_adjustment.toFixed(2))} of a disallowed wash-sale loss; the holding period counts from ${esc(w.tacked_date)}">incl. $${esc(w.wash_adjustment.toFixed(2))} wash</a>` : "";
+  return mark + (managed && !l.purchase_date ? ` <span class="sl-chip">date not on file</span>${a({ type: "opening", source: "backfill" }, "Fix date")}` : "") + a({}, "History") + (managed ? a({}, "Edit in Activity") : "");
 }
 
 function htRows(nodes, depth, total, out) {

@@ -50,6 +50,11 @@ export function renderLogHealth() {
   if (tlLog === null) setTimeout(tlLoad, 0);
   return `<div id="tlHealthRoot">${tlHealthInner()}</div>`;
 }
+// The open lot a Positions row is, when it carries a wash-sale add-back (the holdings hold the adjusted cost and the tacked date).
+export function tlWashFor(account, symbol, date, unitCost) {
+  return ((tlLog && tlLog.open) || []).find((l) => l.account === account && String(l.symbol).toUpperCase() === String(symbol).toUpperCase() && l.wash_adjustment &&
+    (l.tacked_date || l.purchase_date) === date && Math.abs(Number(l.adjusted_unit_cost) - Number(unitCost)) < 1e-6) || null;
+}
 export const tlStarted = () => !(tlLog && tlLog.started === false); // false only once the log is known to be not started
 
 const tlIsCashOpening = (r) => r.type === "opening" && String(r.symbol).toUpperCase() === "CASH";
@@ -171,10 +176,12 @@ function tlPaint() {
 }
 
 export async function tlLoad() {
+  const first = tlLog === null;
   tlLoadFailed = false;
   try { tlLog = await api("/api/transactions/log"); } catch (e) { tlLoadFailed = true; tlLog = { started: false, rows: [], open: [], drift: [] }; tlMessage = { text: e.message, error: true }; }
   try { tlBank = ((await api("/api/transactions/bank-cleanup")) || {}).accounts.map((a) => a.account); } catch (e) { tlBank = []; }
   tlPaint();
+  if (first && window.activeStep === "holdings" && typeof renderMain === "function") renderMain(); // Positions markers need the log
 }
 
 async function tlPost(url, body, done) {
@@ -233,5 +240,5 @@ export function tlTransfer() {
   return tlPost("/api/transactions/transfer", { from_account: tlXfer.from_account, to_account: tlXfer.to_account, symbol: tlXfer.symbol, txn_date: tlXfer.txn_date, allocation }, "Shares transferred.");
 }
 
-Object.assign(window, { tlStatusHtml, tlHealthHtml, renderLogHealth, tlStarted, tlShowAllHealth, tlSummary, renderTransactionLog, tlHtml, tlFilterRows, tlPage, tlSetFilter, tlApplyFilters, tlReloadAll, tlShowMore, tlDrawerToggle, tlLoad, tlStart, tlCleanBank, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlOnKeydown, tlVoid,
+Object.assign(window, { tlWashFor, tlStatusHtml, tlHealthHtml, renderLogHealth, tlStarted, tlShowAllHealth, tlSummary, renderTransactionLog, tlHtml, tlFilterRows, tlPage, tlSetFilter, tlApplyFilters, tlReloadAll, tlShowMore, tlDrawerToggle, tlLoad, tlStart, tlCleanBank, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlOnKeydown, tlVoid,
   tlSetXfer, tlSetXferFrom, tlSetXferTo, tlPick, tlTransfer });

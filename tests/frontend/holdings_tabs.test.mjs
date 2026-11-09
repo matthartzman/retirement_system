@@ -101,3 +101,26 @@ describe("Positions markers and cross-links", () => {
     assert.match(log.tlStatusHtml(), /id="tlStatusRoot"/);
   });
 });
+
+describe("wash markers on Positions", () => {
+  test("adjusted lot shows incl. wash marker and adjusted unit cost", async () => {
+    const log = await import("../../frontend/js/dashboard_decomp_transactions_log.js");
+    globalThis.api = async (url) => (url === "/api/transactions/log" ? { started: true, rows: [], drift: [], open: [
+      { account: "Spouse_Trust", symbol: "VTI", purchase_date: "2026-06-15", tacked_date: "2024-01-10", adjusted_unit_cost: 105, wash_adjustment: 400, shares: 20 }] } : { success: true });
+    globalThis.document = { getElementById: () => null };
+    await log.tlLoad();
+    globalThis.renderMain = () => {};
+    window.holdingsTreeOrder = ["lot"];
+    window.managedHoldingAccounts = [];
+    const html = tree.renderHoldingsTree([{ account: "Spouse_Trust", symbol: "VTI", purchase_date: "2024-01-10", shares: 20, purchase_price: 105 }], (a) => a);
+    assert.match(html, /incl\. \$400\.00 wash/);
+    assert.match(html, /title="Includes \$400\.00 of a disallowed wash-sale loss; the holding period counts from 2024-01-10"/);
+    assert.match(html, /slGo\('fix','wash'\)/);
+    assert.match(html, /\$105/);                                  // the unit cost shown is the adjusted one
+  });
+  test("lot with no adjustment shows no marker", () => {
+    window.holdingsTreeOrder = ["lot"];
+    const html = tree.renderHoldingsTree([{ account: "Spouse_Trust", symbol: "VTI", purchase_date: "2025-01-10", shares: 20, purchase_price: 100 }], (a) => a);
+    assert.doesNotMatch(html, /wash<\/a>|incl\./);
+  });
+});

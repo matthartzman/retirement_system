@@ -350,3 +350,15 @@ describe("focus-safe review box and state (Task 15 fix)", () => {
     m.bbSetBroker("vanguard");
   });
 });
+
+describe("wash sales in the tie report", () => {
+  test("same-account amounts are compared and cross-account amounts say they are on no 1099-B", () => {
+    const h = m.bbWashHtml({ same_account: [{ sale_key: "Trust|WXYZ|2025-10-15", broker: 60, computed: 40 }], cross_account: [{ sale_key: "Trust|WXYZ|2025-10-15", amount: 20, label: "Spouse Roth" }] });
+    assert.match(h, /<th class="rc-num">Broker reported<\/th><th class="rc-num">Computed here<\/th>/);
+    assert.match(h, /\$60\.00<\/td><td class="rc-num">\$40\.00/);
+    assert.match(h, /not on any 1099-B: your return must include these/);
+    assert.match(h, /Spouse Roth/);
+    assert.equal(m.bbWashHtml({ same_account: [], cross_account: [] }), "");
+    assert.equal(m.bbWashHtml(null), "");
+  });
+});

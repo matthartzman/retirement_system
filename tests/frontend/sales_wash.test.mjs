@@ -64,3 +64,16 @@ describe("wash summary", () => {
     assert.deepEqual(await run({ cards: [CARD], run: { never_run: true } }), { count: 1, tone: "bad", text: "1 to review" });
   });
 });
+
+describe("open windows", () => {
+  const W = [{ sale_key: "A|VTI|2026-11-06", symbol: "VTI", closes_on: "2026-12-06", reinvesting: ["Pat's IRA", "Pat's Roth"], also_holds: ["Pat's 401k"] }];
+  test("names the accounts that have reinvested, the date the window closes, and never says reinvest is on", () => {
+    const h = w.swWindowsHtml(W);
+    assert.match(h, /the window is open until 12-06/);
+    assert.match(h, /Turn off reinvest for VTI in Pat&#39;?s IRA, Pat&#39;?s Roth|Turn off reinvest for VTI in Pat's IRA, Pat's Roth/);
+    assert.match(h, /has reinvested in the last 12 months/);
+    assert.match(h, /Also holds VTI: Pat(&#39;|')s 401k \(no recent reinvest; check contributions\)/);
+    assert.doesNotMatch(h, /reinvest on/i);
+    assert.equal(w.swWindowsHtml([]), "");
+  });
+});

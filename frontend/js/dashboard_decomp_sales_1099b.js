@@ -20,6 +20,7 @@ let bbMessage = null; // { text, error }
 let bbBusy = false;
 let bbViewed = false; // the user ticked "I have reviewed this difference report" for the current preview
 let bbDone = null; // set after a successful apply: drives the next-step links
+let bbTie = null; // the wash-sale block of the tie report, read after an apply
 let bbState = null; // { year, taxableSales, has1099b } from the ledger load: decides whether the card opens itself
 
 const bbMoney = (v) => (Number(v) < 0 ? "-$" : "$") + Math.abs(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -68,6 +69,15 @@ export function bbControlHtml(c) {
     (c.gaps || []).map((g) => `<li>${esc(g.term)} ${g.covered ? "covered" : "noncovered"} ${esc(g.column)}: statement ${bbMoney(g.statement)}, lines ${bbMoney(g.detail)} (difference ${bbMoney(g.difference)})</li>`).join("") + `</ul></div>`;
 }
 
+// Wash sales in the tie report: the broker's column 1g against ours (same account), and what no 1099-B shows (other accounts).
+export function bbWashHtml(t) {
+  if (!t || (!t.same_account.length && !t.cross_account.length)) return "";
+  const nm = (k) => esc(k.split("|").slice(1).join(" "));
+  const same = t.same_account.map((x) => `<tr><td>${nm(x.sale_key)}</td><td class="rc-num">${bbMoney(x.broker)}</td><td class="rc-num">${bbMoney(x.computed)}</td></tr>`).join("");
+  const cross = t.cross_account.map((x) => `<li>${nm(x.sale_key)}: ${bbMoney(x.amount)} through a purchase in ${esc(x.label)}: <b>not on any 1099-B: your return must include these</b></li>`).join("");
+  return `<h4>Wash sales</h4>${same ? `<div class="rc-scroll"><table class="rc-table"><thead><tr><th>Sale</th><th class="rc-num">Broker reported</th><th class="rc-num">Computed here</th></tr></thead><tbody>${same}</tbody></table></div>` : ""}${cross ? `<ul>${cross}</ul>` : ""}`;
+}
+
 export function bbChangesHtml(p) {
   if (!p.supersedes) return "";
   const s = p.supersedes;
@@ -112,7 +122,7 @@ function bbBodyHtml() {
     accounts.map((a) => `<option value="${esc(a)}" ${a === bbAccount ? "selected" : ""}>${esc(bbLabel(a))}</option>`).join("") + `</select></label>` +
     `<label>Statement file<input type="file" accept=".txt,.csv,.pdf,text/plain,application/pdf" aria-label="1099-B statement file" onchange="bbFileChosen(this)"></label></div>` +
     `${bbFile ? `<p class="muted">File: ${esc(bbFile)}</p>` : ""}` +
-    `<button class="btn" type="button" onclick="bbPreviewStatement()" ${bbBusy ? "disabled" : ""}>Preview</button>${msg}${bbPreview ? bbPreviewHtml(bbPreview) : ""}${bbDone && window.slNextStepHtml ? window.slNextStepHtml(bbDone) : ""}`;
+    `<button class="btn" type="button" onclick="bbPreviewStatement()" ${bbBusy ? "disabled" : ""}>Preview</button>${msg}${bbPreview ? bbPreviewHtml(bbPreview) : ""}${bbDone && window.slNextStepHtml ? window.slNextStepHtml(bbDone) : ""}${bbDone ? bbWashHtml(bbTie) : ""}`;
 }
 
 export function renderSalesBroker1099b() {
@@ -187,7 +197,7 @@ export async function bbPreviewStatement() {
 export async function bbApply() {
   if (!bbCanApply(bbPreview, bbViewed)) return;
   if (JSON.stringify(bbBody()) !== bbPreviewKey) { bbMessage = { text: "The inputs changed after this preview — preview again.", error: true }; return bbPaint(); }
-  const replace = !!bbPreview.supersedes;
+  const replace = !!bbPreview.supersedes, year = bbPreview.tax_year;
   if (replace && !(window.confirm && window.confirm("An earlier statement for this account and year was imported. Replace it with this one?"))) return;
   bbBusy = true; bbPaint();
   try {
@@ -195,6 +205,7 @@ export async function bbApply() {
     bbMessage = { text: `Applied: ${out.corrected} ledger row(s) corrected, ${out.added} added${out.superseded ? `, earlier statement ${out.superseded} replaced` : ""}.`, error: false };
     bbPreview = null; bbViewed = false;
     bbDone = { wash: true };
+    try { bbTie = ((await api(`/api/sales/1099b/wash?year=${encodeURIComponent(year)}`)) || {}).tie || null; } catch (e) { bbTie = null; }
   } catch (e) { bbMessage = { text: e.message, error: true }; }
   bbBusy = false; bbPaint();
   if (window.loadSalesLedger) window.loadSalesLedger();
@@ -215,6 +226,6 @@ export function bbExportCsv() {
 
 Object.assign(window, {
   bbSummary, bbCanApply, bbMarkViewed, bbStateText,
-  bbSuggestionsHtml, bbReportRowHtml, bbTotalsHtml, bbReportHtml, bbControlHtml, bbChangesHtml, bbPreviewHtml, renderSalesBroker1099b, bbLoadAccounts,
+  bbSuggestionsHtml, bbReportRowHtml, bbTotalsHtml, bbReportHtml, bbWashHtml, bbControlHtml, bbChangesHtml, bbPreviewHtml, renderSalesBroker1099b, bbLoadAccounts,
   bbSetBroker, bbSetAccount, bbSetStatement, bbSetState, s1099bAutoOpen, bbFileChosen, bbPreviewStatement, bbApply, bbExportCsv,
 });

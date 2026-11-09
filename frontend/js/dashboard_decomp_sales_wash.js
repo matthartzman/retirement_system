@@ -2,7 +2,7 @@
 // control with three outcomes, and the list of reviews already made (with Undo). Rules and amounts come from the server
 // (src/wash_sales.py, GET /api/sales/wash?year, POST /api/sales/wash/review[/clear]); this only displays and posts the choice.
 const SW_OUTCOMES = [["wash", "Wash sale"], ["broker_reported", "Broker already reported it"], ["not_wash", "Not a wash sale…"]];
-let swData = null, swMessage = null;
+let swData = null, swMessage = null, swWindows = [];
 const swMoney = (v) => (window.slMoney ? window.slMoney(v) : String(v));
 
 // "Not a wash sale" needs a reason; the other two do not.
@@ -18,12 +18,21 @@ export function swCardHtml(c, i) {
     `<label id="swReasonLabel${i}" hidden>Reason <input id="swReason${i}" size="30" placeholder="why it is not a wash sale"></label> <button class="btn" type="button" onclick="swSave(${i})">Save review</button></div></div>`;
 }
 
+// Prevention: one line per loss sale still inside its 30 days; it goes away on its own when the window closes.
+export function swWindowsHtml(list = swWindows) {
+  if (!list.length) return "";
+  const md = (iso) => String(iso).slice(5);
+  return `<div class="sw-windows" role="status">` + list.map((w) => `<p><b>${esc(w.symbol)} loss: the window is open until ${esc(md(w.closes_on))}.</b>` +
+    (w.reinvesting.length ? ` Turn off reinvest for ${esc(w.symbol)} in ${w.reinvesting.map(esc).join(", ")} (has reinvested in the last 12 months).` : "") +
+    (w.also_holds.length ? ` Also holds ${esc(w.symbol)}: ${w.also_holds.map(esc).join(", ")} (no recent reinvest; check contributions).` : "") + `</p>`).join("") + `</div>`;
+}
+
 export function swHtml(d = swData) {
   if (!d) return `<p class="muted">Loading…</p>`;
   const msg = swMessage ? `<p class="${swMessage.error ? "field-error" : "muted"}" role="status">${esc(swMessage.text)}</p>` : "";
   const done = d.reviewed.length ? `<details><summary>Reviewed (${d.reviewed.length})</summary><ul>` + d.reviewed.map((r, i) =>
-    `<li>${esc(r.sale_key.split("|").slice(1).join(" "))}: ${esc((SW_OUTCOMES.find((o) => o[0] === r.outcome) || [0, r.outcome])[1])}${r.reason ? ` (${esc(r.reason)})` : ""} <button class="btn" type="button" onclick="swUndo(${i})">Undo</button></li>`).join("") + `</ul></details>` : "";
-  return `${msg}${d.cards.length ? d.cards.map(swCardHtml).join("") : `<p class="muted">No wash sales to review.</p>`}${done}` +
+    `<li>${esc(r.label)}: ${esc((SW_OUTCOMES.find((o) => o[0] === r.outcome) || [0, r.outcome])[1])}${r.reason ? ` (${esc(r.reason)})` : ""} <button class="btn" type="button" onclick="swUndo(${i})">Undo</button></li>`).join("") + `</ul></details>` : "";
+  return `${msg}${swWindowsHtml()}${d.cards.length ? d.cards.map(swCardHtml).join("") : `<p class="muted">No wash sales to review.</p>`}${done}` +
     `<button class="btn" type="button" onclick="swRefresh()">Check for wash sales</button>`;
 }
 
@@ -37,11 +46,12 @@ export const swStateText = () => (swData ? (swData.cards.length ? "" : "No wash 
 function swPaint() {
   const el = typeof document !== "undefined" && document.getElementById("swRoot");
   if (el) el.innerHTML = swHtml();
-  if (window.slPublish) window.slPublish("wash", swSummary());
+  if (window.slPublish) { window.slPublish("wash", swSummary()); window.slPublish("windows", swWindows.length ? { count: swWindows.length, tone: "warn", text: `${swWindows.length} open wash window${swWindows.length === 1 ? "" : "s"}` } : { count: 0, tone: "", text: "" }); }
   if (window.slSecSetState) window.slSecSetState("wash", swStateText());
 }
 export async function loadSalesWash() {
   const year = window.slCurrentYear ? window.slCurrentYear() : "";
+  try { swWindows = ((await api("/api/sales/wash/open-windows")) || {}).windows || []; } catch (e) { swWindows = []; }
   try { swData = year ? await api(`/api/sales/wash?year=${encodeURIComponent(year)}`) : { cards: [], reviewed: [] }; } catch (e) { swData = { cards: [], reviewed: [] }; swMessage = { text: e.message, error: true }; }
   swPaint();
 }
@@ -66,4 +76,4 @@ export function swSave(i) {
 export const swUndo = (i) => swPost("/api/sales/wash/review/clear", { sale_key: swData.reviewed[i].sale_key }, "Review undone; the sale is back in the list.");
 export const swRefresh = () => swPost("/api/sales/wash/refresh", {}, "Wash-sale check done.");
 
-Object.assign(window, { swValidate, swCardHtml, swHtml, renderSalesWash, swSummary, swStateText, loadSalesWash, swOutcomeChanged, swSave, swUndo, swRefresh });
+Object.assign(window, { swWindowsHtml, swValidate, swCardHtml, swHtml, renderSalesWash, swSummary, swStateText, loadSalesWash, swOutcomeChanged, swSave, swUndo, swRefresh });

@@ -85,9 +85,10 @@ def open_lots(input_dir: str | Path, account: str, symbol: str, as_of: str | Non
         started = any(r["account"] == account for r in store.transactions.list())
         lots = []
         for l in transactions.open_lots(store, account=account, symbol=symbol, as_of=as_of or None):
-            lots.append({"txn_id": l["lot_txn_id"], "purchase_date": l["purchase_date"], "open_shares": l["shares"],
-                         "unit_cost": float(l["price"] or 0.0), "source": store.transactions.get(l["lot_txn_id"])["source"],
-                         "term": holding_period(l["purchase_date"], as_of) if as_of and l["purchase_date"] else "unknown"})
+            bought = l["tacked_date"] or l["purchase_date"]      # a wash-sale replacement counts from the sold lot's purchase date
+            lots.append({"txn_id": l["lot_txn_id"], "purchase_date": bought, "open_shares": l["shares"],
+                         "unit_cost": l["adjusted_unit_cost"], "wash_adjustment": l["wash_adjustment"], "source": store.transactions.get(l["lot_txn_id"])["source"],
+                         "term": holding_period(bought, as_of) if as_of and bought else "unknown"})
         near = []
         if as_of:
             lo, hi = (date.fromisoformat(as_of) + timedelta(days=d) for d in (-30, 30))

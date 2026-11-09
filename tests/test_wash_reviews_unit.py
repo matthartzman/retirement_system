@@ -65,7 +65,7 @@ def test_review_survives_requeue_and_rerecord(input_dir):
 
 def test_migration_adds_table_on_existing_plan(input_dir):
     """A plan stored at schema 22 (no wash_reviews) gains the table when it is opened."""
-    assert plan_store.PLAN_SCHEMA_VERSION == 23
+    assert plan_store.PLAN_SCHEMA_VERSION == 24
     with active_plan.workspace_store(input_dir.parent, write=True) as store:
         path = store.path
     assert path is not None
@@ -76,7 +76,7 @@ def test_migration_adds_table_on_existing_plan(input_dir):
     con.commit()
     con.close()
     with active_plan.workspace_store(input_dir.parent, write=True) as store:
-        assert store.schema_version == 23
+        assert store.schema_version == 24
         assert store.sales.reviews() == {}
     con = sqlite3.connect(path)
     assert con.execute("SELECT name FROM sqlite_master WHERE name = 'wash_reviews'").fetchone()
