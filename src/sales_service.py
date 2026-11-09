@@ -6,6 +6,7 @@ Manual and CSV rows are one lot (or part of a lot) each, with the lot's basis an
 Nothing reads the ledger yet (Phase 1)."""
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +65,29 @@ def list_sales(input_dir: str | Path, *, year: int | None = None, include_voided
         "short_gain": sum(s["gain"] for s in live if s["holding_period"] == "short"),
         "long_gain": sum(s["gain"] for s in live if s["holding_period"] == "long"),
     }}
+
+
+def sales_summary(input_dir: str | Path, year: int | None, *, taxable_only: bool = True) -> dict[str, Any]:
+    """The Sales tab's KPI strip. The filter is exactly the Tax year tab's (``sales_tax_year._live_sales``) so the two agree
+    on the realized figures; ``year=None`` means all years and ``taxable_only=False`` lets IRA, Roth and HSA sales in.
+    ``count`` is ledger rows (lots, as Tax year counts them), ``sales`` is whole sales (account + symbol + date)."""
+    with active_plan.workspace_store(_base(input_dir)) as store:
+        sales = store.sales.list_sales()
+    live = [s for s in sales if s["status"] == "confirmed" and s["gain"] is not None
+            and (not taxable_only or s["tax_class"] == "taxable") and (year is None or s["sale_date"][:4] == str(int(year)))]
+    return {"count": len(live), "sales": len({(s["account"], s["symbol"], s["sale_date"]) for s in live}),
+            "st_gain": sum(s["gain"] for s in live if s["holding_period"] == "short") + 0.0,
+            "lt_gain": sum(s["gain"] for s in live if s["holding_period"] == "long") + 0.0,
+            "fees": round(sum(float(s.get("fees") or 0.0) for s in live), 2) + 0.0}
+
+
+def sales_years(input_dir: str | Path) -> list[int]:
+    """Years that have ledger or log rows, ascending, never in the future."""
+    this_year = date.today().year
+    with active_plan.workspace_store(_base(input_dir)) as store:
+        found = {str(s["sale_date"])[:4] for s in store.sales.list_sales()}
+        found |= {str(r["txn_date"])[:4] for r in store.transactions.list()}
+    return sorted(int(y) for y in found if y.isdigit() and 1900 < int(y) <= this_year)
 
 
 def replace_sale(input_dir: str | Path, sale_id: int, row: dict[str, Any]) -> dict[str, Any]:

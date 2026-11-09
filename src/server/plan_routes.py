@@ -1077,6 +1077,29 @@ def sales_list():
     return _sales_call(_sales.list_sales, year=year, include_voided=request.args.get("include_voided") == "1")
 
 
+@app.route("/api/sales/summary", methods=["GET"])
+def sales_summary_route():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    try:
+        year = int(request.args["year"]) if request.args.get("year") else None
+    except ValueError:
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    taxable_only = request.args.get("taxable_only", "1") != "0"
+    return _sales_call(lambda root: {"summary": _sales.sales_summary(root, year, taxable_only=taxable_only)})
+
+
+@app.route("/api/sales/years", methods=["GET"])
+def sales_years_route():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    return _sales_call(lambda root: {"years": _sales.sales_years(root)})
+
+
 @app.route("/api/sales", methods=["POST"])
 def sales_add():
     denied = _require("write_config")

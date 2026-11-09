@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 322 Python files under `src/`, 69 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 322 Python files under `src/`, 70 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -12,7 +12,7 @@ Every box is a real directory in the repo. Every arrow is a real `import` found 
 flowchart TB
     User(["Desktop user"]) --> FE
     subgraph FE["Frontend SPA (frontend/)"]
-        FEcount["69 JS files, browser-loaded via index.html script tags"]
+        FEcount["70 JS files, browser-loaded via index.html script tags"]
     end
     FE -->|fetch /api/*| L_HTTP_Routes
     subgraph L_HTTP_Routes["HTTP Routes (11 modules)"]
@@ -377,29 +377,30 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 44. `js/dashboard_decomp_monarch_reconciliation.js?v=1`
 45. `js/dashboard_decomp_cash_accounts.js?v=1`
 46. `js/dashboard_decomp_sales_ledger_ui.js?v=14`
-47. `js/dashboard_decomp_sales_ledger.js?v=20`
-48. `js/dashboard_decomp_sales_queue.js?v=2`
-49. `js/dashboard_decomp_sales_tax.js?v=6`
-50. `js/dashboard_decomp_broker_import.js?v=6`
-51. `js/dashboard_decomp_sales_1099b.js?v=6`
-52. `js/dashboard_decomp_cash_investment.js?v=5`
-53. `js/dashboard_decomp_year_end.js?v=4`
-54. `js/dashboard_decomp_holdings_tree.js?v=1`
-55. `js/dashboard_decomp_transactions.js?v=3`
-56. `js/dashboard_decomp_transactions_log.js?v=10`
-57. `js/dashboard_decomp_tax_assumptions.js?v=1`
-58. `js/dashboard_decomp_roth_guardrails.js?v=1`
-59. `js/dashboard_decomp_misc.js?v=1`
-60. `js/dashboard_decomp_state_inputs.js?v=2`
-61. `js/dashboard_decomp_home_panels.js?v=2`
-62. `js/modules/phase3_module_manifest.js?v=2`
-63. `js/dashboard_source_truth_banners.js?v=2`
-64. `js/dashboard_decomp_optimizer_apply.js?v=1`
-65. `js/dashboard_batch_assumption_edit.js?v=2`
-66. `js/dashboard_decomp_holdings.js?v=1`
-67. `js/spending_dashboard.js?v=12`
+47. `js/dashboard_decomp_sales_group.js?v=1`
+48. `js/dashboard_decomp_sales_ledger.js?v=20`
+49. `js/dashboard_decomp_sales_queue.js?v=2`
+50. `js/dashboard_decomp_sales_tax.js?v=6`
+51. `js/dashboard_decomp_broker_import.js?v=6`
+52. `js/dashboard_decomp_sales_1099b.js?v=6`
+53. `js/dashboard_decomp_cash_investment.js?v=5`
+54. `js/dashboard_decomp_year_end.js?v=4`
+55. `js/dashboard_decomp_holdings_tree.js?v=1`
+56. `js/dashboard_decomp_transactions.js?v=3`
+57. `js/dashboard_decomp_transactions_log.js?v=10`
+58. `js/dashboard_decomp_tax_assumptions.js?v=1`
+59. `js/dashboard_decomp_roth_guardrails.js?v=1`
+60. `js/dashboard_decomp_misc.js?v=1`
+61. `js/dashboard_decomp_state_inputs.js?v=2`
+62. `js/dashboard_decomp_home_panels.js?v=2`
+63. `js/modules/phase3_module_manifest.js?v=2`
+64. `js/dashboard_source_truth_banners.js?v=2`
+65. `js/dashboard_decomp_optimizer_apply.js?v=1`
+66. `js/dashboard_batch_assumption_edit.js?v=2`
+67. `js/dashboard_decomp_holdings.js?v=1`
+68. `js/spending_dashboard.js?v=12`
 
-All `.js` files found under `frontend/` (69):
+All `.js` files found under `frontend/` (70):
 
 - `frontend/js/admin.js`
 - `frontend/js/api_client.js`
@@ -441,6 +442,7 @@ All `.js` files found under `frontend/` (69):
 - `frontend/js/dashboard_decomp_roth_guardrails.js`
 - `frontend/js/dashboard_decomp_row_model.js`
 - `frontend/js/dashboard_decomp_sales_1099b.js`
+- `frontend/js/dashboard_decomp_sales_group.js`
 - `frontend/js/dashboard_decomp_sales_ledger.js`
 - `frontend/js/dashboard_decomp_sales_ledger_ui.js`
 - `frontend/js/dashboard_decomp_sales_queue.js`
