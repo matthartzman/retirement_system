@@ -148,6 +148,9 @@ def apply(input_dir: str | Path, *, broker: str, account: str, text: str | None 
             "unmatched_ledger": result["unmatched_ledger"]}
 
 
+_AUTO_REASON = "1099-B column 1g"
+
+
 def _broker_amounts(store, lines: Sequence[Mapping[str, Any]], placed: Mapping[int, Sequence[int]]) -> dict[str, float]:
     """Column 1g of each line, summed per sale (the grouping key of the ledger rows the line landed on)."""
     out: dict[str, float] = {}
@@ -165,8 +168,9 @@ def _broker_reviews(store, lines, placed) -> None:
     user already chose an outcome for it."""
     have = store.sales.reviews()
     for key, amount in _broker_amounts(store, lines, placed).items():
-        if key not in have:
-            store.sales.set_review(key, "broker_reported", broker_amount=amount)
+        mine = have.get(key) is None or (have[key]["outcome"] == "broker_reported" and have[key]["reason"] == _AUTO_REASON)   # never touch the user's choice
+        if mine:
+            store.sales.set_review(key, "broker_reported", reason=_AUTO_REASON, broker_amount=amount)
 
 
 def _any_class(broker: str) -> bool:

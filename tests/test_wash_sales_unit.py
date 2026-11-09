@@ -191,8 +191,10 @@ def test_w1_a_gain_lots_own_purchase_is_not_a_replacement():
 
 def test_broker_reported_amount_replaces_ours_and_a_pending_row_gets_no_flag():
     sale = lot(1, "Brokerage", "VTI", "2026-06-10", "2025-01-02", 10.0, -100.0)
-    r = detect_wash_sales([sale], [buy("2026-06-12", shares=10.0)], reviews={KEY: {"outcome": "broker_reported", "broker_amount": 30.0}})[KEY]
+    r = detect_wash_sales([sale], [buy("2026-06-12", shares=10.0, account="Brokerage")], reviews={KEY: {"outcome": "broker_reported", "broker_amount": 30.0}})[KEY]
     assert r["disallowed"] == 30.0 and r["deductible"] == 70.0
+    other = detect_wash_sales([sale], [buy("2026-06-12", shares=10.0, account="Joint")], reviews={KEY: {"outcome": "broker_reported", "broker_amount": 30.0}})[KEY]
+    assert other["disallowed"] == 100.0        # a purchase in another account is on no 1099-B, so ours still counts
     pending = dict(sale, sale_id=2, status="pending")
     detected = detect_wash_sales([sale], [buy("2026-06-12", shares=10.0)])
     assert [u[0] for u in plan_flag_updates([sale, pending], detected)] == [1]

@@ -60,4 +60,10 @@ def by_lot(store) -> dict[int, dict[str, Any]]:
         slot["amount"] += float(a["amount"])
         if a["tacked_purchase_date"] and (slot["tacked"] is None or a["tacked_purchase_date"] > slot["tacked"]):
             slot["tacked"] = a["tacked_purchase_date"]
+    # shares moved to another account by a transfer keep their per-share add-back and tacked date
+    rows = {r["txn_id"]: r for r in store.transactions.list()}
+    for r in sorted(rows.values(), key=lambda x: x["txn_id"]):
+        origin = rows.get(r.get("origin_lot_txn_id")) if r["type"] == "transfer_in" else None
+        if origin and origin["txn_id"] in out and float(origin["shares"]) > 0:
+            out[r["txn_id"]] = {"amount": out[origin["txn_id"]]["amount"] * float(r["shares"]) / float(origin["shares"]), "tacked": out[origin["txn_id"]]["tacked"]}
     return out

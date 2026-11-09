@@ -277,8 +277,11 @@ def _holdings_by_key(store: Any) -> dict[tuple, dict[str, Any]]:
 
 def _log_by_key(store: Any) -> dict[tuple, dict[str, Any]]:
     out: dict[tuple, dict[str, Any]] = {}
+    managed = {a.lower() for a in store.transactions.managed_accounts()}
     for lot in open_lots(store):
-        k = _key(lot["account"], lot["symbol"], lot["tacked_date"] or lot["purchase_date"], lot["adjusted_unit_cost"], lot["lot_type"])
+        adj = lot["account"].lower() in managed            # only a managed account's holdings carry the add-back and the tacked date
+        k = _key(lot["account"], lot["symbol"], (lot["tacked_date"] if adj else None) or lot["purchase_date"],
+                 lot["adjusted_unit_cost"] if adj else lot["price"], lot["lot_type"])
         slot = out.setdefault(k, {**lot, "shares": 0.0})
         slot["shares"] += lot["shares"]
     return out
@@ -411,6 +414,8 @@ def sync(store: Any) -> dict[str, Any]:
             t.release(r["txn_id"], "import reverted")
         elif r["type"] == "sell" and cands.get(a["candidate_id"], {}).get("state") != "confirmed":
             t.release(r["txn_id"], "sale undone")
+    from .wash_adjustments import recompute_adjustments
+    recompute_adjustments(store)                           # before the holdings are compared with the log
     out = backfill(store)
     materialize_managed(store)
     return out

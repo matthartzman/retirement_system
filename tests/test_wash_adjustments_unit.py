@@ -137,3 +137,28 @@ def test_plan_with_no_wash_sales_is_byte_identical(ws):
 def transactions_last_buy(ws):
     with active_plan.workspace_store(ws) as store:
         return max(r["txn_id"] for r in store.transactions.list() if r["type"] == "buy")
+
+
+def test_unmanaged_account_replacement_does_not_drift_or_double_count(tmp_path):
+    """Review finding: the holdings of an unmanaged account stay raw, so the log must be compared raw there."""
+    ws = _build(tmp_path)
+    transactions.set_managed(ws / "input", SPOUSE, False)
+    _sell_loser(ws)
+    _buy(ws, SPOUSE)
+    with active_plan.workspace_store(ws, write=True) as store, store.transaction():
+        store.dataset("holdings").replace_all(store.dataset("holdings").rows() + [
+            {"account": SPOUSE, "symbol": "VTI", "purchase_date": "2026-06-15", "shares": "20", "purchase_price": "85", "lot_type": "", "note": ""}])
+        assert transactions.reconcile(store, SPOUSE) == []
+        before = len(store.transactions.list())
+        transactions.backfill(store)
+        assert len(store.transactions.list()) == before                      # no spurious opening row
+
+
+def test_transfer_keeps_the_add_back_and_tacked_date(ws):
+    _sell_loser(ws)
+    _buy(ws, SPOUSE)
+    (lot,) = _lots(ws, SPOUSE)
+    transactions.transfer(ws / "input", from_account=SPOUSE, to_account=LOSER, symbol="VTI", txn_date="2026-07-01", allocation={lot["lot_txn_id"]: 10.0})
+    moved = [l for l in _lots(ws, LOSER) if l["lot_txn_id"] != lot["lot_txn_id"] and l["wash_adjustment"]]
+    assert moved and moved[0]["wash_adjustment"] == pytest.approx(200.0) and moved[0]["tacked_date"] == "2024-01-10"
+    assert moved[0]["adjusted_unit_cost"] == pytest.approx(105.0)

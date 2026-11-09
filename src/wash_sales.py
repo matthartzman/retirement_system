@@ -157,7 +157,9 @@ def detect_wash_sales(sales: Iterable[Mapping[str, Any]], buys: Iterable[Mapping
         disallowed = round(loss * used_total / shares_sold, 2)
         review = reviews.get(key) or {}
         if review.get("outcome") == "broker_reported" and review.get("broker_amount") is not None:
-            disallowed = round(min(float(review["broker_amount"]), loss), 2)                       # the broker's figure replaces ours
+            # the broker's figure replaces ours for its own account; a replacement in another account is on no 1099-B, so ours still counts
+            other = sum(m["amount"] for m in matches if m["account"] != lots[0].get("account"))
+            disallowed = round(min(float(review["broker_amount"]) + other, loss), 2)
         first = matches[0]
         n = abs(first["days"])
         bought = (f"bought {first['symbol']} the same day" if n == 0 else
