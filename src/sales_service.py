@@ -196,6 +196,20 @@ def replace_sale(input_dir: str | Path, sale_id: int, row: dict[str, Any]) -> di
     return _fresh(input_dir, row)
 
 
+def _revised_sell(store, sell: dict[str, Any]) -> dict[str, Any] | None:
+    """The active log row that replaced ``sell`` through Activity's revise (void and re-add carry ``revision_ref``), else None."""
+    rows = store.transactions.list(include_voided=True)
+    cur = sell
+    for _ in range(50):
+        nxt = next((r for r in rows if r["revision_ref"] == cur["txn_id"]), None)
+        if nxt is None:
+            return None
+        if nxt["status"] == "active":
+            return nxt
+        cur = nxt
+    return None
+
+
 def _set_voided(input_dir: str | Path, sale_id: int, voided: bool) -> None:
     from . import transactions
     try:
@@ -204,8 +218,9 @@ def _set_voided(input_dir: str | Path, sale_id: int, voided: bool) -> None:
             sell_id = (json.loads(row["lot_key"]) if (row.get("lot_key") or "").startswith("{") else {}).get("log_sell")
             if sell_id is not None:
                 sell = store.transactions.get(int(sell_id))
-                if voided and sell["status"] == "active":
-                    store.transactions.void(int(sell_id))            # the shares go back to their lot
+                live = sell if sell["status"] == "active" else _revised_sell(store, sell)   # an Activity revision replaced it
+                if voided and live is not None:
+                    store.transactions.void(int(live["txn_id"]))     # the shares go back to their lot
                     transactions.materialize_managed(store, [row["account"]])
                 elif not voided and sell["status"] != "active":
                     raise ValidationError("this lot's log sale was removed with the void; record the sale again")

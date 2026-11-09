@@ -105,3 +105,14 @@ describe("grid", () => {
     m.seClose();
   });
 });
+
+describe("review fixes", () => {
+  test("an edited sale offers no add-lot button (it is exactly one lot)", () => {
+    m.seSetAccounts({ Matt_Trust: "taxable" });
+    m.seEdit({ sale_id: 7, account: "Matt_Trust", symbol: "ITOT", sale_date: "2026-09-01", shares: 5, proceeds: 500, fees: 0, basis: 400, purchase_date: "2025-01-01", holding_period: "long", tax_class: "taxable" });
+    const h = m.renderSalesEntry();
+    assert.match(h, /Bought <input type="date"/);
+    assert.doesNotMatch(h, /add lot/);
+    m.seClose();
+  });
+});

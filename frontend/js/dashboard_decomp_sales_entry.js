@@ -72,7 +72,7 @@ export function seChooserHtml(r, d) {
   if (!d) return `<p class="muted">Looking up open lots…</p>`;
   if (!d.log_started) return `<div class="se-blank">${r.picks.map((p, i) => `<div>Bought <input type="date" value="${esc(p.purchase_date || "")}" onchange="seBlankSet(${r.id},${i},'purchase_date',this.value)"> ` +
     `Shares <input type="number" step="any" value="${esc(p.shares ?? "")}" onchange="seBlankSet(${r.id},${i},'shares',this.value)"> Basis $ <input type="number" step="any" value="${esc(p.basis ?? "")}" onchange="seBlankSet(${r.id},${i},'basis',this.value)"></div>`).join("")}` +
-    `<button class="btn" type="button" onclick="seAddBlankLot(${r.id})">＋ add lot</button></div>`;
+    `${seEditSale ? "" : `<button class="btn" type="button" onclick="seAddBlankLot(${r.id})">＋ add lot</button>`}</div>`;
   if (!d.lots.length) return `<p class="muted">No open lots of ${esc(r.symbol)} in ${esc(accountDisplayLabel(r.account))} on that date. <a href="${esc(seActivityLink(r.account, r.symbol))}">Add the missing buy in Holdings › Activity</a></p>`;
   const price = seNum(r.shares) ? seNum(r.proceeds) / seNum(r.shares) : 0;
   const rows = d.lots.map((l) => {

@@ -63,3 +63,13 @@ describe("history finds", () => {
     } finally { delete globalThis.slCurrentYear; }
   });
 });
+
+describe("review fixes", () => {
+  test("the queue list follows the Year", () => {
+    globalThis.slCurrentYear = () => "2025";
+    try {
+      const html = q.sqQueueHtml([{ candidate_id: 1, sale_date: "2025-03-01", account: "A", symbol: "X", amount: 1, source: "monarch" }].concat([]), null);
+      assert.match(html, /2025-03-01/);
+    } finally { delete globalThis.slCurrentYear; }
+  });
+});

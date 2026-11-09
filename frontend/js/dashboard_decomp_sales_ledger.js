@@ -44,7 +44,7 @@ const slMenu = (items) => `<details class="sl-menu"><summary aria-label="Actions
 export function slLotRowHtml(s) {
   const voided = s.status === "voided", id = Number(s.sale_id);
   const why = s.source !== "manual" ? "came from the queue: send the sale back to the queue to change it" : (s.lot_key || "").includes("log_sell") ? "linked to the transaction log: void it and record the sale again" : "";
-  const items = voided ? [["Restore", `slUnvoid(${id})`, ""]] : [["Edit", `slEdit(${id})`, why], ["Void", `slVoid(${id})`, ""]];
+  const items = voided ? [["Restore", `slUnvoid(${id})`, (s.lot_key || "").includes("log_sell") ? "its log sale was removed with the void: record the sale again" : ""]] : [["Edit", `slEdit(${id})`, why], ["Void", `slVoid(${id})`, ""]];
   return `<tr class="sl-lot${voided ? " sl-voided" : ""}"><td></td><td>lot bought ${esc(s.purchase_date || "(date unknown)")}</td><td></td><td></td><td class="rc-num">${esc(String(s.shares))}</td><td class="rc-num">${slMoney(s.proceeds)}</td>` +
     `<td class="rc-num">${slMoney(s.basis)}</td><td>${slGainCell(s.gain)}</td><td>${esc(slTermText(s.holding_period))}</td><td>${slMenu(items)}</td></tr>`;
 }
@@ -204,7 +204,7 @@ export async function loadSalesLedger() {
       slTaxAccts = (y && y.taxable_accounts) || [];
       if (window.seSetAccounts) window.seSetAccounts(y && y.account_classes);
     } catch (e) { slYears = []; }
-    if (!slYearChosen && slYears.length) { slYearChosen = true; slYear = String(slYears.includes(new Date().getFullYear()) ? new Date().getFullYear() : slYears[slYears.length - 1]); }
+    if (!slYearChosen && slYears.length) { slYearChosen = true; slYear = String(slYears.includes(new Date().getFullYear()) ? new Date().getFullYear() : slYears[slYears.length - 1]); if (window.sqLoadHistory) window.sqLoadHistory(); }
     const year = slYear; // a year/Voided-rows change mid-load must not pair the count with another selection
     const showVoided = slShowVoided;
     const q = new URLSearchParams();
@@ -248,7 +248,7 @@ async function slLoadHiddenVoids(year, showVoided) { // one extra read, only whe
       const q = new URLSearchParams({ include_voided: "1" });
       if (year) q.set("year", year);
       const all = await api("/api/sales?" + q);
-      slHiddenVoids = ((all && all.sales) || []).filter((x) => x.status === "voided").length;
+      slHiddenVoids = ((all && all.sales) || []).filter((x) => x.status === "voided" && (!slTaxableOnly() || x.tax_class === "taxable")).length;
     } catch (e) { slHiddenVoids = 0; }
   }
 }
@@ -282,7 +282,7 @@ export async function slVoid(id) {
   return slPost(`/api/sales/${Number(id)}/void`, null, "Sale voided. Use Restore to bring it back.");
 }
 export const slUnvoid = (id) => slPost(`/api/sales/${Number(id)}/unvoid`, null, "Sale restored.");
-export function slSetYear(v) { slYear = String(v || "").trim(); slYearChosen = true; if (window.sqLoadHistory) window.sqLoadHistory(); return loadSalesLedger(); }
+export function slSetYear(v) { slYear = String(v || "").trim(); slYearChosen = true; if (window.sqYearChanged) window.sqYearChanged(); return loadSalesLedger(); }
 export function slSetShowVoided(on) { slShowVoided = !!on; return loadSalesLedger(); }
 export function slSetTaxableOnly(on) {
   if (window.slUiLoad) window.slUiSave({ ...window.slUiLoad(), taxableOnly: !!on });

@@ -29,6 +29,7 @@ export function sqAllocationState(panel, allocation) {
   return { total, over, ok: panel.confirmable !== false && target > 0 && !over.length && Math.abs(total - target) <= SQ_EPS };
 }
 
+const sqInYear = (list) => { const y = window.slCurrentYear ? window.slCurrentYear() : ""; return y ? list.filter((c) => String(c.sale_date).startsWith(y)) : list; };
 export function sqQueueHtml(candidates, selectedId) {
   if (!candidates || !candidates.length) return `<p class="muted">No sales are waiting to be matched to lots.</p>`;
   const rows = candidates.map((c) => `<tr class="${c.candidate_id === selectedId ? "sq-selected" : ""}"><td>${esc(c.sale_date)}</td><td>${esc(accountDisplayLabel(c.account))}</td>` +
@@ -125,8 +126,10 @@ function sqBodyHtml() {
     `${sqMessage.undoId ? ` <button class="btn" type="button" onclick="sqUndo(${Number(sqMessage.undoId)})">Undo</button>` : ""}</p>` : "";
   const waiting = sqList ? sqList.counts.unmatched : 0;
   return `<h3>Sales waiting for lots${sqList ? ` (${waiting})` : ""}</h3>${msg}` +
-    (sqList ? sqQueueHtml(sqList.candidates, sqPanel && sqPanel.candidate.candidate_id) : `<p class="muted">Loading…</p>`) + sqPanelHtml(sqPanel, sqDraft) + sqHistoryHtml(sqHistory);
+    (sqList ? sqQueueHtml(sqInYear(sqList.candidates), sqPanel && sqPanel.candidate.candidate_id) : `<p class="muted">Loading…</p>`) + sqPanelHtml(sqPanel, sqDraft) + sqHistoryHtml(sqHistory);
 }
+
+export function sqYearChanged() { sqPaint(); sqLoadHistory(); }
 
 export function sqSummary() {
   const n = sqList ? Number(sqList.counts.unmatched) || 0 : 0;
@@ -226,5 +229,5 @@ export const sqDismiss = (reason) => sqPost(sqPanel.candidate.candidate_id, "dis
 
 Object.assign(window, {
   renderSalesQueue, loadSalesQueue, sqSummary, sqOpen, sqReload, sqSetAlloc, sqSetClass, sqFill, sqConfirm, sqUndo, sqDismiss,
-  sqHistoryRecord, sqHistoryDismiss, sqHistoryUnhide, sqToggleHidden, sqLoadHistory, sqHistoryHtml,
+  sqYearChanged, sqHistoryRecord, sqHistoryDismiss, sqHistoryUnhide, sqToggleHidden, sqLoadHistory, sqHistoryHtml,
 });

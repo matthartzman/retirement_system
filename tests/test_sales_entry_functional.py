@@ -133,3 +133,15 @@ def test_years_route_names_accounts_and_classes(client):
     r = client.get("/api/sales/years").get_json()
     assert r["account_classes"] == {"Matt_IRA": "pre_tax", ACCT: "taxable"}
     assert r["taxable_accounts"] == [ACCT]
+
+
+def test_voiding_after_activity_revised_the_log_sale_still_returns_the_shares(ws):
+    """Review finding: Activity's revise voids the log sell and adds a new row; the ledger void must follow the revision."""
+    a, _ = _lots(ws)["lots"]
+    ids = sales_service.add_sales(ws / "input", [_row(a, 10)])["ids"]
+    with active_plan.workspace_store(ws) as store:
+        sell = json.loads(store.sales.get_sale(ids[0])["lot_key"])["log_sell"]
+    transactions.revise(ws / "input", sell, shares=10.0, price=125.0, amount=1250.0)
+    sales_service.void_sale(ws / "input", ids[0])
+    with active_plan.workspace_store(ws) as store:
+        assert sum(l["shares"] for l in transactions.open_lots(store, account=ACCT, symbol="ITOT")) == 150.0
