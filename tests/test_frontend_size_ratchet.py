@@ -690,8 +690,9 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-05 history-only sales recovery: +36 (Sales found in history imports list in the sales queue module)
 # 2026-11-05 interest and dividends by type on the Tax tab: +20 (stIncomeHtml, fund-type chooser, CSV link in the sales tax module)
 # 2026-11-09 Sales Ledger v3 phase 1 (ledger cut to three tabs, Record sales grid, Activity panel without modes/chips, Sales CSV and Density removed):
-# lowered 43,818 -> 43,813 to the measured total; every later phase of that work must net-remove lines.
-TOTAL_JS_MAX_LINES = 43_813
+# lowered 43,818 -> 43,777 to the measured total after the whole feature (wash cards, Holdings tabs, Record sales grid and the rest) was added
+# and the Sales Ledger / Holdings / Activity / Year-End modules lost their blank lines (237) to pay for it.
+TOTAL_JS_MAX_LINES = 43_777
 
 
 

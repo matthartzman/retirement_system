@@ -1,11 +1,9 @@
 // "Year-End Transition" page (year-end transition Phase 2): an ordered checklist for moving from one calendar year to the next.
 // Step state is derived server-side (src/year_end.py, GET /api/year-end); "Update personal numbers" and "tie the 1099-B" are stored
 // confirmations. Each step links to the screen that does it. Helpers are bare globals.
-
 const YE_STATE = { done: "Done", open: "Open", na: "Not applicable" };
 const YE_CONFIRM = { personal_numbers: "I have reviewed these", tie_1099b: "I have tied each 1099-B" };
 let yeData = null, yeError = "";
-
 export function yeHtml(data) {
   if (!data) return `<h2>Year-End Transition</h2><p class="muted">${yeError ? "" : "Loading…"}</p>${yeError ? `<p role="alert" class="error">${esc(yeError)}</p>` : ""}`;
   const items = data.steps.map((s, i) => `<li data-step="${esc(s.id)}" data-state="${esc(s.state)}"><b>${i + 1}. ${esc(s.title)}</b> <span class="muted">${esc(YE_STATE[s.state] || s.state)}</span><br>` +
@@ -15,7 +13,6 @@ export function yeHtml(data) {
     `${yeError ? `<p role="alert" class="error">${esc(yeError)}</p>` : ""}<ol class="ye-steps">${items}</ol>` +
     (window.renderCashInvestment ? `<h3>Investment cash, ${esc(String(data.year))}</h3>${window.renderCashInvestment(data.year)}` : "");
 }
-
 // A step with a deep link sets the hash first (the Sales Ledger reads tab/section from it); location may not exist (node tests).
 export function yeGo(link, hash) {
   try { // replace, never push: following a step must not add a history entry
@@ -25,12 +22,10 @@ export function yeGo(link, hash) {
   } catch (e) { /* navigate anyway */ }
   setStep(link);
 }
-
 export function renderYearEnd() {
   if (yeData === null) setTimeout(yeLoad, 0);
   return `<div class="sl-import" id="yeRoot">${yeHtml(yeData)}</div>`;
 }
-
 const yePaint = () => { const el = document.getElementById("yeRoot"); if (el) el.innerHTML = yeHtml(yeData); };
 export async function yeLoad() {
   try { yeData = await api("/api/year-end"); yeError = ""; } catch (e) { yeError = e.message; }
@@ -40,12 +35,10 @@ export async function yeConfirm(year, confirmed, step = "personal_numbers") {
   try { yeData = await api("/api/year-end/confirm", { method: "POST", body: JSON.stringify({ year, step, confirmed }) }); yeError = ""; } catch (e) { yeError = e.message; }
   yePaint();
 }
-
 // Plan Status nudge, mid-December through January (the page stays reachable all year from the nav).
 export function renderYearEndBanner(now = new Date()) {
   const m = now.getMonth() + 1, d = now.getDate();
   return (m === 12 && d >= 15) || m === 1
     ? `<div class="section-note" data-kind="state"><b>Year-end:</b> a checklist is ready. <a href="#" onclick="setStep('year_end');return false">Open Year-End Transition</a></div>` : "";
 }
-
 Object.assign(window, { renderYearEnd, yeHtml, yeGo, yeLoad, yeConfirm, renderYearEndBanner });

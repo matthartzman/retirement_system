@@ -3,11 +3,9 @@
 // statement as a text file or a PDF (base64), shows the difference report (matched / unmatched / unreported
 // lines, totals, the wash-sale loss disallowed from column 1g), applies it, and exports the report as CSV.
 // The Planner account is always the user's choice, never read from the statement. Helpers are bare globals.
-
 const BB_BROKERS = [["etrade", "E*Trade 1099-B"], ["etrade_gl", "E*Trade Gains & Losses (CSV)"], ["vanguard", "Vanguard"]];
 const BB_STATUS = { changed: "Changed", unchanged: "Matches the ledger", not_previously_entered: "Not previously entered", no_1099b_line: "No 1099-B line" };
 const BB_FIELD = { proceeds: "Proceeds", basis: "Basis", gain: "Gain", holding_period: "Holding period", purchase_date: "Acquired", sale_date: "Sold" };
-
 let bbBroker = "etrade";
 let bbAccount = "";
 let bbText = "";
@@ -22,7 +20,6 @@ let bbViewed = false; // the user ticked "I have reviewed this difference report
 let bbDone = null; // set after a successful apply: drives the next-step links
 let bbTie = null; // the wash-sale block of the tie report, read after an apply
 let bbState = null; // { year, taxableSales, has1099b } from the ledger load: decides whether the card opens itself
-
 const bbMoney = (v) => (Number(v) < 0 ? "-$" : "$") + Math.abs(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const bbQty = (v) => esc(String(Math.round(Number(v) * 1e3) / 1e3));
 const bbLabel = (a) => (window.accountDisplayLabel ? window.accountDisplayLabel(a) : String(a));
@@ -31,7 +28,6 @@ function bbMoneyCell(f) {
   const d = Number(f.delta) || 0;
   return `<td class="rc-num">${bbMoney(f.ledger)} &rarr; ${bbMoney(f.official)}${Math.abs(d) > 0.005 ? ` <span class="muted">(${d > 0 ? "+" : ""}${bbMoney(d)})</span>` : ""}</td>`;
 }
-
 export const bbSuggestionsHtml = (r) => ((r.suggestions || []).length ? `<br><span class="muted">Possible ledger rows (advice only, nothing is applied):</span><ul class="bb-suggest">${r.suggestions.map((c) => `<li>Ledger row ${Number(c.sale_id)}, score ${Number(c.score)}: ${esc(c.reason)}</li>`).join("")}</ul>` : "");
 export function bbReportRowHtml(r) {
   const f = r.fields || {};
@@ -44,7 +40,6 @@ export function bbReportRowHtml(r) {
     `${bbMoneyCell(f.proceeds)}${bbMoneyCell(f.basis)}${bbMoneyCell(f.gain)}<td>${hold}</td>` +
     `<td class="rc-num">${Number(r.wash_disallowed) ? bbMoney(r.wash_disallowed) : ""}</td><td class="muted">${esc(note)}${r.possible_return_of_capital ? ` <strong>Possible return of capital (${bbMoney(r.possible_return_of_capital.amount)})</strong>` : ""}${bbSuggestionsHtml(r)}</td></tr>`;
 }
-
 export function bbTotalsHtml(t) {
   const n = (k, label) => `<li>${Number(t[k] || 0)} ${label}</li>`;
   return `<ul class="bb-totals">${n("changed", "changed")}${n("unchanged", "matching the ledger")}${n("not_previously_entered", "not previously entered (will be added)")}` +
@@ -52,7 +47,6 @@ export function bbTotalsHtml(t) {
     `<p>Net change if applied: proceeds ${bbMoney(t.proceeds_delta)}, basis ${bbMoney(t.basis_delta)}, gain ${bbMoney(t.gain_delta)}. ` +
     `Wash-sale loss disallowed (column 1g): ${bbMoney(t.wash_disallowed)}.</p>`;
 }
-
 export function bbReportHtml(report) {
   if (!report || !report.rows.length) return `<p class="muted">Nothing to compare.</p>`;
   return `<h4>Difference report for ${esc(String(report.tax_year))}</h4>${bbTotalsHtml(report.totals)}` +
@@ -60,7 +54,6 @@ export function bbReportHtml(report) {
     `<th class="rc-num">Proceeds</th><th class="rc-num">Basis</th><th class="rc-num">Gain</th><th>Term</th><th class="rc-num">Wash-sale loss disallowed (1g)</th><th>Note</th></tr></thead><tbody>` +
     report.rows.map(bbReportRowHtml).join("") + `</tbody></table></div>`;
 }
-
 export function bbControlHtml(c) {
   if (!c) return "";
   if (c.status === "ok") return `<p class="muted" role="status">Control totals tie to the statement's 1099-B summary.</p>`;
@@ -68,7 +61,6 @@ export function bbControlHtml(c) {
   return `<div class="field-error"><p>Control totals do not match the statement summary:</p><ul>` +
     (c.gaps || []).map((g) => `<li>${esc(g.term)} ${g.covered ? "covered" : "noncovered"} ${esc(g.column)}: statement ${bbMoney(g.statement)}, lines ${bbMoney(g.detail)} (difference ${bbMoney(g.difference)})</li>`).join("") + `</ul></div>`;
 }
-
 // Wash sales in the tie report: the broker's column 1g against ours (same account), and what no 1099-B shows (other accounts).
 export function bbWashHtml(t) {
   if (!t || (!t.same_account.length && !t.cross_account.length)) return "";
@@ -77,7 +69,6 @@ export function bbWashHtml(t) {
   const cross = t.cross_account.map((x) => `<li>${nm(x.sale_key)}: ${bbMoney(x.amount)} through a purchase in ${esc(x.label)}: <b>not on any 1099-B: your return must include these</b></li>`).join("");
   return `<h4>Wash sales</h4>${same ? `<div class="rc-scroll"><table class="rc-table"><thead><tr><th>Sale</th><th class="rc-num">Broker reported</th><th class="rc-num">Computed here</th></tr></thead><tbody>${same}</tbody></table></div>` : ""}${cross ? `<ul>${cross}</ul>` : ""}`;
 }
-
 export function bbChangesHtml(p) {
   if (!p.supersedes) return "";
   const s = p.supersedes;
@@ -86,7 +77,6 @@ export function bbChangesHtml(p) {
   return `<div class="field-warning"><p>An earlier ${esc(p.broker)} statement for this account and year was imported (${esc(String(s.applied_at || ""))}, ${Number(s.line_count)} lines${s.corrected ? ", corrected" : ""}). ` +
     `Applying this one replaces it: the earlier corrections are undone first.</p>${rows ? `<p>Changes since that import:</p><ul>${rows}</ul>` : `<p>No line changed since that import.</p>`}</div>`;
 }
-
 // Apply needs what the server already requires (can_apply: clean statement, control totals tie) plus the user's review.
 export const bbCanApply = (preview, viewed) => !!(preview && preview.can_apply) && !!viewed;
 const bbReason = (p, v) => (bbCanApply(p, v) ? "" : "Review the differences and tick the box; totals must tie.");
@@ -97,7 +87,6 @@ export function bbMarkViewed(on) { // in place: repainting the root would drop k
   if (btn) btn.disabled = !bbCanApply(bbPreview, bbViewed) || bbBusy;
   if (why) why.textContent = bbReason(bbPreview, bbViewed);
 }
-
 export function bbPreviewHtml(p) {
   const errs = (p.errors || []).map((e) => `<li>${e.line ? `Line ${Number(e.line)}: ` : ""}${esc(e.error)}</li>`).join("");
   const warns = (p.warnings || []).map((w) => `<li>${esc(w)}</li>`).join("");
@@ -111,7 +100,6 @@ export function bbPreviewHtml(p) {
     `<button class="btn primary" type="button" id="bbApplyBtn" aria-describedby="bbApplyReason" onclick="bbApply()" ${bbCanApply(p, bbViewed) && !bbBusy ? "" : "disabled"}>${p.supersedes ? "Replace earlier import and apply" : "Apply official numbers"}</button>` +
     ` <span class="muted" id="bbApplyReason">${bbReason(p, bbViewed)}</span></div></div>`;
 }
-
 function bbBodyHtml() {
   const accounts = bbAccounts || [];
   const msg = bbMessage ? `<p class="${bbMessage.error ? "field-error" : "muted"}" role="status">${esc(bbMessage.text)}</p>` : "";
@@ -124,12 +112,10 @@ function bbBodyHtml() {
     `${bbFile ? `<p class="muted">File: ${esc(bbFile)}</p>` : ""}` +
     `<button class="btn" type="button" onclick="bbPreviewStatement()" ${bbBusy ? "disabled" : ""}>Preview</button>${msg}${bbPreview ? bbPreviewHtml(bbPreview) : ""}${bbDone && window.slNextStepHtml ? window.slNextStepHtml(bbDone) : ""}${bbDone ? bbWashHtml(bbTie) : ""}`;
 }
-
 export function renderSalesBroker1099b() {
   if (bbAccounts === null) setTimeout(bbLoadAccounts, 0);
   return `<div class="sl-import bb-panel" id="bbRoot">${bbBodyHtml()}</div>`;
 }
-
 // The card opens itself (as a warning) when the Year's taxable sales have no 1099-B and the statement is due: after January 31 of the next year.
 export function s1099bAutoOpen(year, state, today) {
   if (!year || !state) return false;
@@ -138,7 +124,6 @@ export function s1099bAutoOpen(year, state, today) {
 export function bbSetState(state) { bbState = state; if (window.slPublish) window.slPublish("b1099", bbSummary()); }
 export const bbStateText = () => (bbPreview ? `Preview ready · tax year ${bbPreview.tax_year}` : "");
 export const bbSummary = () => (s1099bAutoOpen(bbState && bbState.year, bbState, new Date()) ? { count: 0, tone: "warn", text: "1099-B not imported" } : { count: 0, tone: "", text: "" });
-
 function bbPaint() {
   if (window.slPublish) window.slPublish("b1099", bbSummary());
   if (window.slSecSetState) window.slSecSetState("b1099", bbStateText());
@@ -149,12 +134,10 @@ function bbPaint() {
   const fresh = old && old.files && old.files.length && root.querySelector('input[type="file"]');
   if (fresh) fresh.replaceWith(old);
 }
-
 export async function bbLoadAccounts() {
   try { bbAccounts = (await api("/api/sales/years")).taxable_accounts || []; } catch (e) { bbAccounts = []; }
   bbPaint();
 }
-
 export function bbSetBroker(v) { bbBroker = v; bbPreview = null; bbDone = null; bbPaint(); }
 export function bbSetAccount(v) { bbAccount = v; bbPreview = null; bbDone = null; bbPaint(); }
 // A new statement (file text, or a PDF as base64) replaces the old one; the preview, the apply links and the stale next-step text go with it.
@@ -165,7 +148,6 @@ export function bbSetStatement(text, name = "", pdf = "") {
   const el = next && next.querySelector && next.querySelector(".sl-next");
   if (el && el.remove) el.remove(); // drop the stale next-step links without repainting
 }
-
 export function bbFileChosen(input) {
   const file = input.files && input.files[0];
   if (!file) return;
@@ -178,9 +160,7 @@ export function bbFileChosen(input) {
   };
   if (pdf) reader.readAsDataURL(file); else reader.readAsText(file);
 }
-
 const bbBody = () => ({ broker: bbBroker, account: bbAccount, ...(bbPdf ? { pdf_base64: bbPdf } : { content: bbText }) });
-
 export async function bbPreviewStatement() {
   if (!bbAccount) { bbMessage = { text: "Choose the Planner account this statement belongs to.", error: true }; return bbPaint(); }
   if (!bbText && !bbPdf) { bbMessage = { text: "Choose the statement file first.", error: true }; return bbPaint(); }
@@ -193,7 +173,6 @@ export async function bbPreviewStatement() {
   } catch (e) { bbPreview = null; bbMessage = { text: e.message, error: true }; }
   bbBusy = false; bbPaint();
 }
-
 export async function bbApply() {
   if (!bbCanApply(bbPreview, bbViewed)) return;
   if (JSON.stringify(bbBody()) !== bbPreviewKey) { bbMessage = { text: "The inputs changed after this preview — preview again.", error: true }; return bbPaint(); }
@@ -211,7 +190,6 @@ export async function bbApply() {
   if (window.loadSalesLedger) window.loadSalesLedger();
   if (window.sqReload) window.sqReload();
 }
-
 export function bbExportCsv() {
   if (!bbPreview || !bbPreview.report_csv) return;
   const name = `1099b_difference_${bbBroker}_${bbPreview.tax_year}.csv`;
@@ -223,7 +201,6 @@ export function bbExportCsv() {
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
-
 Object.assign(window, {
   bbSummary, bbCanApply, bbMarkViewed, bbStateText,
   bbSuggestionsHtml, bbReportRowHtml, bbTotalsHtml, bbReportHtml, bbWashHtml, bbControlHtml, bbChangesHtml, bbPreviewHtml, renderSalesBroker1099b, bbLoadAccounts,

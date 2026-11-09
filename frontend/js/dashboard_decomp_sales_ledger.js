@@ -4,9 +4,7 @@
 // The tax-year panel (dashboard_decomp_sales_tax.js) and the brokerage import (dashboard_decomp_broker_import.js) are
 // mounted here. A manual sale is edited in the form (the old row is voided); a sale confirmed from the queue goes Back
 // to queue to pick its lots again. Helpers are bare globals; renderMain() calls renderSalesLedger().
-
 const SL_TERM = { short: "Short", long: "Long", unknown: "Unknown" };
-
 let slData = null;
 let slYear = String(new Date().getFullYear());
 let slYears = []; // years that have ledger or log rows (GET /api/sales/years); the Year list offers only these
@@ -22,25 +20,21 @@ let slSum = null; // GET /api/sales/summary for the current Year and switch
 let slHiddenVoids = 0; // voided rows the current selection hides (one extra fetch when Voided rows is off)
 export const slCurrentYear = () => slYear;
 export const slTaxableOnly = () => (window.slUiLoad ? window.slUiLoad().taxableOnly !== false : true);
-
 export function slMoney(v) {
   if (v === null || v === undefined || Number.isNaN(Number(v))) return "—";
   const n = Number(v);
   return (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-
 export function slGainHtml(v) {
   if (v === null || v === undefined) return "—";
   const cls = Math.abs(v) < 0.005 ? "" : v > 0 ? " sl-up" : " sl-down";
   return `<span class="rc-num${cls}">${esc((v > 0 ? "+" : "") + slMoney(v))}</span>`;
 }
-
 const slTermText = (t) => SL_TERM[t] || t || "";
 const slGainCell = (v) => (v === null || v === undefined ? `<span title="not taxable">—</span>` : slGainHtml(v));
 // A ⋯ menu: each item is [label, onclick, reason]; an item that does not apply is disabled and says why.
 const slMenu = (items) => `<details class="sl-menu"><summary aria-label="Actions">⋯</summary><div class="sl-menu-items">${items.map(([label, fn, why]) =>
   `<button class="btn" type="button"${why ? ` disabled title="${esc(why)}"` : ` onclick="${fn}"`}>${label}${why ? ` <span class="muted">(${esc(why)})</span>` : ""}</button>`).join("")}</div></details>`;
-
 export function slLotRowHtml(s) {
   const voided = s.status === "voided", id = Number(s.sale_id);
   const why = s.source !== "manual" ? "came from the queue: send the sale back to the queue to change it" : (s.lot_key || "").includes("log_sell") ? "linked to the transaction log: void it and record the sale again" : "";
@@ -48,7 +42,6 @@ export function slLotRowHtml(s) {
   return `<tr class="sl-lot${voided ? " sl-voided" : ""}"><td></td><td>lot bought ${esc(s.purchase_date || "(date unknown)")}</td><td></td><td></td><td class="rc-num">${esc(String(s.shares))}</td><td class="rc-num">${slMoney(s.proceeds)}</td>` +
     `<td class="rc-num">${slMoney(s.basis)}</td><td>${slGainCell(s.gain)}</td><td>${esc(slTermText(s.holding_period))}</td><td>${slMenu(items)}</td></tr>`;
 }
-
 let slGroupsNow = [];
 const slOpenSales = new Set(); // sale keys whose lots are showing
 export function slSaleRowHtml(g, i) {
@@ -59,7 +52,6 @@ export function slSaleRowHtml(g, i) {
     `<td class="rc-num">${slMoney(g.proceeds)}</td><td class="rc-num">${slMoney(g.basis)}</td><td>${slGainCell(g.gain)}</td><td>${esc(slTermText(g.term))}</td>` +
     `<td>${voided ? "" : slMenu([["Send back to queue", `slRequeue(${Number(g.lots[0].sale_id)})`, why]])}</td></tr>` + (open ? g.lots.map(slLotRowHtml).join("") : "");
 }
-
 export function slTableHtml(sales) {
   if (!sales || !sales.length) return `<p class="muted">No sales recorded for this selection.</p>`;
   slGroupsNow = [...window.slGroupSales(sales.filter((x) => x.status !== "voided")), ...window.slGroupSales(sales.filter((x) => x.status === "voided"))];
@@ -67,20 +59,17 @@ export function slTableHtml(sales) {
     `<th class="rc-num">Proceeds</th><th class="rc-num">Basis</th><th class="rc-num">Gain</th><th>Term</th><th></th></tr></thead><tbody>${slGroupsNow.map(slSaleRowHtml).join("")}</tbody></table></div>`;
 }
 export function slToggleSale(i) { const g = slGroupsNow[Number(i)]; if (g) { if (!slOpenSales.delete(g.key)) slOpenSales.add(g.key); slPaint(); } }
-
 // KPI strip: the server's summary (same filter as Tax year), realized before carryforward.
 export function slKpiHtml(t) {
   if (!t) return "";
   return `<p class="sl-kpi"><strong>${Number(t.sales)}</strong> sale${t.sales === 1 ? "" : "s"} · short-term realized ${slGainHtml(t.st_gain)} · long-term realized ${slGainHtml(t.lt_gain)} · fees ${slMoney(t.fees)}</p>`;
 }
-
 // Year list: "All years" plus only the years the server says have rows. Before the list arrives the chosen year stands in for it.
 export function slYearOptionsHtml(years, selected) {
   const list = years.length ? [...years].map(String) : selected ? [String(selected)] : [];
   return `<option value=""${selected ? "" : " selected"}>All years</option>` +
     [...new Set(list)].sort().reverse().map((y) => `<option value="${y}"${y === String(selected) ? " selected" : ""}>${y}</option>`).join("");
 }
-
 export const slHiddenVoidCount = () => slHiddenVoids;
 const slHiddenText = () => `Voided rows (${slHiddenVoids})`;
 // Names the accounts the Taxable-only switch covers, from the friendly label helper (never raw ids).
@@ -97,13 +86,11 @@ export function slHeadHtml() {
     `${names ? ` <span class="muted" id="slTaxableNames">${esc(names)}</span>` : ""} ` +
     `<a href="#" class="sl-voided-link" id="slVoidedLink" aria-pressed="${slShowVoided}" onclick="slSetShowVoided(!${slShowVoided});return false">${slHiddenText()}</a>`;
 }
-
 function slListHtml() {
   const msg = slMessage ? `<p class="${slMessage.error ? "field-error" : "muted"}" role="status">${esc(slMessage.text)}</p>` : "";
   const bar = `<div class="sl-toolbar">${slKpiHtml(slSum)}</div>`;
   return msg + bar + (slError ? `<p class="field-error">${esc(slError)}</p>` : slData ? slTableHtml(slData.sales) : `<p class="muted">Loading…</p>`);
 }
-
 // Holding-period check: sales of the Year whose lot has no purchase date on file (the log's backfill), so the term is a guess.
 export function slHpHtml(c = slHp, year = slYear) {
   if (!c || !c.lots) return "";
@@ -116,7 +103,6 @@ const SL_SECS = ["queue", "health", "wash", "tax", "cf", "b1099"];
 function slConsumeHash() { // true when the hash was dropped from the address
   try { history.replaceState(null, "", location.pathname + location.search); return true; } catch (e) { return false; }
 }
-
 // Deep link: #sales_ledger?tab=tax&sec=b1099. Only read when the hash is ours; location may not exist (node tests).
 export function slHashTarget() {
   let hash = "";
@@ -125,7 +111,6 @@ export function slHashTarget() {
   const p = window.slParseHash(hash);
   return { tab: p.tab, sec: SL_SECS.includes(p.sec) ? p.sec : null };
 }
-
 const slTabsHtml = (active) => window.slTabBarHtml(active, window.slMarkers(window.slSummaries())) +
   `<div class="sl-secctl"><button type="button" class="btn" id="slExpandAll" onclick="slSecAll(null,true)">Expand all</button> ` +
   `<button type="button" class="btn" id="slCollapseAll" onclick="slSecAll(null,false)">Collapse all</button></div>`;
@@ -168,7 +153,6 @@ function slSubscribeSummaries() { // repaint only the strip and tab bar; panels 
   slSumSub = true;
   window.slOnSummary(slPaintTabs);
 }
-
 function slBodyHtml() {
   const { tab: hashTab, sec: hashSec } = slHashTarget();
   if (hashTab && hashTab !== slHashApplied) { // a deep link applies once; after that the current tab (slSetTab) decides
@@ -185,13 +169,11 @@ function slBodyHtml() {
     panel("fix", fix) + panel("ledger", ledger) +
     panel("tax", slSection("tax", "Tax year", "renderSalesTaxYear") + slSection("b1099", "Import a 1099-B", "renderSalesBroker1099b", "bbStateText"));
 }
-
 export function renderSalesLedger() {
   slSubscribeSummaries();
   if (slData === null && !slLoading && !slError) setTimeout(loadSalesLedger, 0);
   return `<div class="field-list sl-page" id="slRoot">${slBodyHtml()}</div>`;
 }
-
 function slPaintInto(id, html) { const el = typeof document !== "undefined" && document.getElementById(id); if (el) el.innerHTML = html(); }
 function slPaint() { slPaintInto("slListRoot", slListHtml); }
 export async function loadSalesLedger() {
@@ -241,7 +223,6 @@ export async function loadSalesLedger() {
   slLoading = false;
   slPaint();
 }
-
 async function slLoadHiddenVoids(year, showVoided) { // one extra read, only when voided rows are hidden; a failure just shows nothing
   slHiddenVoids = 0;
   if (!showVoided) {
@@ -253,8 +234,6 @@ async function slLoadHiddenVoids(year, showVoided) { // one extra read, only whe
     } catch (e) { slHiddenVoids = 0; }
   }
 }
-
-
 async function slPost(url, body, okText) {
   let out;
   try {
@@ -266,7 +245,6 @@ async function slPost(url, body, okText) {
   await loadSalesLedger();
   return out;
 }
-
 export function slEdit(id) { const s = slData && slData.sales.find((x) => Number(x.sale_id) === Number(id)); if (s && window.seEdit) window.seEdit(s); }
 export function slAfterEntry(text) { slMessage = { text, error: false }; return loadSalesLedger(); }
 export async function slRequeue(id) {
@@ -274,7 +252,6 @@ export async function slRequeue(id) {
   if (out && window.sqReload) window.sqReload();
   if (out && window.slGo) window.slGo("fix", "queue");
 }
-
 export async function slVoid(id) {
   const s = slData && slData.sales.find((x) => Number(x.sale_id) === Number(id));
   const gain = s && s.gain !== null && s.gain !== undefined ? (s.gain > 0 ? "+" : "") + slMoney(s.gain) : "this sale";
@@ -289,7 +266,6 @@ export function slSetTaxableOnly(on) {
   if (window.slUiLoad) window.slUiSave({ ...window.slUiLoad(), taxableOnly: !!on });
   return loadSalesLedger();
 }
-
 Object.assign(window, {
   slMoney, slGainHtml, slHpHtml, slLotRowHtml, slSaleRowHtml, slTableHtml, slToggleSale, slKpiHtml, renderSalesLedger, slHashTarget, loadSalesLedger, slAfterEntry, slVoid, slUnvoid,
   slSetYear, slSetShowVoided, slSetTaxableOnly, slCurrentYear, slTaxableOnly, slYearOptionsHtml, slHeadHtml, slEdit, slRequeue, slHealthSlotHtml, slHealthSlotInnerHtml, slQueueStateText, slHealthStateText, slLedgerBodyHtml, slHiddenVoidCount,

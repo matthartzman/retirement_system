@@ -1,6 +1,5 @@
 // Sales Ledger: group ledger rows (one per lot) into sales (pure, no DOM). Key = account|symbol|sale_date, shared with wash reviews.
 export const slSaleKey = (r) => `${r.account}|${r.symbol}|${r.sale_date}`;
-
 export function slGroupSales(rows) {
   const out = new Map();
   for (const r of rows || []) {
@@ -17,5 +16,4 @@ export function slGroupSales(rows) {
   }
   return [...out.values()].sort((a, b) => (a.sale_date < b.sale_date ? 1 : a.sale_date > b.sale_date ? -1 : a.key < b.key ? -1 : 1));
 }
-
 Object.assign(window, { slSaleKey, slGroupSales });

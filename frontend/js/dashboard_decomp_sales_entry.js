@@ -6,7 +6,6 @@ const seNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; }
 const seFmt = (x) => String(+seNum(x).toFixed(4));
 const seMoney = (v) => (v < 0 ? "-$" : "$") + Math.abs(seNum(v)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const seBasis = (p) => (p.basis !== undefined && p.basis !== "" ? seNum(p.basis) : seNum(p.shares) * seNum(p.unit_cost));
-
 // Tick lots in order until `shares` are covered. "losses" takes the lowest gain per share first, at the row's sale price.
 export function seFill(lots, shares, method, price = 0) {
   const by = { fifo: (a, b) => String(a.purchase_date).localeCompare(String(b.purchase_date)) || a.txn_id - b.txn_id,
@@ -20,7 +19,6 @@ export function seFill(lots, shares, method, price = 0) {
   }
   return out;
 }
-
 export function seRowState(r) {
   const picks = (r.picks || []).filter((p) => seNum(p.shares) > SE_EPS);
   const want = seNum(r.shares), got = picks.reduce((a, p) => a + seNum(p.shares), 0);
@@ -31,13 +29,11 @@ export function seRowState(r) {
   return { matched, basis, gain, gainText: gain === null ? "not taxable" : "", term: terms.size > 1 ? "Mixed" : [...terms][0] || "",
     label: matched ? `${picks.length} lot${picks.length === 1 ? "" : "s"} ✓` : `${seFmt(got)} / ${seFmt(want)} · pick` };
 }
-
 export const seCanSave = (rows) => rows.length > 0 && rows.every((r) => seRowState(r).matched);
 // Enter in the last field of the last row adds a row; elsewhere Enter just moves on.
 export const seKeyAction = (rows, ri, fi, key) => (key !== "Enter" ? "none" : ri === rows.length - 1 && fi === SE_FIELDS.length - 1 ? "add-row" : "next");
 export const seActivityLink = (account, symbol) => (window.hsActivityLink ? window.hsActivityLink({ account, symbol, type: "buy", back: "sales" })
   : `#holdings/activity?account=${encodeURIComponent(account)}&symbol=${encodeURIComponent(symbol)}&type=buy&back=sales`);
-
 // One request per lot row: proceeds and fees split by shares (the last takes the remainder), linked to its log lot when chosen.
 export function seBatchRows(rows) {
   const out = [];
@@ -54,7 +50,6 @@ export function seBatchRows(rows) {
   }
   return out;
 }
-
 let seRows = [], seNext = 1, seOpenId = null, seShown = false, seMsg = null, seEditSale = null;
 let seAccounts = [], seClasses = {}, seLots = {}; // seLots[account|symbol|date] = server answer for the chooser
 const seBlank = () => ({ id: seNext++, account: "", symbol: "", date: "", shares: "", proceeds: "", fees: "", picks: [] });
@@ -63,11 +58,9 @@ const seRow = (id) => seRows.find((r) => r.id === Number(id));
 const seTaxable = (r) => !r.account || (seClasses[r.account] || "taxable") === "taxable";
 const seView = (r) => ({ ...r, taxable: seTaxable(r) });
 const seTax = { taxable: "taxable", pre_tax: "pre-tax", roth: "Roth", hsa: "HSA" };
-
 export function seSetAccounts(classes) { seClasses = classes || {}; seAccounts = Object.keys(seClasses).sort(); }
 export const seRowsForTest = () => seRows;
 const sePaint = () => { const el = typeof document !== "undefined" && document.getElementById("seRoot"); if (el) el.innerHTML = seBodyHtml(); };
-
 export function seChooserHtml(r, d) {
   if (!d) return `<p class="muted">Looking up open lots…</p>`;
   if (!d.log_started) return `<div class="se-blank">${r.picks.map((p, i) => `<div>Bought <input type="date" value="${esc(p.purchase_date || "")}" onchange="seBlankSet(${r.id},${i},'purchase_date',this.value)"> ` +
@@ -86,7 +79,6 @@ export function seChooserHtml(r, d) {
   return `<div class="se-chooser"><div>${fill} <button class="btn" type="button" onclick="seFillRow(${r.id},'clear')">Clear</button></div><table class="rc-table"><thead><tr><th></th><th>Bought</th><th class="rc-num">Open shares</th><th class="rc-num">Cost / share</th><th>Sell shares</th><th class="rc-num">Basis</th><th class="rc-num">Gain</th><th>Term</th></tr></thead>` +
     `<tbody>${rows}<tr><th colspan="2">Selected</th><td class="rc-num" colspan="2">${s.label}</td><td></td><td class="rc-num">${seMoney(s.basis)}</td><td class="rc-num">${s.gain === null ? "not taxable" : seMoney(s.gain)}</td><td>${esc(s.term)}</td></tr></tbody></table></div>`;
 }
-
 function seRowHtml(r, i) {
   const s = seRowState(seView(r)), d = seLots[seKey(r)];
   const inp = (f, type, extra = "") => `<td><input type="${type}" ${extra} value="${esc(r[f])}" aria-label="${f}" oninput="seSet(${r.id},'${f}',this.value)" onkeydown="seKeydown(event,${i},${SE_FIELDS.indexOf(f)})"></td>`;
@@ -97,7 +89,6 @@ function seRowHtml(r, i) {
     `<td class="rc-num">${s.gain === null ? (r.account && r.shares ? "not taxable" : "") : s.matched ? seMoney(s.gain) : "—"}${near ? ` <span class="sl-chip">wash?</span>` : ""}</td><td><button class="btn" type="button" aria-label="Remove row" onclick="seDel(${r.id})">✕</button></td></tr>` +
     (seOpenId === r.id ? `<tr><td colspan="9">${seChooserHtml(r, d)}</td></tr>` : "");
 }
-
 function seBodyHtml() {
   const n = seRows.length, ok = seCanSave(seRows.map(seView));
   const msg = seMsg ? `<p class="${seMsg.error ? "field-error" : "muted"}" role="status">${esc(seMsg.text)}</p>` : "";
@@ -105,7 +96,6 @@ function seBodyHtml() {
     `<button class="btn" type="button" onclick="seAddRow()">＋ Add row</button> <button class="btn primary" id="seSave" type="button" ${ok ? "" : "disabled"} onclick="seSave()">${seEditSale ? "Save changes" : `Save ${n} sale${n === 1 ? "" : "s"}`}</button> <button class="btn" type="button" onclick="seClose()">Cancel</button>` +
     `<p class="muted">One row per sale. Gain is proceeds − fees − basis; IRA, Roth and HSA sales are not taxable, so no gain is reported.</p>`;
 }
-
 export const renderSalesEntry = () => `<div class="se-card" id="seCard">${seShown ? `<h3>${seEditSale ? "Edit sale" : "Record sales"}</h3><div id="seRoot">${seBodyHtml()}</div>` : `<button class="btn" type="button" onclick="seOpen()">＋ Record sales</button>`}</div>`;
 const seRepaintCard = () => { const el = typeof document !== "undefined" && document.getElementById("seCard"); if (el) el.outerHTML = renderSalesEntry(); };
 export function seOpen() { seShown = true; seEditSale = null; seMsg = null; if (!seRows.length) seRows = [seBlank()]; seRepaintCard(); }
@@ -179,5 +169,4 @@ export function seEdit(sale) {
   seOpenId = seRows[0].id;
   seRepaintCard();
 }
-
 Object.assign(window, { seFill, seRowState, seCanSave, seKeyAction, seBatchRows, seChooserHtml, renderSalesEntry, seSetAccounts, seOpen, seClose, seAddRow, seDel, seKeydown, seSet, seToggle, seTick, seSellShares, seFillRow, seBlankSet, seAddBlankLot, seSave, seEdit, seActivityLink });

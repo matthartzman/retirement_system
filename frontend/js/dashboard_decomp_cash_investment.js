@@ -1,14 +1,11 @@
 // Investment cash cards on the Year-End Transition page (cash tracking Phase 5): the balance against the broker, withdrawals actual vs
 // plan, the one-time account verification and the closed years. Read-only apart from verify and close; the view model is
 // server-side (src/cash_view.py, GET /api/cash?year=). Helpers are bare globals.
-
 const CI_COLS = [["account", "Account"], ["balance", "Balance"], ["as_of", "As of"], ["cash_lot", "CASH lot"], ["difference", "Difference"], ["anchor", "Anchor"], ["last_flow", "Last flow"], ["unmatched", "Unmatched"]];
 const CI_CLASS = { taxable: "Taxable", pre_tax: "Traditional", roth: "Roth", hsa: "HSA" };
 let ciView = null, ciLedger = null, ciError = "", ciSort = { key: "account", dir: 1 }, ciYear = "";
 const ciZero = (v) => !v || Math.abs(Number(v)) < 0.005;
-
 const ciMoney = (v) => (v == null ? "" : window.slMoney ? window.slMoney(v) : String(v));
-
 // Year close (src/cash_year_close.py): the owner closes an ended year by hand; it feeds no tax number.
 function ciCloses(closes, lbl) {
   const done = [], todo = [];
@@ -28,7 +25,6 @@ function ciCloses(closes, lbl) {
   });
   return todo.join("") + (done.length ? `<details><summary>Closed years (${done.length})</summary>${done.join("")}</details>` : "");
 }
-
 export function ciHtml(view, ledger = ciLedger, sort = ciSort) {
   const rows = [...((view && view.accounts) || [])].sort((a, b) => {
     const x = a[sort.key], y = b[sort.key];
@@ -68,13 +64,11 @@ export function ciHtml(view, ledger = ciLedger, sort = ciSort) {
     card("Withdrawals: actual vs plan", `${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${rep}${cmpHtml}${pastHtml}${stHtml}`) + card("One-time: verify accounts for the tax feed", floorHtml) +
     card("Closed years", closesHtml);
 }
-
 // The four cards for the closing `year`; the Year-End page mounts this under its checklist and reloads when the year changes.
 export function renderCashInvestment(year = "") {
   if (ciView === null || String(year) !== ciYear || Date.now() - (window.ciLoadedAt || 0) > 3000) setTimeout(() => ciLoad(year), 0);
   return `<div class="ci-cards" id="ciRoot">${ciHtml(ciView)}</div>`;
 }
-
 const ciPaint = () => { const el = document.getElementById("ciRoot"); if (el) el.innerHTML = ciHtml(ciView); };
 export async function ciLoad(year = ciYear) {
   ciYear = String(year || "");
@@ -109,5 +103,4 @@ export async function ciVerify(account, verified) {
   try { await api("/api/cash/verify-account", { method: "POST", body: JSON.stringify({ account, verified }) }); await ciLoad(); } catch (e) { ciError = e.message; ciPaint(); }
 }
 export function ciSortBy(key) { ciSort = { key, dir: ciSort.key === key ? -ciSort.dir : 1 }; ciPaint(); }
-
 Object.assign(window, { renderCashInvestment, ciHtml, ciLoad, ciShowLedger, ciSortBy, ciCloseYear, ciReopenYear, ciVerify, ciMarkRollover });

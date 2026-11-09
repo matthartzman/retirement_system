@@ -2,7 +2,6 @@
 // start the log from existing imports and holdings, then add, revise, void and transfer. Changes save immediately and rewrite the
 // holdings of the accounts the log manages. The drift list ("log health") is also mounted on the Sales Ledger's To fix tab.
 // Logic lives on the server (src/transactions.py, /api/transactions/*). Helpers are bare globals.
-
 const TL_TYPES = [["buy", "Buy"], ["reinvest", "Reinvest"], ["sell", "Sale / redemption"], ["opening", "Opening lot"]];
 const TL_LABEL = { buy: "Buy", reinvest: "Reinvest", sell: "Sale / redemption", transfer_out: "Transfer out", transfer_in: "Transfer in", opening: "Opening lot" };
 let tlLog = null;
@@ -19,7 +18,6 @@ let tlLoadFailed = false; // the last log load failed: the state is unknown, so 
 let tlSlotStarted = null; // started state last painted into the health slot
 let tlBank = []; // bank accounts that still have opening rows in the log (GET /api/transactions/bank-cleanup)
 const TL_HEALTH_MAX = 5;
-
 const tlNum = (v) => esc(String(Math.round(Number(v) * 1e6) / 1e6));
 const tlAccounts = (log) => [...new Set([...(log.rows || []).map((r) => r.account), ...(log.open || []).map((l) => l.account)])].sort();
 const tlSelect = (id, opts, cur, fn) => `<select id="${id}" onchange="${fn}(this.value)">${opts.map(([v, t]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
@@ -28,7 +26,6 @@ const tlLink = (account, symbol) => (window.hsActivityLink ? window.hsActivityLi
 const tlMsgHtml = () => tlMessage ? `<p role="status" class="${tlMessage.error ? "error" : "muted"}">${esc(tlMessage.text)}</p>` : "";
 const tlNotStartedHtml = (msg) => `<h3>Activity</h3>${msg}<p class="muted">The log is not started. Starting builds it from your broker imports and holdings; the holdings are not changed.</p>` +
   `<button type="button" class="btn" id="tlStartBtn" onclick="tlStart()">Start the transaction log</button>`;
-
 export function tlHealthHtml(log) {
   const drift = (log && log.drift) || [];
   if (!drift.length) return `<p class="muted">The log agrees with the holdings.</p>`;
@@ -38,7 +35,6 @@ export function tlHealthHtml(log) {
     `<a href="${esc(tlLink(d.account, d.symbol))}">Show in Activity</a></li>`).join("") + `</ul>` +
     (drift.length > TL_HEALTH_MAX ? `<button type="button" class="btn" id="tlHealthToggle" onclick="tlShowAllHealth(${!tlHealthAll})">${tlHealthAll ? "Show fewer" : `Show all ${drift.length}`}</button>` : "") + `</div>`;
 }
-
 // "Log agrees with holdings" for the Positions toolbar; loads the log when nothing has yet.
 export function tlStatusHtml() {
   if (tlLog === null) setTimeout(tlLoad, 0);
@@ -56,7 +52,6 @@ export function tlWashFor(account, symbol, date, unitCost) {
     (l.tacked_date || l.purchase_date) === date && Math.abs(Number(l.adjusted_unit_cost) - Number(unitCost)) < 1e-6) || null;
 }
 export const tlStarted = () => !(tlLog && tlLog.started === false); // false only once the log is known to be not started
-
 const tlIsCashOpening = (r) => r.type === "opening" && String(r.symbol).toUpperCase() === "CASH";
 export function tlFilterRows(rows, f = {}) {
   const sym = String(f.symbol || "").trim().toUpperCase();
@@ -116,10 +111,8 @@ export function tlShowAllHealth(on) {
   if (root) { root.innerHTML = tlHealthInner(); const b = document.getElementById("tlHealthToggle"); if (b && b.focus) b.focus(); }
 }
 export function tlDrawerToggle(key, open) { tlDrawer = { ...tlDrawer, [key]: !!open }; }
-
 const tlBankHtml = () => tlBank.length ? `<div role="alert" class="error tl-bank">${tlBank.length} bank account${tlBank.length === 1 ? " has" : "s have"} log rows that do not belong here: ${tlBank.map((a) => esc(accountDisplayLabel(a))).join(", ")}. ` +
   `<button type="button" class="btn" onclick="tlCleanBank()">Clean up</button></div>` : "";
-
 export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit) {
   const msg = tlMsgHtml();
   if (!log) return `<h3>Activity</h3>${msg}<p class="muted">Loading…</p>`;
@@ -146,19 +139,16 @@ export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit) {
     drawer("xfer", "tlXferDrawer", "⇄ Transfer", xferForm, tlDrawer.xfer) + `</div>`;
   return `<h3>Activity</h3>${msg}${tlBankHtml()}<p class="muted">Changes here save immediately.</p>${drawers}${tlFilterBarHtml(log, accts)}<div id="tlEntries">${tlEntriesHtml(log)}</div>`;
 }
-
 export function renderTransactionLog() {
   if (tlLog === null) setTimeout(tlLoad, 0);
   return `<div class="sl-import" id="tlRoot">${tlHtml(tlLog)}</div>`;
 }
-
 export function tlSummary() {
   if (tlLoadFailed) return { health: { count: 0, tone: "", text: "" } }; // a transient failure is not "log not started"
   if (tlLog && !tlLog.started) return { health: { count: 1, tone: "bad", text: "log not started" } };
   const n = new Set(((tlLog && tlLog.drift) || []).map((d) => d.account)).size;
   return { health: { count: n, tone: n > 0 ? "bad" : "", text: n > 0 ? `drift: ${n} accounts` : "" } };
 }
-
 function tlPaintRoot() {
   const root = document.getElementById("tlRoot");
   if (root) root.innerHTML = tlHtml(tlLog);
@@ -174,7 +164,6 @@ function tlPaint() {
   tlSlotStarted = started;
   if (window.slPublish) window.slPublish("health", tlSummary().health);
 }
-
 export async function tlLoad() {
   const first = tlLog === null;
   tlLoadFailed = false;
@@ -183,7 +172,6 @@ export async function tlLoad() {
   tlPaint();
   if (first && window.activeStep === "holdings" && typeof renderMain === "function") renderMain(); // Positions markers need the log
 }
-
 async function tlPost(url, body, done) {
   try { await api(url, { method: "POST", body: JSON.stringify(body || {}) }); tlMessage = { text: done, error: false }; }
   catch (e) { tlMessage = { text: e.message, error: true }; tlPaint(); return false; }
@@ -191,7 +179,6 @@ async function tlPost(url, body, done) {
   return true;
 }
 export const tlReloadAll = () => tlLoad();
-
 // Proceeds when no dialog is available, by design (tests, embedded views).
 const tlConfirmed = (msg) => !(typeof window !== "undefined" && typeof window.confirm === "function") || window.confirm(msg);
 export const tlStart = () => !tlConfirmed("Starting the log means holdings will now be written by the log.") ? Promise.resolve(false) : tlPost("/api/transactions/backfill", {}, "The transaction log was started.");
@@ -239,6 +226,5 @@ export function tlTransfer() {
   for (const [lot, v] of Object.entries(tlXfer.picks)) if (Number(v) > 0) allocation[lot] = Number(v);
   return tlPost("/api/transactions/transfer", { from_account: tlXfer.from_account, to_account: tlXfer.to_account, symbol: tlXfer.symbol, txn_date: tlXfer.txn_date, allocation }, "Shares transferred.");
 }
-
 Object.assign(window, { tlWashFor, tlStatusHtml, tlHealthHtml, renderLogHealth, tlStarted, tlShowAllHealth, tlSummary, renderTransactionLog, tlHtml, tlFilterRows, tlPage, tlSetFilter, tlApplyFilters, tlReloadAll, tlShowMore, tlDrawerToggle, tlLoad, tlStart, tlCleanBank, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlOnKeydown, tlVoid,
   tlSetXfer, tlSetXferFrom, tlSetXferTo, tlPick, tlTransfer });
