@@ -7,7 +7,6 @@
 let stData = null;
 let stMessage = null; // { text, error }
 let stError = "";
-let stFromAll = false; // the header says All years: this tab keeps the last concrete year and says so
 let stCfDraft = null; // { year, stCfShort, stCfLong }: typed carryforward text survives any repaint until it is saved
 let stIncome = null; // GET /api/investment-income: the year's interest and dividends by type, taxable accounts only
 let stYearEnd = null; // { year, open, total } from GET /api/year-end; null when unavailable
@@ -75,7 +74,7 @@ export function stTilesHtml(s) {
 export function st1099bStatusRowHtml(status) {
   const n = Number(status && status.count) || 0;
   const text = status && (status.tone === "warn" || status.tone === "bad") && n > 0 ? `${n} account${n === 1 ? "" : "s"} not tied` : "No 1099-B differences recorded";
-  return `<p class="st-link-row">1099-B: ${esc(text)} <a href="#sales_ledger?tab=import&amp;sec=b1099" onclick="if(window.slGo){slGo('import','b1099');return false}">Review 1099-B</a></p>`;
+  return `<p class="st-link-row">1099-B: ${esc(text)} <a href="#sales_ledger?tab=tax&amp;sec=b1099" onclick="if(window.slGo){slGo('tax','b1099');return false}">Review 1099-B</a></p>`;
 }
 
 export function stYearEndLinkHtml(openCount, total, year) {
@@ -102,13 +101,13 @@ export function stSetSymbolType(symbol, type) {
 }
 
 function stBodyHtml() {
+  if (window.slCurrentYear && window.slCurrentYear() === "") return `<h3>Tax year</h3><p class="muted">Pick a year above: tax is worked out one year at a time, so there is no all-years total.</p>`;
   if (stError) return `<h3>Realized gains this year</h3><p class="field-error">${esc(stError)}</p>`;
   if (!stData) return `<h3>Realized gains this year</h3><p class="muted">Loading…</p>`;
   const msg = stMessage ? `<p class="${stMessage.error ? "field-error" : "muted"}" role="status">${esc(stMessage.text)}</p>` : "";
   const b = window.slSummaries && window.slSummaries().b1099;
   const ye = stYearEnd ? stYearEndLinkHtml(stYearEnd.open, stYearEnd.total, stYearEnd.year) : "";
-  const note = stFromAll ? `<p class="muted">The Sale year filter is set to All years; this tab shows ${esc(String(stData.year))}, the last year you selected. Pick a year above to change it.</p>` : "";
-  return `<h3>Tax year ${esc(String(stData.year))} · sales dated 1/1–12/31</h3>${note}${msg}${stTilesHtml(stData)}${st1099bStatusRowHtml(b)}${ye}` +
+  return `<h3>Tax year ${esc(String(stData.year))} · sales dated 1/1–12/31</h3>${msg}${stTilesHtml(stData)}${st1099bStatusRowHtml(b)}${ye}` +
     `<div class="sl-tax-cols"><div>${stNettingHtml(stData)}${stTaxHtml(stData)}</div><div>${stCarryforwardHtml(stData)}</div></div>${stWashHtml(stData.wash)}${stIncomeHtml(stIncome)}`;
 }
 
@@ -141,9 +140,8 @@ function stPaint() {
   if (window.slPublish) { const s = stSummary(); window.slPublish("wash", s.wash); window.slPublish("cf", s.cf); }
 }
 
-export async function loadSalesTaxYear(year, opts = {}) {
+export async function loadSalesTaxYear(year) {
   stError = "";
-  stFromAll = !!opts.fromAll;
   const taxReq = api("/api/sales/tax-year?year=" + encodeURIComponent(year));
   try {
     const out = await taxReq;
@@ -188,7 +186,7 @@ async function stPost(url, body, okText, onOk) {
   } catch (e) {
     stMessage = { text: e.message, error: true };
   }
-  if (year) await loadSalesTaxYear(year, { fromAll: stFromAll });
+  if (year) await loadSalesTaxYear(year);
   else stPaint();
 }
 
@@ -201,4 +199,4 @@ export function stSaveCarryforward() {
 
 export const stRefreshWash = () => stPost("/api/sales/wash/refresh", null, "Wash-sale check done.");
 
-Object.assign(window, { stTilesHtml, st1099bStatusRowHtml, stYearEndLinkHtml, stSummary, stNettingHtml, stTaxHtml, stCarryforwardHtml, stCfDraftSet, stOnShown, stWashHtml, stIncomeHtml, stSetSymbolType, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward, stRefreshWash });
+Object.assign(window, { stRepaint: stPaint, stTilesHtml, st1099bStatusRowHtml, stYearEndLinkHtml, stSummary, stNettingHtml, stTaxHtml, stCarryforwardHtml, stCfDraftSet, stOnShown, stWashHtml, stIncomeHtml, stSetSymbolType, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward, stRefreshWash });

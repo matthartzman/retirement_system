@@ -1097,7 +1097,7 @@ def sales_years_route():
     if denied:
         return denied
     from .. import sales_service as _sales
-    return _sales_call(lambda root: {"years": _sales.sales_years(root)})
+    return _sales_call(lambda root: {"years": _sales.sales_years(root), "taxable_accounts": _sales.taxable_accounts(root)})
 
 
 @app.route("/api/sales", methods=["POST"])

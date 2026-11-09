@@ -90,6 +90,13 @@ def sales_years(input_dir: str | Path) -> list[int]:
     return sorted(int(y) for y in found if y.isdigit() and 1900 < int(y) <= this_year)
 
 
+def taxable_accounts(input_dir: str | Path) -> list[str]:
+    """Investment accounts a sale in which is taxable (the Taxable-only switch covers these), by the account-name rule."""
+    from .broker_import import investment_accounts
+    from .history_sales import is_taxable_account
+    return [a for a in investment_accounts(input_dir) if is_taxable_account(a)]
+
+
 def replace_sale(input_dir: str | Path, sale_id: int, row: dict[str, Any]) -> dict[str, Any]:
     """Edit a manual sale: void the old row and record the corrected one in one transaction (the old row stays
     voided, so Show voided keeps the history). Sales confirmed from the queue carry lot links and are changed by

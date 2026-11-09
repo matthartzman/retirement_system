@@ -10,19 +10,19 @@ const SL_TERM = { short: "Short", long: "Long", unknown: "Unknown" };
 
 let slData = null;
 let slYear = String(new Date().getFullYear());
+let slYears = []; // years that have ledger or log rows (GET /api/sales/years); the Year list offers only these
+let slTaxAccts = []; // investment accounts that are taxable (named next to the Taxable-only switch)
+let slYearChosen = false; // until the user picks one, the first load settles on the current year, else the latest with data
 let slShowVoided = false;
-let slPreview = null;
 let slMessage = null; // { text, error }
 let slLoading = false;
 let slError = "";
 let slEditId = null;
 let slAccounts = [];
 let slDraft = {}; // form field id -> text, kept on input so a repaint or reload never loses a half-filled sale
-let slCsvText = ""; // pasted CSV text, kept on input for the same reason
-let slCsvMessage = null; // { text, error }: feedback for the CSV box itself (the Ledger-tab message line is hidden on the Import tab)
-let slCsvDone = null; // set after a successful CSV import: drives the next-step links
-let slTaxYear = slYear; // the Tax tab needs a concrete year: the last one chosen, kept while the header says All years
-let slHiddenVoids = 0; // voided rows the current selection hides (one extra fetch when Show voided is off)
+let slHiddenVoids = 0; // voided rows the current selection hides (one extra fetch when Voided rows is off)
+export const slCurrentYear = () => slYear;
+export const slTaxableOnly = () => (window.slUiLoad ? window.slUiLoad().taxableOnly !== false : true);
 
 export function slMoney(v) {
   if (v === null || v === undefined || Number.isNaN(Number(v))) return "—";
@@ -60,17 +60,7 @@ export function slTotalsHtml(t) {
   return `<p><strong>${Number(t.count)}</strong> sale${t.count === 1 ? "" : "s"} · short-term net ${slGainHtml(t.short_gain)} · long-term net ${slGainHtml(t.long_gain)}</p>`;
 }
 
-export function slPreviewHtml(p) {
-  const errs = (p.errors || []).map((e) => `<li>Line ${Number(e.line)}: ${esc(e.error)}</li>`).join("");
-  const ok = !(p.errors || []).length;
-  const add = p.will_write.length;
-  return `<div class="sl-preview"><p>${Number(p.received)} rows read: ${add} to add, ${p.duplicates.length} already in the ledger` +
-    `${ok ? "" : `, ${p.errors.length} with problems`}.</p>` +
-    `${errs ? `<ul class="field-error">${errs}</ul><p>Fix these lines and preview again; nothing is saved until the file is clean.</p>` : ""}` +
-    `${ok && add ? `<button class="btn primary" type="button" onclick="slImportCommit()">Add ${add} sale${add === 1 ? "" : "s"}</button>` : ""}</div>`;
-}
-
-export function slDraftSet(id, v) { if (id === "slCsv") slCsvText = String(v ?? ""); else slDraft[id] = String(v ?? ""); }
+export function slDraftSet(id, v) { slDraft[id] = String(v ?? ""); }
 const slSel = (id, v) => (slDraft[id] === v ? " selected" : "");
 const slAccountSelect = () => `<label>Account<select id="slAccount" oninput="slDraftSet('slAccount',this.value)"><option value=""></option>` +
   slAccounts.map((a) => `<option value="${esc(a)}"${slSel("slAccount", a)}>${esc(accountDisplayLabel(a))}</option>`).join("") + `</select></label>`;
@@ -88,40 +78,28 @@ function slFormHtml() {
     `${slEditId ? ` <button class="btn" type="button" onclick="slCancelEdit()">Cancel</button>` : ""}</div>`;
 }
 
-const slSteps = (n) => (window.slStepsHtml ? window.slStepsHtml(n) : "");
-export const slCsvStateText = () => (slPreview ? `Preview ready · ${slPreview.will_write.length} rows` : slCsvMessage && !slCsvMessage.error ? slCsvMessage.text : "Paste or choose a CSV");
-function slImportHtml() {
-  const msg = slCsvMessage ? `<p class="${slCsvMessage.error ? "field-error" : "muted"}" role="status">${esc(slCsvMessage.text)}</p>` : "";
-  return `<div class="sl-import">${slSteps(slPreview ? 2 : 1)}<h3>Import from CSV</h3><p class="muted">Columns: sale_date, account, tax_class, symbol, shares, proceeds, basis (required); fees, purchase_date.</p>` +
-    `<textarea id="slCsv" rows="5" aria-label="Sales CSV" placeholder="Paste CSV text here" oninput="slDraftSet('slCsv',this.value)">${esc(slCsvText)}</textarea>` +
-    `<input type="file" accept=".csv,text/csv" aria-label="Choose a CSV file" onchange="slCsvFile(this)">` +
-    `<button class="btn" type="button" onclick="slImportPreview()">Preview</button>${msg}${slPreview ? slPreviewHtml(slPreview) : ""}${slCsvDone && window.slNextStepHtml ? window.slNextStepHtml(slCsvDone) : ""}</div>`;
-}
-
-function slYearOptions() {
-  const now = new Date().getFullYear();
-  const years = new Set(Array.from({ length: 12 }, (_, i) => String(now + 1 - i)));
-  if (slYear) years.add(slYear);
-  return `<option value=""${slYear ? "" : " selected"}>All years</option>` +
-    [...years].sort().reverse().map((y) => `<option value="${y}"${y === slYear ? " selected" : ""}>${y}</option>`).join("");
+// Year list: "All years" plus only the years the server says have rows. Before the list arrives the chosen year stands in for it.
+export function slYearOptionsHtml(years, selected) {
+  const list = years.length ? [...years].map(String) : selected ? [String(selected)] : [];
+  return `<option value=""${selected ? "" : " selected"}>All years</option>` +
+    [...new Set(list)].sort().reverse().map((y) => `<option value="${y}"${y === String(selected) ? " selected" : ""}>${y}</option>`).join("");
 }
 
 export const slHiddenVoidCount = () => slHiddenVoids;
-const slHiddenText = () => (slHiddenVoids > 0 ? ` (${slHiddenVoids} hidden)` : "");
-function slHeadHtml() {
+const slHiddenText = () => `Voided rows (${slHiddenVoids})`;
+// Names the accounts the Taxable-only switch covers, from the friendly label helper (never raw ids).
+const slTaxableNames = () => {
+  try { return slTaxAccts.map((a) => accountDisplayLabel(a)).join(", "); } catch (e) { return ""; }
+};
+export function slHeadHtml() {
   const hc = window.slHeadControlState ? window.slHeadControlState(window.slCurrentTab()) : { disabled: false, title: "" };
   const dis = hc.disabled ? ` disabled aria-disabled="true" title="${esc(hc.title)}"` : "";
   const cls = hc.disabled ? ' class="sl-ctl-off"' : "";
-  return `<label${cls}>Sale year <select id="slYear"${dis} onchange="slSetYear(this.value)">${slYearOptions()}</select></label> ` +
-    `<label${cls}><input type="checkbox" id="slVoidedBox"${dis} ${slShowVoided ? "checked" : ""} onchange="slSetShowVoided(this.checked)"> Show voided<span id="slVoidedCount">${slHiddenText()}</span></label> ` +
-    slDensityHtml();
-}
-const slCompactNow = () => !!(window.slIsCompact && window.slIsCompact());
-function slDensityHtml() { // hidden on touch devices by CSS; the stored choice is applied to #slRoot on every render
-  const c = slCompactNow();
-  return `<span class="sl-density" role="group" aria-label="Row density">Density: ` +
-    `<button type="button" class="btn" id="slDensityComfort" aria-pressed="${!c}" onclick="slSetDensity('')">Comfortable</button>` +
-    `<button type="button" class="btn" id="slDensityCompact" aria-pressed="${c}" onclick="slSetDensity('compact')">Compact</button></span>`;
+  const names = slTaxableNames();
+  return `<label>Year <select id="slYear" onchange="slSetYear(this.value)">${slYearOptionsHtml(slYears, slYear)}</select></label> ` +
+    `<label${cls}><input type="checkbox" id="slTaxableBox"${dis} ${hc.disabled || slTaxableOnly() ? "checked" : ""} onchange="slSetTaxableOnly(this.checked)"> Taxable accounts only</label>` +
+    `${names ? ` <span class="muted" id="slTaxableNames">${esc(names)}</span>` : ""} ` +
+    `<a href="#" class="sl-voided-link" id="slVoidedLink" aria-pressed="${slShowVoided}" onclick="slSetShowVoided(!${slShowVoided});return false">${slHiddenText()}</a>`;
 }
 
 function slListHtml() {
@@ -131,12 +109,12 @@ function slListHtml() {
 }
 
 let slHashApplied = null;
-const SL_SECS = ["queue", "health", "log", "wash", "cf", "b1099", "cash", "imports", "csv"];
+const SL_SECS = ["queue", "health", "wash", "cf", "b1099"];
 function slConsumeHash() { // true when the hash was dropped from the address
   try { history.replaceState(null, "", location.pathname + location.search); return true; } catch (e) { return false; }
 }
 
-// Deep link: #sales_ledger?tab=import&sec=b1099. Only read when the hash is ours; location may not exist (node tests).
+// Deep link: #sales_ledger?tab=tax&sec=b1099. Only read when the hash is ours; location may not exist (node tests).
 export function slHashTarget() {
   let hash = "";
   try { hash = (typeof location !== "undefined" && location && location.hash) || ""; } catch (e) { hash = ""; }
@@ -174,7 +152,6 @@ export function slHealthStateText() {
 }
 export const slLedgerBodyHtml = () => `<details class="drawer" id="slFormDrawer"><summary>Record a sale</summary><div id="slFormRoot">${slFormHtml()}</div></details>` +
   `<div id="slListRoot">${slListHtml()}</div>`;
-export const slCsvBodyHtml = () => `<div id="slCsvRoot">${slImportHtml()}</div>`;
 const slDrawer = (open) => { const d = typeof document !== "undefined" && document.getElementById("slFormDrawer"); if (d) d.open = open; };
 export function slOpenForm() { slDrawer(true); const f = typeof document !== "undefined" && document.getElementById("slDate"); if (f && f.focus) f.focus(); }
 function slPaintTabs() { // repaint the strip and tab bar without losing keyboard focus inside the tab bar
@@ -201,44 +178,35 @@ function slBodyHtml() {
   }
   const active = window.slCurrentTab();
   const panel = (id, body) => window.slTabPanelHtml(id, body, active);
-  const fix = slSection("queue", "Sales waiting for lots", "renderSalesQueue", "slQueueStateText") + slHealthSlotHtml() + slSection("log", "Transaction log", "renderTransactionLog") +
-    `<div class="divider sl-divider">More views</div>` + slSection("cash", "Cash in investment", "renderCashInvestment", "ciStateText");
+  const fix = slSection("queue", "Sales waiting for lots", "renderSalesQueue", "slQueueStateText") + slHealthSlotHtml();
   const ledger = slSection("ledger", "Sales", "slLedgerBodyHtml");
   return `<div id="slHeadRoot">${slHeadHtml()}</div>${window.slLiveHtml()}<div id="slStripRoot">${window.slStripHtml(window.slSummaries())}</div>` +
     `<div id="slTabsRoot">${slTabsHtml(active)}</div>` +
-    panel("fix", fix) + panel("ledger", ledger) + panel("tax", slSection("wash", "Realized gains & wash sales", "renderSalesTaxYear")) +
-    panel("import", slSection("imports", "Broker imports", "renderBrokerImport", "biStateText") + slSection("b1099", "Broker 1099-B", "renderSalesBroker1099b", "bbStateText") +
-      slSection("csv", "Sales CSV import", "slCsvBodyHtml", "slCsvStateText"));
+    panel("fix", fix) + panel("ledger", ledger) +
+    panel("tax", slSection("wash", "Realized gains & wash sales", "renderSalesTaxYear") + slSection("b1099", "Broker 1099-B", "renderSalesBroker1099b", "bbStateText"));
 }
 
 export function renderSalesLedger() {
   slSubscribeSummaries();
   if (slData === null && !slLoading && !slError) setTimeout(loadSalesLedger, 0);
-  return `<div class="field-list sl-page${slCompactNow() ? " sl-compact" : ""}" id="slRoot">${slBodyHtml()}</div>`;
+  return `<div class="field-list sl-page" id="slRoot">${slBodyHtml()}</div>`;
 }
 
-function slPaintInto(id, html) { const el = document.getElementById(id); if (el) el.innerHTML = html(); }
+function slPaintInto(id, html) { const el = typeof document !== "undefined" && document.getElementById(id); if (el) el.innerHTML = html(); }
 function slPaint() { slPaintInto("slListRoot", slListHtml); }
 const slPaintForm = () => slPaintInto("slFormRoot", slFormHtml);
-// Strip item for CSV trouble: preview lines with problems, or a failed preview/commit; clean again after the next good preview.
-export function slCsvSummary() {
-  const n = slPreview && slPreview.errors ? slPreview.errors.length : 0;
-  if (n > 0) return { count: n, tone: "bad", text: `CSV: ${n} line problem${n === 1 ? "" : "s"}` };
-  if (slCsvMessage && slCsvMessage.error) return { count: 0, tone: "bad", text: "CSV import failed" };
-  return { count: 0, tone: "", text: "" };
-}
-const slPaintCsv = () => {
-  slPaintInto("slCsvRoot", slImportHtml);
-  if (window.slSecSetState) window.slSecSetState("csv", slCsvStateText());
-  if (window.slPublish) window.slPublish("csv", slCsvSummary());
-};
-
 export async function loadSalesLedger() {
-  const year = slYear; // a year/Show-voided change mid-load must not pair the count with another selection
-  const showVoided = slShowVoided;
   slLoading = true;
   slError = "";
   try {
+    try {
+      const y = await api("/api/sales/years");
+      slYears = ((y && y.years) || []).map(Number);
+      slTaxAccts = (y && y.taxable_accounts) || [];
+    } catch (e) { slYears = []; }
+    if (!slYearChosen && slYears.length) { slYearChosen = true; slYear = String(slYears.includes(new Date().getFullYear()) ? new Date().getFullYear() : slYears[slYears.length - 1]); }
+    const year = slYear; // a year/Voided-rows change mid-load must not pair the count with another selection
+    const showVoided = slShowVoided;
     const q = new URLSearchParams();
     if (year) q.set("year", year);
     if (showVoided) q.set("include_voided", "1");
@@ -251,12 +219,14 @@ export async function loadSalesLedger() {
     if (out && out.sales) out.sales = out.sales.filter((x) => !isCash(x.account));
     slAccounts = slAccounts.filter((a) => !isCash(a));
     if (out && out.sales) slAccounts = [...new Set([...slAccounts, ...out.sales.map((x) => x.account)])].sort();
+    if (out && out.sales && slTaxableOnly()) out.sales = out.sales.filter((x) => x.tax_class === "taxable");
     slData = out && out.success ? out : null;
     if (!slData) slError = "The ledger could not be loaded.";
     await slLoadHiddenVoids(year, showVoided);
     if (window.slPublish && slData) window.slPublish("ledger", { count: slData.sales.length, tone: "", text: `${slData.sales.length} sale${slData.sales.length === 1 ? "" : "s"}` });
-    if (year) slTaxYear = year;
-    if (window.loadSalesTaxYear && slTaxYear) window.loadSalesTaxYear(slTaxYear, { fromAll: !year });
+    if (year && window.loadSalesTaxYear) window.loadSalesTaxYear(year);
+    else if (window.stRepaint) window.stRepaint();
+    slPaintInto("slHeadRoot", slHeadHtml);
   } catch (e) {
     slData = null;
     slError = "The ledger could not be loaded: " + e.message;
@@ -275,19 +245,15 @@ async function slLoadHiddenVoids(year, showVoided) { // one extra read, only whe
       slHiddenVoids = ((all && all.sales) || []).filter((x) => x.status === "voided").length;
     } catch (e) { slHiddenVoids = 0; }
   }
-  const el = typeof document !== "undefined" && document.getElementById("slVoidedCount");
-  if (el) el.textContent = slHiddenText();
 }
 
 const val = (id) => { const el = document.getElementById(id); return el ? el.value : (slDraft[id] ?? ""); };
-const csvVal = () => { const el = document.getElementById("slCsv"); if (el) slCsvText = el.value; return slCsvText; };
 
 async function slPost(url, body, okText) {
   let out;
   try {
     out = await api(url, { method: "POST", body: JSON.stringify(body || {}) });
     slMessage = { text: okText, error: false };
-    if (slPreview) { slPreview = null; slPaintCsv(); }
   } catch (e) {
     slMessage = { text: e.message, error: true };
   }
@@ -332,42 +298,14 @@ export async function slVoid(id) {
   return slPost(`/api/sales/${Number(id)}/void`, null, "Sale voided. Use Restore to bring it back.");
 }
 export const slUnvoid = (id) => slPost(`/api/sales/${Number(id)}/unvoid`, null, "Sale restored.");
-export function slSetYear(v) { slYear = String(v || "").trim(); return loadSalesLedger(); }
+export function slSetYear(v) { slYear = String(v || "").trim(); slYearChosen = true; return loadSalesLedger(); }
 export function slSetShowVoided(on) { slShowVoided = !!on; return loadSalesLedger(); }
-
-export function slCsvFile(input) {
-  const file = input.files && input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => { slCsvText = String(reader.result || ""); slPaintCsv(); };
-  reader.readAsText(file);
-}
-
-export async function slImportPreview() {
-  slCsvDone = null;
-  try {
-    slPreview = await api("/api/sales/import/preview", { method: "POST", body: JSON.stringify({ content: csvVal() }) });
-    slMessage = null; slCsvMessage = null;
-  } catch (e) {
-    slPreview = null;
-    slMessage = { text: e.message, error: true }; slCsvMessage = slMessage;
-  }
-  slPaint();
-  slPaintCsv();
-}
-
-export async function slImportCommit() {
-  const out = await slPost("/api/sales/import/commit", { content: csvVal() }, "Import complete.");
-  if (out) { slCsvText = ""; slCsvDone = {}; }
-  if (out && out.written !== undefined) {
-    slMessage = { text: `Added ${out.written} sale${out.written === 1 ? "" : "s"}.`, error: false };
-    slPaint();
-  }
-  slCsvMessage = slMessage; // success text or the failure the post caught; both belong in the CSV box too
-  slPaintCsv();
+export function slSetTaxableOnly(on) {
+  if (window.slUiLoad) window.slUiSave({ ...window.slUiLoad(), taxableOnly: !!on });
+  return loadSalesLedger();
 }
 
 Object.assign(window, {
-  slMoney, slGainHtml, slRowHtml, slTableHtml, slTotalsHtml, slPreviewHtml, renderSalesLedger, slHashTarget, loadSalesLedger, slSubmit, slVoid, slUnvoid,
-  slSetYear, slSetShowVoided, slCsvFile, slImportPreview, slImportCommit, slEdit, slCancelEdit, slRequeue, slDraftSet, slHealthSlotHtml, slHealthSlotInnerHtml, slQueueStateText, slHealthStateText, slLedgerBodyHtml, slOpenForm, slHiddenVoidCount, slCsvBodyHtml, slCsvStateText, slCsvSummary,
+  slMoney, slGainHtml, slRowHtml, slTableHtml, slTotalsHtml, renderSalesLedger, slHashTarget, loadSalesLedger, slSubmit, slVoid, slUnvoid,
+  slSetYear, slSetShowVoided, slSetTaxableOnly, slCurrentYear, slTaxableOnly, slYearOptionsHtml, slHeadHtml, slEdit, slCancelEdit, slRequeue, slDraftSet, slHealthSlotHtml, slHealthSlotInnerHtml, slQueueStateText, slHealthStateText, slLedgerBodyHtml, slOpenForm, slHiddenVoidCount,
 });

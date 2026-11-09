@@ -78,7 +78,7 @@ def test_tax_filing_steps_titles_links_and_deep_link_hashes(jan_2027):
     assert all(by[k]["link"] == "sales_ledger" for k in TAX_STEPS)
     assert [by[k]["hash"] for k in TAX_STEPS] == [
         "#sales_ledger?tab=fix&sec=queue", "#sales_ledger?tab=fix&sec=health", "#sales_ledger?tab=tax&sec=wash",
-        "#sales_ledger?tab=import&sec=b1099", "#sales_ledger?tab=tax&sec=wash"]
+        "#sales_ledger?tab=tax&sec=b1099", "#sales_ledger?tab=tax&sec=wash"]
     assert [by[k]["state"] for k in TAX_STEPS] == ["done"] * 5
 
 
@@ -211,7 +211,7 @@ def test_tie_1099b_is_a_stored_confirmation(jan_2027):
     year_end.set_confirmation(meta, 2026, "tie_1099b", True)
     assert json.loads(meta.d["year_end.2026.tie_1099b"])["confirmed"] is True
     s = steps(store=meta, tax_filing=unknown)[1]["tie_1099b"]
-    assert (s["state"], s["detail"], s["hash"]) == ("done", "You confirmed each 1099-B is tied. Re-check after any new import.", "#sales_ledger?tab=import&sec=b1099")
+    assert (s["state"], s["detail"], s["hash"]) == ("done", "You confirmed each 1099-B is tied. Re-check after any new import.", "#sales_ledger?tab=tax&sec=b1099")
     year_end.set_confirmation(meta, 2026, "tie_1099b", False)
     assert "year_end.2026.tie_1099b" not in meta.d
     assert steps(store=meta, tax_filing=unknown)[1]["tie_1099b"]["state"] == "open"

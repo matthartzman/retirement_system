@@ -83,7 +83,7 @@ def _tax_filing_steps(year: int, tf: Mapping[str, Any] | None, tied_confirmed: b
         drift,
         step("run_wash_check", "Run the wash-sale check", "tab=tax&sec=wash", wash == "clean",
              f"{_WASH_DETAIL.get(wash, _WASH_DETAIL['never'])} This app's accounts only."),
-        {**step("tie_1099b", "Apply and tie the broker 1099-B", "tab=import&sec=b1099", u == 0 or (u is None and tied_confirmed),
+        {**step("tie_1099b", "Apply and tie the broker 1099-B", "tab=tax&sec=b1099", u == 0 or (u is None and tied_confirmed),
              ("You confirmed each 1099-B is tied. Re-check after any new import." if tied_confirmed else
               "Not verified automatically — compare each broker 1099-B on the Import tab.") if u is None else
              f"{u} account(s) do not tie to the broker 1099-B." if u else f"Every account ties to its {year} 1099-B."),

@@ -57,27 +57,28 @@ describe("1 carryforward draft", () => {
 });
 
 describe("2 header controls and All years", () => {
-  test("Sale year and Show voided are really disabled on Fix and Import, with a reason", () => {
-    for (const [tab, off] of [["fix", true], ["import", true], ["ledger", false], ["tax", false]]) {
-      const s = ui.slHeadControlState(tab);
-      assert.equal(s.disabled, off, tab);
-      assert.equal(!!s.title, off, tab);
+  test("Taxable accounts only is locked on in Tax year, with a reason; Year stays live", () => {
+    for (const [tab, off] of [["fix", false], ["ledger", false], ["tax", true]]) {
+      const st = ui.slHeadControlState(tab);
+      assert.equal(st.disabled, off, tab);
+      assert.equal(!!st.title, off, tab);
     }
-    els.slYear = mkEl("slYear"); els.slVoidedBox = mkEl("slVoidedBox");
-    ui.slSetTab("fix");
-    assert.equal(els.slYear.disabled, true);
-    assert.equal(els.slYear.attrs["aria-disabled"], "true");
-    assert.match(els.slVoidedBox.attrs.title, /Sales ledger and Tax year/);
+    els.slYear = mkEl("slYear"); els.slTaxableBox = mkEl("slTaxableBox");
     ui.slSetTab("tax");
+    assert.equal(els.slTaxableBox.disabled, true);
+    assert.match(els.slTaxableBox.attrs.title, /taxable accounts only/i);
     assert.equal(els.slYear.disabled, false);
-    assert.equal(els.slYear.attrs["aria-disabled"], "false");
+    ui.slSetTab("ledger");
+    assert.equal(els.slTaxableBox.disabled, false);
   });
-  test("All years keeps the last concrete year on the Tax tab and says so", async () => {
-    await tax.loadSalesTaxYear(2026, { fromAll: true });
-    assert.match(tax.renderSalesTaxYear(), /Tax year 2026/);
-    assert.match(tax.renderSalesTaxYear(), /All years/);
+  test("All years on the Tax tab says to pick a year and shows no totals", async () => {
+    globalThis.slCurrentYear = () => "";
+    try {
+      assert.match(tax.renderSalesTaxYear(), /Pick a year/);
+      assert.doesNotMatch(tax.renderSalesTaxYear(), /Tax year 2026/);
+    } finally { delete globalThis.slCurrentYear; }
     await tax.loadSalesTaxYear(2026);
-    assert.doesNotMatch(tax.renderSalesTaxYear(), /last year you selected/);
+    assert.match(tax.renderSalesTaxYear(), /Tax year 2026/);
   });
 });
 
@@ -132,11 +133,6 @@ describe("4/5 strip counts and items", () => {
     assert.equal((await run({ short: 0, long: 0, entered: false })).tone, "");
     assert.equal((await run({ short: 0, long: 100, entered: true })).tone, "");
     assert.deepEqual(await run({ short: 5, long: 0, entered: false }), { count: 0, tone: "warn", text: "carryforward not saved" });
-  });
-  test("csv problems are a strip item on the Import tab", () => {
-    const html = ui.slStripHtml({ csv: { count: 2, tone: "bad", text: "CSV: 2 line problems" } });
-    assert.match(html, /data-go="import:csv"/);
-    assert.equal(ui.slMarkers({ csv: { count: 2, tone: "bad", text: "x" } }).import.count, 1);
   });
 });
 

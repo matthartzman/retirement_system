@@ -708,7 +708,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/sales_confirm_bulk.py` | `sales_confirm`, `sales_ledger` | — |
 | `src/sales_ledger.py` | — | — |
 | `src/sales_matching.py` | `ytd_tracking` | — |
-| `src/sales_service.py` | `csv_exchange`, `sales_ledger` | — |
+| `src/sales_service.py` | `broker_import`, `csv_exchange`, `history_sales`, `sales_ledger` | — |
 | `src/sales_tax_year.py` | `core`, `data_io`, `realized_income_stack`, `realized_seed`, `realized_tax`, `sales_ledger`, `sales_matching`, `taxes`, `wash_sales` | — |
 | `src/schema_registry.py` | `plan_data_registry`, `stores.ref_getters.schema_fields` | — |
 | `src/secrets_store.py` | `app_state`, `platform_runtime` | `keyring` |

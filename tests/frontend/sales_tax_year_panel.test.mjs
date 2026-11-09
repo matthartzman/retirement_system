@@ -151,7 +151,7 @@ describe("tax tab layout (task 13)", () => {
   test("1099-B row: neutral and warn", () => {
     assert.match(m.st1099bStatusRowHtml(undefined), /1099-B: No 1099-B differences recorded/);
     assert.match(m.st1099bStatusRowHtml({ count: 2, tone: "warn", text: "x" }), /1099-B: 2 accounts not tied/);
-    assert.match(m.st1099bStatusRowHtml({ count: 1, tone: "bad" }), /slGo\('import','b1099'\)/);
+    assert.match(m.st1099bStatusRowHtml({ count: 1, tone: "bad" }), /slGo\('tax','b1099'\)/);
     assert.match(m.st1099bStatusRowHtml({ count: 0, tone: "" }), /No 1099-B differences/);
   });
   test("year-end link text and fetch handling", async () => {
