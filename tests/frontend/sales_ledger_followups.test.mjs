@@ -115,14 +115,6 @@ describe("3 countless alerts get a signature", () => {
 });
 
 describe("4/5 strip counts and items", () => {
-  test("wash count in the strip is the all-years count", async () => {
-    globalThis.api = async (url) => (url.startsWith("/api/sales/tax-year") ? SUMMARY({ wash: WASH({ count: 0, all_years_count: 2 }) }) : { steps: [] });
-    await tax.loadSalesTaxYear(2026);
-    assert.deepEqual(tax.stSummary().wash, { count: 2, tone: "bad", text: "2 flagged" });
-    globalThis.api = async (url) => (url.startsWith("/api/sales/tax-year") ? SUMMARY({ wash: { count: 1, flagged_loss: 1, rows: [] } }) : { steps: [] });
-    await tax.loadSalesTaxYear(2026);
-    assert.equal(tax.stSummary().wash.count, 1);
-  });
   test("carryforward warns only when a figure is carried in and never entered", async () => {
     const run = async (cf) => {
       globalThis.api = async (url) => (url.startsWith("/api/sales/tax-year") ? SUMMARY({ carryforward_in: cf }) : { steps: [] });
@@ -136,9 +128,9 @@ describe("4/5 strip counts and items", () => {
 });
 
 describe("6 strip links land somewhere", () => {
-  test("cf lands in (and opens) the wash section", () => {
+  test("cf lands in (and opens) the Tax year section", () => {
     const sec = { open: false, querySelector: () => null };
-    els["sl-sec-wash"] = sec;
+    els["sl-sec-tax"] = sec;
     globalThis.history = { replaceState() {} };
     ui.slGo("tax", "cf");
     assert.equal(sec.open, true);

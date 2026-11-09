@@ -199,7 +199,7 @@ describe("alert strip, markers, live region, slGo (Task 6)", () => {
   test("key to tab mapping", () => {
     const all = Object.fromEntries(["queue", "health", "wash", "cf", "b1099"].map((k) => [k, S(1, "warn", "x " + k)]));
     const h = m.slStripHtml(all);
-    for (const [k, t] of [["queue", "fix"], ["health", "fix"], ["wash", "tax"], ["cf", "tax"], ["b1099", "tax"]]) {
+    for (const [k, t] of [["queue", "fix"], ["health", "fix"], ["wash", "fix"], ["cf", "tax"], ["b1099", "tax"]]) {
       assert.ok(h.includes(`data-go="${t}:${k}"`), k);
     }
     for (const k of ["log", "cash", "imports", "csv"]) assert.ok(!m.slStripHtml({ [k]: S(1, "warn", "x") }).includes("data-go"), k);
@@ -210,7 +210,7 @@ describe("alert strip, markers, live region, slGo (Task 6)", () => {
   });
   test("count>0 with neutral tone is not an alert; stale text is", () => {
     assert.ok(m.slStripHtml({ queue: S(5, "", "5 rows") }).includes("No open items"));
-    assert.ok(m.slStripHtml({ wash: S(0, "", "stale") }).includes('data-go="tax:wash"'));
+    assert.ok(m.slStripHtml({ wash: S(0, "", "stale") }).includes('data-go="fix:wash"'));
   });
   test("clear state says No open items and never mentions reconcile", () => {
     for (const s of [{}, { log: S(0, "", "never run"), queue: S(0, "", "") }, { queue: S(0, "", "") }]) {
@@ -223,19 +223,21 @@ describe("alert strip, markers, live region, slGo (Task 6)", () => {
   test("slMarkers counts alert items per tab (not summed raw counts), tone bad wins, empty tabs omitted", () => {
     const mk = m.slMarkers(fixture());
     assert.deepEqual(mk.fix, { count: 2, tone: "bad" }); // queue and drift
-    assert.deepEqual(mk.tax, { count: 1, tone: "warn" }); // carryforward; the uncounted "never run" wash item adds no number
+    assert.deepEqual(mk.tax, { count: 1, tone: "warn" }); // carryforward
+    assert.deepEqual(mk.fix, { count: 2, tone: "bad" });  // queue and drift; the uncounted "never run" wash item adds no number
     const mk2 = m.slMarkers({ wash: S(2, "warn", "w"), cf: S(1, "warn", "c"), b1099: S(4, "bad", "b") });
-    assert.deepEqual(mk2.tax, { count: 3, tone: "bad" });
+    assert.deepEqual(mk2.fix, { count: 1, tone: "warn" });
+    assert.deepEqual(mk2.tax, { count: 2, tone: "bad" });
     assert.equal(mk2.import, undefined);
   });
   test("a tab whose alert item has count 0 still gets a text marker (!, needs attention)", () => {
     const mk = m.slMarkers({ wash: S(0, "", "stale") });
-    assert.equal(mk.tax.count, 0);
-    assert.equal(mk.tax.attn, true);
-    const h = m.slTabBarHtml("fix", mk);
-    assert.match(h, /id="sl-t-tax"[^>]*>[^]*?<span class="sl-tab-badge warn"[^>]*>[^]*?!<[^]*?needs attention[^]*?<\/button>/);
+    assert.equal(mk.fix.count, 0);
+    assert.equal(mk.fix.attn, true);
+    const h = m.slTabBarHtml("tax", mk);
+    assert.match(h, /id="sl-t-fix"[^>]*>[^]*?<span class="sl-tab-badge warn"[^>]*>[^]*?!<[^]*?needs attention[^]*?<\/button>/);
     assert.doesNotMatch(m.slTabBarHtml("fix", { tax: { count: 0, tone: "warn" } }), /sl-tab-badge/); // no alert flag, nothing to show
-    assert.equal(m.slMarkers(fixture()).fix.attn, undefined);
+    assert.equal(m.slMarkers({ queue: S(3, "bad", "3 waiting") }).fix.attn, undefined);
   });
   test("queue and health default closed; ledger and wash default open", () => {
     const st = { sections: {} };
@@ -267,14 +269,14 @@ describe("alert strip, markers, live region, slGo (Task 6)", () => {
   test("slGo switches tab, tolerates missing sections, opens and focuses a present one", () => {
     const d = liveDoc(); globalThis.document = d;
     globalThis.history = { replaceState(_s, _t, u) { this.url = u; } };
-    assert.doesNotThrow(() => m.slGo("tax", "wash"));
+    assert.doesNotThrow(() => m.slGo("tax", "b1099"));
     assert.equal(d.els["sl-p-tax"].hidden, false);
     assert.equal(d.els["sl-p-fix"].hidden, true);
     assert.equal(globalThis.history.url, undefined); // no location in node: the clean-URL write is skipped; it never writes a hash
     const sum = { focus() { this.focused = true; } };
-    d.els["sl-sec-wash"] = { open: false, querySelector: () => sum };
-    m.slGo("tax", "wash");
-    assert.equal(d.els["sl-sec-wash"].open, true);
+    d.els["sl-sec-b1099"] = { open: false, querySelector: () => sum };
+    m.slGo("tax", "b1099");
+    assert.equal(d.els["sl-sec-b1099"].open, true);
     assert.equal(sum.focused, true);
     m.slGo("tax", "bogus");
     assert.equal(globalThis.history.url, undefined); // still no hash written
@@ -397,10 +399,10 @@ describe("collapsible section shell (Task 7)", () => {
     m.slGo("bogus", "wash");
     assert.equal(globalThis.history.url, undefined);
     d.els["sl-sec-wash"].querySelector = () => null;
-    m.slGo("tax", "wash");
+    m.slGo("fix", "wash");
     assert.deepEqual(m.slUiLoad(s).sections.wash, { open: true, lastAlertCount: 0 });
     delete globalThis.document;
-    assert.doesNotThrow(() => m.slGo("tax", "wash"));
+    assert.doesNotThrow(() => m.slGo("fix", "wash"));
     delete globalThis.history;
   });
   test("informational counts (row totals) are not alerts: collapse-all closes, user collapse sticks, no announcement", async () => {

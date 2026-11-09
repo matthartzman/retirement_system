@@ -112,7 +112,7 @@ export function slHpHtml(c = slHp, year = slYear) {
     `<a href="${esc(link)}">Review in Activity</a> <span class="muted">(sales in accounts the log does not manage are not covered)</span></div>`;
 }
 let slHashApplied = null;
-const SL_SECS = ["queue", "health", "wash", "cf", "b1099"];
+const SL_SECS = ["queue", "health", "wash", "tax", "cf", "b1099"];
 function slConsumeHash() { // true when the hash was dropped from the address
   try { history.replaceState(null, "", location.pathname + location.search); return true; } catch (e) { return false; }
 }
@@ -178,12 +178,12 @@ function slBodyHtml() {
   }
   const active = window.slCurrentTab();
   const panel = (id, body) => window.slTabPanelHtml(id, body, active);
-  const fix = slHpHtml() + slSection("queue", "Sales waiting for lots", "renderSalesQueue", "slQueueStateText") + slHealthSlotHtml();
+  const fix = slHpHtml() + slSection("queue", "Sales waiting for lots", "renderSalesQueue", "slQueueStateText") + slHealthSlotHtml() + slSection("wash", "Wash sales", "renderSalesWash", "swStateText");
   const ledger = slSection("ledger", "Sales", "slLedgerBodyHtml");
   return `<div id="slHeadRoot">${slHeadHtml()}</div>${window.slLiveHtml()}<div id="slStripRoot">${window.slStripHtml(window.slSummaries())}</div>` +
     `<div id="slTabsRoot">${slTabsHtml(active)}</div>` +
     panel("fix", fix) + panel("ledger", ledger) +
-    panel("tax", slSection("wash", "Realized gains & wash sales", "renderSalesTaxYear") + slSection("b1099", "Import a 1099-B", "renderSalesBroker1099b", "bbStateText"));
+    panel("tax", slSection("tax", "Tax year", "renderSalesTaxYear") + slSection("b1099", "Import a 1099-B", "renderSalesBroker1099b", "bbStateText"));
 }
 
 export function renderSalesLedger() {
@@ -230,6 +230,7 @@ export async function loadSalesLedger() {
     if (!slData) slError = "The ledger could not be loaded.";
     await slLoadHiddenVoids(year, showVoided);
     if (window.slPublish && slData) window.slPublish("ledger", { count: slData.sales.length, tone: "", text: `${slData.sales.length} sale${slData.sales.length === 1 ? "" : "s"}` });
+    if (window.loadSalesWash) window.loadSalesWash();
     if (year && window.loadSalesTaxYear) window.loadSalesTaxYear(year);
     else if (window.stRepaint) window.stRepaint();
     slPaintInto("slHeadRoot", slHeadHtml);

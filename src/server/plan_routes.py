@@ -1203,6 +1203,17 @@ def sales_wash_refresh():
     return _sales_call(_tax_year.refresh_wash_flags)
 
 
+@app.route("/api/sales/wash", methods=["GET"])
+def sales_wash_cards():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_tax_year as _tax_year
+    if not request.args.get("year", "").isdigit():
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(_tax_year.wash_cards, int(request.args["year"]))
+
+
 @app.route("/api/sales/wash/review", methods=["POST"])
 def sales_wash_review():
     denied = _require("write_config")

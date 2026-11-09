@@ -64,26 +64,6 @@ describe("carryforward form", () => {
   });
 });
 
-describe("wash warnings", () => {
-  test("no flags: a quiet line and the re-check button", () => {
-    const html = m.stWashHtml({ count: 0, flagged_loss: 0, rows: [] });
-    assert.match(html, /No losses are flagged/);
-    assert.match(html, /stRefreshWash\(\)/);
-  });
-  test("flags: the overstated-deduction warning, each note escaped", () => {
-    const html = m.stWashHtml({ count: 1, flagged_loss: 405, rows: [{ sale_id: 3, symbol: "VTI", sale_date: "2026-06-10", gain: -405, note: "Loss on VTI; <b>bought</b>" }] });
-    assert.match(html, /\$405\.00 of losses flagged as possible wash sales — this may overstate the deduction/);
-    assert.doesNotMatch(html, /<b>bought/);
-    assert.match(html, /VTI/);
-  });
-  test("refresh posts, then reloads the summary", async () => {
-    await m.loadSalesTaxYear(2026);
-    calls.length = 0;
-    await m.stRefreshWash();
-    assert.deepEqual(calls.map((c) => c[0]).slice(0, 2), ["/api/sales/wash/refresh", "/api/sales/tax-year?year=2026"]);
-  });
-});
-
 describe("load", () => {
   test("loadSalesTaxYear fetches the chosen year", async () => {
     await m.loadSalesTaxYear(2025);
@@ -92,32 +72,27 @@ describe("load", () => {
 });
 
 describe("summary publish", () => {
-  test("clean wash and unsaved carryforward are neutral; flagged is bad; no data is neutral", async () => {
-    assert.deepEqual(m.stSummary().wash, { count: 0, tone: "", text: "" }); // no data yet
+  test("an unsaved carryforward warns; an entered one is neutral; no slPublish is safe", async () => {
     const pub = {};
     globalThis.slPublish = (k, s) => { pub[k] = s; };
     await m.loadSalesTaxYear(2026);
-    assert.deepEqual(pub.wash, { count: 0, tone: "", text: "" });
-    assert.deepEqual(pub.cf, { count: 0, tone: "warn", text: "carryforward not saved" }); // 2026-11-04: a carried-in, never-entered figure now warns
+    assert.deepEqual(pub.cf, { count: 0, tone: "warn", text: "carryforward not saved" });
+    assert.equal(pub.wash, undefined);                      // the wash cards publish their own summary
     const orig = globalThis.api;
-    globalThis.api = async () => SUMMARY({ carryforward_in: { short: 0, long: 0, entered: true }, wash: { count: 2, flagged_loss: 50, rows: [] } });
+    globalThis.api = async () => SUMMARY({ carryforward_in: { short: 0, long: 0, entered: true } });
     await m.loadSalesTaxYear(2026);
-    assert.deepEqual(m.stSummary().wash, { count: 2, tone: "bad", text: "2 flagged" });
     assert.deepEqual(pub.cf, { count: 0, tone: "", text: "" });
     delete globalThis.slPublish;
     await assert.doesNotReject(m.loadSalesTaxYear(2026));
     globalThis.api = orig;
   });
-
-  test("wash last-run marker (task 14): never run and stale warn; flagged wins; old servers stay neutral", async () => {
-    const orig = globalThis.api;
-    const wash = async (w) => { globalThis.api = async () => SUMMARY({ wash: { count: 0, flagged_loss: 0, rows: [], ...w } }); await m.loadSalesTaxYear(2026); return m.stSummary().wash; };
-    assert.deepEqual(await wash({ last_run: null, never_run: true, stale: false }), { count: 0, tone: "warn", text: "never run" });
-    assert.deepEqual(await wash({ last_run: "2026-11-03T10:00:00+00:00", never_run: false, stale: true }), { count: 0, tone: "warn", text: "stale" });
-    assert.deepEqual(await wash({ last_run: "2026-11-03T10:00:00+00:00", never_run: false, stale: false }), { count: 0, tone: "", text: "" });
-    assert.deepEqual(await wash({ count: 3, never_run: true, stale: true }), { count: 3, tone: "bad", text: "3 flagged" });
-    assert.deepEqual(await wash({}), { count: 0, tone: "", text: "" });
-    globalThis.api = orig;
+  test("the netting table names the disallowed wash-sale losses with the split and a link to the cards", async () => {
+    const wash = { count: 1, flagged_loss: 50, rows: [], disallowed: 12.5, deferred: 10, lost_permanently: 2.5, sales: 1 };
+    const html = m.stNettingHtml(SUMMARY({ wash }));
+    assert.match(html, /Wash-sale losses disallowed/);
+    assert.match(html, /deferred \$10\.00 · lost in IRA \$2\.50/);
+    assert.match(html, /slGo\('fix','wash'\)/);
+    assert.doesNotMatch(m.stNettingHtml(SUMMARY({ wash: { ...wash, disallowed: 0 } })), /Wash-sale losses disallowed/);
   });
 });
 

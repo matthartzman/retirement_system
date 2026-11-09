@@ -38,7 +38,7 @@ def test_empty_ledger_summary_is_all_zero(input_dir):
     assert out["year"] == 2026 and out["filing"] == "MFJ" and out["limit"] == 3000.0
     assert all(v == 0.0 for v in out["netting"].values())
     assert out["carryforward_in"] == {"short": 0.0, "long": 0.0, "entered": False}
-    assert out["wash"] == {"count": 0, "all_years_count": 0, "flagged_loss": 0.0, "rows": [], "last_run": None, "never_run": True, "stale": False}
+    assert out["wash"] == {"disallowed": 0, "deferred": 0, "lost_permanently": 0, "sales": 0, "count": 0, "all_years_count": 0, "flagged_loss": 0.0, "rows": [], "last_run": None, "never_run": True, "stale": False}
 
 
 def test_summary_nets_the_year_and_ignores_voided_and_non_taxable(input_dir):

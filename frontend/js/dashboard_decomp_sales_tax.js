@@ -23,6 +23,7 @@ export function stNettingHtml(s) {
     stRow("Taxed as ordinary income", n.gain_to_tax_ordinary, "short-term gain left after netting") +
     stRow("Taxed at long-term rates", n.gain_to_tax_ltcg, "long-term gain left after netting") +
     stRow("Loss deducted against other income", n.ordinary_offset, `${esc(stMoney(s.limit))} limit (${esc(s.filing)})`) +
+    (s.wash && s.wash.disallowed ? stRow("Wash-sale losses disallowed", s.wash.disallowed, `deferred ${esc(stMoney(s.wash.deferred))} · lost in IRA ${esc(stMoney(s.wash.lost_permanently))} <a href="#sales_ledger?tab=fix&amp;sec=wash" onclick="if(window.slGo){slGo('fix','wash');return false}">See the wash sales</a>`) : "") +
     stRow("Carried to next year, short-term", n.carryforward_st) +
     stRow("Carried to next year, long-term", n.carryforward_lt) + `</tbody></table></div>`;
 }
@@ -51,14 +52,6 @@ export function stCfDraftSet(id, v) {
   if (!stData || (id !== "stCfShort" && id !== "stCfLong")) return;
   if (!stCfDraft || stCfDraft.year !== stData.year) stCfDraft = { year: stData.year };
   stCfDraft[id] = String(v ?? "");
-}
-
-export function stWashHtml(w) {
-  const check = `<button class="btn" type="button" onclick="stRefreshWash()">Check for wash sales</button>`;
-  if (!w.count) return `<div class="st-wash"><h4>Wash sales</h4><p class="muted">No losses are flagged as possible wash sales.</p>${check}</div>`;
-  const items = w.rows.map((r) => `<li>${esc(r.sale_date)} ${esc(r.symbol)} (${esc(stMoney(r.gain))}): ${esc(r.note)}</li>`).join("");
-  return `<div class="st-wash"><h4>Wash sales</h4><p class="field-error" role="status">${esc(stMoney(w.flagged_loss))} of losses flagged as possible wash sales — this may overstate the deduction.</p>` +
-    `<ul>${items}</ul><p class="muted">Flag only: nothing is disallowed or adjusted here, and a repurchase in an IRA loses the loss with no basis add-back.</p>${check}</div>`;
 }
 
 export function stTilesHtml(s) {
@@ -108,7 +101,7 @@ function stBodyHtml() {
   const b = window.slSummaries && window.slSummaries().b1099;
   const ye = stYearEnd ? stYearEndLinkHtml(stYearEnd.open, stYearEnd.total, stYearEnd.year) : "";
   return `<h3>Tax year ${esc(String(stData.year))} · sales dated 1/1–12/31</h3>${msg}${stTilesHtml(stData)}${st1099bStatusRowHtml(b)}${ye}` +
-    `<div class="sl-tax-cols"><div>${stNettingHtml(stData)}${stTaxHtml(stData)}</div><div>${stCarryforwardHtml(stData)}</div></div>${stWashHtml(stData.wash)}${stIncomeHtml(stIncome)}`;
+    `<div class="sl-tax-cols"><div>${stNettingHtml(stData)}${stTaxHtml(stData)}</div><div>${stCarryforwardHtml(stData)}</div></div>${stIncomeHtml(stIncome)}`;
 }
 
 export function renderSalesTaxYear() {
@@ -122,22 +115,15 @@ function stCfUnsaved() {
   return !!cf && cf.entered === false && (Number(cf.short) > 0 || Number(cf.long) > 0);
 }
 
-// Wash: flagged is bad; else the last-run marker (task 14) warns "never run"/"stale" (cleared by Refresh). Old servers without the
-// marker keys stay neutral. The carryforward stays neutral: a warn there would be an unclearable alert.
+// Only a carryforward that is carried in but never entered is a signal (the wash cards publish their own summary in To fix).
 export function stSummary() {
-  const w = (stData && stData.wash) || {};
-  const n = Number.isFinite(w.all_years_count) ? w.all_years_count : w.count || 0; // the strip counts flagged sales across ALL years
-  const warn = w.never_run === true ? "never run" : w.stale === true ? "stale" : "";
-  return {
-    wash: n > 0 ? { count: n, tone: "bad", text: `${n} flagged` } : warn ? { count: 0, tone: "warn", text: warn } : { count: 0, tone: "", text: "" },
-    cf: stCfUnsaved() ? { count: 0, tone: "warn", text: "carryforward not saved" } : { count: 0, tone: "", text: "" },
-  };
+  return { cf: stCfUnsaved() ? { count: 0, tone: "warn", text: "carryforward not saved" } : { count: 0, tone: "", text: "" } };
 }
 
 function stPaint() {
   const root = document.getElementById("stRoot");
   if (root) root.innerHTML = stBodyHtml();
-  if (window.slPublish) { const s = stSummary(); window.slPublish("wash", s.wash); window.slPublish("cf", s.cf); }
+  if (window.slPublish) window.slPublish("cf", stSummary().cf);
 }
 
 export async function loadSalesTaxYear(year) {
@@ -197,6 +183,5 @@ export function stSaveCarryforward() {
   return stPost("/api/sales/carryforward", { year: stData.year, carryforward_short: pick("stCfShort"), carryforward_long: pick("stCfLong") }, "Carryforward saved.", () => { stCfDraft = null; });
 }
 
-export const stRefreshWash = () => stPost("/api/sales/wash/refresh", null, "Wash-sale check done.");
 
-Object.assign(window, { stRepaint: stPaint, stTilesHtml, st1099bStatusRowHtml, stYearEndLinkHtml, stSummary, stNettingHtml, stTaxHtml, stCarryforwardHtml, stCfDraftSet, stOnShown, stWashHtml, stIncomeHtml, stSetSymbolType, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward, stRefreshWash });
+Object.assign(window, { stRepaint: stPaint, stTilesHtml, st1099bStatusRowHtml, stYearEndLinkHtml, stSummary, stNettingHtml, stTaxHtml, stCarryforwardHtml, stCfDraftSet, stOnShown, stIncomeHtml, stSetSymbolType, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward });

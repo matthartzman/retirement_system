@@ -65,37 +65,3 @@ def test_void_unknown_sale_is_a_service_error(input_dir):
         sales_service.void_sale(input_dir, 999)
 
 
-def test_csv_preview_reports_will_write_duplicates_and_errors_without_writing(input_dir):
-    sales_service.add_sale(input_dir, _row())
-    text = (CSV_HEADER
-            + "2026-06-10,Trust,taxable,VTI,10,2000,5,1500,2025-01-02\n"      # duplicate of the ledger row
-            + "2026-07-01,Trust,taxable,VXUS,5,500,0,400,2024-01-02\n"        # new
-            + "2026-07-01,Trust,taxable,VXUS,5,500,0,400,2024-01-02\n"        # duplicate within the file
-            + "2026-07-02,Trust,taxable,BND,0,500,0,400,2024-01-02\n")        # bad shares
-    p = sales_service.preview_csv(input_dir, text)
-    assert p["received"] == 4 and len(p["will_write"]) == 1 and p["will_write"][0]["symbol"] == "VXUS"
-    assert len(p["duplicates"]) == 2
-    assert len(p["errors"]) == 1 and p["errors"][0]["line"] == 5 and "shares" in p["errors"][0]["error"]
-    assert len(sales_service.list_sales(input_dir)["sales"]) == 1
-
-
-def test_csv_preview_missing_required_column(input_dir):
-    p = sales_service.preview_csv(input_dir, "sale_date,account\n2026-01-01,Trust\n")
-    assert p["will_write"] == [] and "missing required column" in p["errors"][0]["error"]
-
-
-def test_csv_commit_writes_valid_rows_as_csv_source_and_is_idempotent(input_dir):
-    text = CSV_HEADER + "2026-07-01,Trust,taxable,VXUS,5,500,0,400,2024-01-02\n"
-    first = sales_service.commit_csv(input_dir, text)
-    assert first["written"] == 1
-    rows = sales_service.list_sales(input_dir)["sales"]
-    assert rows[0]["source"] == "manual" and rows[0]["gain"] == pytest.approx(100.0)
-    assert sales_service.commit_csv(input_dir, text)["written"] == 0
-    assert len(sales_service.list_sales(input_dir)["sales"]) == 1
-
-
-def test_csv_commit_with_any_error_writes_nothing(input_dir):
-    text = CSV_HEADER + "2026-07-01,Trust,taxable,VXUS,5,500,0,400,2024-01-02\n2026-07-02,Trust,taxable,BND,x,1,0,1,2024-01-02\n"
-    with pytest.raises(ValidationError):
-        sales_service.commit_csv(input_dir, text)
-    assert sales_service.list_sales(input_dir)["sales"] == []

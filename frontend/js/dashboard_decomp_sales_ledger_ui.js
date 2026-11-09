@@ -132,7 +132,7 @@ export function slOnSummary(cb) { slSubs.add(cb); return () => { slSubs.delete(c
 export const slSummaries = () => Object.fromEntries(Object.entries(slSums).map(([k, v]) => [k, { ...v }]));
 
 // Alert strip: one text badge per open item (warn/bad, stale/never run, or counted + toned), across all years.
-const SL_KEY_TAB = { queue: "fix", health: "fix", wash: "tax", cf: "tax", b1099: "tax" };
+const SL_KEY_TAB = { queue: "fix", health: "fix", wash: "fix", cf: "tax", b1099: "tax" };
 const slEsc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const slIsAlert = (s) => !!s && (s.tone === "warn" || s.tone === "bad" || /^(stale|never run)$/i.test(String(s.text).trim()) || (s.count > 0 && s.tone !== ""));
 const slAlertItems = (sums) => Object.keys(SL_KEY_TAB).filter((k) => slIsAlert(sums && sums[k])).map((k) => [k, SL_KEY_TAB[k], sums[k]]);
@@ -162,16 +162,16 @@ export function slAnnounce(text, assertive = false) {
   if (el) el.textContent = String(text);
 }
 
-const SL_SEC_META = { queue: ["Sales waiting for lots", false], health: ["Log health", false], ledger: ["Sales", true], wash: ["Realized gains & wash sales", true], cf: ["Carryforward", false], b1099: ["Import a 1099-B", false] };
-const SL_TAB_SECS = { fix: ["queue", "health"], ledger: ["ledger"], tax: ["wash", "cf", "b1099"] };
+const SL_SEC_META = { queue: ["Sales waiting for lots", false], health: ["Log health", false], ledger: ["Sales", true], wash: ["Wash sales", true], tax: ["Tax year", true], cf: ["Carryforward", false], b1099: ["Import a 1099-B", false] };
+const SL_TAB_SECS = { fix: ["queue", "health", "wash"], ledger: ["ledger"], tax: ["tax", "cf", "b1099"] };
 // Only real alerts (same predicate as the strip) count; informational counts such as row totals never open or pin a section.
 // A countless alert (stale, never run, log not started) gets a stable negative signature from its text, so the persisted-collapse
 // rule re-opens the section when it first appears or changes; an alert is never hideable.
 const slSig = (s) => { let h = 7; for (const c of `${s.tone}|${String(s.text).trim().toLowerCase()}`) h = (h * 31 + c.charCodeAt(0)) % 1000003; return -(h + 1); };
 export const slAlertCountOf = (s) => (!slIsAlert(s) ? 0 : s.count > 0 ? s.count : slSig(s));
 // Strip keys that have no section of their own land in (and re-open) another: Carryforward lives in the wash section.
-const SL_SEC_OF = { cf: "wash" };
-const SL_SEC_SRC = { wash: ["wash", "cf"] };
+const SL_SEC_OF = { cf: "tax" };
+const SL_SEC_SRC = { tax: ["tax", "cf"] };
 const slSecKey = (k) => SL_SEC_OF[k] || k;
 // A section's alert signature: the sum over every summary that lands in it (never 0 while any of them is an alert).
 export function slSecAlert(key) {

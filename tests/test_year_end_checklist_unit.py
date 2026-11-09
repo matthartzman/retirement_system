@@ -77,8 +77,8 @@ def test_tax_filing_steps_titles_links_and_deep_link_hashes(jan_2027):
         "Apply and tie the broker 1099-B", "Confirm the capital-loss carryforward"]
     assert all(by[k]["link"] == "sales_ledger" for k in TAX_STEPS)
     assert [by[k]["hash"] for k in TAX_STEPS] == [
-        "#sales_ledger?tab=fix&sec=queue", "#sales_ledger?tab=fix&sec=health", "#sales_ledger?tab=tax&sec=wash",
-        "#sales_ledger?tab=tax&sec=b1099", "#sales_ledger?tab=tax&sec=wash"]
+        "#sales_ledger?tab=fix&sec=queue", "#sales_ledger?tab=fix&sec=health", "#sales_ledger?tab=fix&sec=wash",
+        "#sales_ledger?tab=tax&sec=b1099", "#sales_ledger?tab=tax&sec=cf"]
     assert [by[k]["state"] for k in TAX_STEPS] == ["done"] * 5
 
 
