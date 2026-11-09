@@ -65,7 +65,8 @@ export const SORT_FIELDS = {
   share: ["Share", "share"], day: ["Day $", "day"], day_pct: ["Day %", "day_pct"], market_gain: ["Market gain", "market_gain"],
   return_pct: ["Return %", "return_pct"], share_of_gain: ["Share of gain", "share_of_gain"], annualized_pct: ["Annualized", "annualized_pct"],
 };
-export const DEFAULT_SORT = { field: "name", dir: "asc" };
+const SOLD_ROW = "Sold positions";
+export const DEFAULT_SORT ={ field: "name", dir: "asc" };
 
 export function normalizeSort(raw) {
   const field = raw && Object.hasOwn(SORT_FIELDS, raw.field) ? raw.field : DEFAULT_SORT.field;
@@ -181,7 +182,15 @@ export function buildTree(positions, order, { days, labelOf = (id) => id, sort =
       return node;
     });
     // Sold lots stay in every total (their gain is part of the return) but get no row of their own: the Realized tab lists them.
-    return sortNodes(nodes.filter((n) => !n.members.every((m) => m.sold)), dim, by);
+    const shown = sortNodes(nodes.filter((n) => !n.members.every((m) => m.sold)), dim, by);
+    // A group made only of sold lots (e.g. a class nothing is held in any more) would leave its siblings short of
+    // the row above them, so at every level those fold into one "Sold positions" row at the bottom and each level foots.
+    const hidden = nodes.filter((n) => n.members.every((m) => m.sold)).flatMap((n) => n.members);
+    if (hidden.length > 0) {
+      shown.push({ dim, name: SOLD_ROW, label: SOLD_ROW, title: "", path: `${parent || ""}/${encodeURIComponent(SOLD_ROW)}`, parent: parent || null,
+                   row: aggregate(hidden, totals, days), members: hidden, children: [], sold: true });
+    }
+    return shown;
   };
 
   const soldHidden = positions.filter((p) => p.sold && !isCashSymbol(p.symbol)).length;
