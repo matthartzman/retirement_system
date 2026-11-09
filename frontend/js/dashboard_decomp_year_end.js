@@ -12,7 +12,8 @@ export function yeHtml(data) {
     `${esc(s.detail)} <a href="#" onclick="${s.hash ? `yeGo(${esc(JSON.stringify(s.link))}, ${esc(JSON.stringify(s.hash))})` : `setStep(${esc(JSON.stringify(s.link))})`};return false">Go to this step</a>` +
     (YE_CONFIRM[s.id] && s.state !== "na" && !(s.id === "tie_1099b" && s.state === "done" && s.count_known === true) ? ` <button class="btn" type="button" onclick="yeConfirm(${data.year}, ${s.state === "done" ? "false" : "true"}${s.id === "personal_numbers" ? "" : `, ${esc(JSON.stringify(s.id))}`})">${s.state === "done" ? "Undo confirmation" : YE_CONFIRM[s.id]}</button>` : "") + `</li>`).join("");
   return `<h2>Year-End Transition</h2><p>Closing ${esc(String(data.year))}${data.closed ? " (cash year closed)" : ""}. Each step's state comes from your data; nothing here changes the plan's tax numbers.</p>` +
-    `${yeError ? `<p role="alert" class="error">${esc(yeError)}</p>` : ""}<ol class="ye-steps">${items}</ol>`;
+    `${yeError ? `<p role="alert" class="error">${esc(yeError)}</p>` : ""}<ol class="ye-steps">${items}</ol>` +
+    (window.renderCashInvestment ? `<h3>Investment cash, ${esc(String(data.year))}</h3>${window.renderCashInvestment(data.year)}` : "");
 }
 
 // A step with a deep link sets the hash first (the Sales Ledger reads tab/section from it); location may not exist (node tests).

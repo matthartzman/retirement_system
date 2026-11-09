@@ -462,6 +462,16 @@ export function offFeaturesLineHtml(stepId) {
   );
 }
 
+// The plan-wide "reinvest dividends" switch: whether dividends and interest buy more shares or land as cash. It is stored as
+// Economic Assumptions / reinvest_dividends_default; it moved here from the investment-cash panel.
+export function planReinvestRow(all) {
+  return all.find((x) => isEditable(x) && x.section === "Economic Assumptions" && norm(x.label) === "reinvest_dividends_default");
+}
+export function planReinvestHtml() {
+  const r = typeof rows === "undefined" ? null : planReinvestRow(rows);
+  return r ? `<div class="field-list pf-reinvest">${fieldHtml(r)}</div>` : "";
+}
+
 export function renderOptionalFunctions() {
   if (searchText.trim()) return renderFields("optional_functions");
   const rs = rowsForStep("optional_functions");
@@ -476,6 +486,7 @@ export function renderOptionalFunctions() {
 
   // WP5.1: the tier picker (dashboard_decomp_plan_tiers.js) heads the page.
   html += planTierPickerHtml();
+  html += planReinvestHtml();
 
   html += kindChipsHtml(planFeatureKinds(rs, taxonomy), planFeatureKind);
 
@@ -521,6 +532,8 @@ Object.assign(window, {
   planFeatureGroups,
   planFeatureKinds,
   renderOptionalFunctions,
+  planReinvestRow,
+  planReinvestHtml,
   setPlanFeatureKind,
   togglePlanFeatureGroup,
 });

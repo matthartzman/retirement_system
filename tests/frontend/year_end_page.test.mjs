@@ -38,7 +38,7 @@ test("only_personal_numbers_offers_a_confirmation_and_it_toggles", () => {
 });
 
 test("tie_1099b_offers_its_own_confirmation_and_posts_its_step (task 15b)", async () => {
-  const tie = { id: "tie_1099b", title: "Apply and tie the broker 1099-B", link: "sales_ledger", state: "open", detail: "x", hash: "#sales_ledger?tab=import&sec=b1099" };
+  const tie = { id: "tie_1099b", title: "Apply and tie the broker 1099-B", link: "sales_ledger", state: "open", detail: "x", hash: "#sales_ledger?tab=tax&sec=b1099" };
   const h = m.yeHtml({ ...DATA, steps: [...DATA.steps, tie] });
   assert.match(h, /yeConfirm\(2026, true, &quot;tie_1099b&quot;\)/);
   assert.match(h, /I have tied each 1099-B/);
@@ -79,4 +79,13 @@ test("banner_appears_only_from_mid_december_through_january", () => {
   assert.match(m.renderYearEndBanner(new Date(2026, 11, 15)), /setStep\('year_end'\)/);
   assert.match(m.renderYearEndBanner(new Date(2027, 0, 31)), /Year-End Transition/);
   assert.equal(m.renderYearEndBanner(new Date(2027, 1, 1)), "");
+});
+
+test("year-end page renders the four cash cards for the closing year", async () => {
+  await import("../../frontend/js/dashboard_decomp_cash_investment.js");
+  const h = m.yeHtml(DATA);
+  assert.match(h, /Investment cash, 2026/);
+  const titles = [...h.matchAll(/<h3>([^<]*)<\/h3>/g)].map((x) => x[1]);
+  assert.deepEqual(titles.slice(-4), ["Investment cash agrees with the broker", "Withdrawals: actual vs plan", "One-time: verify accounts for the tax feed", "Closed years"]);
+  assert.ok(h.indexOf('class="ye-steps"') < h.indexOf("Investment cash, 2026"));   // the checklist comes first
 });

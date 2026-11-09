@@ -102,28 +102,55 @@ test("panel_shows_floor_gate_state_with_verify_and_unverify_controls", () => {
   assert.match(blocked, /ciVerify\(&quot;Member_1_HSA&quot;, false\)/);
 });
 
-test("summary: unmatched cash rows across accounts are a warn, worded like the column; paint without slPublish is safe", async () => {
-  const pub = [];
-  globalThis.slPublish = (k, s) => pub.push([k, s]);
-  globalThis.document = { getElementById: () => null };
-  const orig = globalThis.api;
-  globalThis.api = async () => VIEW;
-  await m.ciLoad();
-  assert.deepEqual(pub.at(-1), ["cash", { count: 2, tone: "warn", text: "2 unmatched cash rows" }]);
-  globalThis.api = async () => ({ ...VIEW, accounts: [{ ...VIEW.accounts[1], unmatched: 1 }] });
-  await m.ciLoad();
-  assert.deepEqual(pub.at(-1), ["cash", { count: 1, tone: "warn", text: "1 unmatched cash row" }]);
-  delete globalThis.slPublish;
-  await assert.doesNotReject(m.ciLoad());
-  globalThis.api = orig;
+test("the four cards come in order: agrees with the broker, withdrawals, verify, closed years", () => {
+  const html = m.ciHtml(VIEW, null);
+  const titles = [...html.matchAll(/<h3>([^<]*)<\/h3>/g)].map((x) => x[1]);
+  assert.deepEqual(titles, ["Investment cash agrees with the broker", "Withdrawals: actual vs plan", "One-time: verify accounts for the tax feed", "Closed years"]);
+  assert.match(html, /<table/);
+  assert.doesNotMatch(html, /<a href="#" onclick="ciShowLedger/);   // account names are plain text; the cash rows have a labelled button
+  assert.match(html, /Cash rows<\/button>/);
 });
 
-test("the panel is a body only: the page's cash section shell supplies the summary, open memory and badge", () => {
-  const html = m.ciHtml(VIEW, null);
-  assert.doesNotMatch(html, /<details|<summary/); // 2026-11-04: shell moved to slSection("cash")
-  assert.match(html, /<table/);
-  assert.match(m.ciStateText(), /^(\d+ accounts?)?$/);
-  assert.equal(globalThis.ciReveal, undefined);
+test("all-matching accounts collapse to \"n of n match\"; a mismatch stays visible", () => {
+  const ok = { ...VIEW, accounts: VIEW.accounts.map((a) => ({ ...a, difference: 0, unmatched: 0, balance: 10, cash_lot: 10 })) };
+  const h = m.ciHtml(ok, null);
+  assert.match(h, /<summary>2 of 2 match<\/summary>/);
+  const mixed = m.ciHtml(VIEW, null);
+  assert.doesNotMatch(mixed, /2 of 2 match/);
+  assert.match(mixed, /Member 1 HSA/);
+});
+
+test("withdrawal rows that are $0 on both sides are hidden", () => {
+  const v = { ...VIEW, comparison: { year: 2026, closed: false, snapshot: null, note: "n", plan_unmapped: {},
+    accounts: [{ account: "Member_1_HSA", reported_ytd: 300, plan: 1000, difference: null }, { account: "Member_1_IRA", reported_ytd: 0, plan: 0, difference: null }] } };
+  const h = m.ciHtml(v, null);
+  const card = h.slice(h.indexOf("Withdrawals: actual vs plan"), h.indexOf("One-time"));
+  assert.match(card, /Member 1 HSA/);
+  assert.doesNotMatch(card, /Member 1 IRA/);
+});
+
+test("closed years sit in one collapsed list and years with only zero rows are omitted", () => {
+  const closed = (year, reported) => ({ year, closed: true, closed_at: `${year + 1}-01-08T10:00:00Z`, note: "", plan_source: "none", changed: false, difference: [{ account: "Member_1_HSA", reported, plan: reported ? null : 0, difference: null }] });
+  const h = m.ciHtml({ ...VIEW, closes: [closed(2024, 0), closed(2025, 40)] }, null);
+  assert.match(h, /<summary>Closed years \(1\)<\/summary>/);
+  assert.match(h, /2025 closed/);
+  assert.doesNotMatch(h, /2024 closed/);
+  assert.equal((h.match(/Reopen 2025/g) || []).length, 1);
+});
+
+test("verify card is open until every account is verified, then one collapsed line", () => {
+  const gate = (v) => ({ ...VIEW, accounts: VIEW.accounts.map((a) => ({ ...a, floor_gate: { verified: v, eligible: v, reason: "" } })) });
+  assert.match(m.ciHtml(gate(false), null), /<details open><summary>Accounts to verify<\/summary>/);
+  assert.match(m.ciHtml(gate(true), null), /<details><summary>All 2 accounts are verified<\/summary>/);
+});
+
+test("loading for a closing year asks the server for that year", async () => {
+  const urls = [];
+  globalThis.document = { getElementById: () => null };
+  const orig = globalThis.api;
+  globalThis.api = async (u) => { urls.push(u); return VIEW; };
+  try { await m.ciLoad(2026); } finally { globalThis.api = orig; }
+  assert.deepEqual(urls, ["/api/cash?year=2026"]);
 });
 
 test("ledger_offers_mark_as_rollover_on_a_plain_outflow_and_unmark_on_a_marked_one", () => {
@@ -144,10 +171,10 @@ test("rendering the panel again after a few seconds reloads it (holdings or impo
   globalThis.setTimeout = (fn) => { calls.push(fn); return 0; };
   try {
     window.ciLoadedAt = Date.now();
-    m.renderCashInvestment();
+    m.renderCashInvestment(2026);
     const fresh = calls.length;
     window.ciLoadedAt = Date.now() - 10000;
-    m.renderCashInvestment();
+    m.renderCashInvestment(2026);
     assert.equal(calls.length - fresh, 1);
   } finally { globalThis.setTimeout = orig; }
 });

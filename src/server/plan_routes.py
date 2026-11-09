@@ -1154,27 +1154,6 @@ def sales_unvoid(sale_id: int):
     return _sales_call(_sales.unvoid_sale, sale_id)
 
 
-@app.route("/api/sales/import/preview", methods=["POST"])
-def sales_import_preview():
-    denied = _require("view_dashboard")
-    if denied:
-        return denied
-    from .. import sales_service as _sales
-    return _sales_call(_sales.preview_csv, str((request.get_json(silent=True) or {}).get("content") or ""))
-
-
-@app.route("/api/sales/import/commit", methods=["POST"])
-def sales_import_commit():
-    denied = _require("write_config")
-    if denied:
-        return denied
-    from .. import sales_service as _sales
-    response = _sales_call(_sales.commit_csv, str((request.get_json(silent=True) or {}).get("content") or ""))
-    if response[1] == 200:
-        _audit("sales_imported", {"written": response[0].get_json().get("written", 0)})
-    return response
-
-
 # ---- Tax-year panel (step 3a.3; logic in src/sales_tax_year.py): netting, carryforward entry, wash-flag refresh ----
 
 @app.route("/api/sales/tax-year", methods=["GET"])
