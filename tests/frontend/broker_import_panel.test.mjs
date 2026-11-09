@@ -16,6 +16,7 @@ before(async () => {
     if (url === "/api/sales/broker/commit") return { success: true, rows_new: 3, lots_added: 1, confirmed: [1], queued: [] };
     return { success: true };
   };
+  await import("../../frontend/js/dashboard_decomp_sales_group.js");
   await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
   sl = await import("../../frontend/js/dashboard_decomp_sales_ledger.js");
   m = await import("../../frontend/js/dashboard_decomp_broker_import.js");
@@ -115,11 +116,10 @@ describe("calls", () => {
 describe("ledger row actions", () => {
   const S = (o) => ({ sale_id: 7, sale_date: "2026-06-10", account: "A", symbol: "X", shares: 1, proceeds: 1, fees: 0, basis: 1,
     gain: 0, holding_period: "long", status: "confirmed", ...o });
-  test("manual rows can be edited; queue rows go back to the queue; 1099-B rows can only be voided", () => {
-    assert.match(sl.slRowHtml(S({ source: "manual" })), /slEdit\(7\).*slVoid\(7\)/);
-    assert.match(sl.slRowHtml(S({ source: "broker" })), /slRequeue\(7\)/);
-    assert.doesNotMatch(sl.slRowHtml(S({ source: "broker" })), /slVoid/);
-    assert.match(sl.slRowHtml(S({ source: "1099b" })), /slVoid\(7\)/);
+  test("a manual lot can be edited and voided; a queue sale goes back to the queue", () => {
+    assert.match(sl.slLotRowHtml(S({ source: "manual" })), /slEdit\(7\)[^]*slVoid\(7\)/);
+    assert.match(sl.slSaleRowHtml(window.slGroupSales([S({ source: "broker" })])[0], 0), /slRequeue\(7\)/);
+    assert.match(sl.slLotRowHtml(S({ source: "1099b" })), /slVoid\(7\)/);
   });
   test("requeue posts to the sale's requeue route", async () => {
     await sl.slRequeue(7);

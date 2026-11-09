@@ -17,6 +17,7 @@ let slMessage = null; // { text, error }
 let slLoading = false;
 let slError = "";
 let slAccounts = [];
+let slSum = null; // GET /api/sales/summary for the current Year and switch
 let slHiddenVoids = 0; // voided rows the current selection hides (one extra fetch when Voided rows is off)
 export const slCurrentYear = () => slYear;
 export const slTaxableOnly = () => (window.slUiLoad ? window.slUiLoad().taxableOnly !== false : true);
@@ -33,28 +34,43 @@ export function slGainHtml(v) {
   return `<span class="rc-num${cls}">${esc((v > 0 ? "+" : "") + slMoney(v))}</span>`;
 }
 
-export function slRowHtml(s) {
-  const voided = s.status === "voided";
-  const id = Number(s.sale_id);
-  const btn = (fn, label) => `<button class="btn" type="button" onclick="${fn}(${id})">${label}</button>`;
-  const action = voided ? btn("slUnvoid", "Restore")
-    : s.source === "manual" ? btn("slEdit", "Edit") + " " + btn("slVoid", "Void")
-    : s.source === "broker" || s.source === "monarch" ? btn("slRequeue", "Back to queue")
-    : btn("slVoid", "Void");
-  return `<tr class="${voided ? "sl-voided" : ""}"><td>${esc(s.sale_date)}</td><td>${esc(accountDisplayLabel(s.account))}</td><td>${esc(s.symbol)}</td>` +
-    `<td class="rc-num">${esc(String(s.shares))}</td><td class="rc-num">${slMoney(s.proceeds)}</td><td class="rc-num">${slMoney(s.fees)}</td>` +
-    `<td class="rc-num">${slMoney(s.basis)}</td><td>${s.gain === null || s.gain === undefined ? `<span class="sl-chip">tax-deferred — no gain reported</span>` : slGainHtml(s.gain)}</td><td>${esc(SL_TERM[s.holding_period] || "")}</td><td>${action}</td></tr>`;
+const slTermText = (t) => SL_TERM[t] || t || "";
+const slGainCell = (v) => (v === null || v === undefined ? `<span title="not taxable">—</span>` : slGainHtml(v));
+// A ⋯ menu: each item is [label, onclick, reason]; an item that does not apply is disabled and says why.
+const slMenu = (items) => `<details class="sl-menu"><summary aria-label="Actions">⋯</summary><div class="sl-menu-items">${items.map(([label, fn, why]) =>
+  `<button class="btn" type="button"${why ? ` disabled title="${esc(why)}"` : ` onclick="${fn}"`}>${label}${why ? ` <span class="muted">(${esc(why)})</span>` : ""}</button>`).join("")}</div></details>`;
+
+export function slLotRowHtml(s) {
+  const voided = s.status === "voided", id = Number(s.sale_id);
+  const why = s.source !== "manual" ? "came from the queue: send the sale back to the queue to change it" : (s.lot_key || "").includes("log_sell") ? "linked to the transaction log: void it and record the sale again" : "";
+  const items = voided ? [["Restore", `slUnvoid(${id})`, ""]] : [["Edit", `slEdit(${id})`, why], ["Void", `slVoid(${id})`, ""]];
+  return `<tr class="sl-lot${voided ? " sl-voided" : ""}"><td></td><td>lot bought ${esc(s.purchase_date || "(date unknown)")}</td><td></td><td></td><td class="rc-num">${esc(String(s.shares))}</td><td class="rc-num">${slMoney(s.proceeds)}</td>` +
+    `<td class="rc-num">${slMoney(s.basis)}</td><td>${slGainCell(s.gain)}</td><td>${esc(slTermText(s.holding_period))}</td><td>${slMenu(items)}</td></tr>`;
+}
+
+let slGroupsNow = [];
+const slOpenSales = new Set(); // sale keys whose lots are showing
+export function slSaleRowHtml(g, i) {
+  const open = slOpenSales.has(g.key), voided = g.lots.every((l) => l.status === "voided");
+  const why = g.lots.every((l) => l.source === "manual") ? "a hand-recorded sale has no queue entry" : "";
+  return `<tr class="sl-sale${voided ? " sl-voided" : ""}"><td><button class="btn" type="button" aria-expanded="${open}" aria-label="Lots of this sale" onclick="slToggleSale(${i})">${open ? "▾" : "▸"}</button></td><td>${esc(g.sale_date)}</td>` +
+    `<td>${esc(accountDisplayLabel(g.account))}</td><td>${esc(g.symbol)}${g.wash ? ` <span class="sl-chip">wash?</span>` : ""}</td><td class="rc-num">${esc(String(+g.shares.toFixed(6)))}</td>` +
+    `<td class="rc-num">${slMoney(g.proceeds)}</td><td class="rc-num">${slMoney(g.basis)}</td><td>${slGainCell(g.gain)}</td><td>${esc(slTermText(g.term))}</td>` +
+    `<td>${voided ? "" : slMenu([["Send back to queue", `slRequeue(${Number(g.lots[0].sale_id)})`, why]])}</td></tr>` + (open ? g.lots.map(slLotRowHtml).join("") : "");
 }
 
 export function slTableHtml(sales) {
   if (!sales || !sales.length) return `<p class="muted">No sales recorded for this selection.</p>`;
-  return `<div class="rc-scroll sl-scroll" role="region" aria-label="Sales" tabindex="0"><table class="rc-table"><thead><tr><th>Sale date</th><th>Account</th><th>Symbol</th><th class="rc-num">Shares</th>` +
-    `<th class="rc-num">Proceeds</th><th class="rc-num">Fees</th><th class="rc-num">Basis</th><th class="rc-num">Gain</th><th>Term</th><th></th></tr></thead>` +
-    `<tbody>${sales.map(slRowHtml).join("")}</tbody></table></div>`;
+  slGroupsNow = [...window.slGroupSales(sales.filter((x) => x.status !== "voided")), ...window.slGroupSales(sales.filter((x) => x.status === "voided"))];
+  return `<div class="rc-scroll sl-scroll" role="region" aria-label="Sales" tabindex="0"><table class="rc-table"><thead><tr><th></th><th>Sale date</th><th>Account</th><th>Symbol</th><th class="rc-num">Shares</th>` +
+    `<th class="rc-num">Proceeds</th><th class="rc-num">Basis</th><th class="rc-num">Gain</th><th>Term</th><th></th></tr></thead><tbody>${slGroupsNow.map(slSaleRowHtml).join("")}</tbody></table></div>`;
 }
+export function slToggleSale(i) { const g = slGroupsNow[Number(i)]; if (g) { if (!slOpenSales.delete(g.key)) slOpenSales.add(g.key); slPaint(); } }
 
-export function slTotalsHtml(t) {
-  return `<p><strong>${Number(t.count)}</strong> sale${t.count === 1 ? "" : "s"} · short-term net ${slGainHtml(t.short_gain)} · long-term net ${slGainHtml(t.long_gain)}</p>`;
+// KPI strip: the server's summary (same filter as Tax year), realized before carryforward.
+export function slKpiHtml(t) {
+  if (!t) return "";
+  return `<p class="sl-kpi"><strong>${Number(t.sales)}</strong> sale${t.sales === 1 ? "" : "s"} · short-term realized ${slGainHtml(t.st_gain)} · long-term realized ${slGainHtml(t.lt_gain)} · fees ${slMoney(t.fees)}</p>`;
 }
 
 // Year list: "All years" plus only the years the server says have rows. Before the list arrives the chosen year stands in for it.
@@ -83,7 +99,7 @@ export function slHeadHtml() {
 
 function slListHtml() {
   const msg = slMessage ? `<p class="${slMessage.error ? "field-error" : "muted"}" role="status">${esc(slMessage.text)}</p>` : "";
-  const bar = `<div class="sl-toolbar">${slData ? slTotalsHtml({ ...slData.totals, count: slData.sales.length }) : ""}</div>`;
+  const bar = `<div class="sl-toolbar">${slKpiHtml(slSum)}</div>`;
   return msg + bar + (slError ? `<p class="field-error">${esc(slError)}</p>` : slData ? slTableHtml(slData.sales) : `<p class="muted">Loading…</p>`);
 }
 
@@ -197,6 +213,7 @@ export async function loadSalesLedger() {
     if (out && out.sales) slAccounts = [...new Set([...slAccounts, ...out.sales.map((x) => x.account)])].sort();
     if (out && out.sales && slTaxableOnly()) out.sales = out.sales.filter((x) => x.tax_class === "taxable");
     slData = out && out.success ? out : null;
+    try { slSum = ((await api(`/api/sales/summary?${year ? `year=${encodeURIComponent(year)}&` : ""}taxable_only=${slTaxableOnly() ? 1 : 0}`)) || {}).summary || null; } catch (e) { slSum = null; }
     if (!slData) slError = "The ledger could not be loaded.";
     await slLoadHiddenVoids(year, showVoided);
     if (window.slPublish && slData) window.slPublish("ledger", { count: slData.sales.length, tone: "", text: `${slData.sales.length} sale${slData.sales.length === 1 ? "" : "s"}` });
@@ -260,6 +277,6 @@ export function slSetTaxableOnly(on) {
 }
 
 Object.assign(window, {
-  slMoney, slGainHtml, slRowHtml, slTableHtml, slTotalsHtml, renderSalesLedger, slHashTarget, loadSalesLedger, slAfterEntry, slVoid, slUnvoid,
+  slMoney, slGainHtml, slLotRowHtml, slSaleRowHtml, slTableHtml, slToggleSale, slKpiHtml, renderSalesLedger, slHashTarget, loadSalesLedger, slAfterEntry, slVoid, slUnvoid,
   slSetYear, slSetShowVoided, slSetTaxableOnly, slCurrentYear, slTaxableOnly, slYearOptionsHtml, slHeadHtml, slEdit, slRequeue, slHealthSlotHtml, slHealthSlotInnerHtml, slQueueStateText, slHealthStateText, slLedgerBodyHtml, slHiddenVoidCount,
 });
