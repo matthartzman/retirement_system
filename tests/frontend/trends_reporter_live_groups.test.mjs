@@ -241,6 +241,22 @@ describe("sold lots (sales ledger 4.2)", () => {
       near(nodes.reduce((s, n) => s + n.row.current, 0), total.current, "current foots");
     }
   });
+  test("every expanded group's children add up to it, with sold lots folded into a Sold positions child", () => {
+    const BOND = LOT({ symbol: "BND", asset_class: "Fixed Income", subclass: "Core Bonds", sold: true, shares: 0, start: 8000, new_money: -8100, weighted: -800, current: 0, day: null });
+    const check = (nodes) => nodes.forEach((n) => {
+      if (n.children.length) {
+        for (const k of ["start", "new_money", "current"]) near(n.children.reduce((s, c) => s + c.row[k], 0), n.row[k], `${n.name} ${k}`);
+        check(n.children);
+      }
+    });
+    for (const order of [["class", "subclass", "symbol", "lot"], ["class", "lot"], ["account", "class", "lot"]]) {
+      const { nodes } = buildTree([...ALL, BOND], order, { days: 300 });
+      check(nodes);
+    }
+    const equity = buildTree(ALL, ["class", "symbol", "lot"], { days: 300 }).nodes.find((n) => n.name === "Equity");
+    assert.deepEqual(equity.children.map((c) => c.name), ["ITOT", "Sold positions"]);
+    assert.equal(equity.children.at(-1).parent, equity.path);
+  });
   test("per-group returns come from the signed money out and in", () => {
     const { nodes } = buildTree(ALL, ["class", "lot"], { days: 300 });
     const equity = nodes.find((n) => n.name === "Equity"), cash = nodes.find((n) => n.name === "Cash");

@@ -183,12 +183,11 @@ export function buildTree(positions, order, { days, labelOf = (id) => id, sort =
     });
     // Sold lots stay in every total (their gain is part of the return) but get no row of their own: the Realized tab lists them.
     const shown = sortNodes(nodes.filter((n) => !n.members.every((m) => m.sold)), dim, by);
-    if (level > 0) return shown;
-    // At the top level a group made only of sold lots (e.g. a class nothing is held in any more) would leave the
-    // rows short of the Total row, so those fold into one "Sold positions" row at the bottom and the table foots.
+    // A group made only of sold lots (e.g. a class nothing is held in any more) would leave its siblings short of
+    // the row above them, so at every level those fold into one "Sold positions" row at the bottom and each level foots.
     const hidden = nodes.filter((n) => n.members.every((m) => m.sold)).flatMap((n) => n.members);
     if (hidden.length > 0) {
-      shown.push({ dim, name: SOLD_ROW, label: SOLD_ROW, title: "", path: `/${encodeURIComponent(SOLD_ROW)}`, parent: null,
+      shown.push({ dim, name: SOLD_ROW, label: SOLD_ROW, title: "", path: `${parent || ""}/${encodeURIComponent(SOLD_ROW)}`, parent: parent || null,
                    row: aggregate(hidden, totals, days), members: hidden, children: [], sold: true });
     }
     return shown;
