@@ -506,6 +506,47 @@ def set_managed(input_dir: str | Path, account: str, on: bool) -> dict[str, Any]
         return {"account": account, "managed": True, "rows": materialize(store, account)}
 
 
+def _bank_opening_rows(store: Any) -> dict[str, list[int]]:
+    """``{account: [active opening txn_ids]}`` for log accounts that are not investment accounts (a bank account's CASH balance)."""
+    from .broker_import import investment_accounts
+    investing = set(investment_accounts(store))
+    out: dict[str, list[int]] = {}
+    for r in store.transactions.list():
+        if r["account"] not in investing and r["type"] == "opening":
+            out.setdefault(r["account"], []).append(r["txn_id"])
+    return out
+
+
+def bank_account_cleanup_preview(input_dir: str | Path) -> dict[str, Any]:
+    """What the one-time cleanup would void: the opening rows of accounts that are not investment accounts."""
+    with active_plan.workspace_store(_base(input_dir)) as store:
+        managed = {a.lower() for a in store.transactions.managed_accounts()}
+        return {"accounts": [{"account": a, "managed": a.lower() in managed, "opening_rows": ids}
+                             for a, ids in sorted(_bank_opening_rows(store).items())]}
+
+
+def bank_account_cleanup_apply(input_dir: str | Path, accounts: list[str]) -> dict[str, Any]:
+    """Void the opening rows of the named bank accounts. Order is fixed: stop managing the account first, then void, and
+    never rewrite its holdings, so the account's CASH holding survives. Investment accounts are never touched."""
+    wanted = {str(a).strip().lower() for a in (accounts or []) if str(a).strip()}
+    if not wanted:
+        raise ValidationError("name the accounts to clean up")
+    with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
+        found = {a: ids for a, ids in _bank_opening_rows(store).items() if a.lower() in wanted}
+        managed = {a.lower() for a in store.transactions.managed_accounts()}
+        unmanaged = []
+        for account in sorted(found):
+            if account.lower() in managed:
+                store.transactions.set_managed(account, False)
+                unmanaged.append(account)
+        voided = 0
+        for ids in found.values():
+            for txn_id in ids:
+                store.transactions.void(txn_id)
+                voided += 1
+    return {"voided": voided, "unmanaged": unmanaged}
+
+
 def managed_view(input_dir: str | Path) -> dict[str, Any]:
     with active_plan.workspace_store(_base(input_dir)) as store:
         return {"managed": store.transactions.managed_accounts()}

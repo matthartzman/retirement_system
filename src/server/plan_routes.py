@@ -1696,6 +1696,23 @@ def transactions_set_managed(account: str):
     return _log_write(lambda t, root, *_: t.set_managed(root, account, on), "transaction_account_managed", account)
 
 
+@app.route("/api/transactions/bank-cleanup", methods=["GET"])
+def transactions_bank_cleanup_preview():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import transactions as _t
+    return _sales_call(_t.bank_account_cleanup_preview)
+
+
+@app.route("/api/transactions/bank-cleanup", methods=["POST"])
+def transactions_bank_cleanup_apply():
+    accounts = _log_body().get("accounts")
+    if not isinstance(accounts, list) or not accounts:
+        return jsonify({"success": False, "error": "name the accounts to clean up"}), 400
+    return _log_write(lambda t, root: t.bank_account_cleanup_apply(root, [str(a) for a in accounts]), "bank_accounts_cleaned_up")
+
+
 @app.route("/api/transactions/backfill", methods=["POST"])
 def transactions_backfill():
     return _log_write(lambda t, root: t.start_log(root), "transactions_backfilled")
