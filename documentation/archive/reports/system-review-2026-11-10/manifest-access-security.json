@@ -1,0 +1,40 @@
+{
+  "repository": "matthartzman/retirement_system",
+  "reviewed_ref": "fix-401k-hsa-agi-and-cash @ e75d6ac159210dc5127e8c42f5a71b41689f8a1f",
+  "collected": "2026-11-10",
+  "collaborators": {
+    "status": "unavailable",
+    "reason": "list_repository_collaborators returned HTTP 403 'Resource not accessible by integration'. The GitHub integration token lacks permission to read collaborators. Not retried."
+  },
+  "teams": {
+    "status": "ok",
+    "teams": [],
+    "team_members": {
+      "status": "not_applicable",
+      "reason": "get_teams returned an empty list for the authenticated user, so get_team_members was not called."
+    },
+    "caveat": "get_teams reports only teams the authenticated user belongs to in organizations visible to the current credentials. The repository owner is a user account, not an organization, so no teams are expected; this is not proof that no other access path exists."
+  },
+  "secret_scanning": {
+    "status": "unavailable",
+    "reason": "run_secret_scanning returned 'Repository does not have GitHub Advanced Security enabled.' One call was made (content of tools/manage_secret.py as it exists on origin/main). Not retried.",
+    "findings": [],
+    "caveat": "No scan was performed. The empty findings list means 'not scanned', not 'no secrets present'."
+  },
+  "local_context": {
+    "note": "Read-only local observations, not a secret scan.",
+    "observations": [
+      "git ls-files (1,861 tracked files) filtered by name for .env*, *.pem, *.key, *.ini, *.cfg and names containing secret/credential/token: no tracked .env, .pem, .key, .ini or .cfg file. Name matches are source, tests and tooling only (e.g. src/secrets_store.py, src/server_services/secret_service.py, tools/manage_secret.py). File contents other than the two below were not inspected.",
+      "origin/main:src/secrets_store.py:1-17 - module docstring - states secrets are held in the OS credential store via keyring with no plain-text fallback; a legacy local_state/secrets.local.json is migrated out.",
+      "origin/main:tools/manage_secret.py:12-37 - fingerprint/_run - the CLI prints only a 12-character SHA-256 fingerprint of a secret, never the value, and reads values through getpass.",
+      "The reviewed HEAD commit e75d6ac1 is not contained in any remote-tracking branch (git branch -r --contains HEAD returned nothing), so GitHub-side metadata does not cover it."
+    ]
+  },
+  "gaps": [
+    "Collaborator list and permission levels unknown (403).",
+    "No secret scan of any kind was completed; GitHub Advanced Security is not enabled on the repository.",
+    "Git history was not scanned for previously committed secrets.",
+    "Branch protection, deploy keys, webhooks and installed apps were not inspected (no permitted tool for them in this stage)."
+  ],
+  "note": "Review access configuration only; do not modify it."
+}

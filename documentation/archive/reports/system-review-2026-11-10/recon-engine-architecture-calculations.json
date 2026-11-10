@@ -1,0 +1,207 @@
+{
+  "pass": "engine-architecture-calculations",
+  "kind": "reconnaissance map (no findings)",
+  "date": "2026-11-10",
+  "repository": "matthartzman/retirement_system",
+  "reviewed_ref": "fix-401k-hsa-agi-and-cash @ e75d6ac159210dc5127e8c42f5a71b41689f8a1f (local, unpushed; working tree dirty: GOLDEN_MASTER_CHANGELOG.md, tests/fixtures/golden_phase_baseline/demo.json, sample_frozen.json, tests/test_frozen_sample_plan_golden_master_regression.py)",
+  "ci_statement": "CI was intentionally excluded from this review.",
+  "method": "Static read-only inspection. Line counts via `git ls-files | xargs wc -l`; top-level symbols via grep of `^(def|class)`; targeted reads of entry points, pipeline facades, persistence headers and the HEAD commit diff. No tests, builds or app runs. Inventory manifests in the scratch dir were consumed as context.",
+
+  "entry_points": [
+    {"name": "main.py", "evidence": "main.py:114-150 — main() — selects --mode desktop (default) or server (env RETIREMENT_SYSTEM_LAUNCH_MODE); runs src.bootstrap.run_startup_bootstrap() (env defaults + at-rest plan data migration) before either mode"},
+    {"name": "Desktop mode", "evidence": "main.py:77-79 — _run_desktop — delegates to src.desktop_app.start (PyWebView, no HTTP socket; fetch routed in-process via src/desktop_api.py per documentation/reference/CLAUDE.md)"},
+    {"name": "Server mode", "evidence": "main.py:85-108 — _run_server — stdlib HTTP via src.http_runtime.server.run_local_server(create_app()) on cfg host/port (default 127.0.0.1:5050); banner hard-codes 'v11' while src/version.py:6 says VERSION='12'"},
+    {"name": "Frozen-exe script runner", "evidence": "main.py:47-61 — _is_script_arg — when frozen, any argv[1] ending .py is runpy.run_path'd (used to run tools/build_workbook.py as a subprocess)"},
+    {"name": "Workbook build CLI", "evidence": "tools/build_workbook.py:28-45 — __main__ — freeze_support() then src.build_entry.run_build(); src/build_entry.py:31-48 — run_build — lazily imports src.reporting.workbook_builder.main"},
+    {"name": "build.py", "evidence": "build.py (74 lines, not opened) — PyInstaller build + OneDrive backup per documentation/reference/CLAUDE.md"},
+    {"name": "Standalone Financial Trends reporter", "evidence": "financial_trends_reporter/main.py (not opened) — separate server; ten of its modules import from src (git grep 'from src' hits access_routes.py, account_registry.py, app_sync.py, liquid_change.py, listeners.py, live_snapshot.py, main.py, passthrough_decisions.py, plan_annuity_values.py, projections.py); src/server/workbook_routes.py:626 imports financial_trends_reporter.live_snapshot.classify_symbol (bidirectional coupling)"},
+    {"name": "Monarch Extractor", "evidence": "Monarch Extractor/ (4 files, not opened) — Playwright scraper; per manifest-inventory, its playwright dependency is in no tracked manifest"}
+  ],
+
+  "module_layers": {
+    "source_size": "src/: 323 Python files, ~105k lines (wc). frontend/: 72 JS files, ~44k lines (inventory).",
+    "layer_diagram_evidence": "documentation/reference/SYSTEM_ARCHITECTURE_DIAGRAM.md:11-54 — generated layer flowchart — layers HTTP Routes (11), Server Services (21), HTTP Runtime (4), Core Engine & Domain (232 root modules), Projection Stages (27), Reporting/Workbook (26), Dashboard UI Builder (2); arrows show Core->HTTP Routes, Core->Server Services and HTTP Runtime->Core, i.e. the 'core' layer imports upward into routes/services (bidirectional layer edges)",
+    "layers": [
+      {"layer": "HTTP routes", "paths": ["src/server/app_core.py (1208)", "src/server/plan_routes.py (2513)", "src/server/workbook_routes.py (891)", "src/server/admin_routes.py", "src/server/base_routes.py", "src/server/import_export_routes.py", "src/server/route_manifest.py (78)", "src/server/security_audit.py (344)"], "evidence": "src/server/route_manifest.py:5-30 — ROUTE_MODULES — route ownership groups build_results, app_shell, runtime, plan_data, rental, plan_config, pricing, portfolio, security, spending ..."},
+      {"layer": "HTTP runtime", "paths": ["src/http_runtime/wsgi_facade.py (590)", "src/http_runtime/server.py", "src/http_runtime/host_guard.py"]},
+      {"layer": "Server services", "paths": ["src/server_services/*.py (21 files; largest strategy_asset_service.py 1256, config_service.py 561, rental_service.py 463, spending_service.py 441, build_job_service.py 405)"]},
+      {"layer": "Config parsing", "paths": ["src/data_io.py (1084)", "src/parsing/client_sections.py (1735)", "src/parsing/*.py (14)", "src/plan_config.py (228)", "src/config_backend.py", "src/engine_defaults.py"], "evidence": "src/data_io.py:598 — parse_client — sectioned plan rows to engine config dict c; src/plan_config.py:207 — ensure_engine_config — normalizes/validates c (re-exported by engine_kernels.py:844)"},
+      {"layer": "Engine facade + kernels", "paths": ["src/planning_engines.py (3050)", "src/engine_kernels.py (2415)", "src/core.py (1599)", "src/tax_kernel.py (300)", "src/taxes.py (484)", "src/tax_law.py (198)", "src/tax_assumptions.py", "src/engine_sections/*.py (monte_carlo 510, monte_carlo_headline 946, roth_conversion 502)", "src/vectorized_fast_core.py", "src/optimization.py (2122)", "src/strategy_sweep.py"]},
+      {"layer": "Projection stages", "paths": ["src/projection_stages/deterministic_engine.py (1792)", "26 stage modules (income 614, spending_and_rmd 787, roth_conversion_and_agi_tax 978, rental_property 1232, home_sale 553, withdrawal_cascade_* x9, deaths_and_spousal_rollover, appreciation_divorce_qlac, amt_equity_comp_true_up, portfolio_growth_and_net_worth, cashflow_breakdown, effective_marginal_rate, year_state ...)"]},
+      {"layer": "Results / contracts", "paths": ["src/report_compute.py (339)", "src/projection_pipeline.py (183)", "src/result_contract.py (356)", "src/results_model.py (826)", "src/report_spec.py", "src/governance.py", "src/limitation_notices.py", "src/detailed_results.py (996)"]},
+      {"layer": "Reporting / workbook", "paths": ["src/reporting/workbook_builder.py (1560)", "src/reporting/workbook_common.py (1230)", "src/reporting/sheets_strategy.py (2576)", "src/reporting/sheets_allocation_helpers.py (2410)", "src/reporting/sheets_stress.py (1637)", "src/reporting/sheets_projection_*.py", "src/reporting/sheets_strategy_pair_worker.py (ProcessPool worker)"]},
+      {"layer": "Domain features", "paths": ["housing (src/housing/ 18 files)", "rental (src/rental_tax.py, projection_stages/rental_property.py, server_services/rental_service.py)", "sales ledger / wash sales (src/sales_*.py, src/wash_sales.py, src/wash_adjustments.py, src/history_sales.py, src/realized_tax.py)", "cash tracking (src/cash_*.py x9)", "spending (src/spending_tracker.py 2150, src/spending_budget_resolver.py 688)", "YTD (src/ytd_tracking.py 1967, src/ytd_projection_blend.py)", "HSA (src/hsa_schedule.py 1772)", "market data (src/market_data.py 1976)", "year-end (src/year_end.py)"]},
+      {"layer": "Persistence", "paths": ["src/stores/ (27 files)", "src/active_plan.py (695)", "src/local_store.py (488)", "src/plan_registry.py", "src/plan_db_replace.py", "src/secrets_store.py"]},
+      {"layer": "Import/export + migration", "paths": ["src/csv_exchange/ (7)", "src/broker_import.py", "src/broker_1099b/ (8)", "src/broker_activity/ (5)", "src/monarch_*.py (5)", "src/import_preview.py", "src/legacy_conversion/ (17)", "src/plan_data_migration.py", "src/plan_data_backfill.py"]},
+      {"layer": "Module catalog / gating", "paths": ["src/module_catalog.py (2568)"], "evidence": "src/module_catalog.py:1-32 — module docstring — declared 'single source of truth' for inputs/outputs modules, OPTIONAL_MODULE_SHEETS and module_enabled/module_status gating; stdlib-only by design"}
+    ]
+  },
+
+  "calculation_engine": {
+    "build_flow": [
+      "src/report_compute.py:246-255 — prepare_config_from_sectioned_data — parse_client -> ensure_engine_config -> optimize_roth_conversion_strategy (always scores Roth candidates) -> ensure_engine_config",
+      "src/report_compute.py:267-339 — run_projection_artifacts — cash_tax_floor.feed -> run_projection_pipeline -> summarize_validation (release gate raises ValueError on FAIL) -> monte_carlo(base_rows=rows) -> advisor_readiness / limitation_notices / roth_guardrail_analysis / attach_plan_result / report_spec / save_result_snapshot, each post-step wrapped in try/except that downgrades to a warning",
+      "src/projection_pipeline.py:150 — run_projection_pipeline — named-stage facade over the engine",
+      "src/planning_engines.py:185-205 — project — thin public orchestrator calling projection_stages.run_deterministic_projection_stage under observability.observe",
+      "src/planning_engines.py:221-260 — run_scenario — deepcopy+override+project helper used by Roth candidates, SS claim-age sweep (81 pairs) and stress tests; shares plan_result/report_spec by reference to save copy cost"
+    ],
+    "deterministic_year_loop": {
+      "evidence": "src/projection_stages/deterministic_engine.py:91 — run_deterministic_projection_stage — single function holding the per-year body (~1,700 lines) that calls stage modules in order",
+      "stage_order_by_call_site": [
+        "770 deaths_and_filing_status",
+        "788 spousal_rollover_and_cst_funding",
+        "820 appreciation_divorce_qlac",
+        "860/929 home_sale + next_housing_sale",
+        "975 income (wages/SE, 401k/HSA, SS, pensions, annuities)",
+        "1030 spending_and_rmd",
+        "1148 roth_conversion_stage",
+        "1191 agi_and_tax",
+        "1375 gap_assembly",
+        "1392-1397 withdrawal priority comments: 1 RMD, 2 HSA, 3 IRA elective, 4 taxable/trust, 5 Roth, 6 home equity",
+        "1402 hsa_priority_draws",
+        "1418 hsa_reimbursement_correction",
+        "1440 priority_3_pretax_elective",
+        "1475 taxable_trust_withdrawal",
+        "1505 investment_tax_cascade",
+        "1562 priority_4b_final_pretax_draw",
+        "1660 daf_carryforward_makeup",
+        "1681 final_draws",
+        "1699 amt_and_equity_comp_true_up",
+        "1773 portfolio_growth_and_net_worth"
+      ]
+    },
+    "monte_carlo": {
+      "evidence": [
+        "src/planning_engines.py:3001-3048 — monte_carlo — default 'vectorized_batched' via engine_sections.monte_carlo_headline; 'exact_scalar'/'scalar' mode routes to monte_carlo_exact_scalar (validation oracle)",
+        "src/planning_engines.py:2932-2992 — mc_scalar_spotcheck — opt-in paired-path vectorized vs scalar gap diagnostic; policies with demonstrated parity listed in MC_PARITY_DEMONSTRATED_POLICIES",
+        "src/planning_engines.py:266-276 — monte_carlo_engine section docstring — success defined on spendable/liquid assets, not total net worth",
+        "src/planning_engines.py:36 — LCV_FEASIBILITY_GATE_THRESHOLD = 0.95 — fixed (not household-configurable) gate excluding Roth/claim-age candidates"
+      ],
+      "notes": "Two MC implementations (vectorized replay of deterministic flows vs exact scalar re-projection) must agree; parity measurement docs exist at documentation/reference/MC_PARITY_MEASUREMENT_WI009.md and _WI036.md (not opened)."
+    },
+    "optimizers": [
+      "src/planning_engines.py:912 — optimize_roth_conversion_strategy — Roth candidate scoring",
+      "src/optimization.py:1164 — compute_optimal_allocation — max-Sharpe / real-loss-aware weights via scipy (lines 971, 1008)",
+      "src/housing/optimizer.py, src/daf_optimizer.py, src/qlac_optimizer.py, src/gain_harvest.py, src/tlh.py, src/withdrawal_strategy_comparison.py (not opened)"
+    ]
+  },
+
+  "financial_logic": {
+    "tax": [
+      "src/tax_law.py:1-40 — TaxLawValue/TaxBracket/TaxLawDataset — typed tax-law dataset loaded from reference.db (source reference_src/tax_law_v10.json), stated to have no embedded numeric fallbacks",
+      "reference_src/tax_law_v10.json — effective_year values present 2025-2030 (regex scan) — tax-law currency horizon; later years inflate",
+      "src/tax_kernel.py:1-30 — module docstring — pure kernel consolidating bracket inflation, IRMAA lookup and LTCG stacking after three implementations diverged by up to ~$7,869 (two indexing bugs)",
+      "src/core.py:840-856 — inflate_brackets/compute_fed_tax/standard_deduction; src/core.py:715-812 — RMD divisors, statutory RMD start age, QLAC limits",
+      "src/taxes.py:42-178 — capital-loss limit, federal table loader, IRMAA monotonic check, SALT schedule/reversion, tax_table_currency_warnings",
+      "State tax: src/taxes.py:344 load_state_tax, reference_src/state_tax.csv; ACA PTC/MAGI and estate tax re-exported from engine_kernels (planning_engines.py:121-127)",
+      "Other: src/early_distribution.py, src/rental_tax.py (433), src/other_asset_tax.py, src/note_installment_tax.py, src/wash_sales.py, src/realized_tax.py, src/ss_earnings_test.py, src/equity_comp.py (AMT true-up stage)"
+    ],
+    "income_and_contributions": "src/projection_stages/income.py:234-372 — apply_income — sole-prop SE tax/QBI vs S-corp salary+distribution paths; HEAD e75d6ac1 caps the 401(k) deferral at deferral_comp (net SE minus half SE deduction, or S-corp salary) and subtracts 401(k)+HSA contributions from net_earned_taxable (AGI); 401(k) deposit and limit apply to owner_idx=0 only (income.py:309-318, 330-333); limit indexed by brk_inf (income.py:311); HSA catch-up both spouses (income.py:350)",
+    "withdrawals_rmds_conversions": "engine_kernels.py:919-1002 compute_rmds/apply_rmds; engine_kernels.py:1019-1336 HSA draw rules; engine_kernels.py:616 apply_death_transition with basis step-up fractions (412-478); Roth conversion sizing in engine_sections/roth_conversion.py and projection_stages/roth_conversion_and_agi_tax.py (PR #419 fill-to-bracket cap)",
+    "mortality_returns_cma": "engine_kernels.py:742-814 mortality qx table + sampled death years; optimization.py:244-412 CMA and correlation loaders (reference_src/capital_market_assumptions.csv, asset_correlations.csv); src/real_loss_curves.py",
+    "money_representation": "src/money.py:1-16 — module docstring — Decimal/integer cents at DB/domain boundaries; the engine still runs on float copies"
+  },
+
+  "data_models": [
+    "src/stores/plan_store.py:1-40 — PlanStore docstring — plan_rows (section, subsection, label, value, units, notes; AUTOINCREMENT row_id; last row wins for duplicate keys), plan_revisions/revision_rows with retention, plan_meta; revision hash over content+order",
+    "src/stores/plan_store.py:825-859 — HoldingLot TypedDict and dataset repository Protocols (holdings_lots, liabilities, hsa_schedule, target_allocation)",
+    "Engine config: an untyped dict `c` produced by data_io.parse_client and normalized by plan_config.ensure_engine_config (src/plan_config.py:207); stages read keys like c['k401_lim'], c['entity'] directly (income.py:311)",
+    "Projection output: list of per-year row dicts; validated by src/core.py:605 validate_projection and src/parsing/validation.py:120 summarize_validation",
+    "Result contracts: src/result_contract.py:14-66 RothCandidateResult/RothStrategyResult/PlanResult dataclasses; src/results_model.py:756 build_result_explorer_model (semantic model for Results Explorer)",
+    "src/domain_models.py (293) and src/api_contracts.py (390) — not opened"
+  ],
+
+  "persistence": [
+    "Plan file plan.rpx (SQLite): src/stores/plan_store.py:164-165 — PLAN_MIGRATIONS has 24 DDL steps; PLAN_SCHEMA_VERSION = len(PLAN_MIGRATIONS) = 24 (PRAGMA user_version)",
+    "Migration runner: src/stores/db.py:90-126 — get_version/migrate — increments PRAGMA user_version per migration",
+    "Plan-file sub-areas by schema: build results (WP7.2), spending set (WP6.3), Monarch balances/reconciliation (v13), realized-sales ledger (v17), broker activity imports (v19), transaction log (v20), rental properties (WP12.4), wash_reviews (v23 per commit b8ff026d) — src/stores/plan_store.py:261-318 section headers",
+    "Active plan access: src/active_plan.py:65-262 — active_plan_path / edit_active_plan (single-transaction writer) / build_read / read & write_build_results",
+    "App DB: src/stores/app_store.py:176 — APP_SCHEMA_VERSION = len(APP_MIGRATIONS) (local_state/app.db: settings, plan registry, audit, backups, price cache)",
+    "Reference DB: src/stores/ref_data.py:28 — REF_SCHEMA_VERSION = 1; shipped binary src/reference/reference.db built from reference_src/* by tools/build_reference_db.py and tools/reference_slices/*",
+    "At-rest plan data label migration: src/plan_data_migration.py:42 — PLAN_DATA_SCHEMA_VERSION = 6 (separate from the 24-step SQLite schema)",
+    "Legacy DB: local_state/retirement_system_v10.db still written by src/local_store.py (KPI/result snapshots; report_compute.py:333-338 save_result_snapshot) per documentation/reference/CLAUDE.md",
+    "Secrets: OS credential store via keyring (src/secrets_store.py; per manifest-access-security)"
+  ],
+
+  "imports_exports": [
+    "src/csv_exchange/__init__.py:1-25 — package docstring — the only product package that reads/writes CSV: DATASETS registry, parse/validate/preview/commit/export_dataset; routes /api/import/preview, /api/import/commit, /api/export/plan-set, /api/export/<dataset> (src/server/route_manifest.py plan_data group)",
+    "Broker files: src/broker_1099b/ (E*Trade, E*Trade G/L, Vanguard parsers; optional pypdf), src/broker_activity/ (E*Trade, Fidelity, Vanguard), src/broker_import.py (not opened)",
+    "Monarch: src/monarch_import.py, monarch_balances_import.py, monarch_autoupdate.py, monarch_autoimport_job.py, monarch_mapping_seed.py (not opened)",
+    "Market prices: src/market_data.py (1976; optional requests import) and tools/refresh_prices.py",
+    "Outputs: Excel workbook (openpyxl, lxml XML optimizer src/reporting/workbook_xml_optimizer.py), build_results JSON parts in the plan file, Results Explorer via src/detailed_results.py (re-reads the XLSX), report package src/report_package.py"
+  ],
+
+  "dependencies": {
+    "runtime": "numpy, scipy, lxml, openpyxl, pywebview, keyring (requirements.txt / pyproject per manifest-inventory)",
+    "undeclared_optional": "requests (src/market_data.py), pypdf (src/broker_1099b/pdf_text.py), playwright (Monarch Extractor), PyInstaller (build) — from manifest-inventory and SYSTEM_ARCHITECTURE_DIAGRAM.md:79",
+    "engine_internal_coupling": [
+      "src/engine_kernels.py:19 and src/planning_engines.py:177 — `from .core import *` wildcard imports",
+      "src/planning_engines.py:51-163 — re-exports ~110 kernel names so existing callers/monkeypatch targets keep working",
+      "src/reporting/workbook_common.py:16 — `from ..core import *`; workbook_builder uses `from .workbook_common import *` (workbook_builder.py:595/662/835 comments)",
+      "src/projection_stages/deterministic_engine.py:46-63 — explicit name list replacing a wildcard; also imports engine_kernels as _legacy_pe and core under two aliases _ar/_aa"
+    ]
+  },
+
+  "compatibility_layers": [
+    "src/planning_engines.py:3-21 — header comment — consolidation of 8 former engine files kept as one file to avoid circular imports; BEGIN/END markers preserve old boundaries",
+    "src/planning_engines.py:178-183 — rmd_divisor rebinding — wildcard import shadows rmd_divisor; rebinding restores the table-override signature",
+    "src/planning_engines.py:193-199 — project docstring — 'migration breadcrumbs for legacy source-inspection regression tests' (code text kept in a docstring so text-matching tests pass)",
+    "src/legacy_conversion/__init__.py:1-9 — docstring — 'the one removable module' converting old installs, slated for deletion at WP11.6; still present (17 files)",
+    "src/plan_data_migration.py:1-45 — at-rest row migration replacing parse-time aliases (husband/wife -> member_1/member_2, wellness -> healthcare, Illinois -> State, retired SS taxable fraction)",
+    "src/version.py:5 VERSION='12' vs main.py:97 banner 'v11' vs pyproject 10.0.0 (manifest-inventory version_surfaces)"
+  ],
+
+  "generated_files": [
+    "documentation/reference/SYSTEM_ARCHITECTURE_DIAGRAM.md (generated by tools/generate_system_diagram.py; 846 lines)",
+    "src/reference/reference.db and src/reference/demo_seed.rpx (binary, built by tools/build_reference_db.py / tools/build_demo_seed.py; demo seed rebuilt at schema v24 per commit e5018864)",
+    "reference_src/generated_schema_coverage.csv (tools/generate_schema_coverage.py)",
+    "Golden fixtures: tests/fixtures/golden_phase_baseline/*.json, deterministic full-row snapshot cases (re-pinned in HEAD and PR #419)"
+  ],
+
+  "known_risks_to_investigate": [
+    {"area": "Engine monolith", "note": "run_deterministic_projection_stage is one ~1,700-line function; planning_engines.py 3,050 and engine_kernels.py 2,415 lines with wildcard imports and a ~110-name re-export surface. Evidence: deterministic_engine.py:91-1773 call sites; planning_engines.py:51-177."},
+    {"area": "Two MC engines", "note": "Vectorized replay vs exact scalar must stay in parity; spot-check is opt-in and parity demonstrated only for listed policies (planning_engines.py:2932-2992, 3026-3038)."},
+    {"area": "Silent degradation in post-projection steps", "note": "report_compute.py:283-338 converts advisor readiness, PlanResult, ReportSpec and notice failures into warnings; except-Exception counts: market_data.py 35, optimization.py 16, planning_engines.py 13, deterministic_engine.py 10, engine_kernels.py 10 (git grep -c)."},
+    {"area": "Fresh engine change on reviewed ref", "note": "HEAD e75d6ac1 changes AGI/cash treatment of 401(k)/HSA (income.py, gap_assembly, roth sizing, cashflow breakdown) and re-pins goldens; uncommitted changes to the golden-master pin test and baselines. 401(k) deposit/limit modeled for member 1 (owner_idx=0) only; no 401(k) age-50 catch-up seen in income.py:309-318; employer contributions not visible in the deferral cap. Needs financial-planner review."},
+    {"area": "Tax-law currency", "note": "tax_law_v10.json carries effective years through 2030 (inflation thereafter); taxes.py:178 tax_table_currency_warnings exists. Wash-sale rule W1 awaits CPA confirmation (PR #418)."},
+    {"area": "State-specific residue", "note": "income.py comment 'IL corporate surcharge'; plan_data_migration.py notes c['il_exempt'] Python identifiers deliberately unchanged."},
+    {"area": "Layering", "note": "Generated diagram shows Core->HTTP Routes/Server Services edges (SYSTEM_ARCHITECTURE_DIAGRAM.md:39-50); financial_trends_reporter and src import each other."},
+    {"area": "Float money in engine", "note": "money.py:1-9 states engine receives float copies; rounding/footing behavior not inspected."},
+    {"area": "Project guidance drift", "note": "Project CLAUDE.md large-file table is stale versus wc -l: module_catalog.py 2,568 (table says 916), workbook_builder.py 1,560 (1,443), workbook_common.py 1,230 (1,161), housing/api.py 704 (498), zip_screen/screen.py 532 (402), plan_variant.py 318 (243). documentation/reference/CLAUDE.md names the project folder 'Version 12 - ChatpGPT' while the checkout is 'Version 12'."},
+    {"area": "Multiple schema version counters", "note": "Plan SQLite schema 24, plan data label schema 6, app schema len(APP_MIGRATIONS), reference schema 1, legacy v10 DB still written — upgrade/rollback interplay not inspected."}
+  ],
+
+  "github_work_items_touching_area": [
+    {"ref": "local commit e75d6ac1 (unpushed)", "topic": "401(k)/HSA contributions reduce AGI and come out of cash", "evidence": "git show HEAD — stat lists engine_kernels.py, cashflow_breakdown.py, deterministic_engine.py, income.py, roth_conversion_and_agi_tax.py, withdrawal_cascade_gap_assembly.py, reporting sheets, results_model.py, golden fixtures"},
+    {"ref": "PR #419 (merged 2026-11-10)", "topic": "fill-to-bracket Roth conversions kept inside target bracket; IRMAA surcharge as cash need", "source": "manifest-github.json relevant_merged_pull_requests"},
+    {"ref": "PR #418 (merged 2026-11-10)", "topic": "Sales Ledger v3, wash-sale rules W1-W3 (schema 23/24); W1 needs CPA confirmation; several flows stated not exercised", "source": "manifest-github.json"},
+    {"ref": "PR #417", "topic": "Sold positions row so liquid totals foot", "source": "manifest-github.json"},
+    {"ref": "PR #386", "topic": "Account Tax Basis page (Roth basis, HSA expense bank, experimental cash pair-status tax switch default OFF -> cash_tax_floor.feed in report_compute.py:269-270)", "source": "manifest-github.json"},
+    {"ref": "PR #366", "topic": "Year-end transition (src/year_end.py); Phase 3 not included", "source": "manifest-github.json"},
+    {"ref": "commits ce565d82, 7343e0d0 (main)", "topic": "Other Asset sale tax and per-asset sale dates (projection_stages/other_asset_sale_tax.py)", "source": "manifest-github.json scope_related_commits"},
+    {"ref": "commit 69b6a108 / PR #416", "topic": "survivor-economics reconciliation (MC survivor buckets)", "source": "manifest-github.json"},
+    {"ref": "GitHub issues", "topic": "none exist (0 open, 0 matching); work tracked by WI-/Item/Wave conventions in docs and PR titles", "source": "manifest-github.json open_issues"}
+  ],
+
+  "inspection_status": {
+    "opened_and_read": ["main.py (full)", "src/planning_engines.py:1-290, 2932-3050", "src/report_compute.py:240-339", "src/projection_stages/deterministic_engine.py:1-90 + call-site grep", "src/module_catalog.py:1-40", "src/tax_law.py:1-40", "src/tax_kernel.py:1-30", "src/stores/plan_store.py:1-40 + migration grep", "src/csv_exchange/__init__.py:1-25", "src/legacy_conversion/__init__.py", "src/plan_data_migration.py:1-45", "src/vectorized_fast_core.py:1-25", "src/money.py:1-20", "src/version.py", "src/build_entry.py", "tools/build_workbook.py", "src/server/route_manifest.py:1-30", "documentation/reference/SYSTEM_ARCHITECTURE_DIAGRAM.md:1-120", "HEAD diff of income.py and gap_assembly (partial)"],
+    "symbol_listing_only": ["src/engine_kernels.py", "src/core.py", "src/taxes.py", "src/optimization.py", "src/engine_sections/monte_carlo.py", "src/results_model.py", "src/result_contract.py", "src/projection_pipeline.py", "src/stores/db.py", "src/active_plan.py", "src/data_io.py", "src/reporting/workbook_builder.py"],
+    "not_opened": ["most stage modules' bodies", "src/reporting/* sheet builders", "src/server_services/*", "src/housing/*", "sales/wash/cash/spending/YTD/HSA domain modules", "src/market_data.py", "broker parsers", "Monarch modules", "financial_trends_reporter/*", "reference_src data contents beyond tax_law year scan", "MC parity docs"]
+  },
+
+  "residual_uncertainty": [
+    "This is a map, not a review: absence of a listed risk does not mean an area is healthy.",
+    "Stage order is inferred from call-site line numbers in deterministic_engine.py, not by executing or tracing data flow.",
+    "No calculation was verified numerically; golden values and tests were not run.",
+    "Reviewed commit is unpushed and the working tree is dirty; GitHub metadata does not cover HEAD."
+  ],
+
+  "gaps": [
+    "CI was intentionally excluded from this review.",
+    "Static only: no tests, builds, or app runs.",
+    "Engine stage bodies, reporting sheet builders, server services and most domain modules were not read beyond symbol listings.",
+    "financial_trends_reporter and Monarch Extractor were mapped by path and import grep only.",
+    "Binary reference.db / demo_seed.rpx not opened; reference CSV contents not reviewed.",
+    "GitHub items come from the prior manifest stage (30 of 108 PR search hits, 15 PR bodies); not re-queried in this pass."
+  ]
+}

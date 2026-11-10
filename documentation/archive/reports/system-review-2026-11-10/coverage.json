@@ -1,0 +1,421 @@
+[
+  {
+    "area": "Architecture, layering and module boundaries",
+    "status": "not_inspected",
+    "expert": "architect",
+    "evidence": [],
+    "github_items": [
+      "ENG-01",
+      "ENG-07",
+      "X-03"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Compatibility layers, legacy conversion and generated files",
+    "status": "not_inspected",
+    "expert": "architect",
+    "evidence": [],
+    "github_items": [],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Dependencies and external integrations (market data, broker files, Monarch)",
+    "status": "not_inspected",
+    "expert": "architect",
+    "evidence": [],
+    "github_items": [
+      "X-03"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Configuration and version surfaces",
+    "status": "not_inspected",
+    "expert": "architect",
+    "evidence": [],
+    "github_items": [
+      "X-01"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Persistence, schema migrations, import and export",
+    "status": "not_inspected",
+    "expert": "architect",
+    "evidence": [],
+    "github_items": [
+      "ENG-10"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Performance and computational efficiency",
+    "status": "not_inspected",
+    "expert": "architect",
+    "evidence": [],
+    "github_items": [],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Privacy and security (local server, remote Trends access, secrets, exports)",
+    "status": "not_inspected",
+    "expert": "architect",
+    "evidence": [],
+    "github_items": [
+      "UIR-10"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Logging and observability",
+    "status": "not_inspected",
+    "expert": "architect",
+    "evidence": [],
+    "github_items": [
+      "ENG-03"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Calculation engine (deterministic year loop, withdrawal cascade, optimizers)",
+    "status": "not_inspected",
+    "expert": "financial_planner",
+    "evidence": [],
+    "github_items": [
+      "ENG-04",
+      "PR #419",
+      "PR #420"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Monte Carlo and capital market assumptions",
+    "status": "not_inspected",
+    "expert": "financial_planner",
+    "evidence": [],
+    "github_items": [
+      "ENG-02"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Financial logic: federal and state tax, IRMAA, AGI, capital gains, wash sales",
+    "status": "not_inspected",
+    "expert": "financial_planner",
+    "evidence": [],
+    "github_items": [
+      "ENG-05",
+      "ENG-06",
+      "PR #418",
+      "PR #420"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Canonical reference data currency (tax law, state tax, mortality, CMA)",
+    "status": "not_inspected",
+    "expert": "financial_planner",
+    "evidence": [],
+    "github_items": [
+      "R-TDC-06"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Retirement income and withdrawal workflows (RMDs, Roth conversions, account sequencing)",
+    "status": "not_inspected",
+    "expert": "financial_planner",
+    "evidence": [],
+    "github_items": [
+      "PR #419"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Tax planning workflows (Roth conversion, charitable giving, account tax basis, year-end)",
+    "status": "not_inspected",
+    "expert": "financial_planner",
+    "evidence": [],
+    "github_items": [
+      "PR #386",
+      "PR #366"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Benefits workflows (Social Security claiming, pensions, annuities, employer plans)",
+    "status": "not_inspected",
+    "expert": "financial_planner",
+    "evidence": [],
+    "github_items": [
+      "ENG-04"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Healthcare workflows (HSA, Medicare/IRMAA, ACA premium credits)",
+    "status": "not_inspected",
+    "expert": "financial_planner",
+    "evidence": [],
+    "github_items": [
+      "PR #420"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Estate, insurance and beneficiary workflows",
+    "status": "not_inspected",
+    "expert": "financial_planner",
+    "evidence": [],
+    "github_items": [],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Survivor and household-change workflows (death, filing status, spousal rollover, divorce)",
+    "status": "not_inspected",
+    "expert": "financial_planner",
+    "evidence": [],
+    "github_items": [
+      "PR #416"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Data integrity (missing, duplicate, stale, ownership, units)",
+    "status": "not_inspected",
+    "expert": "quality",
+    "evidence": [],
+    "github_items": [
+      "R-TDC-03",
+      "R-TDC-05"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Input validation (server field errors, client validation)",
+    "status": "not_inspected",
+    "expert": "quality",
+    "evidence": [],
+    "github_items": [],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Numeric precision and rounding (float engine vs Decimal boundaries, footing)",
+    "status": "not_inspected",
+    "expert": "quality",
+    "evidence": [],
+    "github_items": [
+      "ENG-08"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Dates, tax-year boundaries and frozen-today seams",
+    "status": "not_inspected",
+    "expert": "quality",
+    "evidence": [],
+    "github_items": [],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Error handling and failure behaviour (API error shapes, silent degradation)",
+    "status": "not_inspected",
+    "expert": "quality",
+    "evidence": [],
+    "github_items": [
+      "UIR-01",
+      "UIR-02",
+      "ENG-03"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Testing strategy, golden masters and regression baselines",
+    "status": "not_inspected",
+    "expert": "quality",
+    "evidence": [],
+    "github_items": [
+      "R-TDC-01",
+      "R-TDC-02",
+      "R-TDC-08",
+      "R-TDC-09"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "GitHub work context and author-stated pending items",
+    "status": "not_inspected",
+    "expert": "quality",
+    "evidence": [],
+    "github_items": [
+      "PR #418",
+      "PR #390",
+      "PR #366",
+      "PR #233"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "User interface and interaction design (client dashboard)",
+    "status": "not_inspected",
+    "expert": "usability_accessibility",
+    "evidence": [],
+    "github_items": [
+      "UIR-05",
+      "UIR-08"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Information architecture, navigation and wayfinding",
+    "status": "not_inspected",
+    "expert": "usability_accessibility",
+    "evidence": [],
+    "github_items": [
+      "UIR-07",
+      "PR #390",
+      "PR #387",
+      "PR #385"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Usability science: cognitive load, progressive disclosure, learnability, consistency",
+    "status": "not_inspected",
+    "expert": "usability_accessibility",
+    "evidence": [],
+    "github_items": [
+      "UIR-04",
+      "UIR-07"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Error prevention and recovery in irreversible financial-record actions",
+    "status": "not_inspected",
+    "expert": "usability_accessibility",
+    "evidence": [],
+    "github_items": [
+      "UIR-03"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Risk communication and comprehension of financial results",
+    "status": "not_inspected",
+    "expert": "usability_accessibility",
+    "evidence": [],
+    "github_items": [
+      "PR #233"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Accessibility (keyboard, focus, semantics, screen reader, contrast, text size)",
+    "status": "not_inspected",
+    "expert": "usability_accessibility",
+    "evidence": [],
+    "github_items": [
+      "UIR-04",
+      "UIR-06",
+      "UIR-08",
+      "UIR-09"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Secondary UI surfaces (Admin Control Center, Financial Trends reporter, Excel workbook)",
+    "status": "not_inspected",
+    "expert": "usability_accessibility",
+    "evidence": [],
+    "github_items": [
+      "UIR-09",
+      "UIR-10"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Terminology and inclusive language in UI and data",
+    "status": "not_inspected",
+    "expert": "usability_accessibility",
+    "evidence": [],
+    "github_items": [
+      "R-TDC-07"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Contextual help, glossary and end-user documentation",
+    "status": "not_inspected",
+    "expert": "documentation",
+    "evidence": [],
+    "github_items": [
+      "PR #259",
+      "PR #267",
+      "PR #268",
+      "PR #235"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Design and implementation document status and eligibility",
+    "status": "not_inspected",
+    "expert": "documentation",
+    "evidence": [],
+    "github_items": [
+      "X-02"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  },
+  {
+    "area": "Developer and agent guidance documentation (CLAUDE.md, runbooks, backlog)",
+    "status": "not_inspected",
+    "expert": "documentation",
+    "evidence": [],
+    "github_items": [
+      "ENG-09",
+      "UIR-11",
+      "R-TDC-04",
+      "R-TDC-10",
+      "R-TDC-11"
+    ],
+    "finding_ids": [],
+    "residual_uncertainty": "not yet reviewed"
+  }
+]

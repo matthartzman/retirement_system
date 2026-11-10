@@ -1,0 +1,2667 @@
+{
+ "generated_by": "collect:inventory",
+ "date": "2026-11-10",
+ "reviewed_ref": "fix-401k-hsa-agi-and-cash @ e75d6ac159210dc5127e8c42f5a71b41689f8a1f (local checkout, working tree dirty)",
+ "method": "git ls-files (1,861 tracked files) from the local checkout; first-20-line Status scan of every tracked .md; DOCUMENTATION_INDEX.md, OPTIMIZATION_DOCS_INDEX.md, BACKLOG.md, pyproject.toml, requirements*.txt, package.json, playwright.config.js, .gitattributes, .gitignore read directly. GitHub MCP not needed (checkout complete).",
+ "ci_statement": "CI was intentionally excluded from this review.",
+ "totals": {
+  "tracked_files": 1861,
+  "documentation_files": 260,
+  "markdown_docs_scanned": 232,
+  "design_documents": 62,
+  "implementation_documents": 64,
+  "exclusions": 120
+ },
+ "inventories": {
+  "design_documents": [
+   {
+    "path": "documentation/archive/DB_CANONICAL_MIGRATION_PLAN.md",
+    "lines": 306,
+    "title": "# DB-Canonical Migration Plan (Phase 1)",
+    "status_line": {
+     "line": 3,
+     "text": "**Phase 1 complete** (scaffolding + design only). No destructive"
+    },
+    "status": "status-uncertain",
+    "note": "In-file status 'Phase 1 complete (scaffolding + design only)' leaves later phases open; only folder placement says historical.",
+    "evidence": "documentation/archive/DB_CANONICAL_MIGRATION_PLAN.md:3 - Status line - \"**Phase 1 complete** (scaffolding + design only). No destructive\"",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/Latest Optimization Implementation Plan.md",
+    "lines": 338,
+    "title": "# Final Optimization Implementation Plan",
+    "status_line": {
+     "line": 5,
+     "text": "** Design and implementation plan — revised for robust policy selection and adaptive execution."
+    },
+    "status": "status-uncertain",
+    "note": "OPTIMIZATION_DOCS_INDEX.md:18-23 calls it the current plan of Track 1, tracked by the living OPTIMIZATION_REFACTOR_STATUS.md, yet it sits in archive/.",
+    "evidence": "documentation/archive/Latest Optimization Implementation Plan.md:5 - Status line - \"** Design and implementation plan — revised for robust policy selection and adaptive execution.\"",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/MODULE_REFRAMING_INPUTS_OUTPUTS.md",
+    "lines": 289,
+    "title": "# Module Reframing: Inputs and Outputs",
+    "status_line": {
+     "line": 3,
+     "text": "proposal / planning document. No code changes. This reframes the"
+    },
+    "status": "status-uncertain",
+    "note": "In-file status 'proposal / planning document'; no evidence of adoption, rejection or replacement.",
+    "evidence": "documentation/archive/MODULE_REFRAMING_INPUTS_OUTPUTS.md:3 - Status line - \"proposal / planning document. No code changes. This reframes the\"",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/legacy/PHASE_E_USABILITY_IMPROVEMENTS_BRIEF.md",
+    "lines": 437,
+    "title": "# Phase E: Usability Improvements — Design Brief for Opus 4.8 & Sonnet 5",
+    "status_line": {
+     "line": 3,
+     "text": "** Design phase — ready for architectural review"
+    },
+    "status": "status-uncertain",
+    "note": "Usability design brief; in-file status 'Design phase - ready for architectural review'; no completion or replacement evidence. In scope for the usability emphasis.",
+    "evidence": "documentation/archive/legacy/PHASE_E_USABILITY_IMPROVEMENTS_BRIEF.md:3 - Status line - \"** Design phase — ready for architectural review\"",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/legacy/UX_REDESIGN_ROADMAP.md",
+    "lines": 874,
+    "title": "# UX Redesign — Design Document & Implementation Roadmap",
+    "status_line": {
+     "line": 4,
+     "text": "**Approved for implementation**"
+    },
+    "status": "status-uncertain",
+    "note": "UX redesign roadmap; in-file status 'Approved for implementation'; no completion or replacement evidence. In scope for the usability emphasis.",
+    "evidence": "documentation/archive/legacy/UX_REDESIGN_ROADMAP.md:4 - Status line - \"**Approved for implementation**\"",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/reports/N1_PER_PATH_ENGINE_DESIGN_2026-09-07.md",
+    "lines": 309,
+    "title": "# N1 Parity: Per-Path Per-Owner Tax/RMD Engine — Design",
+    "status_line": {
+     "line": 3,
+     "text": "** In progress. Chosen path: Option (a) from the N1 diagnostic"
+    },
+    "status": "status-uncertain",
+    "note": "In-file status 'In progress'; the MC parity bias is still an open BACKLOG.md:26 item.",
+    "evidence": "documentation/archive/reports/N1_PER_PATH_ENGINE_DESIGN_2026-09-07.md:3 - Status line - \"** In progress. Chosen path: Option (a) from the N1 diagnostic\"",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/retirement_system_design_critique.md",
+    "lines": 45,
+    "title": null,
+    "status": "status-uncertain",
+    "note": "UI design critique with no status line; usability-relevant; only folder placement says superseded.",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/retirement_system_live_review_addendum.md",
+    "lines": 44,
+    "title": "# Retirement Planner — Live App Review Addendum",
+    "status": "status-uncertain",
+    "note": "Live-app UI review addendum with no status line; usability-relevant; only folder placement says superseded.",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/retirement_system_ui_implementation_plan.md",
+    "lines": 139,
+    "title": "# Retirement System UI — Implementation Plan",
+    "status": "status-uncertain",
+    "note": "UI implementation plan with no status line; usability-relevant; only folder placement says superseded.",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/superpowers/specs/2026-10-05-master-plan-tiers-and-file-elimination.md",
+    "lines": 234,
+    "title": "# Master plan: feature tiers + file-dependency elimination",
+    "status_line": {
+     "line": 3,
+     "text": "implemented, except unit 11.6 (delete `legacy_conversion/`), which its own section 7 marks \"not started (later release)\". WP0 to WP12c are merged (section 7 rows; release note `documentation/reference/release_notes/2026-10-wp11-file-elimination.md`; rental mod"
+    },
+    "status": "status-uncertain",
+    "note": "Status line says implemented except unit 11.6 (delete legacy_conversion/), not started; src/legacy_conversion/ is still tracked.",
+    "evidence": "documentation/archive/superpowers/specs/2026-10-05-master-plan-tiers-and-file-elimination.md:3 - Status line - \"implemented, except unit 11.6 (delete `legacy_conversion/`), which its own section 7 marks \"not started (later release)\". WP0 to WP12c are merged (section 7 rows; release note `documentation/reference\"",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/superpowers/specs/2026-10-13-gap-closure-plan.md",
+    "lines": 81,
+    "title": "# Gap-closure plan (after WP0-WP12c)",
+    "status_line": {
+     "line": 3,
+     "text": "implemented, except the date-driven items below (the 30-day window cleanup, unit 11.6 and the next annual tax update), which are still open. Tier 1 merged in PR #206, Tier 2 in PR #205, Tier 3 (H1 to H6) in PRs #207 to #209 (see the status tables in this file)"
+    },
+    "status": "status-uncertain",
+    "note": "Status line says implemented except date-driven items still outstanding.",
+    "evidence": "documentation/archive/superpowers/specs/2026-10-13-gap-closure-plan.md:3 - Status line - \"implemented, except the date-driven items below (the 30-day window cleanup, unit 11.6 and the next annual tax update), which are still open. Tier 1 merged in PR #206, Tier 2 in PR #205, Tier 3 (H1 to \"",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/future/Contextual Help Panel Design and Implementation plan.md",
+    "lines": 180,
+    "title": "# Contextual Help Panel: move all explanation to the right panel",
+    "status_line": {
+     "line": 3,
+     "text": "implemented (decisions accepted; Phases 0-5 implemented; the registry is the source from Phase 5 on). Extends WI-033 — see `WI-033_plain_english_help_review.md` and `WI-033_glossary_draft.md`. Measured counts are in `ui_prose_inventory_summary.md`."
+    },
+    "status": "historical-context",
+    "evidence": "documentation/future/Contextual Help Panel Design and Implementation plan.md:3 - Status line - \"implemented (decisions accepted; Phases 0-5 implemented; the registry is the source from Phase 5 on). Extends WI-033 — see `WI-033_plain_english_help_review.md` and `WI-033_glossary_draft.md`. Measure\"",
+    "note": "Implemented per status line, but it is the record of the active in-app help design (usability scope); kept as historical context. Still located in future/.",
+    "category": "design+plan"
+   },
+   {
+    "path": "documentation/future/WI-033_glossary_draft.md",
+    "lines": 218,
+    "title": "# WI-033 — Draft glossary for in-app help",
+    "status_line": {
+     "line": 6,
+     "text": "implemented (the same definitions ship as `GLOSSARY` in `frontend/js/help_registry.js`; edit the registry, not this file, from here on)."
+    },
+    "status": "historical-context",
+    "evidence": "documentation/future/WI-033_glossary_draft.md:6 - Status line - \"implemented (the same definitions ship as `GLOSSARY` in `frontend/js/help_registry.js`; edit the registry, not this file, from here on).\"",
+    "note": "Implemented; frontend/js/help_registry.js GLOSSARY is now the source. Kept as historical context for usability review. Still located in future/.",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/WI-033_plain_english_help_review.md",
+    "lines": 58,
+    "title": "# WI-033 — Plain-English help layer: page list and draft for non-expert read-through",
+    "status_line": {
+     "line": 5,
+     "text": "implemented (applied in `frontend/js/help_registry.js` by Contextual Help Panel Phases 2 and 5; the registry is now the source for the summaries and text below)."
+    },
+    "status": "historical-context",
+    "evidence": "documentation/future/WI-033_plain_english_help_review.md:5 - Status line - \"implemented (applied in `frontend/js/help_registry.js` by Contextual Help Panel Phases 2 and 5; the registry is now the source for the summaries and text below).\"",
+    "note": "Implemented; help_registry.js is now the source. Kept as historical context for usability review. Still located in future/.",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/page_help_review.md",
+    "lines": 455,
+    "title": "# Page help drafts: review",
+    "status_line": {
+     "line": 1,
+     "text": "draft for review (Phase 2a, generated by `python tools/page_help_ledger.py review`; 28 pages, 0 lost-fact or ledger flags, 5 reviewer notes shown under each page; nothing applied to the app yet)."
+    },
+    "status": "draft",
+    "evidence": "documentation/future/page_help_review.md:1 - Status line - \"draft for review (Phase 2a, generated by `python tools/page_help_ledger.py review`; 28 pages, 0 lost-fact or ledger flags, 5 reviewer notes shown under each page; nothing applied to the app yet).\"",
+    "note": "Draft for review; generated by tools/page_help_ledger.py; 'nothing applied to the app yet'.",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/mockups/sales-ledger-v2.html",
+    "status": "included",
+    "kind": "ui-mockup-html",
+    "note": "Static HTML mockup; design artifact for usability review."
+   },
+   {
+    "path": "documentation/future/superpowers/mockups/sales-ledger-v3.html",
+    "status": "included",
+    "kind": "ui-mockup-html",
+    "note": "Static HTML mockup; design artifact for usability review."
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-08-17-roth-conversion-gap-design.md",
+    "lines": 208,
+    "title": "# Roth Conversion Gap Design — Tax Payment Source & Asset-Location-Aware Conversion",
+    "status_line": {
+     "line": 3,
+     "text": "planned (design only; its own text says no code was written, and a search of `src/` for the two conversion-source keys still finds nothing, checked in WI-016, 2026-10-20)."
+    },
+    "status": "planned",
+    "evidence": "documentation/future/superpowers/plans/2026-08-17-roth-conversion-gap-design.md:3 - Status line - \"planned (design only; its own text says no code was written, and a search of `src/` for the two conversion-source keys still finds nothing, checked in WI-016, 2026-10-20).\"",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-09-09-dashboard-js-modularization-design.md",
+    "lines": 448,
+    "title": "# dashboard.js modularization — design",
+    "status_line": {
+     "line": 3,
+     "text": "planned (design only). The text below says nothing is implemented; WI-016 did not re-verify that, and the `dashboard_decomp_*.js` files now beside `dashboard.js` (see `documentation/reference/CURRENT_SYSTEM_DESIGN_SPEC.md` 7.2) mean parts may already be done. "
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-09-09-dashboard-js-modularization-design.md:3 - Status line - \"planned (design only). The text below says nothing is implemented; WI-016 did not re-verify that, and the `dashboard_decomp_*.js` files now beside `dashboard.js` (see `documentation/reference/CURRENT_\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-09-09-planning-engines-modularization-design.md",
+    "lines": 542,
+    "title": "# planning_engines.py modularization — design",
+    "status_line": {
+     "line": 3,
+     "text": "planned (design only; WI-016 did not re-verify the \"nothing implemented\" claim). **Original status line:** design only. Nothing in this document has been implemented. §2.4 is"
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-09-09-planning-engines-modularization-design.md:3 - Status line - \"planned (design only; WI-016 did not re-verify the \"nothing implemented\" claim). **Original status line:** design only. Nothing in this document has been implemented. §2.4 is\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-10-26-trends-time-scope-design.md",
+    "lines": 391,
+    "title": "# Financial Trends: One Time Scope, Update on Open, Spending by Window",
+    "status_line": {
+     "line": 3,
+     "text": "implemented (branch `trends-time-scope`, phases 1-6 built; not yet merged)"
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-10-26-trends-time-scope-design.md:3 - Status line - \"implemented (branch `trends-time-scope`, phases 1-6 built; not yet merged)\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-10-27-live-snapshot-design.md",
+    "lines": 237,
+    "title": "# Financial Trends — Live Snapshot view (design + implementation plan)",
+    "status_line": {
+     "line": 4,
+     "text": "implemented (branch `live-snapshot`, steps 1-5 and 7 built; not yet merged)"
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-10-27-live-snapshot-design.md:4 - Status line - \"implemented (branch `live-snapshot`, steps 1-5 and 7 built; not yet merged)\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-10-27-trends-drilldown-reconciliation-design.md",
+    "lines": 279,
+    "title": "# Financial Trends — reconciliation by account, holdings drill-down, and spending transactions (design)",
+    "status_line": {
+     "line": 4,
+     "text": "approved (user, 2026-10-27); implementation in draft PRs #286 and #288 and a third for (e)"
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-10-27-trends-drilldown-reconciliation-design.md:4 - Status line - \"approved (user, 2026-10-27); implementation in draft PRs #286 and #288 and a third for (e)\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-10-28-realized-sales-ledger-design-and-plan.md",
+    "lines": 474,
+    "title": "# Realized-sales ledger — design + implementation plan",
+    "status_line": {
+     "line": 4,
+     "text": "implemented through #363 (2026-11-03): Phases 1 to 4, 3b and 5a (E*Trade and Vanguard 1099-B import with its panel), including bulk review, automatic wash-sale scans and the realized-tax dollar line. Fuzzy 1099-B match suggestions and the possible-return-of-ca"
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-10-28-realized-sales-ledger-design-and-plan.md:4 - Status line - \"implemented through #363 (2026-11-03): Phases 1 to 4, 3b and 5a (E*Trade and Vanguard 1099-B import with its panel), including bulk review, automatic wash-sale scans and the realized-tax dollar line. \"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design+plan"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-10-28-trends-percent-view-design.md",
+    "lines": 104,
+    "title": "# Financial Trends — Percent View (design, draft for review)",
+    "status_line": {
+     "line": 3,
+     "text": "approved. Decisions made 2026-10-28 (§7); implementation plan written."
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-10-28-trends-percent-view-design.md:3 - Status line - \"approved. Decisions made 2026-10-28 (§7); implementation plan written.\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-10-29-financial-insight-readability-design.md",
+    "lines": 223,
+    "title": "# Financial Insight: Recent Projections Readability, Renames and Deferred Fixes (design + implementation plan)",
+    "status_line": {
+     "line": 4,
+     "text": "implemented 2026-10-29 (branch `financial-insight-readability`)"
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-10-29-financial-insight-readability-design.md:4 - Status line - \"implemented 2026-10-29 (branch `financial-insight-readability`)\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-10-29-trends-recent-projections-design.md",
+    "lines": 226,
+    "title": "# Financial Trends — Recent Projections view (design)",
+    "status_line": {
+     "line": 4,
+     "text": "implemented 2026-10-29 (branch `recent-projections`); implementation plan: `2026-10-29-trends-recent-projections-plan.md`"
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-10-29-trends-recent-projections-design.md:4 - Status line - \"implemented 2026-10-29 (branch `recent-projections`); implementation plan: `2026-10-29-trends-recent-projections-plan.md`\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-10-30-broker-activity-bulk-import-design-and-plan.md",
+    "lines": 313,
+    "title": "# Brokerage activity bulk import: design and implementation plan",
+    "status_line": {
+     "line": 3,
+     "text": "implemented (Fidelity, E*Trade and Vanguard importers; the year-end Fidelity 1099 checks are planned). The user skipped the questions (\"continue\"), so every decision below marked"
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-10-30-broker-activity-bulk-import-design-and-plan.md:3 - Status line - \"implemented (Fidelity, E*Trade and Vanguard importers; the year-end Fidelity 1099 checks are planned). The user skipped the questions (\"continue\"), so every decision below marked\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design+plan"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-10-31-account-number-protection-design-and-plan.md",
+    "lines": 143,
+    "title": "# Account-number protection: design and plan",
+    "status_line": {
+     "line": 5,
+     "text": "approved, with the owner's decisions of 2026-10-31 (section 8). Phases 0 to 4 built and merged (#367, #368, #370, #372, #373): phase 0 inventory (3.1); phase 1 `src/account_numbers.py` (`last4`, `mask_text`, `contains_account_number`, `mask_file_name`, `known_"
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-10-31-account-number-protection-design-and-plan.md:5 - Status line - \"approved, with the owner's decisions of 2026-10-31 (section 8). Phases 0 to 4 built and merged (#367, #368, #370, #372, #373): phase 0 inventory (3.1); phase 1 `src/account_numbers.py` (`last4`, `mask\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design+plan"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-10-31-investment-account-cash-tracking-design-and-plan.md",
+    "lines": 199,
+    "title": "# Investment-account cash tracking: design and plan",
+    "status_line": {
+     "line": 5,
+     "text": "approved, with the owner's decisions of 2026-10-31 (section 7). Built 2026-11-02: Phase 0 (#343), 1 (#345), 2 (#350), 3 (#352), 4 (#353, anchor 1 only), and the spending half of Phase 6 (#354). Phase 5 (screen) is merged (#355). Phase 6 engine half built 2026-"
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-10-31-investment-account-cash-tracking-design-and-plan.md:5 - Status line - \"approved, with the owner's decisions of 2026-10-31 (section 7). Built 2026-11-02: Phase 0 (#343), 1 (#345), 2 (#350), 3 (#352), 4 (#353, anchor 1 only), and the spending half of Phase 6 (#354). Phase \"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design+plan"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-10-31-transaction-log-design-and-plan.md",
+    "lines": 383,
+    "title": "# Transaction log: design and implementation plan",
+    "status_line": {
+     "line": 3,
+     "text": "approved. Phase 1 built 2026-11-02; phase 2 built 2026-11-02 (tasks 2.1 to 2.6; 2.7 deferred); phase 3 built 2026-11-02 (tasks 3.1 and 3.2; no account is managed by default); task 3.3, the owner's per-account switch-over, is complete. Written 2026-10-31 after "
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-10-31-transaction-log-design-and-plan.md:3 - Status line - \"approved. Phase 1 built 2026-11-02; phase 2 built 2026-11-02 (tasks 2.1 to 2.6; 2.7 deferred); phase 3 built 2026-11-02 (tasks 3.1 and 3.2; no account is managed by default); task 3.3, the owner's per\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design+plan"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-11-02-cash-tracking-phase-0-findings.md",
+    "lines": 101,
+    "title": "# Cash tracking: Phase 0 findings",
+    "status_line": {
+     "line": 5,
+     "text": "draft. Verifies the four assumptions in `2026-10-31-investment-account-cash-tracking-design-and-plan.md`"
+    },
+    "status": "draft",
+    "evidence": "documentation/future/superpowers/plans/2026-11-02-cash-tracking-phase-0-findings.md:5 - Status line - \"draft. Verifies the four assumptions in `2026-10-31-investment-account-cash-tracking-design-and-plan.md`\"",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-11-02-year-end-transition-design-and-plan.md",
+    "lines": 173,
+    "title": "# Year-end transition: design and plan",
+    "status_line": {
+     "line": 5,
+     "text": "approved. Phases 1 (cash-year close), 2 (guided Year-end page) and 3 (snapshot retention) built 2026-11-03 (see section 8); Phase 4 (verified-account gate on the pair-status floor) built 2026-11-03."
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-11-02-year-end-transition-design-and-plan.md:5 - Status line - \"approved. Phases 1 (cash-year close), 2 (guided Year-end page) and 3 (snapshot retention) built 2026-11-03 (see section 8); Phase 4 (verified-account gate on the pair-status floor) built 2026-11-03.\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design+plan"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-11-03-cash-pair-status-tax-worked-example.md",
+    "lines": 77,
+    "title": "# Cash pair-status tax floor: worked example for owner approval",
+    "status_line": {
+     "line": 5,
+     "text": "implemented, default OFF; mechanism approved by the owner 2026-11-03, turn-on not approved. Synthetic frozen sample plan only (the golden-master fixture); no real data."
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-11-03-cash-pair-status-tax-worked-example.md:5 - Status line - \"implemented, default OFF; mechanism approved by the owner 2026-11-03, turn-on not approved. Synthetic frozen sample plan only (the golden-master fixture); no real data.\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-11-03-sales-ledger-redesign.md",
+    "lines": 181,
+    "title": "# Sales Ledger Redesign Implementation Plan",
+    "status_line": {
+     "line": 5,
+     "text": "approved"
+    },
+    "status": "approved",
+    "evidence": "documentation/future/superpowers/plans/2026-11-03-sales-ledger-redesign.md:5 - Status line - \"approved\"",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-11-04-left-nav-redesign-followups.md",
+    "lines": 75,
+    "title": "# Left nav redesign: follow-up plan (resolves deviations 1-7 and 10)",
+    "status_line": {
+     "line": 3,
+     "text": "planned"
+    },
+    "status": "planned",
+    "evidence": "documentation/future/superpowers/plans/2026-11-04-left-nav-redesign-followups.md:3 - Status line - \"planned\"",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-11-06-alt-asset-gain-tax-and-change-breakdown-design-and-plan.md",
+    "lines": 146,
+    "title": "# Alternative-asset gain tax, and the Change breakdown on the Liquid pop-up — design and plan",
+    "status_line": {
+     "line": 3,
+     "text": "approved"
+    },
+    "status": "approved",
+    "evidence": "documentation/future/superpowers/plans/2026-11-06-alt-asset-gain-tax-and-change-breakdown-design-and-plan.md:3 - Status line - \"approved\"",
+    "category": "design+plan"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-11-06-note-installment-gain-tax-design-and-plan.md",
+    "lines": 358,
+    "title": "# Note Receivable installment-sale gain tax — design and plan",
+    "status_line": {
+     "line": 3,
+     "text": "approved"
+    },
+    "status": "approved",
+    "evidence": "documentation/future/superpowers/plans/2026-11-06-note-installment-gain-tax-design-and-plan.md:3 - Status line - \"approved\"",
+    "category": "design+plan"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-11-07-cash-balances-and-art-split-design-and-plan.md",
+    "lines": 134,
+    "title": "# Standard cash and credit-card balances, and Art shown apart from Start-up — design and plan",
+    "status_line": {
+     "line": 3,
+     "text": "approved"
+    },
+    "status": "approved",
+    "evidence": "documentation/future/superpowers/plans/2026-11-07-cash-balances-and-art-split-design-and-plan.md:3 - Status line - \"approved\"",
+    "category": "design+plan"
+   },
+   {
+    "path": "documentation/future/superpowers/specs/2026-11-03-sales-ledger-redesign-design.md",
+    "lines": 120,
+    "title": "# Sales Ledger page redesign — design (v2, after peer review)",
+    "status_line": {
+     "line": 4,
+     "text": "approved"
+    },
+    "status": "approved",
+    "evidence": "documentation/future/superpowers/specs/2026-11-03-sales-ledger-redesign-design.md:4 - Status line - \"approved\"",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/specs/2026-11-04-left-nav-redesign-design.md",
+    "lines": 219,
+    "title": "# Left Nav Redesign — Usability Review, Design, and Implementation Plan",
+    "status_line": {
+     "line": 3,
+     "text": "approved (user-approved 2026-11-04; implementation on branch nav-redesign). Decisions are in section 9."
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/specs/2026-11-04-left-nav-redesign-design.md:3 - Status line - \"approved (user-approved 2026-11-04; implementation on branch nav-redesign). Decisions are in section 9.\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "design"
+   },
+   {
+    "path": "documentation/future/superpowers/specs/2026-11-09-sales-ledger-v3-design.md",
+    "lines": 477,
+    "title": "# Investment Sales Ledger v3: simplify the page (item 378)",
+    "status_line": {
+     "line": 3,
+     "text": "approved"
+    },
+    "status": "approved",
+    "evidence": "documentation/future/superpowers/specs/2026-11-09-sales-ledger-v3-design.md:3 - Status line - \"approved\"",
+    "category": "design"
+   },
+   {
+    "path": "documentation/reference/API_CONTRACTS.md",
+    "lines": 614,
+    "title": "# API Contracts",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "design-reference"
+   },
+   {
+    "path": "documentation/reference/CAPITAL_GAINS_IN_AGI.md",
+    "lines": 125,
+    "title": "# Capital gains from sales in AGI, MAGI and IRMAA MAGI (H1)",
+    "status_line": {
+     "line": 5,
+     "text": "**approved 2026-10-13** (scope: home and rental sales only; other AGI-keyed rules stay as they are; sale-year vs lookback confirmed) and implemented. No golden value moved (no sale in any golden)."
+    },
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "design-reference",
+    "note": "Line 11 marks one section 'Historical' (pre-H1 behaviour).",
+    "unindexed_in_documentation_index": true
+   },
+   {
+    "path": "documentation/reference/CONVERSION_SAFEGUARD.md",
+    "lines": 58,
+    "title": "# Conversion safeguard (WP10.3) - for owner approval",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "design-reference"
+   },
+   {
+    "path": "documentation/reference/CURRENT_SYSTEM_DESIGN_SPEC.md",
+    "lines": 691,
+    "title": "# Retirement Planning System — Current System Design Spec",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "design-reference"
+   },
+   {
+    "path": "documentation/reference/FRONTEND_HOOK_REGISTRY.md",
+    "lines": 32,
+    "title": "# Frontend hook registry (WI-035 / ARC-007)",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "design-reference",
+    "unindexed_in_documentation_index": true
+   },
+   {
+    "path": "documentation/reference/FUNCTIONAL_SPEC.md",
+    "lines": 445,
+    "title": "# Retirement Planning System — Functional Spec",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "design-reference"
+   },
+   {
+    "path": "documentation/reference/NAV_FEATURE_MAP.md",
+    "lines": 150,
+    "title": "# Left Navigation Feature Map",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "design-reference"
+   },
+   {
+    "path": "documentation/reference/PLAN_ROWS_MODEL.md",
+    "lines": 177,
+    "title": "# Plan rows model (`plan.db` / `.rpx`)",
+    "status_line": {
+     "line": 3,
+     "text": "WP4 complete. WP4.1 (owner review checkpoint; the row-model summary below is the PR-body text), WP4.2 read path, WP4.3 grid and forms write path, WP4.4a asset/estate/insurance/seed endpoints, WP4.4b Roth, strategy and policy endpoints, WP4.4c liquidity, home s"
+    },
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "design-reference"
+   },
+   {
+    "path": "documentation/reference/REFERENCE_DB_SLICES.md",
+    "lines": 44,
+    "title": "# reference.db slices: how to move one reference dataset into the database",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "design-reference"
+   },
+   {
+    "path": "documentation/reference/RENTAL_TAX_RULES.md",
+    "lines": 483,
+    "title": "# Rental property tax rules (WP12.1)",
+    "status_line": {
+     "line": 5,
+     "text": "**verified and in use.** Reviewed by the household's tax preparer on 2026-10-13 (see the verification note above); the engine integration (WP12.2 and later H1 to H6) is merged."
+    },
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "design-reference",
+    "unindexed_in_documentation_index": true
+   },
+   {
+    "path": "documentation/reference/Retirement_Planner_Concepts_Guide.docx",
+    "status": "included",
+    "kind": "user-guide-docx",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:15",
+    "note": "Binary Word file; listed as living end-user concepts guide. Content not text-inspected by this stage."
+   },
+   {
+    "path": "documentation/reference/SYSTEM_ARCHITECTURE_DIAGRAM.md",
+    "lines": 846,
+    "title": "# System Architecture Diagram",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "design-reference",
+    "note": "Generated by tools/generate_system_diagram.py; kept in scope because it is the living architecture map."
+   },
+   {
+    "path": "documentation/reference/WI037_KERNEL_SHARING_EVALUATION.md",
+    "lines": 27,
+    "title": "# WI-037: sharing engine kernels with the vectorized Monte Carlo engine",
+    "status_line": {
+     "line": 3,
+     "text": "evaluation recorded 2026-10-21. Answers the last clause of WI-037 (\"evaluate sharing kernels with the vectorized engine\"). The cycle removal itself shipped in #253 (`src/engine_kernels.py`)."
+    },
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "design-reference",
+    "unindexed_in_documentation_index": true
+   },
+   {
+    "path": "documentation/reference/roth_conversion_modeling_guide.md",
+    "lines": 115,
+    "title": "# Comprehensive Guide: Configuring Roth Conversion Financial Models",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "design-reference"
+   },
+   {
+    "path": "documentation/reference/wp12_screens/ABOUT.md",
+    "lines": 49,
+    "title": "# WP12.5 Rental Properties UI mockup (owner review)",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "ui-screens-record"
+   },
+   {
+    "path": "documentation/reference/wp12_screens/rental_properties_mockup.html",
+    "status": "included",
+    "kind": "ui-mockup-html",
+    "note": "Static HTML mockup; design artifact for usability review."
+   },
+   {
+    "path": "documentation/reference/wp12_screens/rental_sheet_preview.md",
+    "lines": 254,
+    "title": "# Rental Properties sheet preview (WP12.7)",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "ui-screens-record"
+   },
+   {
+    "path": "documentation/reference/wp5_screens/ABOUT.md",
+    "lines": 23,
+    "title": "# WP5.1 tier picker screenshots (owner checkpoint)",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "ui-screens-record"
+   },
+   {
+    "path": "documentation/reference/wp12_screens/*.png",
+    "status": "included",
+    "kind": "ui-screenshots",
+    "count": 22,
+    "note": "Committed desktop+mobile screenshots (owner-review checkpoints); image content not inspected by this stage."
+   },
+   {
+    "path": "documentation/reference/wp5_screens/*.png",
+    "status": "included",
+    "kind": "ui-screenshots",
+    "count": 8,
+    "note": "Committed desktop+mobile screenshots (owner-review checkpoints); image content not inspected by this stage."
+   }
+  ],
+  "implementation_documents": [
+   {
+    "path": "documentation/DOCUMENTATION_INDEX.md",
+    "lines": 50,
+    "title": "# Documentation index",
+    "status": "living",
+    "category": "index",
+    "evidence": "file itself (read in full, lines 1-50)"
+   },
+   {
+    "path": "documentation/archive/REMAINING_WORK_EXECUTION_PLAYBOOK.md",
+    "lines": 310,
+    "title": "# Remaining Work Execution Playbook",
+    "status_line": {
+     "line": 4,
+     "text": "F0-F2 Complete | F3/F4/F5 Ready to Execute**"
+    },
+    "status": "status-uncertain",
+    "note": "OPTIMIZATION_DOCS_INDEX.md:30-35 calls it the current document of Track 2 and says whether F3-F5 were completed is undetermined.",
+    "evidence": "documentation/archive/REMAINING_WORK_EXECUTION_PLAYBOOK.md:4 - Status line - \"F0-F2 Complete | F3/F4/F5 Ready to Execute**\"",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/legacy/PHASE_C_COMPLETION_STATUS.md",
+    "lines": 183,
+    "title": "# Phase C: System Review & Modernization — COMPLETION STATUS",
+    "status_line": {
+     "line": 4,
+     "text": "** ✅ ~95% COMPLETE"
+    },
+    "status": "status-uncertain",
+    "note": "In-file status '~95% COMPLETE'; the remaining 5% is not shown closed.",
+    "evidence": "documentation/archive/legacy/PHASE_C_COMPLETION_STATUS.md:4 - Status line - \"** ✅ ~95% COMPLETE\"",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/legacy/PHASE_D_MODULE_DECOMPOSITION_PROGRESS.md",
+    "lines": 160,
+    "title": "# Phase D: Module Decomposition — Implementation Progress",
+    "status_line": {
+     "line": 3,
+     "text": "Starting parallel to Phase C completion"
+    },
+    "status": "status-uncertain",
+    "note": "In-file status 'Starting parallel to Phase C completion'; no closing record.",
+    "evidence": "documentation/archive/legacy/PHASE_D_MODULE_DECOMPOSITION_PROGRESS.md:3 - Status line - \"Starting parallel to Phase C completion\"",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/reports/N1_MC_PARITY_RESIDUAL_DIAGNOSTIC_2026-09-30.md",
+    "lines": 127,
+    "title": "# N1 Residual Diagnostic — Vectorized vs. Exact-Scalar MC Success-Rate Gap",
+    "status_line": {
+     "line": 5,
+     "text": "no engine change shipped.** The gap is now decomposed component by component, with measured contributions. One combination (a deterministic-replay skeleton plus credit-shelter-trust sequestration) reproduces the scalar engine to within 1pp on both roth policie"
+    },
+    "status": "historical-context",
+    "note": "Latest diagnostic for the still-open vectorized-vs-scalar MC bias (BACKLOG.md:26); no engine change shipped.",
+    "evidence": "documentation/archive/reports/N1_MC_PARITY_RESIDUAL_DIAGNOSTIC_2026-09-30.md:5 - Status line - \"no engine change shipped.** The gap is now decomposed component by component, with measured contributions. One combination (a deterministic-replay skeleton plus credit-shelter-trust sequestration) rep\"",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19.md",
+    "lines": 1641,
+    "title": "# System Review — retirement_system (entire system)",
+    "status": "historical-context",
+    "note": "Most recent prior system review; baseline for this review's finding carry-over. Archived per index but is the only record of prior review dispositions.",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19_WAVE0_DECISIONS.md",
+    "lines": 69,
+    "title": "# System Review 2026-10-19 — Wave 0 Decision Record",
+    "status": "historical-context",
+    "note": "Decision record for the prior review's Wave 0; only record of those owner decisions.",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19_WAVE1_NOTICE_WORDING.md",
+    "lines": 40,
+    "title": "# System Review 2026-10-19 — Wave 1 Notice Wording (WI-010, WI-010a)",
+    "status": "historical-context",
+    "note": "Approved in-app notice wording (usability-relevant) from prior review Wave 1.",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19_WAVE2_STATUS.md",
+    "lines": 32,
+    "title": "# System Review 2026-10-19 — Wave 2 Status",
+    "status": "historical-context",
+    "note": "Wave status record for prior review.",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19_WAVE3_STATUS.md",
+    "lines": 103,
+    "title": "# System Review 2026-10-19 — Wave 3 Status",
+    "status": "historical-context",
+    "note": "Wave status record for prior review.",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19_WI022_IMPACT.md",
+    "lines": 256,
+    "title": "# WI-022 impact table: FIN-003 and FIN-001 on the frozen sample plan",
+    "status": "historical-context",
+    "note": "Financial impact table for prior review items FIN-001/FIN-003.",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+    "category": "archived-but-in-scope"
+   },
+   {
+    "path": "documentation/future/Add 4 Missing Planning Strategies Implementation plan.md",
+    "lines": 78,
+    "title": "# Add 4 Missing Planning Strategies: 72(t)/SEPP, Backdoor/Mega-Backdoor Roth, NUA, CRT",
+    "status_line": {
+     "line": 3,
+     "text": "planned (a search of `src/` for SEPP, backdoor and NUA code finds none, checked in WI-016, 2026-10-20)."
+    },
+    "status": "planned",
+    "evidence": "documentation/future/Add 4 Missing Planning Strategies Implementation plan.md:3 - Status line - \"planned (a search of `src/` for SEPP, backdoor and NUA code finds none, checked in WI-016, 2026-10-20).\"",
+    "category": "plan"
+   },
+   {
+    "path": "documentation/future/page_help_drafts.json",
+    "status": "included",
+    "kind": "generated-data-or-fixture",
+    "note": "Non-Markdown working data beside the docs (generated ledgers/inventory/fixture text); no normative design text of its own."
+   },
+   {
+    "path": "documentation/future/page_help_sources.json",
+    "status": "included",
+    "kind": "generated-data-or-fixture",
+    "note": "Non-Markdown working data beside the docs (generated ledgers/inventory/fixture text); no normative design text of its own."
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-09-09-modularization-implementation-plan.md",
+    "lines": 480,
+    "title": "# Modularization implementation plan — 2026-09-09",
+    "status_line": {
+     "line": 8,
+     "text": "planned (not started per its own text; WI-016 did not re-verify, and the `dashboard_decomp_*.js` files suggest part of the frontend split has since been done). **Original status line:** not started. This plan sequences both and assigns a model tier and"
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-09-09-modularization-implementation-plan.md:8 - Status line - \"planned (not started per its own text; WI-016 did not re-verify, and the `dashboard_decomp_*.js` files suggest part of the frontend split has since been done). **Original status line:** not started. T\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "plan"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-09-14-housing-optimizer-panel-fixes-plan.md",
+    "lines": 1981,
+    "title": "# Housing Optimizer Panel Fixes Implementation Plan",
+    "status_line": {
+     "line": 3,
+     "text": "planned (all 58 of its checkboxes are unchecked, but the later housing work in `src/housing/` already carries a bedrooms criterion, so part of it may be done or superseded; WI-016 did not verify which, so confirm before acting on it)."
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-09-14-housing-optimizer-panel-fixes-plan.md:3 - Status line - \"planned (all 58 of its checkboxes are unchecked, but the later housing work in `src/housing/` already carries a bedrooms criterion, so part of it may be done or superseded; WI-016 did not verify which\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "plan"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-10-27-trends-drilldown-reconciliation-plan.md",
+    "lines": 630,
+    "title": "# Trends: Reconciliation by Account, Holdings Drill-down, Spending Transactions — Implementation Plan",
+    "status_line": {
+     "line": 3,
+     "text": "approved (user, 2026-10-27); being implemented in draft PRs"
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-10-27-trends-drilldown-reconciliation-plan.md:3 - Status line - \"approved (user, 2026-10-27); being implemented in draft PRs\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "plan"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-10-28-trends-percent-view-plan.md",
+    "lines": 264,
+    "title": "# Financial Trends Percent View Implementation Plan",
+    "status_line": {
+     "line": 3,
+     "text": "approved"
+    },
+    "status": "approved",
+    "evidence": "documentation/future/superpowers/plans/2026-10-28-trends-percent-view-plan.md:3 - Status line - \"approved\"",
+    "category": "plan"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-10-29-trends-recent-projections-plan.md",
+    "lines": 183,
+    "title": "# Recent Projections Implementation Plan",
+    "status_line": {
+     "line": 3,
+     "text": "implemented (2026-10-29, branch `recent-projections`)"
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-10-29-trends-recent-projections-plan.md:3 - Status line - \"implemented (2026-10-29, branch `recent-projections`)\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "plan"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-11-02-cash-and-transaction-log-integration.md",
+    "lines": 104,
+    "title": "# Cash tracking and transaction log: integration",
+    "status_line": {
+     "line": 5,
+     "text": "approved and built 2026-11-02, and the engine half of C.4 as audit plus report-only (see task C.4). Tasks C.1 to C.3 shipped (#349, #353); C.4 spending half shipped (#354); log task 3.3 (per-account switch-over) is complete. Decisions marked **Claude's call** "
+    },
+    "status": "status-uncertain",
+    "evidence": "documentation/future/superpowers/plans/2026-11-02-cash-and-transaction-log-integration.md:5 - Status line - \"approved and built 2026-11-02, and the engine half of C.4 as audit plus report-only (see task C.4). Tasks C.1 to C.3 shipped (#349, #353); C.4 spending half shipped (#354); log task 3.3 (per-account s\"",
+    "note": "Status line is qualified (partly built, unmerged-branch wording, or WI-016 did not re-verify); treat as in scope.",
+    "category": "plan"
+   },
+   {
+    "path": "documentation/future/superpowers/plans/2026-11-09-sales-ledger-v3-plan.md",
+    "lines": 311,
+    "title": "# Investment Sales Ledger v3 Implementation Plan",
+    "status_line": {
+     "line": 3,
+     "text": "approved"
+    },
+    "status": "approved",
+    "evidence": "documentation/future/superpowers/plans/2026-11-09-sales-ledger-v3-plan.md:3 - Status line - \"approved\"",
+    "category": "plan"
+   },
+   {
+    "path": "documentation/future/ui_prose_inventory.csv",
+    "status": "included",
+    "kind": "generated-data-or-fixture",
+    "note": "Non-Markdown working data beside the docs (generated ledgers/inventory/fixture text); no normative design text of its own."
+   },
+   {
+    "path": "documentation/reference/ANNUAL_MAINTENANCE_RUNBOOK.md",
+    "lines": 196,
+    "title": "# Annual Maintenance Runbook",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/BACKLOG.md",
+    "lines": 26,
+    "title": "# Backlog of deferred work",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/CLAUDE.md",
+    "lines": 274,
+    "title": "# CLAUDE.md",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/CONTRIBUTING.md",
+    "lines": 114,
+    "title": "# Contributing",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/CONVERSION_REHEARSAL.md",
+    "lines": 55,
+    "title": "# Conversion rehearsal on a copy of your workspace",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/GOLDEN_MASTER_CHANGELOG.md",
+    "lines": 2816,
+    "title": "# v11 Planning Workbench consolidation",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference",
+    "note": "Modified in the working tree (uncommitted) at review time."
+   },
+   {
+    "path": "documentation/reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md",
+    "lines": 203,
+    "title": "# Golden-Master Recovery Runbook",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/H1_BEFORE_AFTER_FIXTURES.txt",
+    "status": "included",
+    "kind": "generated-data-or-fixture",
+    "note": "Non-Markdown working data beside the docs (generated ledgers/inventory/fixture text); no normative design text of its own."
+   },
+   {
+    "path": "documentation/reference/HAPPY_PATH_E2E_TEST_PLAN.md",
+    "lines": 108,
+    "title": "# Happy-path end-to-end test plan",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/MC_PARITY_MEASUREMENT_WI009.md",
+    "lines": 30,
+    "title": "# Monte Carlo parity measurement (WI-009)",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference",
+    "note": "Not listed in DOCUMENTATION_INDEX.md's reference table.",
+    "unindexed_in_documentation_index": true
+   },
+   {
+    "path": "documentation/reference/MC_PARITY_MEASUREMENT_WI036.md",
+    "lines": 112,
+    "title": "# Monte Carlo headline vs exact scalar engine (WI-036)",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference",
+    "note": "Not listed in DOCUMENTATION_INDEX.md's reference table.",
+    "unindexed_in_documentation_index": true
+   },
+   {
+    "path": "documentation/reference/OPTIMIZATION_DOCS_INDEX.md",
+    "lines": 35,
+    "title": "# Optimization Planning Docs — Index",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md",
+    "lines": 755,
+    "title": "# Optimization Refactor — Status",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md",
+    "lines": 197,
+    "title": "# Testing & CI Refactor: Findings and Recommendations",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference",
+    "note": "Title covers 'Testing & CI'; CI portions are out of scope for this review."
+   },
+   {
+    "path": "documentation/reference/TEST_RUN_GUIDE.md",
+    "lines": 33,
+    "title": "# Running the test suite",
+    "status_line": {
+     "line": 3,
+     "text": "implemented 2026-10-22"
+    },
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/TRENDS_REMOTE_ACCESS_RUNBOOK.md",
+    "lines": 71,
+    "title": "# Financial Insight: Remote Access Runbook",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference",
+    "unindexed_in_documentation_index": true
+   },
+   {
+    "path": "documentation/reference/WP11_REACHABILITY.md",
+    "lines": 23,
+    "title": "# WP11.1 reachability summary",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference",
+    "note": "Not listed in DOCUMENTATION_INDEX.md's reference table.",
+    "unindexed_in_documentation_index": true
+   },
+   {
+    "path": "documentation/reference/readme/CLEAN_PACKAGE_README.md",
+    "lines": 13,
+    "title": "# Clean Package Notes",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference",
+    "note": "Not listed in DOCUMENTATION_INDEX.md's reference table.",
+    "unindexed_in_documentation_index": true
+   },
+   {
+    "path": "documentation/reference/readme/README.md",
+    "lines": 61,
+    "title": "# Retirement Planner",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/release_notes/2026-09-changes-334-339.md",
+    "lines": 27,
+    "title": "# Model changes of 24-25 September 2026 (#332, #334-#339)",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/release_notes/2026-10-engine-tax-correctness.md",
+    "lines": 53,
+    "title": "# Model changes of 19-20 October 2026 (tax-correctness engine changes, WI-023 to WI-025)",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/release_notes/2026-10-financial-insight-readability.md",
+    "lines": 27,
+    "title": "# Financial Insight: Readable Recent Projections and New Names, October 2026",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/release_notes/2026-10-monarch-balances-and-reconciliation.md",
+    "lines": 60,
+    "title": "# Monarch daily account balances, trends charts and reconciliation, October 2026",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/release_notes/2026-10-monarch-mapping-and-trends-fixes.md",
+    "lines": 40,
+    "title": "# Monarch mapping redesign and Financial Reporting fixes, October 2026",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/release_notes/2026-10-trends-live-snapshot.md",
+    "lines": 60,
+    "title": "# Financial Trends: Live Snapshot, October 2026",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/release_notes/2026-10-trends-time-scope-and-spending-by-window.md",
+    "lines": 37,
+    "title": "# Financial Trends: time scope and Spending by window, October 2026",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/release_notes/2026-10-wp11-file-elimination.md",
+    "lines": 63,
+    "title": "# Storage changes: file elimination (WP11), October 2026",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": "documentation/reference/release_notes/index.md",
+    "lines": 47,
+    "title": "# Release Notes",
+    "status": "living",
+    "evidence": "documentation/DOCUMENTATION_INDEX.md:10-32 - reference/ is living and must be true today",
+    "category": "implementation-reference"
+   },
+   {
+    "path": ".claude/agents/triage-evaluator.md",
+    "lines": 22,
+    "title": "# Role & Behavior",
+    "status": "living",
+    "category": "agent-instructions",
+    "evidence": "tracked file; no status line",
+    "note": "Operational/tooling document, not a product design document."
+   },
+   {
+    "path": ".claude/claude.md",
+    "lines": 80,
+    "title": null,
+    "status": "living",
+    "category": "agent-instructions",
+    "evidence": "tracked file; no status line",
+    "note": "Operational/tooling document, not a product design document."
+   },
+   {
+    "path": ".claude/skills/system-review/SKILL.md",
+    "lines": 86,
+    "title": "# System Review",
+    "status": "living",
+    "category": "review-tooling",
+    "evidence": "tracked file; no status line",
+    "note": "Operational/tooling document, not a product design document."
+   },
+   {
+    "path": ".claude/skills/system-review/references/adapter-contract.md",
+    "lines": 148,
+    "title": null,
+    "status": "living",
+    "category": "review-tooling",
+    "evidence": "tracked file; no status line",
+    "note": "Operational/tooling document, not a product design document."
+   },
+   {
+    "path": ".claude/skills/system-review/references/financial-domain-governance.md",
+    "lines": 20,
+    "title": null,
+    "status": "living",
+    "category": "review-tooling",
+    "evidence": "tracked file; no status line",
+    "note": "Operational/tooling document, not a product design document."
+   },
+   {
+    "path": ".claude/skills/system-review/references/findings-schema.md",
+    "lines": 76,
+    "title": null,
+    "status": "living",
+    "category": "review-tooling",
+    "evidence": "tracked file; no status line",
+    "note": "Operational/tooling document, not a product design document."
+   },
+   {
+    "path": ".claude/skills/system-review/references/report-template.md",
+    "lines": 24,
+    "title": null,
+    "status": "living",
+    "category": "review-tooling",
+    "evidence": "tracked file; no status line",
+    "note": "Operational/tooling document, not a product design document."
+   },
+   {
+    "path": ".claude/skills/system-review/references/review-criteria.md",
+    "lines": 56,
+    "title": null,
+    "status": "living",
+    "category": "review-tooling",
+    "evidence": "tracked file; no status line",
+    "note": "Operational/tooling document, not a product design document."
+   },
+   {
+    "path": ".claude/skills/system-review/references/runtime-validation.md",
+    "lines": 22,
+    "title": null,
+    "status": "living",
+    "category": "review-tooling",
+    "evidence": "tracked file; no status line",
+    "note": "Operational/tooling document, not a product design document."
+   },
+   {
+    "path": ".claude/skills/system-review/references/scope-and-evidence.md",
+    "lines": 110,
+    "title": null,
+    "status": "living",
+    "category": "review-tooling",
+    "evidence": "tracked file; no status line",
+    "note": "Operational/tooling document, not a product design document."
+   },
+   {
+    "path": ".claude/skills/workflow-authoring/SKILL.md",
+    "lines": 56,
+    "title": "# Workflow authoring",
+    "status": "living",
+    "category": "review-tooling",
+    "evidence": "tracked file; no status line",
+    "note": "Operational/tooling document, not a product design document."
+   },
+   {
+    "path": "input/README_INPUT_PACKAGE.md",
+    "lines": 23,
+    "title": "# Retirement System Input Package: import/export format notes",
+    "status": "living",
+    "category": "input-package-readme",
+    "evidence": "tracked file; no status line",
+    "note": "Operational/tooling document, not a product design document."
+   },
+   {
+    "path": "input/README_YTD_INPUTS.md",
+    "lines": 36,
+    "title": "# Transaction and account import format notes",
+    "status": "living",
+    "category": "input-package-readme",
+    "evidence": "tracked file; no status line",
+    "note": "Operational/tooling document, not a product design document."
+   },
+   {
+    "path": "input/demo/README.md",
+    "lines": 81,
+    "title": "# Demo Plan Data (#240): source files and format notes",
+    "status": "living",
+    "category": "input-package-readme",
+    "evidence": "tracked file; no status line",
+    "note": "Operational/tooling document, not a product design document."
+   }
+  ],
+  "source_roots": [
+   {
+    "path": "main.py",
+    "role": "application entry point (root)"
+   },
+   {
+    "path": "build.py",
+    "role": "build entry point (root)"
+   },
+   {
+    "path": "src/",
+    "role": "Python backend: engine, tax, projection stages, reporting/workbook, HTTP server, stores",
+    "tracked_files": 325,
+    "python_files": 323,
+    "python_lines_total": 105069,
+    "top_level_modules": 132,
+    "subpackages": {
+     "broker_1099b": 8,
+     "broker_activity": 5,
+     "csv_exchange": 7,
+     "dashboard_ui": 2,
+     "engine_sections": 4,
+     "housing": 18,
+     "http_runtime": 4,
+     "legacy_conversion": 17,
+     "parsing": 14,
+     "projection_stages": 27,
+     "reference": 2,
+     "reporting": 26,
+     "server": 11,
+     "server_services": 21,
+     "stores": 27
+    },
+    "non_python": [
+     "src/reference/reference.db (shipped read-only reference DB, binary)",
+     "src/reference/demo_seed.rpx (demo plan seed, binary)"
+    ],
+    "large_files_per_project_instructions": [
+     "src/reporting/workbook_builder.py (1,443)",
+     "src/reporting/workbook_common.py (1,161)",
+     "src/module_catalog.py (916)"
+    ]
+   },
+   {
+    "path": "frontend/",
+    "role": "Dashboard UI (vanilla JS, no bundler): index.html, admin.html, css/, js/",
+    "tracked_files": 79,
+    "js_files": 72,
+    "js_lines_total": 44023,
+    "html": [
+     "frontend/index.html",
+     "frontend/admin.html"
+    ],
+    "css": [
+     "frontend/css/dashboard.css",
+     "frontend/css/admin.css"
+    ],
+    "large_files_per_project_instructions": [
+     "frontend/js/dashboard.js (7,287)",
+     "frontend/js/dashboard_decomp_row_model.js (5,188)",
+     "frontend/js/dashboard_decomp_housing_optimizer.js (1,984)",
+     "frontend/js/dashboard_decomp_housing_scenarios.js (1,397)"
+    ],
+    "usability_relevant": [
+     "frontend/js/help_registry.js (in-app help/glossary source per future/ help docs)",
+     "frontend/index.html",
+     "frontend/css/dashboard.css"
+    ]
+   },
+   {
+    "path": "financial_trends_reporter/",
+    "role": "Standalone Financial Trends / Financial Insight reporter: Python server + own frontend (sign-in, charts, live snapshot, projections, realized)",
+    "tracked_files": 47,
+    "python_files": 27,
+    "frontend_files": 12
+   },
+   {
+    "path": "Monarch Extractor/",
+    "role": "Playwright-driven Monarch data extractor (2 .py + 2 .ps1)",
+    "tracked_files": 4
+   },
+   {
+    "path": "tools/",
+    "role": "Developer/maintenance tooling: golden-master regen, reference DB build, diagram generator, fast gates, hygiene checks, launchers, js_codemod, e2e server",
+    "tracked_files": 92,
+    "subdirs": {
+     "js_codemod": 24,
+     "launchers": 14,
+     "reference_slices": 12
+    }
+   },
+   {
+    "path": "scripts/",
+    "role": "PyInstaller smoke probes and zip-metrics builder",
+    "tracked_files": 4
+   },
+   {
+    "path": "launchers/",
+    "role": "End-user Windows launchers (.bat/.vbs)",
+    "tracked_files": 4
+   },
+   {
+    "path": "reference_src/",
+    "role": "Source data for reference.db (tax law, state tax, CMA, mortality, schema, field tiers, security master, zip metrics)",
+    "tracked_files": 15
+   },
+   {
+    "path": "input/demo/",
+    "role": "Fictional demo plan CSVs (tracked); real input/* is gitignored",
+    "tracked_files": 26
+   }
+  ],
+  "test_roots": [
+   {
+    "path": "tests/",
+    "role": "pytest suite (flat)",
+    "tracked_files": 966,
+    "test_py_files_top_level": 721,
+    "helper_modules": [
+     "tests/_decomp_dashboard.py",
+     "tests/broker_1099b_synthetic.py",
+     "tests/broker_1099b_vanguard_synthetic.py",
+     "tests/broker_activity_fixtures.py",
+     "tests/build_output_helpers.py",
+     "tests/conftest.py",
+     "tests/golden_fixture_provenance.py",
+     "tests/golden_pricing.py",
+     "tests/open_stores.py",
+     "tests/paired_path_harness.py",
+     "tests/plan_fixture.py",
+     "tests/reference_golden.py",
+     "tests/rental_fixtures.py",
+     "tests/rental_sheet_helpers.py",
+     "tests/strategy_service_rows.py",
+     "tests/synthetic_plans.py",
+     "tests/zip_fixture.py"
+    ]
+   },
+   {
+    "path": "conftest.py",
+    "role": "root pytest conftest"
+   },
+   {
+    "path": "tests/frontend/",
+    "role": "Node --test unit tests in a vm sandbox (*.test.mjs) + load_dashboard.mjs loader",
+    "tracked_files": 143,
+    "test_files": 142
+   },
+   {
+    "path": "tests/e2e/",
+    "role": "Playwright browser specs + fixtures.js/helpers.js + navigation baseline JSON",
+    "tracked_files": 30,
+    "spec_files": 27
+   },
+   {
+    "path": "tests/fixtures/",
+    "role": "Golden/reference fixtures (csv_exchange, reference_golden, golden_phase_baseline, JSON expectations)",
+    "tracked_files": 55
+   }
+  ],
+  "configuration_files": [
+   {
+    "path": "pyproject.toml",
+    "role": "pytest options/markers, project metadata + runtime deps, ruff, mypy, coverage settings",
+    "evidence": "pyproject.toml:1-143"
+   },
+   {
+    "path": "requirements.txt",
+    "role": "runtime dependency manifest"
+   },
+   {
+    "path": "requirements-dev.txt",
+    "role": "dev/test dependency manifest"
+   },
+   {
+    "path": "package.json",
+    "role": "npm scripts (test, test:e2e) and JS devDependencies"
+   },
+   {
+    "path": "package-lock.json",
+    "role": "npm lockfile (not opened)"
+   },
+   {
+    "path": "playwright.config.js",
+    "role": "Playwright e2e config: chromium only, 1600x900 viewport",
+    "evidence": "playwright.config.js:44-49",
+    "usability_note": "Only one desktop viewport/browser project is configured; comment says the help pane becomes an overlay drawer below 1500px."
+   },
+   {
+    "path": "retirement_planner.spec",
+    "role": "PyInstaller onedir packaging spec"
+   },
+   {
+    "path": ".gitattributes",
+    "role": "EOL policy (csv LF, workflow js LF, db binary)"
+   },
+   {
+    "path": ".gitignore",
+    "role": "ignore rules; documents which data is PII and untracked"
+   },
+   {
+    "path": "data/prefs.json",
+    "role": "tracked UI prefs file (keys rpAutoLoad, rpTextSize)",
+    "note": "A runtime preference file committed to the repo; values not copied."
+   },
+   {
+    "path": ".claude/settings.json",
+    "role": "Claude Code project settings/hooks (not opened)"
+   },
+   {
+    "path": ".claude/launch.json",
+    "role": "dev-server launch config (not opened)"
+   },
+   {
+    "path": ".claude/hooks/",
+    "role": "4 hook scripts: large_file_guard, post_edit_text_hygiene, pre_push_fast_gates, triage_interceptor"
+   },
+   {
+    "path": ".claude/workflows/",
+    "role": "system-review.js workflow script and run.mjs"
+   },
+   {
+    "path": ".claude/skills/system-review/schemas/",
+    "role": "coverage.schema.json, findings.schema.json for this review"
+   },
+   {
+    "path": "src/module_catalog.py",
+    "role": "in-code module/feature catalog (configuration-as-code)"
+   },
+   {
+    "path": "src/server/route_manifest.py",
+    "role": "in-code HTTP route manifest"
+   },
+   {
+    "path": "src/system_config.py",
+    "role": "in-code system configuration"
+   },
+   {
+    "path": "src/runtime_config.py",
+    "role": "runtime configuration"
+   },
+   {
+    "path": "src/plan_config.py",
+    "role": "plan configuration"
+   },
+   {
+    "path": "src/config_backend.py",
+    "role": "config storage backend (DB-canonical)"
+   },
+   {
+    "path": "src/reporting/workbook_format_config.py",
+    "role": "workbook formatting configuration"
+   },
+   {
+    "path": "frontend/js/modules/phase3_module_manifest.js",
+    "role": "frontend module manifest"
+   },
+   {
+    "path": "reference_src/tax_law_v10.json",
+    "role": "tax law reference data (source for reference.db)"
+   },
+   {
+    "path": "reference_src/template_layout.json",
+    "role": "workbook template layout"
+   },
+   {
+    "path": "reference_src/monarch_field_map.json",
+    "role": "Monarch field mapping"
+   },
+   {
+    "path": "reference_src/field_tiers.csv",
+    "role": "field tier (Standard/Advanced/Expert) assignments - usability-relevant progressive disclosure data"
+   },
+   {
+    "path": "reference_src/schema.csv",
+    "role": "plan field schema"
+   },
+   {
+    "path": "tests/e2e/baselines/wi015-navigation-baseline.json",
+    "role": "recorded left-nav baseline (usability-relevant)"
+   }
+  ],
+  "external_dependencies": {
+   "python_runtime": {
+    "manifests": [
+     "requirements.txt:8-21",
+     "pyproject.toml:59-66"
+    ],
+    "packages": [
+     "numpy>=1.26,<3",
+     "scipy>=1.10,<2",
+     "lxml>=4.9,<7",
+     "openpyxl>=3.1,<4",
+     "pywebview>=4.0,<7",
+     "keyring>=24,<26"
+    ],
+    "note": "requirements.txt and pyproject [project].dependencies list the same six packages and bounds.",
+    "requires_python": ">=3.11"
+   },
+   "python_dev": {
+    "manifests": [
+     "requirements-dev.txt:3-15"
+    ],
+    "packages": [
+     "pytest>=8.0,<10",
+     "pytest-cov>=5.0,<8",
+     "pytest-xdist>=3.5,<4",
+     "pytest-timeout>=2.3,<3",
+     "ruff>=0.6,<1",
+     "mypy>=1.10,<2"
+    ]
+   },
+   "javascript_dev": {
+    "manifests": [
+     "package.json:17-21",
+     "package-lock.json (not opened)"
+    ],
+    "packages": [
+     "@babel/parser ^7.29.8",
+     "@playwright/test ^1.62.1",
+     "jscodeshift ^17.4.0"
+    ],
+    "note": "No runtime JS dependencies declared; no external <script>/<link> http(s) URLs found by grep in frontend/*.html or financial_trends_reporter/frontend/*.html."
+   },
+   "imported_but_not_in_any_manifest": [
+    {
+     "package": "playwright (Python)",
+     "evidence": "Monarch Extractor/monarch_extract.py:16-17; Monarch Extractor/monarch_balances.py:136-137",
+     "note": ".gitignore mentions a separate 'Monarch Extractor/.venv/'; no requirements file is tracked for it."
+    },
+    {
+     "package": "requests",
+     "evidence": "src/market_data.py:42 - guarded import with type: ignore",
+     "note": "Appears optional; fallback behaviour not inspected."
+    },
+    {
+     "package": "pypdf",
+     "evidence": "src/broker_1099b/pdf_text.py:18 - commented as optional dependency"
+    },
+    {
+     "package": "PyInstaller",
+     "evidence": "retirement_planner.spec:12",
+     "note": "Build-time only; not in requirements-dev.txt."
+    }
+   ],
+   "external_services_by_name_only": [
+    "Monarch (web scraping via Playwright)",
+    "market price fetch (src/market_data.py)",
+    "OS credential store via keyring"
+   ],
+   "version_surfaces": {
+    "pyproject.toml:56": "10.0.0",
+    "package.json:3": "10.0.0",
+    "retirement_planner.spec:2": "comment says v11",
+    "working directory name": "Version 12"
+   }
+  }
+ },
+ "exclusions": [
+  {
+   "path": "documentation/archive/ALL_FILES_COMPLETE_INVENTORY.md",
+   "replacement": null,
+   "status": "generated-inventory",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'; documentation/archive/ALL_FILES_COMPLETE_INVENTORY.md:1 - title - \"# Complete File Inventory - All 10395 Files\"",
+   "confidence": "high",
+   "reason": "File inventory listing; generated output without normative design content."
+  },
+  {
+   "path": "documentation/archive/ALL_FILES_WITH_DESCRIPTIONS.md",
+   "replacement": null,
+   "status": "generated-inventory",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'; documentation/archive/ALL_FILES_WITH_DESCRIPTIONS.md:1 - title - \"# Complete File Inventory with Descriptions\"",
+   "confidence": "high",
+   "reason": "File inventory listing; generated output without normative design content."
+  },
+  {
+   "path": "documentation/archive/COMMIT_F0_F1_F2.sh",
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "replacement": null,
+   "confidence": "high",
+   "reason": "Non-Markdown archive artifact (script/patch/JSON baseline/prompt copy); archived/historical-only."
+  },
+  {
+   "path": "documentation/archive/DETAILED_FILE_INVENTORY.md",
+   "replacement": null,
+   "status": "generated-inventory",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'; documentation/archive/DETAILED_FILE_INVENTORY.md:1 - title - \"# Complete File Inventory by Folder\"",
+   "confidence": "high",
+   "reason": "File inventory listing; generated output without normative design content."
+  },
+  {
+   "path": "documentation/archive/F0_F1_F2_COMPLETION_SUMMARY.md",
+   "replacement": "documentation/archive/REMAINING_WORK_EXECUTION_PLAYBOOK.md",
+   "status": "implemented-and-closed",
+   "authoritative_evidence": "documentation/archive/F0_F1_F2_COMPLETION_SUMMARY.md:6 - Status line - \"** ✅ All work complete, ready for local commit/push\"; documentation/reference/OPTIMIZATION_DOCS_INDEX.md:12-35",
+   "confidence": "high",
+   "reason": "Point-in-time completion summary, succeeded by the playbook."
+  },
+  {
+   "path": "documentation/archive/FLASK_REMOVAL_ARCHITECTURE.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. No in-file status line; exclusion rests on folder placement and the index."
+  },
+  {
+   "path": "documentation/archive/FOLDER_INVENTORY_SUMMARY.md",
+   "replacement": null,
+   "status": "generated-inventory",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'; documentation/archive/FOLDER_INVENTORY_SUMMARY.md:1 - title - \"# Project File Inventory by Folder\"",
+   "confidence": "high",
+   "reason": "File inventory listing; generated output without normative design content."
+  },
+  {
+   "path": "documentation/archive/Final Optimization Implementation Plan.md",
+   "replacement": "documentation/archive/Latest Optimization Implementation Plan.md",
+   "status": "superseded",
+   "authoritative_evidence": "documentation/reference/OPTIMIZATION_DOCS_INDEX.md:12-35 - 'Latest ...' is a revision of this plan and the current document",
+   "confidence": "high",
+   "reason": "Superseded by a named revision."
+  },
+  {
+   "path": "documentation/archive/Final Optimization Upgrade Plan.md",
+   "replacement": "documentation/archive/Latest Optimization Implementation Plan.md",
+   "status": "superseded",
+   "authoritative_evidence": "documentation/reference/OPTIMIZATION_DOCS_INDEX.md:12-35 - early metrics proposal that predates the formal plan",
+   "confidence": "high",
+   "reason": "Earlier draft/input kept for history."
+  },
+  {
+   "path": "documentation/archive/HOLDING_PERIOD_REAL_LOSS_ALLOCATION_PLAN.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. No in-file status line; exclusion rests on folder placement and the index."
+  },
+  {
+   "path": "documentation/archive/PLANNING_WORKBENCH_CONSOLIDATION_PROPOSAL.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. No in-file status line; exclusion rests on folder placement and the index."
+  },
+  {
+   "path": "documentation/archive/PLAN_METADATA_SCHEMA.md",
+   "replacement": null,
+   "status": "archived (dead schema)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:46-49 - schema for a plan_metadata.json no code reads or writes",
+   "confidence": "high",
+   "reason": "Schema for a file no code uses."
+  },
+  {
+   "path": "documentation/archive/PROJECT_MANIFEST.md",
+   "replacement": null,
+   "status": "generated-inventory",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'; documentation/archive/PROJECT_MANIFEST.md:1 - title - \"# Retirement Planning v12 Project Manifest\"",
+   "confidence": "high",
+   "reason": "File inventory listing; generated output without normative design content."
+  },
+  {
+   "path": "documentation/archive/System Review (skill prompt copy).txt",
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "replacement": null,
+   "confidence": "high",
+   "reason": "Non-Markdown archive artifact (script/patch/JSON baseline/prompt copy); archived/historical-only."
+  },
+  {
+   "path": "documentation/archive/legacy/IMMEDIATE_NEXT_ACTIONS_IMPLEMENTATION.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'; documentation/archive/legacy/IMMEDIATE_NEXT_ACTIONS_IMPLEMENTATION.md:3 - Status line - \"implemented as an additive stabilization pass after the system evaluation.\"",
+   "confidence": "high",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index."
+  },
+  {
+   "path": "documentation/archive/legacy/PHASE_B_TEST_MODERNIZATION_ANALYSIS.md",
+   "replacement": null,
+   "status": "archived (in-file status reads open)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'; documentation/archive/legacy/PHASE_B_TEST_MODERNIZATION_ANALYSIS.md:4 - Status line - \"** Ready for Opus 4.8 review + execution plan\"",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. In-file status text was never updated to a closed state, so confidence is medium."
+  },
+  {
+   "path": "documentation/archive/legacy/PHASE_C_ARCHITECTURAL_DECISIONS.md",
+   "replacement": null,
+   "status": "archived (in-file status reads open)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'; documentation/archive/legacy/PHASE_C_ARCHITECTURAL_DECISIONS.md:5 - Status line - \"** APPROVED — ready for Opus 4.8 implementation\"",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. In-file status text was never updated to a closed state, so confidence is medium."
+  },
+  {
+   "path": "documentation/archive/legacy/PHASE_C_LEGACY_REMOVAL_BRIEF.md",
+   "replacement": null,
+   "status": "archived (in-file status reads open)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'; documentation/archive/legacy/PHASE_C_LEGACY_REMOVAL_BRIEF.md:3 - Status line - \"** Design phase — ready for architectural review\"",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. In-file status text was never updated to a closed state, so confidence is medium."
+  },
+  {
+   "path": "documentation/archive/legacy/PHASE_D_MODULE_DECOMPOSITION_BRIEF.md",
+   "replacement": null,
+   "status": "archived (in-file status reads open)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'; documentation/archive/legacy/PHASE_D_MODULE_DECOMPOSITION_BRIEF.md:3 - Status line - \"** Design phase — ready for architectural review\"",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. In-file status text was never updated to a closed state, so confidence is medium."
+  },
+  {
+   "path": "documentation/archive/legacy/PHASE_D_TIER_1C_SHEETS_PROJECTION_SPLIT.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. No in-file status line; exclusion rests on folder placement and the index."
+  },
+  {
+   "path": "documentation/archive/legacy/PHASE_D_TIER_3B_DASHBOARD_MODULARIZATION.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'; documentation/archive/legacy/PHASE_D_TIER_3B_DASHBOARD_MODULARIZATION.md:3 - Status line - \"** Complete\"",
+   "confidence": "high",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index."
+  },
+  {
+   "path": "documentation/archive/legacy/SYSTEM_MODERNIZATION_PLAN.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. No in-file status line; exclusion rests on folder placement and the index."
+  },
+  {
+   "path": "documentation/archive/legacy/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. No in-file status line; exclusion rests on folder placement and the index."
+  },
+  {
+   "path": "documentation/archive/reports/DEMO_WORKSPACE_PLAN_2026-07-29.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. No in-file status line; exclusion rests on folder placement and the index."
+  },
+  {
+   "path": "documentation/archive/reports/HSA_YTD_TEST_AUDIT_2026-09-01.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. No in-file status line; exclusion rests on folder placement and the index."
+  },
+  {
+   "path": "documentation/archive/reports/N1_MC_PARITY_DIAGNOSTIC_2026-09-07.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'; documentation/archive/reports/N1_MC_PARITY_DIAGNOSTIC_2026-09-07.md:5 - Status line - \"no code shipped.** Two real, well-evidenced bugs were found and fixed; the second fix uncovered a third, deeper bug that caused the actual parity test to regress catastrophically (8pp → 49pp gap, vect\"",
+   "confidence": "high",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index."
+  },
+  {
+   "path": "documentation/archive/reports/N1_MC_PARITY_RESIDUAL_EXPERIMENTS_2026-09-30.patch",
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "replacement": null,
+   "confidence": "high",
+   "reason": "Non-Markdown archive artifact (script/patch/JSON baseline/prompt copy); archived/historical-only."
+  },
+  {
+   "path": "documentation/archive/reports/PLANNER_SIGNOFF_2026-08-17.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'; documentation/archive/reports/PLANNER_SIGNOFF_2026-08-17.md:6 - 'Supersedes' line",
+   "confidence": "high",
+   "reason": "Dated sign-off for an August review wave; historical-only."
+  },
+  {
+   "path": "documentation/archive/reports/REMAINING_WORK_PLAN_2026-08-12.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. No in-file status line; exclusion rests on folder placement and the index."
+  },
+  {
+   "path": "documentation/archive/reports/SYSTEM_REVIEW_2026-07-18.md",
+   "replacement": "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19.md (later review; kept in scope as baseline)",
+   "status": "archived (earlier dated review)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Earlier dated system review in archive/reports; a later review exists, but no document states that it supersedes this one, so unresolved findings may survive only here (e.g. BACKLOG.md:26 cites review 2026-09-25-2 QA-006)."
+  },
+  {
+   "path": "documentation/archive/reports/SYSTEM_REVIEW_2026-07-21.md",
+   "replacement": "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19.md (later review; kept in scope as baseline)",
+   "status": "archived (earlier dated review)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'; documentation/archive/reports/SYSTEM_REVIEW_2026-07-21.md:5 - Status line - \"** Read-only review. No source was modified. This document is the only artifact produced.\"",
+   "confidence": "medium",
+   "reason": "Earlier dated system review in archive/reports; a later review exists, but no document states that it supersedes this one, so unresolved findings may survive only here (e.g. BACKLOG.md:26 cites review 2026-09-25-2 QA-006)."
+  },
+  {
+   "path": "documentation/archive/reports/SYSTEM_REVIEW_2026-08-04.md",
+   "replacement": "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19.md (later review; kept in scope as baseline)",
+   "status": "archived (earlier dated review)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Earlier dated system review in archive/reports; a later review exists, but no document states that it supersedes this one, so unresolved findings may survive only here (e.g. BACKLOG.md:26 cites review 2026-09-25-2 QA-006)."
+  },
+  {
+   "path": "documentation/archive/reports/SYSTEM_REVIEW_2026-08-31.md",
+   "replacement": "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19.md (later review; kept in scope as baseline)",
+   "status": "archived (earlier dated review)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Earlier dated system review in archive/reports; a later review exists, but no document states that it supersedes this one, so unresolved findings may survive only here (e.g. BACKLOG.md:26 cites review 2026-09-25-2 QA-006)."
+  },
+  {
+   "path": "documentation/archive/reports/SYSTEM_REVIEW_2026-09-07.md",
+   "replacement": "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19.md (later review; kept in scope as baseline)",
+   "status": "archived (earlier dated review)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Earlier dated system review in archive/reports; a later review exists, but no document states that it supersedes this one, so unresolved findings may survive only here (e.g. BACKLOG.md:26 cites review 2026-09-25-2 QA-006)."
+  },
+  {
+   "path": "documentation/archive/reports/SYSTEM_REVIEW_2026-09-25-2.md",
+   "replacement": "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19.md (later review; kept in scope as baseline)",
+   "status": "archived (earlier dated review)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Earlier dated system review in archive/reports; a later review exists, but no document states that it supersedes this one, so unresolved findings may survive only here (e.g. BACKLOG.md:26 cites review 2026-09-25-2 QA-006)."
+  },
+  {
+   "path": "documentation/archive/reports/SYSTEM_REVIEW_2026-09-25.md",
+   "replacement": "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19.md (later review; kept in scope as baseline)",
+   "status": "archived (earlier dated review)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Earlier dated system review in archive/reports; a later review exists, but no document states that it supersedes this one, so unresolved findings may survive only here (e.g. BACKLOG.md:26 cites review 2026-09-25-2 QA-006)."
+  },
+  {
+   "path": "documentation/archive/reports/TICKET_RESOLUTION_PLAN_2026-07-27.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. No in-file status line; exclusion rests on folder placement and the index."
+  },
+  {
+   "path": "documentation/archive/reports/WAVE4_IMPLEMENTATION_PLAN_2026-09-07.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. No in-file status line; exclusion rests on folder placement and the index."
+  },
+  {
+   "path": "documentation/archive/reports/WAVE5_IMPLEMENTATION_PLAN_2026-09-07.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. No in-file status line; exclusion rests on folder placement and the index."
+  },
+  {
+   "path": "documentation/archive/reports/WAVE6_IMPLEMENTATION_PLAN_2026-09-08.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. No in-file status line; exclusion rests on folder placement and the index."
+  },
+  {
+   "path": "documentation/archive/reports/WAVE_2_3_STATUS_CORRECTIONS_2026-09-07.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "confidence": "medium",
+   "reason": "Dated report/plan/phase note in archive/; historical-only per the index. No in-file status line; exclusion rests on folder placement and the index."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md",
+   "replacement": null,
+   "status": "archived (in-file status stale)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/; documentation/archive/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md:3 - Status line - \"** Scoping only. Not a ready-to-execute plan. No source files changed by this\"",
+   "confidence": "medium",
+   "reason": "Index says all archived superpowers docs were verified shipped in WI-016, but the file's own status text still reads as not implemented. Stale status text is itself a documentation observation."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-10-dashboard-js-split-codemod.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-10-golden-master-and-at-rest-plan-data-migration.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-10-wellness-rename-inventory.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-17-hsa-withdrawal-optimizer.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-17-roth-guide-audit.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-17-tickets-284-291-implementation-plan.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-18-survivor-and-post-death-spending.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-26-contingent-liability-funding-rules-design.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-26-hsa-expense-bank-and-double-dip-spec.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-26-hsa-schedule-search-contingent-liability-spec.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-26-ltc-premium-tier-reclassification-spec.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-27-mc-tier-priority-withdrawal-redirection-spec.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-27-phase3-tax-npv-eltr-spec.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-27-phase5-adaptive-guardrails-spec.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-27-phase6-expanded-stress-scenarios-spec.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-08-28-phase6-scenario-implementation-design.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-02-monarch-autoupdate-reporting-plan.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-02-monarch-autoupdate-reporting-plan.md:3 - Status line - \"implemented (2026-09-02).** Approved for execution and built in\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-02-roth-phase-varying-conversion.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-08-deterministic-engine-stage-decomposition-design.md",
+   "replacement": null,
+   "status": "archived (in-file status stale)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/; documentation/archive/superpowers/plans/2026-09-08-deterministic-engine-stage-decomposition-design.md:3 - Status line - \"design only, no extraction started. Written to scope the work before\"",
+   "confidence": "medium",
+   "reason": "Index says all archived superpowers docs were verified shipped in WI-016, but the file's own status text still reads as not implemented. Stale status text is itself a documentation observation."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-09-housing-estimate-realism-and-dollar-convention-design.md",
+   "replacement": null,
+   "status": "archived (in-file status stale)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/; documentation/archive/superpowers/plans/2026-09-09-housing-estimate-realism-and-dollar-convention-design.md:3 - Status line - \"** design only. Nothing in this document has been implemented. All\"",
+   "confidence": "medium",
+   "reason": "Index says all archived superpowers docs were verified shipped in WI-016, but the file's own status text still reads as not implemented. Stale status text is itself a documentation observation."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-15-zip-code-housing-screening-followup.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-15-zip-code-housing-screening.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-16-housing-financing-and-zip-ux.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-16-housing-financing-and-zip-ux.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-17-planning-workbench-strategy-integration.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-17-planning-workbench-strategy-integration.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-17-workbook-build-performance.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-17-workbook-build-performance.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-18-income-taxes-not-transfers.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-18-income-taxes-not-transfers.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-21-h1-golden-master-findings.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-21-h1-golden-master-findings.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-21-h2-anchor-flow-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-21-h2-anchor-flow-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-21-w0-preflight-findings.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-21-w0-preflight-findings.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-21-w1-catalog-foundation-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-21-w1-catalog-foundation-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-21-w2-stable-slugs-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-21-w2-stable-slugs-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-21-w3-workbook-regrouping-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-21-w3-workbook-regrouping-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-21-w4-plan-features-page-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-21-w4-plan-features-page-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-21-w5-dependency-declarations-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-21-w5-dependency-declarations-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-21-w6-plan-flag-unification-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-21-w6-plan-flag-unification-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-21-w7-engine-gate-fix-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-21-w7-engine-gate-fix-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-22-w10a-roth-result-panel-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-22-w10a-roth-result-panel-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-22-w10b-disclosure-badges-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-22-w10b-disclosure-badges-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-22-w10c-apply-to-plan-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-22-w10c-apply-to-plan-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-22-w11-planning-levers-retirement-notes.md",
+   "replacement": "addendum referenced in the status line (not resolved to a path by this stage)",
+   "status": "superseded",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-22-w11-planning-levers-retirement-notes.md:3 - Status line - \"superseded (retirement of Planning Levers was blocked and the keep decision recorded in the addendum; nothing was removed; checked in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line says superseded (Planning Levers retirement blocked; keep decision recorded in an addendum)."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-22-w12-off-state-rendering-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-22-w12-off-state-rendering-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-22-w13-left-nav-realignment-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-22-w13-left-nav-realignment-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-22-w8a-newly-optional-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-22-w8a-newly-optional-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-22-w8b-newly-optional-medium-risk-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-22-w8b-newly-optional-medium-risk-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-22-w9-ui-section-registry-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-22-w9-ui-section-registry-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-23-housing-location-search-catalog-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-23-housing-location-search-catalog-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/2026-09-23-hybrid-ltc-soft-dependency-notes.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/plans/2026-09-23-hybrid-ltc-soft-dependency-notes.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/plans/perf-baseline-2026-09-17.json",
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:3-8,42-50 - layout rule - archive/ is 'shipped, superseded or historical'",
+   "replacement": null,
+   "confidence": "high",
+   "reason": "Non-Markdown archive artifact (script/patch/JSON baseline/prompt copy); archived/historical-only."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-08-17-hsa-withdrawal-optimizer-design.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-09-02-monarch-autoupdate-reporting-design.md",
+   "replacement": null,
+   "status": "archived (in-file status stale)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/; documentation/archive/superpowers/specs/2026-09-02-monarch-autoupdate-reporting-design.md:4 - Status line - \"Draft — awaiting approval (design only, no implementation yet)\"",
+   "confidence": "medium",
+   "reason": "Index says all archived superpowers docs were verified shipped in WI-016, but the file's own status text still reads as not implemented. Stale status text is itself a documentation observation."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-09-02-roth-phase-varying-conversion-design.md",
+   "replacement": null,
+   "status": "archived (in-file status stale)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/; documentation/archive/superpowers/specs/2026-09-02-roth-phase-varying-conversion-design.md:4 - Status line - \"Approved for planning\"",
+   "confidence": "medium",
+   "reason": "Index says all archived superpowers docs were verified shipped in WI-016, but the file's own status text still reads as not implemented. Stale status text is itself a documentation observation."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-09-09-housing-optimization-design.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-09-14-housing-optimizer-panel-fixes-design.md",
+   "replacement": null,
+   "status": "archived",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/",
+   "confidence": "medium",
+   "reason": "Pre-2026-09-16 spec/plan without a Status line; shipped per the index's WI-016 statement only."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-09-15-zip-code-housing-screening-design.md",
+   "replacement": null,
+   "status": "archived (in-file status stale)",
+   "authoritative_evidence": "documentation/DOCUMENTATION_INDEX.md:36-40 - WI-016 - specs/plans formerly in docs/superpowers/ were checked against code and commit history, none found unshipped, hence archive/superpowers/; documentation/archive/superpowers/specs/2026-09-15-zip-code-housing-screening-design.md:4 - Status line - \"** Approved design, not yet implemented\"",
+   "confidence": "medium",
+   "reason": "Index says all archived superpowers docs were verified shipped in WI-016, but the file's own status text still reads as not implemented. Stale status text is itself a documentation observation."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-09-16-housing-financing-and-zip-ux-design.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/specs/2026-09-16-housing-financing-and-zip-ux-design.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md:4 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20). Earlier status text, kept for history: Approved for planning\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-09-16-strategy-ui-redesign-design.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/specs/2026-09-16-strategy-ui-redesign-design.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-09-17-planning-workbench-strategy-integration-design.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/specs/2026-09-17-planning-workbench-strategy-integration-design.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-09-19-housing-optimizer-anchor-flow-and-timing-design.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/specs/2026-09-19-housing-optimizer-anchor-flow-and-timing-design.md:4 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20). Earlier status text, kept for history: Reviewed — all six open questions resolved 2026-09-19, plus four raise\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-09-19-modular-feature-nav-design.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/specs/2026-09-19-modular-feature-nav-design.md:4 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20). Earlier status text, kept for history: **Open questions resolved** (§7) — ready for planning.\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-09-19-optimizer-stress-test-rationalization-design.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/specs/2026-09-19-optimizer-stress-test-rationalization-design.md:4 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20). Earlier status text, kept for history: **Open questions resolved** (§5) — ready for planning, except the two\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-09-24-taxonomy-and-spending-restructure-design.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/specs/2026-09-24-taxonomy-and-spending-restructure-design.md:3 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-10-04-feature-tiers-and-switches-design.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/specs/2026-10-04-feature-tiers-and-switches-design.md:6 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20). Earlier status text, kept for history: approved by the owner on 2026-10-04 (decisions 1-11 below). Ready for \"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-10-05-eliminate-file-dependencies-design.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/specs/2026-10-05-eliminate-file-dependencies-design.md:6 - Status line - \"implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20). Earlier status text, kept for history: approved by the owner on 2026-10-05 (decisions 1-9 in section 1A). Rea\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-10-05-rental-property-module-design.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/specs/2026-10-05-rental-property-module-design.md:3 - Status line - \"implemented (WP12a to WP12c, PRs #199 to #202; rental code in `src/rental_tax.py`, `src/stores/rental_repo.py` and `src/server_services/rental_service.py`; living rules in `documentation/reference/REN\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-10-14-items-345-347-design.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/specs/2026-10-14-items-345-347-design.md:3 - Status line - \"implemented (items 345 and 346 in PR #211, 347a in PR #212, 347b and 347c in PR #213; checked against the merged work and the per-account flows in `financial_trends_reporter/trends_metrics.py` in WI-0\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-10-14-monarch-account-balances-trends-plan.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/specs/2026-10-14-monarch-account-balances-trends-plan.md:5 - Status line - \"implemented (PR #215, with later reconcile follow-ups in #218 to #220; see `documentation/reference/release_notes/2026-10-monarch-balances-and-reconciliation.md`; checked in WI-016, 2026-10-20). Earli\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/archive/superpowers/specs/2026-10-15-items-349-354-design.md",
+   "replacement": null,
+   "status": "implemented",
+   "authoritative_evidence": "documentation/archive/superpowers/specs/2026-10-15-items-349-354-design.md:3 - Status line - \"implemented (PR #217; delivered items are listed in `documentation/reference/release_notes/2026-10-monarch-mapping-and-trends-fixes.md`; checked in WI-016, 2026-10-20). Earlier banner, kept for histor\"",
+   "confidence": "high",
+   "reason": "Status line records shipped work, verified in WI-016 or by named PRs; archived."
+  },
+  {
+   "path": "documentation/future/superpowers/plans/2026-10-27-trends-remote-access-design.md",
+   "status": "implemented",
+   "authoritative_evidence": "documentation/future/superpowers/plans/2026-10-27-trends-remote-access-design.md:5 - Status line - \"implemented (see the runbook); the LAN bind from commit 93616310 is retired\"",
+   "replacement": "documentation/reference/TRENDS_REMOTE_ACCESS_RUNBOOK.md",
+   "confidence": "medium",
+   "reason": "Status line states implemented with no open remainder. Confidence is medium, not high: the file still sits in future/ and implementation was not re-verified against code by this stage."
+  },
+  {
+   "path": "documentation/future/superpowers/plans/2026-10-27-trends-remote-access-plan.md",
+   "status": "implemented",
+   "authoritative_evidence": "documentation/future/superpowers/plans/2026-10-27-trends-remote-access-plan.md:3 - Status line - \"implemented\"",
+   "replacement": "documentation/reference/TRENDS_REMOTE_ACCESS_RUNBOOK.md",
+   "confidence": "medium",
+   "reason": "Status line states implemented with no open remainder. Confidence is medium, not high: the file still sits in future/ and implementation was not re-verified against code by this stage."
+  },
+  {
+   "path": "documentation/future/superpowers/plans/2026-10-29-annuity-plan-values-design.md",
+   "status": "implemented",
+   "authoritative_evidence": "documentation/future/superpowers/plans/2026-10-29-annuity-plan-values-design.md:5 - Status line - \"implemented (PR #328).\"",
+   "replacement": null,
+   "confidence": "medium",
+   "reason": "Status line states implemented with no open remainder. Confidence is medium, not high: the file still sits in future/ and implementation was not re-verified against code by this stage."
+  },
+  {
+   "path": "documentation/future/ui_prose_inventory_summary.md",
+   "status": "implemented-and-closed",
+   "authoritative_evidence": "documentation/future/ui_prose_inventory_summary.md:1 - Status line - \"implemented (closed out in Phase 4, 2026-10-22). Phase 0 measurements below are historical; see \"Phase 4 closeout\" for the final counts.\"",
+   "replacement": "frontend/js/help_registry.js (per sibling Contextual Help Panel plan status line)",
+   "confidence": "medium",
+   "reason": "Status line states implemented with no open remainder. Confidence is medium, not high: the file still sits in future/ and implementation was not re-verified against code by this stage."
+  },
+  {
+   "path": "documentation/reference/CI_SETUP.md",
+   "status": "out-of-scope (CI)",
+   "authoritative_evidence": "Review rule: CI is excluded; file title '# CI/CD Setup' (line 1)",
+   "replacement": null,
+   "confidence": "high",
+   "reason": "CI was intentionally excluded from this review."
+  }
+ ],
+ "explicit_exclusions": [
+  "ci_and_github_actions (.github/workflows/ci.yml, .github/workflows/nightly.yml, documentation/reference/CI_SETUP.md not inventoried or opened)"
+ ],
+ "status_summary": {
+  "status-uncertain": 35,
+  "historical-context": 10,
+  "draft": 2,
+  "included": 10,
+  "planned": 3,
+  "approved": 8,
+  "living": 58
+ },
+ "exclusion_summary": {
+  "generated-inventory": 5,
+  "archived": 48,
+  "implemented-and-closed": 2,
+  "superseded": 3,
+  "archived (dead schema)": 1,
+  "archived (in-file status reads open)": 4,
+  "archived (earlier dated review)": 7,
+  "archived (in-file status stale)": 6,
+  "implemented": 43,
+  "out-of-scope (CI)": 1
+ },
+ "observations_for_later_stages": [
+  "documentation/future/ holds many documents whose Status line says implemented or built (e.g. Contextual Help Panel plan, WI-033 files, trends remote access, annuity plan values) while DOCUMENTATION_INDEX.md:4-5 defines future/ as 'planned, not yet built'.",
+  "Several archive/ documents keep in-file status text that reads open ('design only', 'Approved design, not yet implemented', 'Draft - awaiting approval', 'In progress'); see exclusions with 'in-file status' in their status and the status-uncertain inclusions.",
+  "Nine reference/ documents are not listed in DOCUMENTATION_INDEX.md's reference table (flagged unindexed_in_documentation_index).",
+  "Version strings differ across surfaces (see external_dependencies.version_surfaces).",
+  "Usability-relevant inputs: NAV_FEATURE_MAP.md, FUNCTIONAL_SPEC.md, left-nav redesign spec + follow-ups, sales-ledger v2/v3 specs and HTML mockups, Contextual Help Panel plan, WI-033 glossary/help review, page_help_review.md, wp5/wp12 screenshot sets, legacy PHASE_E usability brief and UX_REDESIGN_ROADMAP, frontend/js/help_registry.js, reference_src/field_tiers.csv."
+ ],
+ "gaps": [
+  "Document status was taken from each file's first 20 lines plus DOCUMENTATION_INDEX.md, OPTIMIZATION_DOCS_INDEX.md and BACKLOG.md. Document bodies were not read, and no status claim was verified against code, Git history, issues or pull requests by this stage.",
+  "35 documents are status-uncertain (qualified or contradictory status); they are included, not excluded.",
+  "Exclusions marked medium confidence (archive/ files with no status line or with status text that still reads open) rest on folder placement and the index only.",
+  "Binary and image documents were listed but not opened: Retirement_Planner_Concepts_Guide.docx, 32 PNG screenshots, src/reference/reference.db, src/reference/demo_seed.rpx, reference_src/zip_metrics.csv.gz.",
+  "package-lock.json, .claude/settings.json and .claude/launch.json were listed but not opened; transitive JS dependencies are not inventoried.",
+  "Source and test roots are counted and described from paths and directory names; individual source files were not opened by this stage.",
+  "Only tracked files at the local checkout are inventoried. Ignored local content (.superpowers/sdd/ working notes, an empty docs/superpowers/ directory, local_state/, real input/ data, .claude/worktrees/) is not part of the reviewed ref and was not inventoried.",
+  "The reviewed branch is unpushed and the working tree is dirty (two modified files); the inventory reflects the working tree, so GitHub contents at main may differ by one commit plus those edits.",
+  "Third-party imports were found by a regex over import lines, not by resolving them; dynamic or conditional imports could be missed.",
+  "CI was intentionally excluded from this review."
+ ]
+}
