@@ -1,3 +1,24 @@
+## 2026-11-10 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5241080.84 lifetime_tax=1235134.66 -->
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=23b68bc89cffa71c6ce731c4da5855b636d7b30b9ad091837608b58202b57602 -->
+
+The full-row snapshot was re-recorded in the same change: its only diff is
+the new `pretax_payroll_deductions` row field (its cases make no 401(k) or
+HSA contributions, so no value moved). The phase golden was re-recorded too:
+in the demo plan the Roth/bracket sizer's 2026 pre-conversion AGI estimate
+fell 67,852.50 = 28,102.50 (business expenses 21,600 + employer FICA 6,502.50,
+which it used to count as AGI) + 39,750 (30,000 401(k) + 9,750 HSA), so the
+year's elective IRA draw now fills the 22% bracket it was told it had no room in.
+
+**Old pins.** terminal_nw=5,322,999.38, lifetime_tax=1,252,241.40
+
+**New pins.** terminal_nw=5,241,080.84, lifetime_tax=1,235,134.66
+
+**Reason.**
+
+401(k) deferrals and HSA contributions now reduce AGI (wages / Form 8889) and come out of take-home cash; the Roth sizer's AGI estimate uses AGI earned income. Frozen fixture 2026: AGI -31,575 (= 24,000 401(k) + 7,575 HSA, hand-checked), total tax -8,842 (~28%: 24% federal + 4.95% IL), terminal NW -81,919 (the contributions were previously deposited without being paid for).
+
 ## 2026-11-09 — Full-row snapshot and phase golden re-recorded: Roth conversions leave room for the pre-tax draw
 
 <!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=fd2120238f72411d0e1f2c1c703fce8c9737909ce94935a3bb25c7ee030d2861 -->
