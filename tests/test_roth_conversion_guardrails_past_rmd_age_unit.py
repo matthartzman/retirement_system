@@ -60,7 +60,9 @@ def _plan(c_overrides, **kw_overrides):
         earned_base=0.0, half_se_ded=0.0, sehi_ded=0.0,
         h_ss=0.0, w_ss=0.0, rmd_total=0.0, pension=0.0,
         wife_single_ann=0.0, wife_joint_ann=0.0, h_single_ann=0.0, h_joint_ann=0.0,
-        note_int_yr=0.0, note_princ_yr=0.0, total_spend_need=0.0, spend=0.0,
+        # Non-income cash that pays the conversion's tax, so the IRA-draw
+        # reserve stays out of these guardrail tests.
+        note_int_yr=0.0, note_princ_yr=1_000_000.0, total_spend_need=0.0, spend=0.0,
         portfolio_ordinary=0.0, portfolio_qualified=0.0, portfolio_tax_exempt=0.0,
         aca_bridge_people=0, h_age=60.0, w_age=58.0,
         brackets_by_status=FEDERAL_BRACKETS_BASE_YEAR, brackets_mfj=FEDERAL_BRACKETS_MFJ,

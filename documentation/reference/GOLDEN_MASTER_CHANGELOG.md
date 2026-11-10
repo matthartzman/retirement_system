@@ -1,3 +1,11 @@
+## 2026-11-09 — Full-row snapshot and phase golden re-recorded: Roth conversions leave room for the pre-tax draw
+
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=fd2120238f72411d0e1f2c1c703fce8c9737909ce94935a3bb25c7ee030d2861 -->
+
+Fill-to-bracket conversions now reserve bracket room for the pre-tax draw the withdrawal cascade takes afterwards (spending the non-Roth surplus cannot cover, plus the conversion's own tax), so conversion plus draw stays inside the target bracket. Conversion sizing also counts the year's IRMAA surcharge, which the two-year lookback fixes before the conversion is sized, as a cash need. Regenerated with `tools/regen_full_row_snapshot.py --reason` and `tools/golden_compare.py record --reason`.
+
+Hand check: the only changed values are the new row field `conv_ira_draw_reserve` and `conv_non_roth_surp`, and every `conv_non_roth_surp` delta equals that year's IRMAA surcharge (frozen sample 2028 -13,970.40, 2029 -2,649.60, 2032 -7,684.80; the full-row scenarios move by the same kind of amount, e.g. -6,770.40 in 2033). No conversion amount, tax or balance moved in any pinned scenario, because their non-Roth surplus covers the conversion's tax; the synthetic golden master and the frozen-plan pin below are unchanged (`regen_golden_master.py measure`: MATCH). The behaviour change shows only in plans that draw the IRA for spending in a conversion year.
+
 ## 2026-11-06 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5322999.38 lifetime_tax=1252241.40 -->

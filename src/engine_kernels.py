@@ -1737,6 +1737,10 @@ class ConversionPlan:
     top_target: float = 0.0
     bracket_room: float = 0.0
     non_roth_surplus: float = 0.0
+    # Bracket room set aside for the pre-tax draw the withdrawal cascade will
+    # take this year (spending the non-Roth surplus cannot cover, plus the
+    # conversion's own tax). 0 when the surplus covers both.
+    ira_draw_reserve: float = 0.0
     primary_pretax_available: float = 0.0
     secondary_pretax_available: float = 0.0
     binding_limit: str = ""
@@ -1758,6 +1762,7 @@ class ConversionPlan:
             "conv_top_24": self.top_target,
             "conv_bracket_room": self.bracket_room,
             "conv_non_roth_surp": self.non_roth_surplus,
+            "conv_ira_draw_reserve": self.ira_draw_reserve,
             "conv_h_ira_avail": self.primary_pretax_available,
             "conv_w_ira_avail": self.secondary_pretax_available,
             "conv_binding_limit": self.binding_limit,
@@ -2185,8 +2190,14 @@ def plan_roth_conversion(
     standard_deduction_fn: Callable,
     compute_fed_tax_fn: Callable,
     state_tax_estimate_fn: Callable[[float, int], float],
+    other_cash_need: float = 0.0,
 ) -> ConversionPlan:
-    """Compute the Roth conversion amount and diagnostics for a projection year."""
+    """Compute the Roth conversion amount and diagnostics for a projection year.
+
+    ``other_cash_need`` is cash the year must pay that is neither spending nor
+    income tax (this year's IRMAA surcharge), counted against the non-Roth
+    surplus that funds the conversion's tax.
+    """
     _call_args = dict(locals())
     forced_amount = float((c.get("forced_roth", {}) or {}).get(year, 0.0) or 0.0)
     if forced_amount > 0:
@@ -2282,14 +2293,26 @@ def plan_roth_conversion(
     # is never smaller than the true deduction taken.
     deduction_for_bracket_room = std
     bracket_room = max(0.0, top_target + deduction_for_bracket_room - pre_agi)
-    base_tax_est += state_tax_estimate_fn(pre_agi, year)
+    _state_base = state_tax_estimate_fn(pre_agi, year)
+    base_tax_est += _state_base
+    # Tax rate on the last dollars of the target bracket: the target federal
+    # rate plus the state's marginal rate across the bracket room. Used to size
+    # the pre-tax draw that will pay the conversion's own tax when the year's
+    # non-Roth surplus cannot (see _conversion_funding_cap).
+    _state_marginal = 0.0
+    if bracket_room > 0:
+        try:
+            _state_marginal = max(0.0, (state_tax_estimate_fn(pre_agi + bracket_room, year) - _state_base) / bracket_room)
+        except (TypeError, ValueError, ZeroDivisionError) as _exc:
+            _log_fallback("roth_estimate.state_marginal", _exc, year=year, filing=filing)
+    conv_tax_rate = min(0.9, max(0.0, float(target_rate) + _state_marginal))
 
     income_streams = (
         earned_base + h_ss + w_ss + pension + wife_single_ann + wife_joint_ann
         + h_single_ann + h_joint_ann + note_princ_yr + note_int_yr + rmd_total
         + portfolio_ordinary + portfolio_qualified + portfolio_tax_exempt
     )
-    return _roth_conversion_amount_and_caps(aca_bridge_people, bal, base_tax_est, bracket_room, c, filing, h_age, income_streams, note_int_yr, policy, portfolio_ordinary, portfolio_qualified, pre_agi, spend, std, target_rate, top_target, total_spend_need, w_age, year)
+    return _roth_conversion_amount_and_caps(aca_bridge_people, bal, base_tax_est + max(0.0, float(other_cash_need or 0.0)), bracket_room, c, filing, h_age, income_streams, note_int_yr, policy, portfolio_ordinary, portfolio_qualified, pre_agi, spend, std, target_rate, top_target, total_spend_need, w_age, year, conv_tax_rate=conv_tax_rate)
 
 
 def apply_roth_conversion(c: Mapping, bal: MutableMapping[str, float], amount: float, *, forced: bool = False, source_account: str = "", forced_sources: Optional[List[Mapping]] = None) -> ConversionPlan:

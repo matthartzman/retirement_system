@@ -1161,6 +1161,9 @@ def run_deterministic_projection_stage(c):
             daf_contrib_yr=daf_contrib_yr,
             inflate_brackets_fn=_inflate_brackets_path, standard_deduction_fn=_standard_deduction_path,
             compute_fed_tax_fn=_compute_fed_tax_path, emit=emit,
+            rows=rows, medicare_fraction_people=medicare_fraction_people,
+            h_medicare_frac=h_medicare_frac, w_medicare_frac=w_medicare_frac,
+            irmaa_surcharge_fn=_irmaa_surcharge_path,
         )
         roth_conv = _stage8.roth_conv
         daf_contrib_yr = _stage8.daf_contrib_yr

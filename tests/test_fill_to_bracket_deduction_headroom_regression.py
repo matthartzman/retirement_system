@@ -39,7 +39,10 @@ def _plan(c_overrides, **kw_overrides):
         earned_base=0.0, half_se_ded=0.0, sehi_ded=0.0,
         h_ss=0.0, w_ss=0.0, rmd_total=0.0, pension=0.0,
         wife_single_ann=0.0, wife_joint_ann=0.0, h_single_ann=0.0, h_joint_ann=0.0,
-        note_int_yr=0.0, note_princ_yr=0.0, total_spend_need=0.0, spend=0.0,
+        # Note principal is non-income cash that pays the conversion's tax, so
+        # the IRA-draw reserve (test_roth_conversion_ira_draw_reserve_unit.py)
+        # stays out of this test of the bracket-room formula itself.
+        note_int_yr=0.0, note_princ_yr=1_000_000.0, total_spend_need=0.0, spend=0.0,
         portfolio_ordinary=0.0, portfolio_qualified=0.0, portfolio_tax_exempt=0.0,
         aca_bridge_people=0, h_age=70.0, w_age=70.0, h_alive=True, w_alive=True,
         brackets_by_status=FEDERAL_BRACKETS_BASE_YEAR, brackets_mfj=FEDERAL_BRACKETS_MFJ,
