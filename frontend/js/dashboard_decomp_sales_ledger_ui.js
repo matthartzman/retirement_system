@@ -1,17 +1,15 @@
 // Sales Ledger page UI state: tab model, persisted section open/closed state, deep-link hash parsing (pure, no DOM).
 const SL_UI_KEY = "salesLedger.ui.v1";
-
-export const SL_TABS = [["fix", "Fix lots & transactions"], ["ledger", "Sales ledger"], ["tax", "Tax year"], ["import", "Import"]];
+export const SL_TABS = [["fix", "To fix"], ["ledger", "Sales"], ["tax", "Tax year"]];
 const slTabOk = (id) => SL_TABS.some((t) => t[0] === id);
-const slDefaults = () => ({ tab: "fix", sections: {}, density: "" });
-
+const slDefaults = () => ({ tab: "fix", sections: {}, taxableOnly: true });
 export function slUiLoad(storage = globalThis.localStorage) {
   const out = slDefaults();
   try {
     const o = JSON.parse(storage.getItem(SL_UI_KEY));
     if (!o || typeof o !== "object") return out;
     if (slTabOk(o.tab)) out.tab = o.tab;
-    if (o.density === "compact") out.density = "compact";
+    out.taxableOnly = o.taxableOnly !== false;
     if (o.sections && typeof o.sections === "object") {
       for (const [k, v] of Object.entries(o.sections)) {
         if (v && typeof v === "object") out.sections[k] = { open: !!v.open, lastAlertCount: Number(v.lastAlertCount) || 0 };
@@ -20,32 +18,12 @@ export function slUiLoad(storage = globalThis.localStorage) {
   } catch (e) { /* storage unavailable or corrupt: use defaults */ }
   return out;
 }
-
 export function slUiSave(state, storage = globalThis.localStorage) {
   try { storage.setItem(SL_UI_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable: UI state is a convenience only */ }
 }
-
-// Row density: "" (comfortable) or "compact". Touch devices always get comfortable rows, so coarse pointers neither apply nor store it.
-const slCoarse = () => { try { return !!(globalThis.matchMedia && globalThis.matchMedia("(pointer:coarse)").matches); } catch (e) { return false; } };
-export const slIsCompact = (storage) => slUiLoad(storage).density === "compact" && !slCoarse();
-export function slSetDensity(d, opts = {}) {
-  if ((d !== "" && d !== "compact") || slCoarse()) return;
-  slUiSave({ ...slUiLoad(opts.storage), density: d }, opts.storage);
-  const doc = globalThis.document;
-  if (!doc) return;
-  const root = doc.getElementById("slRoot");
-  if (root && root.classList) root.classList.toggle("sl-compact", d === "compact");
-  for (const [id, on] of [["slDensityComfort", d === ""], ["slDensityCompact", d === "compact"]]) {
-    const b = doc.getElementById(id);
-    if (b) b.setAttribute("aria-pressed", String(on));
-  }
-}
-
 export const slUiSetTab = (state, id) => (slTabOk(id) ? { ...state, tab: id } : state);
-
 export const slUiRecordToggle = (state, key, open, alertCount) =>
   ({ ...state, sections: { ...state.sections, [key]: { open: !!open, lastAlertCount: Number(alertCount) || 0 } } });
-
 export function slParseHash(hash) {
   const out = { tab: null, sec: null };
   const m = /^#sales_ledger\?(.*)$/.exec(String(hash || ""));
@@ -56,7 +34,6 @@ export function slParseHash(hash) {
   out.sec = p.get("sec") || null;
   return out;
 }
-
 // Alert rule: a section with alerts re-opens whenever its alert count differs from the count the user last saw.
 export function slSecOpen(state, key, defaultOpen, alertCount) {
   const e = state && state.sections && state.sections[key];
@@ -64,7 +41,6 @@ export function slSecOpen(state, key, defaultOpen, alertCount) {
   if (alertCount !== 0 && e.lastAlertCount !== alertCount) return true; // counted alerts are > 0, countless ones a negative signature
   return !!e.open;
 }
-
 export function slTabBarHtml(active, markers = {}) {
   const tabs = SL_TABS.map(([id, label]) => {
     const mk = markers[id];
@@ -76,10 +52,8 @@ export function slTabBarHtml(active, markers = {}) {
   }).join("");
   return `<div class="workspace-tabs sl-tabbar" role="tablist" aria-label="Sales ledger sections">${tabs}</div>`;
 }
-
 export const slTabPanelHtml = (id, bodyHtml, active) =>
   `<div class="sl-tab" role="tabpanel" id="sl-p-${id}" aria-labelledby="sl-t-${id}"${id === active ? "" : " hidden"}>${bodyHtml}</div>`;
-
 // The active tab is kept in memory once chosen, so it survives repaints when storage is off; storage (or a deep link) only
 // gives the initial value. It is bound to the store it was chosen under: a different store starts from storage again.
 let slCurTab = null;
@@ -90,17 +64,16 @@ export function slSetCurrentTab(id) {
   slCurTab = { tab: id, store: slStore() };
   slUiSave(slUiSetTab(slUiLoad(), id));
 }
-
-// Sale year and Show voided only shape the Sales ledger and Tax year tabs; elsewhere they are disabled (not just dimmed) and say why.
+// Year drives every tab. Taxable accounts only is locked on in Tax year (tax is taxable-only by definition) and says why.
 export function slHeadControlState(tab) {
-  const off = tab === "fix" || tab === "import";
-  return { disabled: off, title: off ? "Applies to the Sales ledger and Tax year tabs, not this one." : "" };
+  const off = tab === "tax";
+  return { disabled: off, title: off ? "Tax year always covers taxable accounts only." : "" };
 }
 export function slHeadSync(tab) {
   const doc = globalThis.document;
   if (!doc) return;
   const st = slHeadControlState(tab);
-  for (const id of ["slYear", "slVoidedBox"]) {
+  for (const id of ["slTaxableBox"]) {
     const el = doc.getElementById(id);
     if (!el) continue;
     el.disabled = st.disabled;
@@ -109,7 +82,6 @@ export function slHeadSync(tab) {
     if (lab && lab.classList) lab.classList.toggle("sl-ctl-off", st.disabled);
   }
 }
-
 export function slSetTab(id, opts = {}) {
   if (!slTabOk(id)) return;
   const doc = globalThis.document;
@@ -126,7 +98,6 @@ export function slSetTab(id, opts = {}) {
   if (id === "tax" && globalThis.window && globalThis.window.stOnShown) globalThis.window.stOnShown();
   if (opts.focus) { const b = doc.getElementById(`sl-t-${id}`); if (b) b.focus(); }
 }
-
 export function slTabKeydown(event) {
   const ids = SL_TABS.map((t) => t[0]);
   const cur = ids.indexOf(String(event.target && event.target.id).replace("sl-t-", ""));
@@ -136,7 +107,6 @@ export function slTabKeydown(event) {
   event.preventDefault();
   slSetTab(ids[next], { focus: true });
 }
-
 // Panel summaries: each panel publishes {count, tone, text} under its spec key; the page shell subscribes.
 const slSums = {};
 const slSubs = new Set();
@@ -146,19 +116,16 @@ export function slPublish(key, summary) {
 }
 export function slOnSummary(cb) { slSubs.add(cb); return () => { slSubs.delete(cb); }; }
 export const slSummaries = () => Object.fromEntries(Object.entries(slSums).map(([k, v]) => [k, { ...v }]));
-
 // Alert strip: one text badge per open item (warn/bad, stale/never run, or counted + toned), across all years.
-const SL_KEY_TAB = { queue: "fix", health: "fix", log: "fix", cash: "fix", wash: "tax", cf: "tax", b1099: "import", imports: "import", csv: "import" };
+const SL_KEY_TAB = { queue: "fix", health: "fix", wash: "fix", windows: "fix", cf: "tax", b1099: "tax" };
 const slEsc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const slIsAlert = (s) => !!s && (s.tone === "warn" || s.tone === "bad" || /^(stale|never run)$/i.test(String(s.text).trim()) || (s.count > 0 && s.tone !== ""));
 const slAlertItems = (sums) => Object.keys(SL_KEY_TAB).filter((k) => slIsAlert(sums && sums[k])).map((k) => [k, SL_KEY_TAB[k], sums[k]]);
-
 export function slStripHtml(summaries) {
   const items = slAlertItems(summaries).map(([k, tab, s]) =>
     `<a href="#sales_ledger?tab=${tab}&amp;sec=${k}" data-go="${tab}:${k}" class="sl-strip-item ${s.tone === "bad" ? "bad" : "warn"}" onclick="slGo('${tab}','${k}');return false">${slEsc(s.text || s.count)}</a>`);
   return `<nav aria-label="Needs attention" class="sl-strip">${items.length ? items.join(" ") : "<span>No open items</span>"}</nav>`;
 }
-
 // A tab's marker counts its alert ITEMS with a count (raw counts mix units: sales, accounts, cash rows); bad wins.
 export function slMarkers(summaries) {
   const out = {};
@@ -170,25 +137,21 @@ export function slMarkers(summaries) {
   for (const m of Object.values(out)) if (m.count === 0) m.attn = true; // an alert with no count still needs a text marker
   return out;
 }
-
 export const slLiveHtml = () => '<div id="slLive" class="sr-only" aria-live="polite" aria-atomic="true"></div><div id="slAlert" class="sr-only" role="alert"></div>';
-
 export function slAnnounce(text, assertive = false) {
   const el = globalThis.document && globalThis.document.getElementById(assertive ? "slAlert" : "slLive");
   if (el) el.textContent = String(text);
 }
-
-const SL_SEC_META = { queue: ["Sales waiting for lots", false], health: ["Log health", false], log: ["Transaction log", true], cash: ["Cash in investment", false],
-  ledger: ["Sales ledger", true], wash: ["Realized gains & wash sales", true], cf: ["Carryforward", false], imports: ["Broker imports", false], b1099: ["Broker 1099-B", false], csv: ["Sales CSV import", false] };
-const SL_TAB_SECS = { fix: ["queue", "health", "log", "cash"], ledger: ["ledger"], tax: ["wash", "cf"], import: ["imports", "b1099", "csv"] };
+const SL_SEC_META = { queue: ["Sales waiting for lots", false], health: ["Log health", false], ledger: ["Sales", true], wash: ["Wash sales", true], tax: ["Tax year", true], cf: ["Carryforward", false], b1099: ["Import a 1099-B", false] };
+const SL_TAB_SECS = { fix: ["queue", "health", "wash"], ledger: ["ledger"], tax: ["tax", "cf", "b1099"] };
 // Only real alerts (same predicate as the strip) count; informational counts such as row totals never open or pin a section.
 // A countless alert (stale, never run, log not started) gets a stable negative signature from its text, so the persisted-collapse
 // rule re-opens the section when it first appears or changes; an alert is never hideable.
 const slSig = (s) => { let h = 7; for (const c of `${s.tone}|${String(s.text).trim().toLowerCase()}`) h = (h * 31 + c.charCodeAt(0)) % 1000003; return -(h + 1); };
 export const slAlertCountOf = (s) => (!slIsAlert(s) ? 0 : s.count > 0 ? s.count : slSig(s));
 // Strip keys that have no section of their own land in (and re-open) another: Carryforward lives in the wash section.
-const SL_SEC_OF = { cf: "wash" };
-const SL_SEC_SRC = { wash: ["wash", "cf"] };
+const SL_SEC_OF = { cf: "tax" };
+const SL_SEC_SRC = { tax: ["tax", "cf"] };
 const slSecKey = (k) => SL_SEC_OF[k] || k;
 // A section's alert signature: the sum over every summary that lands in it (never 0 while any of them is an alert).
 export function slSecAlert(key) {
@@ -198,7 +161,6 @@ export function slSecAlert(key) {
 }
 const slAlertCount = slSecAlert;
 const SL_FOCUS_FALLBACK = { health: "tlStartBtn" }; // a bare prompt stands in for a section that does not exist yet
-
 export function slGo(tab, sec) {
   if (!slTabOk(tab)) return;
   slSetTab(tab);
@@ -216,7 +178,6 @@ export function slGo(tab, sec) {
   }
   try { globalThis.history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* no history API: the tab switch still happened */ } // never leave a hash: a later render would re-apply it
 }
-
 // Collapsible section shell. `state` is the status text shown in the summary; badges are text, never colour alone.
 export function slSecHtml({ key, title, badges = [], state = "", alertCount = 0, open = false, body = "" }) {
   const bs = badges.filter((b) => b && b.text).map((b, i) =>
@@ -227,7 +188,6 @@ export function slSecHtml({ key, title, badges = [], state = "", alertCount = 0,
     `<h3 class="sl-sec-title">${slEsc(title)}</h3> ${badge} <span class="sl-sec-state" id="sl-sec-state-${key}">${slEsc(state)}</span></summary>` +
     `<div class="sl-sec-body">${body}</div></details>`;
 }
-
 // Whether a section should be open now: stored choice, except a new alert count (or any alert with no stored choice) opens it.
 export function slSecWantOpen(state, key, alertCount) {
   const meta = SL_SEC_META[key];
@@ -235,7 +195,6 @@ export function slSecWantOpen(state, key, alertCount) {
   if (n !== 0 && !(state && state.sections && state.sections[key])) return true;
   return slSecOpen(state, key, !!(meta && meta[1]), n);
 }
-
 // The only writer of section choices: runs from the summary click, after the browser has toggled `open`.
 export function slOnSummaryClick(key) {
   setTimeout(() => {
@@ -243,7 +202,6 @@ export function slOnSummaryClick(key) {
     if (el) slUiSave(slUiRecordToggle(slUiLoad(), key, el.open, slAlertCount(key)));
   }, 0);
 }
-
 // Patch a section in place when its panel publishes a summary; never re-renders, never moves focus, never writes the store.
 export function slSecUpdate(srcKey, srcSummary) {
   const key = slSecKey(srcKey);
@@ -270,13 +228,11 @@ export function slSecUpdate(srcKey, srcSummary) {
     slAnnounce(`${meta[0]}: ${(summary && summary.text) || ""}`);
   }
 }
-
 // Panels call this from their paint functions so the summary's status text follows their live state.
 export function slSecSetState(key, text) {
   const el = globalThis.document && globalThis.document.getElementById(`sl-sec-state-${key}`);
   if (el) el.textContent = String(text || "");
 }
-
 export function slSecAll(tab, open) { // no tab: the active one
   const doc = globalThis.document;
   if (!doc) return;
@@ -290,13 +246,7 @@ export function slSecAll(tab, open) { // no tab: the active one
   }
   slUiSave(st);
 }
-
 slOnSummary((key, summary) => slSecUpdate(key, summary));
-
-// Shared Source -> Preview -> Apply skeleton: a text row (current step in bold and aria-current, never colour alone).
-export const slStepsHtml = (current) => `<ol class="sl-steps" aria-label="Import steps">` + ["Source", "Preview", "Apply"].map((t, i) =>
-  (i + 1 === current ? `<li class="sl-step on" aria-current="step"><strong>${i + 1} ${t}</strong></li>` : `<li class="sl-step">${i + 1} ${t}</li>`)).join("") + `</ol>`;
-
 // Post-apply links: re-run the wash check after a 1099-B apply, and Fix lots when sales are waiting.
 export function slNextStepHtml(result) {
   if (!result) return "";
@@ -305,5 +255,4 @@ export function slNextStepHtml(result) {
   const items = [result.wash ? link("tax", "wash", "Review changed lots / re-run wash check") : "", q > 0 ? link("fix", "queue", `${q} sale${q === 1 ? "" : "s"} waiting → Fix lots`) : ""].filter(Boolean);
   return items.length ? `<p class="sl-next">Next: ${items.join(" · ")}</p>` : "";
 }
-
-Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSetDensity, slIsCompact, slSecHtml, slAlertCountOf, slSecAlert, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecSetState, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slCurrentTab, slSetCurrentTab, slTabKeydown, slHeadControlState, slHeadSync, slStepsHtml, slNextStepHtml });
+Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSecHtml, slAlertCountOf, slSecAlert, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecSetState, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slCurrentTab, slSetCurrentTab, slTabKeydown, slHeadControlState, slHeadSync, slNextStepHtml });

@@ -148,7 +148,7 @@ export const HELP_PAGES = {
   },
   "holdings": {
     title: "Investment Holdings",
-    summary: "Each investment you own, one row per purchase.",
+    summary: "Each investment you own, one row per purchase, and the activity behind it.",
     whatFor: "One row per tax lot: each purchase or reinvestment of a security, with account, ticker, shares, price, cost basis, and purchase date. Add holdings from your broker here — a broker statement or CSV export usually lists everything a row needs directly.",
     connections: "Holdings drive account totals, allocation drift, pricing, tax-lot sell guidance, rebalancing recommendations, and year-to-date growth for investment accounts. Account names must match names used on Withdrawal Sequencing and Asset Allocation. Lot-level cost basis enables tax-aware sell guidance in the allocation output.",
     options: "Use CASH at price 1.00 for money market and cash positions. Keep separate lots per purchase when tax-basis guidance matters — blended basis reduces sell-guidance precision. For large broker downloads, export a backup before importing to replace all.",

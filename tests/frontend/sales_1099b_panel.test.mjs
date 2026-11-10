@@ -116,7 +116,7 @@ describe("calls", () => {
   test("preview posts pasted text with the chosen broker and account, then apply posts it with replace false", async () => {
     m.bbSetBroker("vanguard");
     m.bbSetAccount("Brokerage");
-    m.bbSetText("statement text");
+    m.bbSetStatement("statement text");
     await m.bbPreviewStatement();
     assert.deepEqual(calls[0], ["/api/sales/1099b/preview", "POST", { broker: "vanguard", account: "Brokerage", content: "statement text" }]);
     await m.bbApply();
@@ -127,7 +127,7 @@ describe("calls", () => {
   });
   test("replacing an earlier import asks first and sends replace true; declining sends nothing", async () => {
     globalThis.api = ((orig) => async (url, opts) => (url === "/api/sales/1099b/preview" ? (calls.push([url]), PREVIEW({ supersedes: { statement_id: 2, line_count: 1 } })) : orig(url, opts)))(globalThis.api);
-    m.bbSetText("statement text");
+    m.bbSetStatement("statement text");
     await m.bbPreviewStatement();
     m.bbMarkViewed(true);
     confirmAnswer = false;
@@ -139,7 +139,7 @@ describe("calls", () => {
     assert.equal(calls[0][2].replace, true);
   });
   test("exports the report CSV", async () => {
-    m.bbSetText("statement text");
+    m.bbSetStatement("statement text");
     await m.bbPreviewStatement();
     m.bbExportCsv();
     assert.deepEqual(downloads, [["1099b_difference_vanguard_2025.csv", "status,symbol\nchanged,ABCD\n"]]);
@@ -178,7 +178,7 @@ describe("apply gating (Task 15)", () => {
     assert.match(html, /<input type="checkbox"[^>]*checked/);
   });
   test("viewed resets when a new preview is built", async () => {
-    m.bbSetText("statement text"); m.bbSetAccount("Brokerage");
+    m.bbSetStatement("statement text"); m.bbSetAccount("Brokerage");
     await m.bbPreviewStatement();
     m.bbMarkViewed(true);
     assert.equal(m.bbCanApply(PREVIEW(), true), true);
@@ -186,17 +186,39 @@ describe("apply gating (Task 15)", () => {
     assert.match(m.bbPreviewHtml(PREVIEW()), /onclick="bbApply\(\)" disabled/);
   });
   test("the diff, changes and control totals sit in the panel body, never inside a details", async () => {
-    m.bbSetText("statement text"); m.bbSetAccount("Brokerage");
+    m.bbSetStatement("statement text"); m.bbSetAccount("Brokerage");
     await m.bbPreviewStatement();
     const html = m.renderSalesBroker1099b();
     assert.doesNotMatch(html, /<details/);
     assert.match(html, /Difference report for 2025/);
     assert.match(html, /Control totals tie/);
-    assert.match(html, /aria-current="step"[^>]*><strong>2 Preview<\/strong>/);
+    assert.doesNotMatch(html, /1 Source|2 Preview|3 Apply|aria-current="step"/);   // the step labels are gone
+  });
+  test("1099-B card has no paste textarea", () => {
+    assert.doesNotMatch(m.renderSalesBroker1099b(), /<textarea|paste/i);
+    assert.match(m.renderSalesBroker1099b(), /type="file"/);
+  });
+  test("1099-B account list is the taxable investment accounts only (no IRA, no checking)", async () => {
+    const orig = globalThis.api;
+    globalThis.api = async (url) => (url === "/api/sales/years" ? { success: true, years: [2026], taxable_accounts: ["Matt_Trust"], account_classes: {} } : orig(url));
+    try {
+      await m.bbLoadAccounts();
+      const html = m.renderSalesBroker1099b();
+      const opts = [...html.matchAll(/<option value="([^"]*)" ?[^>]*>/g)].map((x) => x[1]).filter((v) => v && v !== "etrade_gl" && v.includes("_"));
+      assert.deepEqual(opts, ["Matt_Trust"]);
+    } finally { globalThis.api = orig; }
+  });
+  test("s1099bAutoOpen is false before Feb 1 of the next year, true after it when no 1099-B is on file", () => {
+    const none = { year: 2026, taxableSales: 4, has1099b: false };
+    assert.equal(m.s1099bAutoOpen(2026, none, new Date(2027, 0, 31, 12)), false);
+    assert.equal(m.s1099bAutoOpen(2026, none, new Date(2027, 1, 1)), true);
+    assert.equal(m.s1099bAutoOpen(2026, { ...none, has1099b: true }, new Date(2027, 5, 1)), false);
+    assert.equal(m.s1099bAutoOpen(2026, { ...none, taxableSales: 0 }, new Date(2027, 5, 1)), false);   // nothing sold: nothing to import
+    assert.equal(m.s1099bAutoOpen(null, none, new Date(2027, 5, 1)), false);                           // All years
   });
   test("a failed apply keeps nothing applied: unticked apply posts nothing; replace confirm still asked after ticking", async () => {
     globalThis.api = ((orig) => async (url, opts) => (url === "/api/sales/1099b/preview" ? (calls.push([url]), PREVIEW({ supersedes: { statement_id: 2, line_count: 1 } })) : orig(url, opts)))(globalThis.api);
-    m.bbSetText("statement text"); m.bbSetAccount("Brokerage");
+    m.bbSetStatement("statement text"); m.bbSetAccount("Brokerage");
     await m.bbPreviewStatement();
     calls.length = 0;
     await m.bbApply();
@@ -208,7 +230,7 @@ describe("apply gating (Task 15)", () => {
   });
   test("after a successful apply the next-step links show", async () => {
     globalThis.slNextStepHtml = (r) => `<nav class="sl-next">${r && r.wash ? "WASH" : ""}</nav>`;
-    m.bbSetText("statement text"); m.bbSetAccount("Brokerage");
+    m.bbSetStatement("statement text"); m.bbSetAccount("Brokerage");
     await m.bbPreviewStatement();
     m.bbMarkViewed(true);
     await m.bbApply();
@@ -216,7 +238,7 @@ describe("apply gating (Task 15)", () => {
     delete globalThis.slNextStepHtml;
   });
   test("the shell state text names a pending preview", async () => {
-    m.bbSetText("statement text"); m.bbSetAccount("Brokerage");
+    m.bbSetStatement("statement text"); m.bbSetAccount("Brokerage");
     await m.bbPreviewStatement();
     assert.match(m.bbStateText(), /Preview ready/);
   });
@@ -235,7 +257,7 @@ describe("stale preview guard (final review I4)", () => {
     return { release: () => release(), restore: () => { globalThis.api = orig; } };
   };
   test("an answer for the old account is dropped when the account changes while the preview is in flight", async () => {
-    m.bbSetBroker("vanguard"); m.bbSetAccount("Brokerage"); m.bbSetText("statement text");
+    m.bbSetBroker("vanguard"); m.bbSetAccount("Brokerage"); m.bbSetStatement("statement text");
     const d = deferredPreview();
     try {
       const p = m.bbPreviewStatement();
@@ -251,7 +273,7 @@ describe("stale preview guard (final review I4)", () => {
     } finally { d.restore(); }
   });
   test("an unchanged in-flight preview still lands and applies", async () => {
-    m.bbSetBroker("vanguard"); m.bbSetAccount("Brokerage"); m.bbSetText("statement text");
+    m.bbSetBroker("vanguard"); m.bbSetAccount("Brokerage"); m.bbSetStatement("statement text");
     const d = deferredPreview();
     try {
       const p = m.bbPreviewStatement();
@@ -264,7 +286,7 @@ describe("stale preview guard (final review I4)", () => {
     } finally { d.restore(); }
   });
   test("apply after an input change post-preview is refused", async () => {
-    m.bbSetBroker("vanguard"); m.bbSetAccount("Brokerage"); m.bbSetText("statement text");
+    m.bbSetBroker("vanguard"); m.bbSetAccount("Brokerage"); m.bbSetStatement("statement text");
     await m.bbPreviewStatement();
     m.bbMarkViewed(true);
     m.bbSetBroker("etrade");
@@ -285,7 +307,7 @@ describe("focus-safe review box and state (Task 15 fix)", () => {
     globalThis.document = { getElementById: (id) => els[id] || null };
     try { await fn(() => repaints); } finally { globalThis.document = prev; }
   };
-  const previewed = async () => { m.bbSetText("statement text"); m.bbSetAccount("Brokerage"); await m.bbPreviewStatement(); };
+  const previewed = async () => { m.bbSetStatement("statement text"); m.bbSetAccount("Brokerage"); await m.bbPreviewStatement(); };
   test("ticking the box toggles Apply and the reason in place, without repainting the root", async () => {
     await withDom(async (repaints) => {
       await previewed();
@@ -317,7 +339,7 @@ describe("focus-safe review box and state (Task 15 fix)", () => {
     delete globalThis.slNextStepHtml;
   });
   test("the post-apply links clear when the account, broker, text or file changes", async () => {
-    for (const change of [() => m.bbSetAccount("Brokerage"), () => m.bbSetBroker("etrade"), () => m.bbSetText("other")]) {
+    for (const change of [() => m.bbSetAccount("Brokerage"), () => m.bbSetBroker("etrade"), () => m.bbSetStatement("other")]) {
       globalThis.slNextStepHtml = (r) => (r ? "<nav>NEXT</nav>" : "");
       await previewed(); m.bbMarkViewed(true); await m.bbApply();
       assert.match(m.renderSalesBroker1099b(), /NEXT/);
@@ -326,5 +348,17 @@ describe("focus-safe review box and state (Task 15 fix)", () => {
     }
     delete globalThis.slNextStepHtml;
     m.bbSetBroker("vanguard");
+  });
+});
+
+describe("wash sales in the tie report", () => {
+  test("same-account amounts are compared and cross-account amounts say they are on no 1099-B", () => {
+    const h = m.bbWashHtml({ same_account: [{ sale_key: "Trust|WXYZ|2025-10-15", broker: 60, computed: 40 }], cross_account: [{ sale_key: "Trust|WXYZ|2025-10-15", amount: 20, label: "Spouse Roth" }] });
+    assert.match(h, /<th class="rc-num">Broker reported<\/th><th class="rc-num">Computed here<\/th>/);
+    assert.match(h, /\$60\.00<\/td><td class="rc-num">\$40\.00/);
+    assert.match(h, /not on any 1099-B: your return must include these/);
+    assert.match(h, /Spouse Roth/);
+    assert.equal(m.bbWashHtml({ same_account: [], cross_account: [] }), "");
+    assert.equal(m.bbWashHtml(null), "");
   });
 });

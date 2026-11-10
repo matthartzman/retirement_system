@@ -26,7 +26,6 @@ before(async () => {
   globalThis.api = defaultApi;
   ui = await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
   tax = await import("../../frontend/js/dashboard_decomp_sales_tax.js");
-  tr = await import("../../frontend/js/dashboard_decomp_transactions.js");
   ye = await import("../../frontend/js/dashboard_decomp_year_end.js");
   tl = await import("../../frontend/js/dashboard_decomp_transactions_log.js");
 });
@@ -57,27 +56,28 @@ describe("1 carryforward draft", () => {
 });
 
 describe("2 header controls and All years", () => {
-  test("Sale year and Show voided are really disabled on Fix and Import, with a reason", () => {
-    for (const [tab, off] of [["fix", true], ["import", true], ["ledger", false], ["tax", false]]) {
-      const s = ui.slHeadControlState(tab);
-      assert.equal(s.disabled, off, tab);
-      assert.equal(!!s.title, off, tab);
+  test("Taxable accounts only is locked on in Tax year, with a reason; Year stays live", () => {
+    for (const [tab, off] of [["fix", false], ["ledger", false], ["tax", true]]) {
+      const st = ui.slHeadControlState(tab);
+      assert.equal(st.disabled, off, tab);
+      assert.equal(!!st.title, off, tab);
     }
-    els.slYear = mkEl("slYear"); els.slVoidedBox = mkEl("slVoidedBox");
-    ui.slSetTab("fix");
-    assert.equal(els.slYear.disabled, true);
-    assert.equal(els.slYear.attrs["aria-disabled"], "true");
-    assert.match(els.slVoidedBox.attrs.title, /Sales ledger and Tax year/);
+    els.slYear = mkEl("slYear"); els.slTaxableBox = mkEl("slTaxableBox");
     ui.slSetTab("tax");
+    assert.equal(els.slTaxableBox.disabled, true);
+    assert.match(els.slTaxableBox.attrs.title, /taxable accounts only/i);
     assert.equal(els.slYear.disabled, false);
-    assert.equal(els.slYear.attrs["aria-disabled"], "false");
+    ui.slSetTab("ledger");
+    assert.equal(els.slTaxableBox.disabled, false);
   });
-  test("All years keeps the last concrete year on the Tax tab and says so", async () => {
-    await tax.loadSalesTaxYear(2026, { fromAll: true });
-    assert.match(tax.renderSalesTaxYear(), /Tax year 2026/);
-    assert.match(tax.renderSalesTaxYear(), /All years/);
+  test("All years on the Tax tab says to pick a year and shows no totals", async () => {
+    globalThis.slCurrentYear = () => "";
+    try {
+      assert.match(tax.renderSalesTaxYear(), /Pick a year/);
+      assert.doesNotMatch(tax.renderSalesTaxYear(), /Tax year 2026/);
+    } finally { delete globalThis.slCurrentYear; }
     await tax.loadSalesTaxYear(2026);
-    assert.doesNotMatch(tax.renderSalesTaxYear(), /last year you selected/);
+    assert.match(tax.renderSalesTaxYear(), /Tax year 2026/);
   });
 });
 
@@ -115,14 +115,6 @@ describe("3 countless alerts get a signature", () => {
 });
 
 describe("4/5 strip counts and items", () => {
-  test("wash count in the strip is the all-years count", async () => {
-    globalThis.api = async (url) => (url.startsWith("/api/sales/tax-year") ? SUMMARY({ wash: WASH({ count: 0, all_years_count: 2 }) }) : { steps: [] });
-    await tax.loadSalesTaxYear(2026);
-    assert.deepEqual(tax.stSummary().wash, { count: 2, tone: "bad", text: "2 flagged" });
-    globalThis.api = async (url) => (url.startsWith("/api/sales/tax-year") ? SUMMARY({ wash: { count: 1, flagged_loss: 1, rows: [] } }) : { steps: [] });
-    await tax.loadSalesTaxYear(2026);
-    assert.equal(tax.stSummary().wash.count, 1);
-  });
   test("carryforward warns only when a figure is carried in and never entered", async () => {
     const run = async (cf) => {
       globalThis.api = async (url) => (url.startsWith("/api/sales/tax-year") ? SUMMARY({ carryforward_in: cf }) : { steps: [] });
@@ -133,17 +125,12 @@ describe("4/5 strip counts and items", () => {
     assert.equal((await run({ short: 0, long: 100, entered: true })).tone, "");
     assert.deepEqual(await run({ short: 5, long: 0, entered: false }), { count: 0, tone: "warn", text: "carryforward not saved" });
   });
-  test("csv problems are a strip item on the Import tab", () => {
-    const html = ui.slStripHtml({ csv: { count: 2, tone: "bad", text: "CSV: 2 line problems" } });
-    assert.match(html, /data-go="import:csv"/);
-    assert.equal(ui.slMarkers({ csv: { count: 2, tone: "bad", text: "x" } }).import.count, 1);
-  });
 });
 
 describe("6 strip links land somewhere", () => {
-  test("cf lands in (and opens) the wash section", () => {
+  test("cf lands in (and opens) the Tax year section", () => {
     const sec = { open: false, querySelector: () => null };
-    els["sl-sec-wash"] = sec;
+    els["sl-sec-tax"] = sec;
     globalThis.history = { replaceState() {} };
     ui.slGo("tax", "cf");
     assert.equal(sec.open, true);
@@ -182,17 +169,6 @@ describe("9 smaller items", () => {
   test("next-step paragraph is not a live region", () => {
     ui.slPublish("queue", { count: 0, tone: "", text: "" });
     assert.doesNotMatch(ui.slNextStepHtml({ wash: true }), /role="status"/);
-  });
-  test("trLoad returns the error with its view", async () => {
-    globalThis.api = async () => { throw new Error("boom"); };
-    const v = await tr.trLoad({});
-    assert.equal(v.error, "boom");
-    assert.match(tr.trHtml(v), /boom/);
-    globalThis.api = async () => ({ rows: [], held: [] });
-    const ok = await tr.trLoad({});
-    assert.equal(ok.error, "");
-    assert.doesNotMatch(tr.trHtml(ok), /boom/);
-    assert.match(tr.trHtml(v), /boom/);
   });
   test("a failed log load publishes neutral, not 'log not started'", async () => {
     globalThis.api = async () => { throw new Error("net"); };

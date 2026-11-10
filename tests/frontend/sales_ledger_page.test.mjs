@@ -1,5 +1,5 @@
 // Plan step 1.4: the pure HTML helpers and the fetch calls of dashboard_decomp_sales_ledger.js.
-import { test, describe, before, beforeEach } from "node:test";
+import { test, describe, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
 let m;
@@ -20,6 +20,8 @@ before(async () => {
     return { success: true };
   };
   await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
+  await import("../../frontend/js/dashboard_decomp_sales_group.js");
+  await import("../../frontend/js/dashboard_decomp_sales_entry.js");
   m = await import("../../frontend/js/dashboard_decomp_sales_ledger.js");
 });
 beforeEach(() => { calls.length = 0; });
@@ -41,59 +43,63 @@ describe("formatting", () => {
 });
 
 describe("table", () => {
-  test("a row shows the lot, term and a Void button; a voided row offers Restore", () => {
-    const html = m.slRowHtml(SALE());
-    assert.match(html, /VTI/);
-    assert.match(html, /Long/);
-    assert.match(html, /slVoid\(7\)/);
-    assert.match(m.slRowHtml(SALE({ status: "voided" })), /slUnvoid\(7\)/);
-    assert.match(m.slRowHtml(SALE({ status: "voided" })), /sl-voided/);
+  const TWO = [SALE({ sale_id: 7, shares: 5, proceeds: 500, basis: 400, gain: 100 }), SALE({ sale_id: 8, shares: 3, proceeds: 330, basis: 300, gain: 30, holding_period: "short" })];
+  const first = () => m.slTableHtml(TWO);
+  test("one row per sale with lots hidden until expanded", () => {
+    const h = first();
+    assert.equal((h.match(/class="sl-sale/g) || []).length, 1);
+    assert.equal((h.match(/class="sl-lot/g) || []).length, 0);
+    assert.match(h, /8<\/td><td class="rc-num">\$830\.00/);                       // shares and proceeds summed
+    assert.match(h, /<td>Mixed<\/td>/);                                          // lots of two terms
+    m.slToggleSale(0);
+    const open = first();
+    assert.equal((open.match(/class="sl-lot/g) || []).length, 2);
+    assert.match(open, /aria-expanded="true"/);
+    m.slToggleSale(0);
   });
-  test("user text is escaped", () => {
-    assert.doesNotMatch(m.slRowHtml(SALE({ account: "<img onerror=x>" })), /<img/);
+  test("sale row menu offers only Send back to queue", () => {
+    const row = m.slSaleRowHtml(window.slGroupSales([SALE({ source: "broker" })])[0], 0);
+    const menu = row.slice(row.indexOf('class="sl-menu"'));
+    assert.match(menu, /slRequeue\(7\)/);
+    assert.doesNotMatch(menu, /slEdit|slVoid/);
+  });
+  test("Back to queue is disabled with a reason for a manual sale", () => {
+    const row = m.slSaleRowHtml(window.slGroupSales([SALE({ source: "manual" })])[0], 0);
+    assert.match(row, /<button class="btn" type="button" disabled title="a hand-recorded sale has no queue entry">Send back to queue/);
+    assert.doesNotMatch(row, /slRequeue/);
+  });
+  test("lot row menu offers Edit and Void; Edit is disabled with a reason for a queue or log-linked lot", () => {
+    const manual = m.slLotRowHtml(SALE({ source: "manual" }));
+    assert.match(manual, /slEdit\(7\)[^]*slVoid\(7\)/);
+    const queued = m.slLotRowHtml(SALE({ source: "broker" }));
+    assert.match(queued, /disabled title="came from the queue[^"]*">Edit/);
+    assert.match(queued, /slVoid\(7\)/);
+    assert.match(m.slLotRowHtml(SALE({ source: "manual", lot_key: '{"log_sell":3,"txn_lot":2}' })), /disabled title="linked to the transaction log/);
+    assert.match(m.slLotRowHtml(SALE({ status: "voided" })), /slUnvoid\(7\)/);
+    assert.match(m.slLotRowHtml(SALE({ status: "voided" })), /sl-voided/);
+  });
+  test("a non-taxable gain shows a dash with a not-taxable tooltip; user text is escaped", () => {
+    assert.match(m.slLotRowHtml(SALE({ gain: null })), /<span title="not taxable">—<\/span>/);
+    assert.doesNotMatch(m.slSaleRowHtml(window.slGroupSales([SALE({ account: "<img onerror=x>" })])[0], 0), /<img/);
   });
   test("empty ledger says so", () => {
     assert.match(m.slTableHtml([]), /No sales recorded/);
   });
-  test("totals line shows short and long net", () => {
-    const html = m.slTotalsHtml({ count: 2, short_gain: -505, long_gain: 495 });
-    assert.match(html, /-\$505\.00/);
-    assert.match(html, /\$495\.00/);
-  });
-});
-
-describe("csv preview", () => {
-  test("counts, duplicates and line errors", () => {
-    const html = m.slPreviewHtml({ received: 4, will_write: [{}], duplicates: [{}, {}], errors: [{ line: 5, error: "shares must be > 0" }] });
-    assert.match(html, /1 to add/);
-    assert.match(html, /2 already in the ledger/);
-    assert.match(html, /Line 5: shares must be &gt; 0|Line 5: shares must be > 0/);
-    assert.doesNotMatch(html, /slImportCommit/);  // errors refuse the whole file
-  });
-  test("a clean preview offers the commit", () => {
-    assert.match(m.slPreviewHtml({ received: 1, will_write: [{}], duplicates: [], errors: [] }), /slImportCommit/);
+  test("KPI strip uses the summary endpoint values", () => {
+    const h = m.slKpiHtml({ sales: 12, count: 20, st_gain: -505, lt_gain: 495, fees: 12.5 });
+    assert.match(h, /<strong>12<\/strong> sales/);
+    assert.match(h, /short-term realized .*-\$505\.00/);
+    assert.match(h, /long-term realized .*\+\$495\.00/);
+    assert.match(h, /fees \$12\.50/);
+    assert.equal(m.slKpiHtml(null), "");
   });
 });
 
 describe("actions", () => {
-  test("slSubmit posts the form fields and reloads the list", async () => {
-    Object.assign(globalThis.__fields, { slDate: "2026-06-10", slAccount: "Trust", slClass: "taxable", slSymbol: "vti", slShares: "10",
-      slProceeds: "2000", slFees: "5", slBasis: "1500", slPurchase: "2025-01-02" });
-    await m.slSubmit();
-    const post = calls.find((c) => c[0] === "/api/sales" && c[1] === "POST");
-    assert.deepEqual(post[2], { sale_date: "2026-06-10", account: "Trust", tax_class: "taxable", symbol: "vti", shares: "10",
-      proceeds: "2000", fees: "5", basis: "1500", purchase_date: "2025-01-02" });
-    assert.ok(calls.some((c) => c[0].startsWith("/api/sales?")));
-  });
   test("void and restore post to the sale", async () => {
     await m.slVoid(7);
     await m.slUnvoid(7);
     assert.deepEqual(calls.filter((c) => c[1] === "POST").map((c) => c[0]), ["/api/sales/7/void", "/api/sales/7/unvoid"]);
-  });
-  test("csv preview posts the pasted text", async () => {
-    globalThis.__fields.slCsv = "a,b\n";
-    await m.slImportPreview();
-    assert.deepEqual(calls.find((c) => c[0] === "/api/sales/import/preview")[2], { content: "a,b\n" });
   });
 });
 
@@ -113,116 +119,77 @@ describe("tax-year panel hook", () => {
   });
 });
 
-describe("scoped repaint keeps drafts (F10)", () => {
-  const clearFields = () => { for (const k of Object.keys(globalThis.__fields)) delete globalThis.__fields[k]; };
-  const unesc = (t) => t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
-  // Root stubs behave like the DOM: writing innerHTML re-creates the inputs, so their live value comes from the new markup.
-  const mountRoots = () => {
-    for (const id of ["slHeadRoot", "slFormRoot", "slCsvRoot", "slListRoot"]) {
-      globalThis.__roots[id] = { writes: 0, _h: "", get innerHTML() { return this._h; }, set innerHTML(v) {
-        this.writes++; this._h = v;
-        if (id === "slCsvRoot") {
-          const t = /<textarea id="slCsv"[^>]*>([\s\S]*?)<\/textarea>/.exec(v);
-          if (t) globalThis.__fields.slCsv = unesc(t[1]); else delete globalThis.__fields.slCsv;
-        }
-        if (id === "slFormRoot") {
-          for (const mt of v.matchAll(/<input id="(sl\w+)"[^>]*value="([^"]*)"/g)) globalThis.__fields[mt[1]] = unesc(mt[2]);
-        }
-      } };
-    }
-  };
-  const type = (id, v) => { globalThis.__fields[id] = v; m.slDraftSet(id, v); }; // what a keystroke does
-  beforeEach(() => { clearFields(); mountRoots(); });
-
-  test("a ledger load repaints only the list and keeps the form and CSV drafts", async () => {
-    type("slSymbol", "VXUS");
-    type("slCsv", "a,b\n1,2\n");
+describe("scoped repaint keeps the entry card", () => {
+  beforeEach(() => {
+    for (const id of ["slHeadRoot", "slListRoot", "seCard"]) globalThis.__roots[id] = { writes: 0, _h: "", get innerHTML() { return this._h; }, set innerHTML(v) { this.writes++; this._h = v; } };
+  });
+  test("a ledger load repaints the list and head, never the entry card", async () => {
     await m.loadSalesLedger();
     const r = globalThis.__roots;
     assert.ok(r.slListRoot.writes >= 1);
-    assert.equal(r.slFormRoot.writes, 0);
-    assert.equal(r.slCsvRoot.writes, 0);
-    assert.equal(r.slHeadRoot.writes, 0);
-    calls.length = 0;
-    await m.slSubmit();
-    assert.equal(calls.find((c) => c[0] === "/api/sales" && c[1] === "POST")[2].symbol, "VXUS");
-    type("slCsv", "a,b\n1,2\n");
-    await m.slImportPreview();
-    assert.deepEqual(calls.find((c) => c[0] === "/api/sales/import/preview")[2], { content: "a,b\n1,2\n" });
+    assert.equal(r.seCard.writes, 0);
   });
-
-  test("changing the year does not rewrite the form or CSV roots", async () => {
+  test("changing the year does not rewrite the entry card", async () => {
     await m.slSetYear("2025");
-    assert.equal(globalThis.__roots.slFormRoot.writes, 0);
-    assert.equal(globalThis.__roots.slCsvRoot.writes, 0);
+    assert.equal(globalThis.__roots.seCard.writes, 0);
     await m.slSetYear(String(new Date().getFullYear()));
   });
-
-  test("a successful action clears a stale preview and its Add button", async () => {
-    type("slCsv", "sale_date,symbol\n2026-01-02,VTI\n");
-    await m.slImportPreview();
-    assert.match(globalThis.__roots.slCsvRoot.innerHTML, /slImportCommit/);
-    await m.slVoid(7);
-    assert.doesNotMatch(globalThis.__roots.slCsvRoot.innerHTML, /slImportCommit/);
-  });
-
-  test("typing during an in-flight save is kept; a failed save restores the sent draft", async () => {
-    const realApi = globalThis.api;
-    let release;
-    globalThis.api = async (url, opts) => {
-      if (url === "/api/sales" && opts && opts.method === "POST") { await new Promise((r) => { release = r; }); return { success: true }; }
-      return realApi(url, opts);
-    };
+  test("Edit hands the lot row to the entry grid; a save reloads with a message", async () => {
+    await m.loadSalesLedger();
+    let got = null;
+    globalThis.seEdit = (sale) => { got = sale; };
     try {
-      type("slSymbol", "VTI");
-      const p = m.slSubmit();
-      await new Promise((r) => setTimeout(r, 0));
-      type("slShares", "5"); // typed while the save is in flight
-      release();
-      await p;
-      const html = m.renderSalesLedger();
-      assert.match(html, /id="slShares"[^>]*value="5"/);
-      assert.match(html, /id="slSymbol"[^>]*value=""/);
-      globalThis.api = async (url, opts) => {
-        if (url === "/api/sales" && opts && opts.method === "POST") throw new Error("nope");
-        return realApi(url, opts);
-      };
-      type("slSymbol", "BND");
-      await m.slSubmit();
-      assert.match(m.renderSalesLedger(), /id="slSymbol"[^>]*value="BND"/);
-    } finally {
-      globalThis.api = realApi;
-      m.slCancelEdit();
-    }
+      m.slEdit(7);
+      assert.equal(got, null);                                   // not in the (empty) ledger
+    } finally { delete globalThis.seEdit; }
+    calls.length = 0;
+    await m.slAfterEntry("Recorded 2 sales.");
+    assert.ok(calls.some((c) => c[0].startsWith("/api/sales?")));
   });
-
-  test("preview then commit posts the pasted CSV text even though the preview repaints the CSV box", async () => {
-    type("slCsv", "sale_date,symbol\n2026-01-02,VTI\n");
-    await m.slImportPreview();
-    assert.ok(globalThis.__roots.slCsvRoot.writes >= 1);
-    assert.equal(globalThis.__fields.slCsv, "sale_date,symbol\n2026-01-02,VTI\n"); // the repainted textarea still holds the text
-    await m.slImportCommit();
-    const bodies = calls.filter((c) => c[0] === "/api/sales/import/preview" || c[0] === "/api/sales/import/commit").map((c) => c[2].content);
-    assert.deepEqual(bodies, ["sale_date,symbol\n2026-01-02,VTI\n", "sale_date,symbol\n2026-01-02,VTI\n"]);
-  });
-
-  test("the form is drawn from the draft", () => {
-    m.slDraftSet("slShares", "42");
-    assert.match(m.renderSalesLedger(), /id="slShares"[^>]*value="42"/);
-  });
-
-  test("header says Sale year with an All years option; ledger ids appear once", () => {
+  test("header says Year with an All years option, the Taxable switch and a Voided rows link; ids appear once", () => {
     const html = m.renderSalesLedger();
-    assert.match(html, /Sale year/);
+    assert.match(html, /<label>Year <select id="slYear"/);
+    assert.doesNotMatch(html, /Sale year|Density|Show voided/);
     assert.match(html, /<select id="slYear"[^>]*>\s*<option value="" ?[^>]*>All years/);
-    assert.match(html, /Show voided/);
-    for (const id of ["slAccount", "slDate", "slClass", "slSymbol", "slShares", "slProceeds", "slFees", "slBasis", "slPurchase", "slCsv", "slYear"]) {
-      assert.equal(html.split(`id="${id}"`).length - 1, 1, id);
-    }
+    assert.match(html, /id="slTaxableBox"\s+checked\s/);
+    assert.match(html, /id="slVoidedLink"[^>]*>Voided rows \(\d+\)</);
+    for (const id of ["slYear", "slTaxableBox", "seCard"]) assert.equal(html.split(`id="${id}"`).length - 1, 1, id);
+  });
+  test("year options list only years returned by the server plus All years", () => {
+    const h = m.slYearOptionsHtml([2024, 2026], "2026");
+    assert.deepEqual([...h.matchAll(/<option value="(\d*)"/g)].map((x) => x[1]), ["", "2026", "2024"]);
+    assert.match(h, /<option value="2026" selected>/);
+    assert.doesNotMatch(h, /2027|2025/);
+    assert.match(m.slYearOptionsHtml([], ""), /^<option value="" selected>All years<\/option>$/);
+  });
+  test("Taxable accounts only defaults on and persists through slSetTaxableOnly", async () => {
+    const mem = {}; const prev = globalThis.localStorage;
+    globalThis.localStorage = { getItem: (k) => mem[k] ?? null, setItem: (k, v) => { mem[k] = v; } };
+    try {
+      assert.equal(m.slTaxableOnly(), true);
+      await m.slSetTaxableOnly(false);
+      assert.equal(m.slTaxableOnly(), false);
+      assert.doesNotMatch(m.renderSalesLedger(), /id="slTaxableBox"\s+checked\s/);
+      await m.slSetTaxableOnly(true);
+      assert.equal(m.slTaxableOnly(), true);
+    } finally { if (prev === undefined) delete globalThis.localStorage; else globalThis.localStorage = prev; }
+  });
+  test("All years does not load a tax year; the Tax tab is repainted to say Pick a year", async () => {
+    const loaded = []; let repainted = 0;
+    globalThis.loadSalesTaxYear = (y) => { loaded.push(y); };
+    globalThis.stRepaint = () => { repainted++; };
+    try {
+      await m.slSetYear("");
+      assert.deepEqual(loaded, []);
+      assert.equal(repainted, 1);
+      assert.equal(m.slCurrentYear(), "");
+      await m.slSetYear("2025");
+      assert.deepEqual(loaded, ["2025"]);
+    } finally { delete globalThis.loadSalesTaxYear; delete globalThis.stRepaint; await m.slSetYear(String(new Date().getFullYear())); }
   });
 });
 
-describe("four tabs (Task 4)", () => {
+describe("three tabs", () => {
   const stubs = { renderSalesQueue: "sq", renderTransactionLog: "tl", renderCashInvestment: "ci", renderTransactions: "tx",
     renderSalesTaxYear: "stRoot", renderBrokerImport: "bi", renderSalesBroker1099b: "b1" };
   const ids = (html) => [...html.matchAll(/\sid="([^"]*)"/g)].map((x) => x[1]);
@@ -232,12 +199,12 @@ describe("four tabs (Task 4)", () => {
     globalThis.localStorage = memStore();
     try { fn(); } finally { for (const k of Object.keys(stubs)) delete globalThis[k]; delete globalThis.location; delete globalThis.localStorage; }
   };
-  const ORDER = ["fix", "ledger", "tax", "import"];
+  const ORDER = ["fix", "ledger", "tax"];
 
-  test("four tabpanels are direct children of the .field-list root, with stRoot inside", withStubs(() => {
+  test("three tabpanels are direct children of the .field-list root, with stRoot inside", withStubs(() => {
     const html = m.renderSalesLedger();
     assert.match(html, /^<div class="field-list sl-page" id="slRoot">/);
-    assert.equal((html.match(/role="tabpanel"/g) || []).length, 4);
+    assert.equal((html.match(/role="tabpanel"/g) || []).length, 3);
     for (const id of ORDER) {
       const before = html.slice(0, html.indexOf(`<div class="sl-tab" role="tabpanel" id="sl-p-${id}"`));
       const depth = (before.match(/<div\b/g) || []).length - (before.match(/<\/div>/g) || []).length;
@@ -257,36 +224,19 @@ describe("four tabs (Task 4)", () => {
       const i = html.indexOf(text);
       return i > a && i < b;
     };
-    for (const n of ["renderSalesQueue", "renderTransactionLog", "renderCashInvestment"]) assert.ok(inPanel("fix", n), n);
-    assert.doesNotMatch(html, /id="tx"/); // Task 11: the separate Transactions panel is merged into the Transaction log
-    for (const t of ['id="slFormRoot"', 'id="slListRoot"']) assert.ok(inPanel("ledger", t), t);
-    assert.ok(inPanel("import", 'id="slCsvRoot"'));
-    assert.ok(!inPanel("ledger", 'id="slCsvRoot"'));
-    assert.ok(inPanel("tax", "renderSalesTaxYear"));
-    for (const n of ["renderBrokerImport", "renderSalesBroker1099b"]) assert.ok(inPanel("import", n), n);
+    assert.ok(inPanel("fix", "renderSalesQueue"));
+    for (const n of ["renderTransactionLog", "renderCashInvestment", "renderBrokerImport"]) assert.ok(!html.includes(n), n + " no longer mounts on the ledger");
+    for (const t of ['id="seCard"', 'id="slListRoot"']) assert.ok(inPanel("ledger", t), t);
+    assert.ok(!html.includes("slCsvRoot") && !html.includes("More views"));
+    for (const n of ["renderSalesTaxYear", "renderSalesBroker1099b"]) assert.ok(inPanel("tax", n), n);
   }));
 
-  test("fix tab: merged Transaction log section, then a More views divider, then only the cash panel; one badge in the log summary", withStubs(() => {
+  test("fix tab holds the queue and the log-health slot only", withStubs(() => {
     const html = m.renderSalesLedger();
     const fix = html.slice(html.indexOf('id="sl-p-fix"'), html.indexOf('id="sl-p-ledger"'));
-    assert.match(fix, /<div class="divider sl-divider">More views<\/div><details class="sl-sec" id="sl-sec-cash"[^>]*>.*<div id="ci">renderCashInvestment<\/div><\/div><\/details><\/div><div class="sl-tab"/); // 2026-11-04: cash is a section shell now; nothing else follows it
-    assert.ok(fix.indexOf('id="sl-sec-log"') < fix.indexOf("More views"));
-    assert.equal((fix.match(/More views/g) || []).length, 1);
-    const sum = fix.match(/<summary id="sl-sec-sum-log".*?<\/summary>/)[0];
-    assert.equal((sum.match(/class="sl-sec-badge/g) || []).length, 1);
+    assert.match(fix, /id="sl-sec-queue"/);
+    assert.doesNotMatch(fix, /id="sl-sec-log"|id="sl-sec-cash"/);
   }));
-
-  test("the cash panel after the divider is collapsed by default", async () => {
-    globalThis.localStorage = memStore();
-    await import("../../frontend/js/dashboard_decomp_cash_investment.js");
-    try {
-      const html = m.renderSalesLedger();
-      const fix = html.slice(html.indexOf('id="sl-p-fix"'), html.indexOf('id="sl-p-ledger"'));
-      assert.match(fix, /More views<\/div><details class="sl-sec" id="sl-sec-cash" data-key="cash" data-alert="0"><summary/); // shell, closed
-      assert.match(fix, /id="ciRoot"/);
-      await new Promise((r) => setTimeout(r, 5)); // let the panel's scheduled load settle inside the test
-    } finally { delete globalThis.renderCashInvestment; delete globalThis.localStorage; }
-  });
 
   test("no id occurs twice", withStubs(() => {
     const all = ids(m.renderSalesLedger());
@@ -298,15 +248,17 @@ describe("four tabs (Task 4)", () => {
     const html = m.renderSalesLedger();
     assert.match(html, /id="sl-t-fix"[^>]*aria-selected="true"/);
     assert.doesNotMatch(html, /id="sl-p-fix"[^>]*hidden/);
-    for (const id of ["ledger", "tax", "import"]) assert.match(html, new RegExp(`id="sl-p-${id}"[^>]*hidden`));
+    for (const id of ["ledger", "tax"]) assert.match(html, new RegExp(`id="sl-p-${id}"[^>]*hidden`));
   }));
 
-  test("#sales_ledger?tab=import opens Import; an unknown tab or other hash is ignored", withStubs(() => {
-    globalThis.location = { hash: "#sales_ledger?tab=import" };
+  test("#sales_ledger?tab=tax opens Tax year; the retired import tab is ignored", withStubs(() => {
+    globalThis.location = { hash: "#sales_ledger?tab=tax" };
     const html = m.renderSalesLedger();
-    assert.match(html, /id="sl-t-import"[^>]*aria-selected="true"/);
-    assert.doesNotMatch(html, /id="sl-p-import"[^>]*hidden/);
+    assert.match(html, /id="sl-t-tax"[^>]*aria-selected="true"/);
+    assert.doesNotMatch(html, /id="sl-p-tax"[^>]*hidden/);
     assert.match(html, /id="sl-p-fix"[^>]*hidden/);
+    globalThis.location = { hash: "#sales_ledger?tab=import" };
+    assert.match(m.renderSalesLedger(), /id="sl-t-tax"[^>]*aria-selected="true"/); // unchanged: the link does not apply
   }));
 
   test("an unknown tab or another page's hash is ignored", withStubs(() => {
@@ -367,7 +319,7 @@ describe("real-DOM fixes (Task 16a)", () => {
     globalThis.location = { hash: "", pathname: "/p", search: "?q=1" };
     globalThis.history = { replaceState: (_a, _b, url) => { globalThis.location.hash = url.startsWith("#") ? url : ""; } };
     const els = {};
-    for (const t of ["fix", "ledger", "tax", "import"]) { els[`sl-t-${t}`] = { setAttribute() {}, classList: { toggle() {} } }; els[`sl-p-${t}`] = {}; }
+    for (const t of ["fix", "ledger", "tax"]) { els[`sl-t-${t}`] = { setAttribute() {}, classList: { toggle() {} } }; els[`sl-p-${t}`] = {}; }
     globalThis.document = { getElementById: (id) => els[id] || null };
     try {
       realGo("tax", "wash"); // a strip click
@@ -388,7 +340,7 @@ describe("real-DOM fixes (Task 16a)", () => {
     globalThis.localStorage = { getItem() { throw new Error("denied"); }, setItem() { throw new Error("denied"); } };
     const prev = globalThis.document;
     const els = { slTabsRoot: { innerHTML: "" }, slStripRoot: { innerHTML: "" } };
-    for (const t of ["fix", "ledger", "tax", "import"]) { els[`sl-t-${t}`] = { setAttribute() {}, classList: { toggle() {} } }; els[`sl-p-${t}`] = {}; }
+    for (const t of ["fix", "ledger", "tax"]) { els[`sl-t-${t}`] = { setAttribute() {}, classList: { toggle() {} } }; els[`sl-p-${t}`] = {}; }
     globalThis.document = { getElementById: (id) => els[id] || null, activeElement: null };
     try {
       assert.match(m.renderSalesLedger(), /id="sl-t-fix"[^>]*aria-selected="true"/); // subscribes the tab bar repaint
@@ -425,14 +377,14 @@ describe("real-DOM fixes (Task 16a)", () => {
 
   test("a deep link is consumed after it applies, so the same link applies again", withStubs(() => {
     const replaced = [];
-    globalThis.location = { hash: "#sales_ledger?tab=import", pathname: "/frontend/index.html", search: "?x=1" };
+    globalThis.location = { hash: "#sales_ledger?tab=tax", pathname: "/frontend/index.html", search: "?x=1" };
     globalThis.history = { replaceState: (a, b, url) => { replaced.push(url); globalThis.location.hash = ""; } };
     window.slSetTab && window.slUiSave(window.slUiSetTab(window.slUiLoad(), "fix"));
-    assert.match(m.renderSalesLedger(), /id="sl-t-import"[^>]*aria-selected="true"/);
+    assert.match(m.renderSalesLedger(), /id="sl-t-tax"[^>]*aria-selected="true"/);
     assert.deepEqual(replaced, ["/frontend/index.html?x=1"]);
     window.slUiSave(window.slUiSetTab(window.slUiLoad(), "fix")); // the user moved on
-    globalThis.location.hash = "#sales_ledger?tab=import"; // the same link again
-    assert.match(m.renderSalesLedger(), /id="sl-t-import"[^>]*aria-selected="true"/);
+    globalThis.location.hash = "#sales_ledger?tab=tax"; // the same link again
+    assert.match(m.renderSalesLedger(), /id="sl-t-tax"[^>]*aria-selected="true"/);
     delete globalThis.history; // no history API: must not throw
     globalThis.location.hash = "#sales_ledger?tab=ledger";
     assert.doesNotThrow(() => m.renderSalesLedger());
@@ -443,11 +395,11 @@ describe("real-DOM fixes (Task 16a)", () => {
     const realGo = window.slGo;
     window.slGo = (t, s) => went.push([t, s]);
     try {
-      globalThis.location = { hash: "#sales_ledger?tab=fix&sec=log", pathname: "/p", search: "" };
+      globalThis.location = { hash: "#sales_ledger?tab=fix&sec=queue", pathname: "/p", search: "" };
       globalThis.history = { replaceState: () => { globalThis.location.hash = ""; } };
       m.renderSalesLedger();
       await new Promise((r) => setTimeout(r, 5));
-      assert.deepEqual(went, [["fix", "log"]]);
+      assert.deepEqual(went, [["fix", "queue"]]);
       went.length = 0;
       globalThis.location.hash = "#sales_ledger?tab=fix&sec=nonsense";
       m.renderSalesLedger();
@@ -474,7 +426,9 @@ describe("summary change repaints only strip and tab bar roots (Task 6)", () => 
 });
 
 describe("ledger tab (Task 12)", () => {
-  const rows = [SALE(), SALE({ sale_id: 8, gain: null, tax_class: "roth" }), SALE({ sale_id: 9, status: "voided", gain: 100 })];
+  before(() => { globalThis.localStorage = { getItem: () => JSON.stringify({ taxableOnly: false }), setItem() {} }; }); // these rows include a Roth sale
+  after(() => { delete globalThis.localStorage; });
+  const rows =[SALE(), SALE({ sale_id: 8, gain: null, tax_class: "roth" }), SALE({ sale_id: 9, status: "voided", gain: 100 })];
   const withApi = (handler, fn) => async () => {
     const realApi = globalThis.api;
     globalThis.api = async (url, opts) => { const r = await handler(url, opts); return r === undefined ? realApi(url, opts) : r; };
@@ -491,15 +445,17 @@ describe("ledger tab (Task 12)", () => {
     return extra ? extra(url) : undefined;
   };
 
-  test("totals come from the server (voided and tax-deferred excluded there); null gain gets a chip", withApi(loadWith(), async () => {
+  test("the list shows one sale row per sale and the KPI strip from /api/sales/summary", withApi(async (url) => {
+    if (url.startsWith("/api/sales/summary")) { calls.push([url]); return { success: true, summary: { sales: 2, count: 2, st_gain: 0, lt_gain: 495, fees: 10 } }; }
+    return loadWith()(url);
+  }, async () => {
     mkRoot("slListRoot");
+    calls.length = 0;
     await m.loadSalesLedger();
     const h = globalThis.__roots.slListRoot.innerHTML;
-    assert.match(h, /<strong>2<\/strong> sales · short-term net .*\$0\.00.* · long-term net .*\+\$495\.00/);
-    assert.match(h, /tax-deferred — no gain reported/);
-    assert.match(h, /＋ Record a sale/);
-    assert.match(m.slRowHtml(SALE({ gain: null })), /tax-deferred — no gain reported/);
-    assert.doesNotMatch(m.slRowHtml(SALE()), /tax-deferred/);
+    assert.match(h, /<strong>2<\/strong> sales · short-term realized .*\$0\.00.* · long-term realized .*\+\$495\.00<\/span> · fees \$10\.00/);
+    assert.equal((h.match(/class="sl-sale/g) || []).length, 1);                    // both lots are one sale (same account, symbol, day)
+    assert.ok(calls.some((c) => /\/api\/sales\/summary\?year=\d{4}&taxable_only=0/.test(c[0])));   // the switch is off in this describe
     delete globalThis.__roots.slListRoot;
   }));
 
@@ -525,47 +481,16 @@ describe("ledger tab (Task 12)", () => {
     } finally { if (real === undefined) delete globalThis.confirm; else globalThis.confirm = real; }
   }));
 
-  test("the drawer opens before Edit sets the values; ids stay unique", withApi(loadWith(), async () => {
-    await m.loadSalesLedger();
-    const order = [];
-    const form = mkRoot("slFormRoot"); form.log = order;
-    globalThis.__roots.slFormDrawer = { set open(v) { order.push("open:" + v); } };
-    m.slEdit(7);
-    assert.deepEqual(order, ["open:true", "slFormRoot"]);
-    order.length = 0;
-    m.slCancelEdit();
-    assert.deepEqual(order, ["open:false", "slFormRoot"]);
-    delete globalThis.__roots.slFormDrawer; delete globalThis.__roots.slFormRoot;
-    const html = m.renderSalesLedger();
-    assert.equal(html.split('id="slFormDrawer"').length - 1, 1);
-    assert.match(html, /<details class="drawer" id="slFormDrawer">/);
-    assert.match(html, /id="sl-sec-ledger"/);
-  }));
-
   test("hidden voided count comes from one extra fetch; absent on failure", withApi(loadWith(), async () => {
-    const label = { textContent: "" };
-    globalThis.__roots.slVoidedCount = label;
     calls.length = 0;
     await m.loadSalesLedger();
     assert.equal(calls.filter((c) => c[0].includes("include_voided=1")).length, 1);
     assert.equal(m.slHiddenVoidCount(), 1);
-    assert.equal(label.textContent, " (1 hidden)");
-    assert.match(m.renderSalesLedger(), /id="slVoidedCount">\s\(1 hidden\)/);
+    assert.match(m.renderSalesLedger(), /id="slVoidedLink"[^>]*>Voided rows \(1\)</);
     globalThis.api = async (url) => { if (url.includes("include_voided=1")) throw new Error("x"); return { success: true, sales: [], totals: { count: 0, short_gain: 0, long_gain: 0 } }; };
     await m.loadSalesLedger();
     assert.equal(m.slHiddenVoidCount(), 0);
-    assert.equal(label.textContent, "");
-    delete globalThis.__roots.slVoidedCount;
-  }));
-
-  test("toolbar count is the length of the (cash-filtered) list, like the badge", withApi(async (url, opts) => {
-    if (url.startsWith("/api/sales?")) return { success: true, sales: rows.slice(0, 2), totals: { count: 5, short_gain: 0, long_gain: 0 } };
-    return undefined;
-  }, async () => {
-    mkRoot("slListRoot");
-    await m.loadSalesLedger();
-    assert.match(globalThis.__roots.slListRoot.innerHTML, /<strong>2<\/strong> sales/);
-    delete globalThis.__roots.slListRoot;
+    assert.match(m.renderSalesLedger(), /Voided rows \(0\)/);
   }));
 
   test("the hidden-void count uses the year the load started with, even if the year changes mid-load", withApi(async (url) => {
@@ -599,15 +524,7 @@ describe("ledger tab (Task 12)", () => {
   }));
 });
 
-describe("import tab skeleton (Task 15)", () => {
-  test("slStepsHtml marks exactly the current step, with text, not colour only", () => {
-    for (const n of [1, 2, 3]) {
-      const h = window.slStepsHtml(n);
-      assert.equal((h.match(/aria-current="step"/g) || []).length, 1);
-      assert.match(h, new RegExp(`aria-current="step"[^>]*><strong>${n} (Source|Preview|Apply)</strong>`));
-      assert.match(h, /1 Source/); assert.match(h, /2 Preview/); assert.match(h, /3 Apply/);
-    }
-  });
+describe("next-step links", () => {
   test("slNextStepHtml offers the wash re-run after a 1099-B apply, and the queue link only when sales are waiting", () => {
     window.slPublish("queue", { count: 0, tone: "", text: "" });
     let h = window.slNextStepHtml({ wash: true });
@@ -623,59 +540,9 @@ describe("import tab skeleton (Task 15)", () => {
     window.slPublish("queue", { count: 0, tone: "", text: "" });
     assert.equal(window.slNextStepHtml({}), "");
   });
-  test("the Sales CSV box is a closed section of the Import tab; the Ledger tab has none; ids stay unique", () => {
-    globalThis.localStorage = { getItem: () => null, setItem: () => {} };
-    try {
-      const html = m.renderSalesLedger();
-      const imp = html.slice(html.indexOf('id="sl-p-import"'));
-      const led = html.slice(html.indexOf('id="sl-p-ledger"'), html.indexOf('id="sl-p-tax"'));
-      assert.match(imp, /<details class="sl-sec" id="sl-sec-csv" data-key="csv" data-alert="0">/);
-      assert.match(imp, /Sales CSV import/);
-      assert.match(imp, /id="slCsvRoot"/);
-      assert.match(imp, /1 Source/);
-      assert.doesNotMatch(led, /slCsvRoot|id="slCsv"/);
-      for (const id of ["slCsv", "slCsvRoot"]) assert.equal(html.split(`id="${id}"`).length - 1, 1, id);
-    } finally { delete globalThis.localStorage; }
-  });
-  test("csv is a known section key for deep links", () => {
-    globalThis.location = { hash: "#sales_ledger?tab=import&sec=csv" };
-    try { assert.deepEqual(m.slHashTarget(), { tab: "import", sec: "csv" }); } finally { delete globalThis.location; }
-  });
-  test("the CSV step moves to Preview once a preview exists", async () => {
-    globalThis.__fields.slCsv = "a,b\n";
-    await m.slImportPreview();
-    assert.match(m.renderSalesLedger(), /aria-current="step"[^>]*><strong>2 Preview<\/strong>/);
-    delete globalThis.__fields.slCsv;
-  });
 });
 
-describe("CSV box feedback and shell state (Task 15 fix)", () => {
-  const csvRoot = () => (globalThis.__roots.slCsvRoot = { _h: "", get innerHTML() { return this._h; }, set innerHTML(v) { this._h = v; } });
-  const real = () => globalThis.api;
-  test("a preview error, a commit failure and a commit success each put text in the CSV box", async () => {
-    const orig = real();
-    const root = csvRoot();
-    globalThis.__fields.slCsv = "a,b\n";
-    try {
-      globalThis.api = async (url, o) => { if (url === "/api/sales/import/preview") throw new Error("bad csv header"); return orig(url, o); };
-      await m.slImportPreview();
-      assert.match(root.innerHTML, /field-error" role="status">bad csv header/);
-      globalThis.api = async (url, o) => { if (url === "/api/sales/import/commit") throw new Error("commit refused"); return orig(url, o); };
-      await m.slImportCommit();
-      assert.match(root.innerHTML, /commit refused/);
-      globalThis.api = async (url, o) => (url === "/api/sales/import/commit" ? { success: true, written: 3 } : orig(url, o));
-      globalThis.__fields.slCsv = "a,b\n";
-      await m.slImportCommit();
-      assert.match(root.innerHTML, /role="status">Added 3 sales\./);
-      assert.equal(m.slCsvStateText(), "Added 3 sales.");
-    } finally { globalThis.api = orig; delete globalThis.__roots.slCsvRoot; delete globalThis.__fields.slCsv; }
-  });
-  test("the CSV shell state follows the preview", async () => {
-    globalThis.__fields.slCsv = "a,b\n";
-    await m.slImportPreview();
-    assert.equal(m.slCsvStateText(), "Preview ready · 1 rows");
-    delete globalThis.__fields.slCsv;
-  });
+describe("section shell state", () => {
   test("every section summary carries a state span; slSecSetState patches it and is a no-op without the element or document", () => {
     assert.match(window.slSecHtml({ key: "x", title: "T" }), /<span class="sl-sec-state" id="sl-sec-state-x"><\/span>/);
     const el = { textContent: "" };
@@ -687,30 +554,4 @@ describe("CSV box feedback and shell state (Task 15 fix)", () => {
     assert.doesNotThrow(() => window.slSecSetState("x", "y"));
     globalThis.document = prev;
   });
-});
-
-describe("density control (Task 16b)", () => {
-  const memStore = (init) => { const d = init ? { "salesLedger.ui.v1": JSON.stringify(init) } : {}; return { getItem: (k) => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); } }; };
-  const run = (store, coarse, fn) => {
-    globalThis.localStorage = store;
-    globalThis.matchMedia = () => ({ matches: coarse });
-    try { fn(); } finally { delete globalThis.localStorage; delete globalThis.matchMedia; }
-  };
-  test("stored compact adds sl-compact to the root and presses Compact", () => run(memStore({ density: "compact" }), false, () => {
-    const html = m.renderSalesLedger();
-    assert.match(html, /^<div class="field-list sl-page sl-compact" id="slRoot">/);
-    assert.match(html, /id="slDensityCompact"[^>]*aria-pressed="true"/);
-    assert.match(html, /id="slDensityComfort"[^>]*aria-pressed="false"/);
-  }));
-  test("default is comfortable; the group sits in the head root, ids unique", () => run(memStore(), false, () => {
-    const html = m.renderSalesLedger();
-    assert.match(html, /^<div class="field-list sl-page" id="slRoot">/);
-    assert.match(html, /id="slDensityComfort"[^>]*aria-pressed="true"/);
-    assert.match(html, /role="group" aria-label="Row density"/);
-    assert.ok(html.indexOf('id="slDensityComfort"') < html.indexOf('id="slStripRoot"'));
-    for (const id of ["slDensityComfort", "slDensityCompact"]) assert.equal((html.match(new RegExp(`id="${id}"`, "g")) || []).length, 1);
-  }));
-  test("coarse pointer ignores a stored compact", () => run(memStore({ density: "compact" }), true, () => {
-    assert.match(m.renderSalesLedger(), /^<div class="field-list sl-page" id="slRoot">/);
-  }));
 });

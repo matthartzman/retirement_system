@@ -68,16 +68,19 @@ const FROZEN_SCRIPT_ORDER = [
   "js/dashboard_decomp_rental_properties.js",
   "js/dashboard_decomp_monarch_reconciliation.js",
   "js/dashboard_decomp_cash_accounts.js",
+  "js/dashboard_decomp_holdings_tabs.js",
   "js/dashboard_decomp_sales_ledger_ui.js",
+  "js/dashboard_decomp_sales_group.js",
+  "js/dashboard_decomp_sales_entry.js",
   "js/dashboard_decomp_sales_ledger.js",
   "js/dashboard_decomp_sales_queue.js",
+  "js/dashboard_decomp_sales_wash.js",
   "js/dashboard_decomp_sales_tax.js",
   "js/dashboard_decomp_broker_import.js",
   "js/dashboard_decomp_sales_1099b.js",
   "js/dashboard_decomp_cash_investment.js",
   "js/dashboard_decomp_year_end.js",
   "js/dashboard_decomp_holdings_tree.js",
-  "js/dashboard_decomp_transactions.js",
   "js/dashboard_decomp_transactions_log.js",
   "js/dashboard_decomp_tax_assumptions.js",
   "js/dashboard_decomp_roth_guardrails.js",
@@ -132,8 +135,8 @@ function definesOrWraps(src, sym) {
   return assign.test(stripped) || define.test(stripped);
 }
 
-test("index.html script list and order are frozen (67 module scripts)", () => {
-  assert.equal(scriptSrcs().length, 67);
+test("index.html script list and order are frozen (70 module scripts)", () => {
+  assert.equal(scriptSrcs().length, 70);
   assert.deepEqual(scriptSrcs(), FROZEN_SCRIPT_ORDER);
 });
 

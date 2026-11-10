@@ -455,7 +455,11 @@ export function addHoldingCash(account) {
   }, 0);
 }
 
+// The page: the tab host (Positions | Activity | Import) when it is loaded, else Positions alone.
 export function renderHoldings() {
+  return typeof window.renderHoldingsTabs === "function" ? window.renderHoldingsTabs(renderHoldingsPositions) : renderHoldingsPositions();
+}
+export function renderHoldingsPositions() {
   const h = ensureHoldingRows();
   // Checking & Savings accounts have their own page; keep them off this one.
   const hiddenCash = cashOnlyAccounts(h.data);

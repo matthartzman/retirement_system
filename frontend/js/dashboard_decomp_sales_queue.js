@@ -2,19 +2,15 @@
 // the specific lots, then Confirms. Logic and validation live on the server (src/sales_confirm.py,
 // /api/sales/candidates*); this only collects a draft. FIFO / HIFO / lowest-gain chips fill the draft and save nothing.
 // Helpers are bare globals; the Sales Ledger page calls renderSalesQueue() and the queue repaints #sqRoot.
-
 const SQ_CLASSES = [["taxable", "Taxable"], ["pre_tax", "Pre-tax (IRA/401k)"], ["roth", "Roth"], ["hsa", "HSA"]];
 const SQ_AIDS = [["fifo", "FIFO"], ["hifo", "HIFO"], ["lowest_gain", "Lowest gain"]];
 const SQ_EPS = 1e-6;
-
 let sqList = null;
 let sqPanel = null;
 let sqDraft = { allocation: {}, tradeDate: "", taxClass: "taxable" };
 let sqMessage = null; // { text, error, undoId }
 let sqLoading = false;
-
 export const sqMoney = (v) => (v === null || v === undefined ? "—" : (Number(v) < 0 ? "-$" : "$") + Math.abs(Number(v)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-
 // Where the draft stands: total allocated, lots over their remaining shares, and whether Confirm may be enabled.
 export function sqAllocationState(panel, allocation) {
   const remaining = Object.fromEntries((panel.lots || []).map((l) => [l.lot_id, l.remaining]));
@@ -28,7 +24,7 @@ export function sqAllocationState(panel, allocation) {
   const target = Number(panel.shares) || 0;
   return { total, over, ok: panel.confirmable !== false && target > 0 && !over.length && Math.abs(total - target) <= SQ_EPS };
 }
-
+const sqInYear = (list) => { const y = window.slCurrentYear ? window.slCurrentYear() : ""; return y ? list.filter((c) => String(c.sale_date).startsWith(y)) : list; };
 export function sqQueueHtml(candidates, selectedId) {
   if (!candidates || !candidates.length) return `<p class="muted">No sales are waiting to be matched to lots.</p>`;
   const rows = candidates.map((c) => `<tr class="${c.candidate_id === selectedId ? "sq-selected" : ""}"><td>${esc(c.sale_date)}</td><td>${esc(accountDisplayLabel(c.account))}</td>` +
@@ -36,13 +32,11 @@ export function sqQueueHtml(candidates, selectedId) {
     `<td>${esc(c.source === "monarch" ? "Transaction feed" : "Holdings import")}</td><td><button class="btn" type="button" onclick="sqOpen(${Number(c.candidate_id)})">Review</button></td></tr>`).join("");
   return `<div class="rc-scroll"><table class="rc-table"><thead><tr><th>Date</th><th>Account</th><th>Symbol</th><th class="rc-num">Shares</th><th class="rc-num">Amount</th><th>Source</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
-
 export function sqSummaryHtml(panel, draft) {
   const s = sqAllocationState(panel, draft.allocation);
   const msg = s.over.length ? `<span class="field-error">A lot is over-allocated.</span>` : s.ok ? "" : `<span class="muted">Allocated shares must equal the shares sold.</span>`;
   return `${esc(String(+s.total.toFixed(6)))} of ${esc(String(panel.shares ?? "?"))} shares allocated ${msg}`;
 }
-
 export function sqPanelHtml(panel, draft) {
   if (!panel) return "";
   const c = panel.candidate;
@@ -74,29 +68,34 @@ export function sqPanelHtml(panel, draft) {
     `<button class="btn" type="button" onclick="sqDismiss('before_ledger_start')">Before ledger start</button> ` +
     `<button class="btn" type="button" onclick="sqDismiss('not_a_sale')">Not a sale</button></div>`;
 }
-
-let sqHistory = []; // sales (and matured bills) a history-only import left out of the ledger
-
-export function sqHistoryHtml(items) {
+let sqHistory = []; // sales (and matured bills) a history-only import left out of the ledger, hidden ones included (marked)
+let sqShowHidden = false;
+export function sqHistoryHtml(items, showHidden = sqShowHidden) {
   if (!items || !items.length) return "";
-  const rows = items.map((h, i) => {
+  const vis = items.filter((h) => !h.hidden), nHidden = items.length - vis.length;
+  const head = `<h3>Sales found in history imports (${vis.length})</h3>` + (nHidden ? `<label><input type="checkbox" ${showHidden ? "checked" : ""} onchange="sqToggleHidden(this.checked)"> show hidden (${nHidden})</label>` : "");
+  const shown = showHidden ? items : vis;
+  if (!shown.length) return head;
+  const rows = shown.map((h) => {
+    const i = items.indexOf(h);
     const what = h.kind === "interest"
-      ? `<span class="muted">Treasury bill maturity: interest income, not a sale</span>`
+      ? `<span class="muted">Treasury bill maturity: counted as interest income</span>`
       : h.complete ? `${sqMoney(h.gain)} gain from ${h.pieces.length} lot${h.pieces.length === 1 ? "" : "s"}`
-        : `<span class="muted">lots not in the files: use Record a sale</span>`;
-    return `<tr><td>${esc(h.sale_date)}</td><td>${esc(accountDisplayLabel(h.account))}</td><td>${esc(h.symbol)}</td><td class="rc-num">${esc(String(h.shares))}</td>` +
-      `<td class="rc-num">${sqMoney(h.proceeds)}</td><td>${what}</td><td>${h.kind === "sale" && h.complete ? `<button class="btn" type="button" onclick="sqHistoryRecord(${i})">Record</button> ` : ""}` +
-      `<button class="btn" type="button" onclick="sqHistoryDismiss(${i})">Dismiss</button></td></tr>`;
+        : `<span class="muted">lots not in the files: use Record sales</span>`;
+    const act = h.hidden ? `<span class="muted">hidden${h.hidden_on ? ` ${esc(h.hidden_on)}` : ""}</span> <button class="btn" type="button" onclick="sqHistoryUnhide(${i})">Unhide</button>`
+      : (h.kind === "sale" && h.complete ? `<button class="btn" type="button" onclick="sqHistoryRecord(${i})">Record</button> ` : "") + `<button class="btn" type="button" onclick="sqHistoryDismiss(${i})">Got it, hide</button>`;
+    return `<tr class="${h.hidden ? "sq-hidden muted" : ""}"><td>${esc(h.sale_date)}</td><td>${esc(accountDisplayLabel(h.account))}</td><td>${esc(h.symbol)}</td><td class="rc-num">${esc(String(h.shares))}</td>` +
+      `<td class="rc-num">${sqMoney(h.proceeds)}</td><td>${what}</td><td>${act}</td></tr>`;
   }).join("");
-  return `<h3>Sales found in history imports (${items.length})</h3><p class="muted">These were imported as history only, so they never reached the queue. Record writes the ledger rows from the buys in your broker files.</p>` +
+  return `${head}<p class="muted">These were imported as history only, so they never reached the queue. Record writes the ledger rows from the buys in your broker files.</p>` +
     `<div class="rc-scroll"><table class="rc-table"><thead><tr><th>Date</th><th>Account</th><th>Symbol</th><th class="rc-num">Shares</th><th class="rc-num">Proceeds</th><th>Result</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
-
-async function sqLoadHistory() {
-  try { const out = await api("/api/sales/history"); sqHistory = out && out.success ? out.items : []; } catch (e) { sqHistory = []; }
+export function sqToggleHidden(on) { sqShowHidden = !!on; sqPaint(); }
+export async function sqLoadHistory() {
+  const year = window.slCurrentYear ? window.slCurrentYear() : "";
+  try { const out = await api(`/api/sales/history?include_hidden=1${year ? `&year=${encodeURIComponent(year)}` : ""}`); sqHistory = out && out.success ? out.items : []; } catch (e) { sqHistory = []; }
   sqPaint();
 }
-
 async function sqHistoryPost(action, i, okText) {
   const h = sqHistory[i];
   try {
@@ -106,34 +105,30 @@ async function sqHistoryPost(action, i, okText) {
     await sqLoadHistory();
   } catch (e) { sqMessage = { text: e.message, error: true }; sqPaint(); }
 }
-
 export const sqHistoryRecord = (i) => sqHistoryPost("record", i, "Sale recorded in the ledger from your broker history.");
-export const sqHistoryDismiss = (i) => sqHistoryPost("dismiss", i, "Dismissed.");
-
+export const sqHistoryDismiss = (i) => sqHistoryPost("dismiss", i, "Hidden. Show hidden brings it back.");
+export const sqHistoryUnhide = (i) => sqHistoryPost("undismiss", i, "Back in the list.");
 function sqBodyHtml() {
   const msg = sqMessage ? `<p class="${sqMessage.error ? "field-error" : "muted"}" role="status">${esc(sqMessage.text)}` +
     `${sqMessage.undoId ? ` <button class="btn" type="button" onclick="sqUndo(${Number(sqMessage.undoId)})">Undo</button>` : ""}</p>` : "";
   const waiting = sqList ? sqList.counts.unmatched : 0;
   return `<h3>Sales waiting for lots${sqList ? ` (${waiting})` : ""}</h3>${msg}` +
-    (sqList ? sqQueueHtml(sqList.candidates, sqPanel && sqPanel.candidate.candidate_id) : `<p class="muted">Loading…</p>`) + sqPanelHtml(sqPanel, sqDraft) + sqHistoryHtml(sqHistory);
+    (sqList ? sqQueueHtml(sqInYear(sqList.candidates), sqPanel && sqPanel.candidate.candidate_id) : `<p class="muted">Loading…</p>`) + sqPanelHtml(sqPanel, sqDraft) + sqHistoryHtml(sqHistory);
 }
-
+export function sqYearChanged() { sqPaint(); sqLoadHistory(); }
 export function sqSummary() {
   const n = sqList ? Number(sqList.counts.unmatched) || 0 : 0;
   return { count: n, tone: n > 0 ? "bad" : "", text: n > 0 ? `${n} waiting` : "" };
 }
-
 function sqPaint() {
   const root = document.getElementById("sqRoot");
   if (root) root.innerHTML = sqBodyHtml();
   if (window.slPublish) window.slPublish("queue", sqSummary());
 }
-
 export function renderSalesQueue() {
   if (sqList === null && !sqLoading) { setTimeout(loadSalesQueue, 0); setTimeout(sqLoadHistory, 0); }
   return `<div class="sq-queue" id="sqRoot">${sqBodyHtml()}</div>`;
 }
-
 export async function loadSalesQueue() {
   sqLoading = true;
   try {
@@ -146,7 +141,6 @@ export async function loadSalesQueue() {
   sqLoading = false;
   sqPaint();
 }
-
 async function sqLoadPanel(id, extra = "") {
   try {
     const out = await api(`/api/sales/candidates/${Number(id)}/panel${extra}`);
@@ -157,28 +151,23 @@ async function sqLoadPanel(id, extra = "") {
   }
   sqPaint();
 }
-
 export const sqOpen = (id) => sqLoadPanel(id);
 export function sqReload() {
   if (!sqPanel) return loadSalesQueue(); const q =new URLSearchParams({ symbol: (document.getElementById("sqSymbol") || {}).value || "", shares: (document.getElementById("sqShares") || {}).value || "" });
   return sqLoadPanel(sqPanel.candidate.candidate_id, "?" + q);
 }
-
 function sqRefresh() {
   const sum = document.getElementById("sqSummary");
   if (sum && sqPanel) sum.innerHTML = sqSummaryHtml(sqPanel, sqDraft);
   const btn = document.getElementById("sqConfirm");
   if (btn && sqPanel) btn.disabled = !sqAllocationState(sqPanel, sqDraft.allocation).ok;
 }
-
 export function sqSetAlloc(lotId, value) {
   if (value === "" || Number(value) === 0) delete sqDraft.allocation[lotId];
   else sqDraft.allocation[lotId] = Number(value);
   sqRefresh();
 }
-
 export function sqSetClass(v) { sqDraft.taxClass = v; }
-
 // A chip only fills the inputs; the user can edit them, and nothing is saved until Confirm.
 export function sqFill(method) {
   const a = sqPanel && sqPanel.aids[method];
@@ -186,7 +175,6 @@ export function sqFill(method) {
   sqDraft.allocation = { ...a.allocation };
   sqPaint();
 }
-
 async function sqPost(id, action, body, okText, undoId) {
   try {
     const out = await api(`/api/sales/candidates/${Number(id)}/${action}`, { method: "POST", body: JSON.stringify(body || {}) });
@@ -200,7 +188,6 @@ async function sqPost(id, action, body, okText, undoId) {
     sqPaint();
   }
 }
-
 export function sqConfirm() {
   const c = sqPanel.candidate;
   const field = (id) => (document.getElementById(id) || {}).value;
@@ -210,11 +197,9 @@ export function sqConfirm() {
     symbol: field("sqSymbol") || undefined, shares: field("sqShares") || undefined,
   }, "Sale confirmed and the lots reduced.", c.candidate_id);
 }
-
 export const sqUndo = (id) => sqPost(id, "undo", null, "Confirmation undone; the sale is waiting again and the lots are restored.");
 export const sqDismiss = (reason) => sqPost(sqPanel.candidate.candidate_id, "dismiss", { reason }, "Sale dismissed.");
-
 Object.assign(window, {
   renderSalesQueue, loadSalesQueue, sqSummary, sqOpen, sqReload, sqSetAlloc, sqSetClass, sqFill, sqConfirm, sqUndo, sqDismiss,
-  sqHistoryRecord, sqHistoryDismiss,
+  sqYearChanged, sqHistoryRecord, sqHistoryDismiss, sqHistoryUnhide, sqToggleHidden, sqLoadHistory, sqHistoryHtml,
 });

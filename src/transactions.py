@@ -74,13 +74,21 @@ def open_lots(store: Any, *, account: str | None = None, symbol: str | None = No
     for d in disposals:
         if d["lot_txn_id"] in left and (as_of is None or by_id[d["txn_id"]]["txn_date"] <= as_of):
             left[d["lot_txn_id"]] -= float(d["shares"])
+    from .wash_adjustments import by_lot
+    adj = by_lot(store)
     out = []
     for lid, shares in left.items():
         r = by_id[lid]
         if shares <= _EPS or (account and r["account"] != account) or (symbol and r["symbol"].upper() != symbol.upper()):
             continue
+        a = adj.get(lid)
+        # the add-back is spread over the lot's shares (no share-level identification), so open shares carry their pro rata part
+        per_share = (a["amount"] / float(r["shares"])) if a and float(r["shares"]) > _EPS else 0.0
         out.append({"lot_txn_id": lid, "account": r["account"], "symbol": r["symbol"], "purchase_date": lot_date(r),
-                    "price": r["price"], "lot_type": r["lot_type"], "shares": round(shares, 6), "note": r["note"]})
+                    "price": r["price"], "lot_type": r["lot_type"], "shares": round(shares, 6), "note": r["note"],
+                    "date_not_on_file": r["source"] == "backfill" and r["type"] == "opening",   # the date came from the backfill, not a broker or the user
+                    "wash_adjustment": round(per_share * shares, 2) if a else None,
+                    "adjusted_unit_cost": float(r["price"] or 0.0) + per_share, "tacked_date": a["tacked"] if a else None})
     return sorted(out, key=lambda x: (x["account"], x["symbol"], x["purchase_date"], x["lot_txn_id"]))
 
 
@@ -269,8 +277,11 @@ def _holdings_by_key(store: Any) -> dict[tuple, dict[str, Any]]:
 
 def _log_by_key(store: Any) -> dict[tuple, dict[str, Any]]:
     out: dict[tuple, dict[str, Any]] = {}
+    managed = {a.lower() for a in store.transactions.managed_accounts()}
     for lot in open_lots(store):
-        k = _key(lot["account"], lot["symbol"], lot["purchase_date"], lot["price"], lot["lot_type"])
+        adj = lot["account"].lower() in managed            # only a managed account's holdings carry the add-back and the tacked date
+        k = _key(lot["account"], lot["symbol"], (lot["tacked_date"] if adj else None) or lot["purchase_date"],
+                 lot["adjusted_unit_cost"] if adj else lot["price"], lot["lot_type"])
         slot = out.setdefault(k, {**lot, "shares": 0.0})
         slot["shares"] += lot["shares"]
     return out
@@ -280,7 +291,9 @@ def backfill(store: Any) -> dict[str, Any]:
     """Build the log from what exists, idempotently (call inside ``store.transaction()``). Broker buys and reinvestments
     whose lot reached the holdings, and broker sales that were confirmed, become rows; Monarch sales are skipped. Every
     open holdings lot the log cannot explain then gets an ``opening`` row, so ``open_lots`` equals the holdings."""
+    from .broker_import import investment_accounts
     t = store.transactions
+    investing = set(investment_accounts(store))      # a bank account never gets log rows
     done = {r["activity_id"] for r in t.list(include_voided=True) if r["activity_id"] is not None}
     added = {"buy": 0, "reinvest": 0, "sell": 0, "opening": 0}
     warnings: list[str] = []
@@ -318,7 +331,7 @@ def backfill(store: Any) -> dict[str, Any]:
             slot[0] += float(s["shares"])
     for k, (sold, src) in need.items():
         missing = held.get(k, {}).get("shares", 0.0) + sold - logged.get(k, {}).get("shares", 0.0)
-        if missing > _ZERO:
+        if missing > _ZERO and src["account"] in investing:
             t.insert(txn_date=k[2], account=src["account"], type="opening", symbol=src["symbol"], shares=missing, price=k[3],
                      lot_type=k[4], source="backfill", note=_OPENING_NOTE)
             added["opening"] += 1
@@ -352,7 +365,7 @@ def backfill(store: Any) -> dict[str, Any]:
     held, logged = _holdings_by_key(store), _log_by_key(store)
     for k, h in held.items():
         short = h["shares"] - logged.get(k, {}).get("shares", 0.0)
-        if short > _ZERO:
+        if short > _ZERO and h["account"] in investing:
             t.insert(txn_date=h["purchase_date"], account=h["account"], type="opening", symbol=h["symbol"], shares=short,
                      price=h["price"], lot_type=h["lot_type"], source="backfill", note=h["note"] or _OPENING_NOTE)
             added["opening"] += 1
@@ -401,6 +414,8 @@ def sync(store: Any) -> dict[str, Any]:
             t.release(r["txn_id"], "import reverted")
         elif r["type"] == "sell" and cands.get(a["candidate_id"], {}).get("state") != "confirmed":
             t.release(r["txn_id"], "sale undone")
+    from .wash_adjustments import recompute_adjustments
+    recompute_adjustments(store)                           # before the holdings are compared with the log
     out = backfill(store)
     materialize_managed(store)
     return out
@@ -452,8 +467,8 @@ def materialize(store: Any, account: str) -> int:
     rows = repo.rows()
     mine = [i for i, r in enumerate(rows) if str(r.get("account", "")).strip().lower() == account.strip().lower()
             and str(r.get("symbol", "")).strip().upper() != "CASH"]
-    new = [{"account": account, "symbol": l["symbol"], "purchase_date": "" if l["purchase_date"] == _NO_DATE else l["purchase_date"],
-            "shares": _fmt(l["shares"]), "purchase_price": _fmt(float(l["price"] or 0.0)), "lot_type": l["lot_type"], "note": "" if l["note"] == _OPENING_NOTE else l["note"] or ""}
+    new = [{"account": account, "symbol": l["symbol"], "purchase_date": "" if (l["tacked_date"] or l["purchase_date"]) == _NO_DATE else (l["tacked_date"] or l["purchase_date"]),
+            "shares": _fmt(l["shares"]), "purchase_price": _fmt(float(l["adjusted_unit_cost"] or 0.0)), "lot_type": l["lot_type"], "note": "" if l["note"] == _OPENING_NOTE else l["note"] or ""}
            for l in open_lots(store, account=account) if l["symbol"].strip().upper() != "CASH"]
     at = mine[0] if mine else len(rows)
     kept_before = sum(1 for i in range(at) if i not in set(mine))
@@ -474,6 +489,8 @@ def is_managed(store: Any, account: str) -> bool:
 def materialize_managed(store: Any, accounts: Iterable[Any] | None = None) -> int:
     """Rewrite the holdings of every managed account in ``accounts`` (default: all managed accounts); an unmanaged account
     is left alone. Call inside the transaction of the log write that changed the account."""
+    from .wash_adjustments import recompute_adjustments
+    recompute_adjustments(store)                      # W4: every log write, sale confirm or void, and review change lands here or in the wash refresh
     managed = store.transactions.managed_accounts()
     if not managed:
         return 0
@@ -502,6 +519,47 @@ def set_managed(input_dir: str | Path, account: str, on: bool) -> dict[str, Any]
                                   "resolve the differences before managing it")
         store.transactions.set_managed(account, True)
         return {"account": account, "managed": True, "rows": materialize(store, account)}
+
+
+def _bank_opening_rows(store: Any) -> dict[str, list[int]]:
+    """``{account: [active opening txn_ids]}`` for log accounts that are not investment accounts (a bank account's CASH balance)."""
+    from .broker_import import investment_accounts
+    investing = set(investment_accounts(store))
+    out: dict[str, list[int]] = {}
+    for r in store.transactions.list():
+        if r["account"] not in investing and r["type"] == "opening":
+            out.setdefault(r["account"], []).append(r["txn_id"])
+    return out
+
+
+def bank_account_cleanup_preview(input_dir: str | Path) -> dict[str, Any]:
+    """What the one-time cleanup would void: the opening rows of accounts that are not investment accounts."""
+    with active_plan.workspace_store(_base(input_dir)) as store:
+        managed = {a.lower() for a in store.transactions.managed_accounts()}
+        return {"accounts": [{"account": a, "managed": a.lower() in managed, "opening_rows": ids}
+                             for a, ids in sorted(_bank_opening_rows(store).items())]}
+
+
+def bank_account_cleanup_apply(input_dir: str | Path, accounts: list[str]) -> dict[str, Any]:
+    """Void the opening rows of the named bank accounts. Order is fixed: stop managing the account first, then void, and
+    never rewrite its holdings, so the account's CASH holding survives. Investment accounts are never touched."""
+    wanted = {str(a).strip().lower() for a in (accounts or []) if str(a).strip()}
+    if not wanted:
+        raise ValidationError("name the accounts to clean up")
+    with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
+        found = {a: ids for a, ids in _bank_opening_rows(store).items() if a.lower() in wanted}
+        managed = {a.lower() for a in store.transactions.managed_accounts()}
+        unmanaged = []
+        for account in sorted(found):
+            if account.lower() in managed:
+                store.transactions.set_managed(account, False)
+                unmanaged.append(account)
+        voided = 0
+        for ids in found.values():
+            for txn_id in ids:
+                store.transactions.void(txn_id)
+                voided += 1
+    return {"voided": voided, "unmanaged": unmanaged}
 
 
 def managed_view(input_dir: str | Path) -> dict[str, Any]:

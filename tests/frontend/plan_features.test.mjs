@@ -316,3 +316,18 @@ describe("row kind badge", () => {
     assert.match(html, /class="badge pf-kind">stress_test</);
   });
 });
+
+// Sales Ledger v3: the "reinvest dividends" default moved here from the investment-cash panel; same stored key.
+describe("reinvest dividends default on Plan Features", () => {
+  const row = (over) => ({ section: "Economic Assumptions", label: "reinvest_dividends_default", value: "true", editable: true, ...over });
+  test("planReinvestRow finds the Economic Assumptions / reinvest_dividends_default row and nothing else", () => {
+    const rs = [row({ label: "inflation" }), row({ section: "Other" }), row({})];
+    const found = sandbox.planReinvestRow(rs);
+    assert.equal(found.label, "reinvest_dividends_default");
+    assert.equal(found.section, "Economic Assumptions");
+    assert.equal(sandbox.planReinvestRow([row({ label: "inflation" })]), undefined);
+  });
+  test("the page asks the stored row to render itself (the same field that writes the key)", () => {
+    assert.equal(typeof sandbox.planReinvestHtml, "function");
+  });
+});

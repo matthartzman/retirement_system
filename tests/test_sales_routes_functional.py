@@ -6,8 +6,6 @@ import pytest
 from src import active_plan
 from src.server import app, plan_routes
 
-CSV = ("sale_date,account,tax_class,symbol,shares,proceeds,fees,basis,purchase_date\n"
-       "2026-07-01,Trust,taxable,VXUS,5,500,0,400,2024-01-02\n")
 ROW = dict(sale_date="2026-06-10", account="Trust", tax_class="taxable", symbol="vti", shares=10,
            proceeds=2000, fees=5, basis=1500, purchase_date="2025-01-02")
 
@@ -47,18 +45,10 @@ def test_void_unknown_sale_is_a_400(client):
     assert client.post("/api/sales/999/void").status_code == 400
 
 
-def test_csv_preview_then_commit(client):
-    p = client.post("/api/sales/import/preview", json={"content": CSV}).get_json()
-    assert p["success"] and p["received"] == 1 and len(p["will_write"]) == 1
+def test_sales_csv_routes_are_gone(client):
+    for path in ("/api/sales/import/preview", "/api/sales/import/commit"):
+        assert client.post(path, json={"content": "a,b"}).status_code in (404, 405)
     assert client.get("/api/sales").get_json()["sales"] == []
-    c = client.post("/api/sales/import/commit", json={"content": CSV})
-    assert c.status_code == 200 and c.get_json()["written"] == 1
-    assert client.post("/api/sales/import/commit", json={"content": CSV}).get_json()["written"] == 0
-
-
-def test_csv_commit_with_errors_is_a_400(client):
-    r = client.post("/api/sales/import/commit", json={"content": CSV + "bad,row\n"})
-    assert r.status_code == 400 and client.get("/api/sales").get_json()["sales"] == []
 
 
 def test_tax_year_summary_carryforward_and_wash_routes(client):

@@ -3,18 +3,14 @@
 // /api/sales/carryforward, /api/sales/wash/refresh); this only displays them and posts the two inputs.
 // Nothing here changes the projection. Helpers are bare globals; the Sales Ledger page calls renderSalesTaxYear()
 // and reloads it with loadSalesTaxYear(year) whenever the ledger loads.
-
 let stData = null;
 let stMessage = null; // { text, error }
 let stError = "";
-let stFromAll = false; // the header says All years: this tab keeps the last concrete year and says so
 let stCfDraft = null; // { year, stCfShort, stCfLong }: typed carryforward text survives any repaint until it is saved
 let stIncome = null; // GET /api/investment-income: the year's interest and dividends by type, taxable accounts only
 let stYearEnd = null; // { year, open, total } from GET /api/year-end; null when unavailable
-
 const stMoney = (v) => (Number(v) < 0 ? "-$" : "$") + Math.abs(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const stRow = (label, value, note = "") => `<tr><th scope="row">${label}</th><td class="rc-num">${stMoney(value)}</td><td class="muted">${note}</td></tr>`;
-
 export function stNettingHtml(s) {
   if (!s.totals || !s.totals.count) return `<p class="muted">No taxable sales recorded for ${esc(String(s.year))}.</p>`;
   const n = s.netting;
@@ -24,10 +20,10 @@ export function stNettingHtml(s) {
     stRow("Taxed as ordinary income", n.gain_to_tax_ordinary, "short-term gain left after netting") +
     stRow("Taxed at long-term rates", n.gain_to_tax_ltcg, "long-term gain left after netting") +
     stRow("Loss deducted against other income", n.ordinary_offset, `${esc(stMoney(s.limit))} limit (${esc(s.filing)})`) +
+    (s.wash && s.wash.disallowed ? stRow("Wash-sale losses disallowed", s.wash.disallowed, `deferred ${esc(stMoney(s.wash.deferred))} · lost in IRA ${esc(stMoney(s.wash.lost_permanently))} <a href="#sales_ledger?tab=fix&amp;sec=wash" onclick="if(window.slGo){slGo('fix','wash');return false}">See the wash sales</a>`) : "") +
     stRow("Carried to next year, short-term", n.carryforward_st) +
     stRow("Carried to next year, long-term", n.carryforward_lt) + `</tbody></table></div>`;
 }
-
 export function stTaxHtml(s) {
   const t = s.realized_tax;
   if (!t) return "";
@@ -37,31 +33,20 @@ export function stTaxHtml(s) {
     stRow("Net investment income tax", t.niit) + stRow("State tax", t.state_tax) + stRow("Estimated tax on gains realized this year", t.total) +
     `</tbody></table></div><p class="muted">${esc(t.note)} Separate from the estimated tax on unrealized gains.</p>`;
 }
-
 export function stCarryforwardHtml(s) {
   const cf = s.carryforward_in;
   const how = cf.entered ? "Entered from your Schedule D." : "Estimated from your earlier sales; enter last year's Schedule D figures to replace this.";
   const d = stCfDraft && stCfDraft.year === s.year ? stCfDraft : {};
   const input = (id, label, v) => `<label>${label}<input id="${id}" type="number" min="0" step="any" value="${esc(String(d[id] ?? v))}" oninput="stCfDraftSet('${id}',this.value)"></label>`;
-  return `<div class="st-carry"><h4>Capital-loss carryforward into ${esc(String(s.year))}</h4>` +
+  return `<div class="st-carry"><h4>Loss carried in from ${esc(String(Number(s.year) - 1))}</h4>` +
     `<div class="field-grid">${input("stCfShort", "Short-term ($, positive)", cf.short)}${input("stCfLong", "Long-term ($, positive)", cf.long)}</div>` +
     `<p class="muted">${esc(how)}</p><button class="btn" type="button" onclick="stSaveCarryforward()">Save carryforward</button></div>`;
 }
-
 export function stCfDraftSet(id, v) {
   if (!stData || (id !== "stCfShort" && id !== "stCfLong")) return;
   if (!stCfDraft || stCfDraft.year !== stData.year) stCfDraft = { year: stData.year };
   stCfDraft[id] = String(v ?? "");
 }
-
-export function stWashHtml(w) {
-  const check = `<button class="btn" type="button" onclick="stRefreshWash()">Check for wash sales</button>`;
-  if (!w.count) return `<div class="st-wash"><h4>Wash sales</h4><p class="muted">No losses are flagged as possible wash sales.</p>${check}</div>`;
-  const items = w.rows.map((r) => `<li>${esc(r.sale_date)} ${esc(r.symbol)} (${esc(stMoney(r.gain))}): ${esc(r.note)}</li>`).join("");
-  return `<div class="st-wash"><h4>Wash sales</h4><p class="field-error" role="status">${esc(stMoney(w.flagged_loss))} of losses flagged as possible wash sales — this may overstate the deduction.</p>` +
-    `<ul>${items}</ul><p class="muted">Flag only: nothing is disallowed or adjusted here, and a repurchase in an IRA loses the loss with no basis add-back.</p>${check}</div>`;
-}
-
 export function stTilesHtml(s) {
   const n = s.netting || {};
   const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
@@ -71,18 +56,15 @@ export function stTilesHtml(s) {
   const tax = s.realized_tax && s.realized_tax.available ? stMoney(num(s.realized_tax.total)) : "—";
   return `<div class="tiles sl-tiles">${tile("Short-term net", st, stMoney(st))}${tile("Long-term net", lt, stMoney(lt))}${tile("Estimated tax", 0, tax)}${tile("Carryforward out", 0, stMoney(cf))}</div>`;
 }
-
 export function st1099bStatusRowHtml(status) {
   const n = Number(status && status.count) || 0;
   const text = status && (status.tone === "warn" || status.tone === "bad") && n > 0 ? `${n} account${n === 1 ? "" : "s"} not tied` : "No 1099-B differences recorded";
-  return `<p class="st-link-row">1099-B: ${esc(text)} <a href="#sales_ledger?tab=import&amp;sec=b1099" onclick="if(window.slGo){slGo('import','b1099');return false}">Review 1099-B</a></p>`;
+  return `<p class="st-link-row">1099-B: ${esc(text)} <a href="#sales_ledger?tab=tax&amp;sec=b1099" onclick="if(window.slGo){slGo('tax','b1099');return false}">Review 1099-B</a></p>`;
 }
-
 export function stYearEndLinkHtml(openCount, total, year) {
   if (!(Number(total) > 0)) return "";
   return `<p class="st-link-row"><a href="#year_end" onclick="if(window.setStep){setStep('year_end');return false}">Year-end steps (${esc(String(year))}): ${Number(openCount) || 0} of ${Number(total)} open → Year-End Transition</a></p>`;
 }
-
 // Interest and dividends by type, for the accountant: totals per account, a per-symbol type chooser and a CSV.
 export function stIncomeHtml(d) {
   if (!d || !d.rows || !d.rows.length) return "";
@@ -90,60 +72,45 @@ export function stIncomeHtml(d) {
   const acct = Object.entries(d.by_account).map(([a, t]) => `<tr><th scope="row">${esc(accountDisplayLabel(a))}</th>${cols.map((c) => `<td class="rc-num">${t[c] === undefined ? "" : stMoney(t[c])}</td>`).join("")}</tr>`).join("");
   const total = `<tr><th scope="row">All taxable accounts</th>${cols.map((c) => `<td class="rc-num"><b>${stMoney(d.totals[c])}</b></td>`).join("")}</tr>`;
   const opts = (cur) => Object.entries(d.labels).map(([k, l]) => `<option value="${k}"${k === cur ? " selected" : ""}>${esc(l)}</option>`).join("");
-  const syms = d.symbols.map((x) => `<label class="st-sym">${esc(x.symbol)} <select onchange="stSetSymbolType('${esc(x.symbol)}', this.value)">${opts(x.type)}</select></label>`).join(" ");
+  const syms = `<table class="rc-table st-types"><thead><tr><th>Symbol</th><th>Counted as</th></tr></thead><tbody>${d.symbols.map((x) => `<tr><th scope="row">${esc(x.symbol)}</th><td><select aria-label="Fund type of ${esc(x.symbol)}" onchange="stSetSymbolType('${esc(x.symbol)}', this.value)">${opts(x.type)}</select></td></tr>`).join("")}</tbody></table>`;
   return `<div class="st-income"><h4>Interest and dividends ${esc(String(d.year))} (taxable accounts)</h4><div class="rc-scroll"><table class="rc-table"><thead><tr><th></th>${cols.map((c) => `<th class="rc-num">${esc(d.labels[c] || c)}</th>`).join("")}</tr></thead><tbody>${acct}${total}</tbody></table></div>` +
     `<p class="muted">${esc(d.notes[d.notes.length - 1])}</p>${d.notes.slice(0, -1).map((n) => `<p class="field-error">${esc(n)}</p>`).join("")}` +
-    `<details><summary>Fund types (change how a symbol is counted)</summary><p>${syms}</p></details>` +
+    `<details><summary>Fund types (change how a symbol is counted)</summary>${syms}</details>` +
     `<p><a href="/api/investment-income.csv?year=${encodeURIComponent(d.year)}" download>Download CSV for your accountant</a></p></div>`;
 }
-
 export function stSetSymbolType(symbol, type) {
   return stPost("/api/investment-income/symbol-type", { symbol, type }, "Fund type saved.");
 }
-
 function stBodyHtml() {
+  if (window.slCurrentYear && window.slCurrentYear() === "") return `<h3>Tax year</h3><p class="muted">Pick a year above: tax is worked out one year at a time, so there is no all-years total.</p>`;
   if (stError) return `<h3>Realized gains this year</h3><p class="field-error">${esc(stError)}</p>`;
   if (!stData) return `<h3>Realized gains this year</h3><p class="muted">Loading…</p>`;
   const msg = stMessage ? `<p class="${stMessage.error ? "field-error" : "muted"}" role="status">${esc(stMessage.text)}</p>` : "";
   const b = window.slSummaries && window.slSummaries().b1099;
   const ye = stYearEnd ? stYearEndLinkHtml(stYearEnd.open, stYearEnd.total, stYearEnd.year) : "";
-  const note = stFromAll ? `<p class="muted">The Sale year filter is set to All years; this tab shows ${esc(String(stData.year))}, the last year you selected. Pick a year above to change it.</p>` : "";
-  return `<h3>Tax year ${esc(String(stData.year))} · sales dated 1/1–12/31</h3>${note}${msg}${stTilesHtml(stData)}${st1099bStatusRowHtml(b)}${ye}` +
-    `<div class="sl-tax-cols"><div>${stNettingHtml(stData)}${stTaxHtml(stData)}</div><div>${stCarryforwardHtml(stData)}</div></div>${stWashHtml(stData.wash)}${stIncomeHtml(stIncome)}`;
+  return `<h3>Tax year ${esc(String(stData.year))} · sales dated 1/1–12/31</h3>${msg}${stTilesHtml(stData)}${st1099bStatusRowHtml(b)}${ye}` +
+    `<div class="sl-tax-cols"><div>${stNettingHtml(stData)}${stTaxHtml(stData)}</div><div>${stCarryforwardHtml(stData)}</div></div>${stIncomeHtml(stIncome)}`;
 }
-
 export function renderSalesTaxYear() {
   return `<div class="st-panel" id="stRoot">${stBodyHtml()}</div>`;
 }
-
 // Only a carryforward that is actually carried in but was never entered is a signal; "entered: false" alone is the normal
 // state for anyone with no carryforward, so it would be a permanent false alarm. Saving the figures (even as zero) clears it.
 function stCfUnsaved() {
   const cf = stData && stData.carryforward_in;
   return !!cf && cf.entered === false && (Number(cf.short) > 0 || Number(cf.long) > 0);
 }
-
-// Wash: flagged is bad; else the last-run marker (task 14) warns "never run"/"stale" (cleared by Refresh). Old servers without the
-// marker keys stay neutral. The carryforward stays neutral: a warn there would be an unclearable alert.
+// Only a carryforward that is carried in but never entered is a signal (the wash cards publish their own summary in To fix).
 export function stSummary() {
-  const w = (stData && stData.wash) || {};
-  const n = Number.isFinite(w.all_years_count) ? w.all_years_count : w.count || 0; // the strip counts flagged sales across ALL years
-  const warn = w.never_run === true ? "never run" : w.stale === true ? "stale" : "";
-  return {
-    wash: n > 0 ? { count: n, tone: "bad", text: `${n} flagged` } : warn ? { count: 0, tone: "warn", text: warn } : { count: 0, tone: "", text: "" },
-    cf: stCfUnsaved() ? { count: 0, tone: "warn", text: "carryforward not saved" } : { count: 0, tone: "", text: "" },
-  };
+  return { cf: stCfUnsaved() ? { count: 0, tone: "warn", text: "carryforward not saved" } : { count: 0, tone: "", text: "" } };
 }
-
 function stPaint() {
   const root = document.getElementById("stRoot");
   if (root) root.innerHTML = stBodyHtml();
-  if (window.slPublish) { const s = stSummary(); window.slPublish("wash", s.wash); window.slPublish("cf", s.cf); }
+  if (window.slPublish) window.slPublish("cf", stSummary().cf);
 }
-
-export async function loadSalesTaxYear(year, opts = {}) {
+export async function loadSalesTaxYear(year) {
   stError = "";
-  stFromAll = !!opts.fromAll;
   const taxReq = api("/api/sales/tax-year?year=" + encodeURIComponent(year));
   try {
     const out = await taxReq;
@@ -160,7 +127,6 @@ export async function loadSalesTaxYear(year, opts = {}) {
   stYeStale = true;
   if (stTabShown()) await stLoadYearEnd();
 }
-
 const stTabShown = () => !window.slCurrentTab || window.slCurrentTab() === "tax";
 let stYeStale = true;
 let stYeBusy = false;
@@ -178,7 +144,6 @@ async function stLoadYearEnd() {
 }
 // Called by the page when the Tax tab is shown: fetch the year-end counts if a load skipped them.
 export function stOnShown() { if (stYeStale && stData) return stLoadYearEnd(); return undefined; }
-
 async function stPost(url, body, okText, onOk) {
   const year = stData && stData.year;
   try {
@@ -188,17 +153,13 @@ async function stPost(url, body, okText, onOk) {
   } catch (e) {
     stMessage = { text: e.message, error: true };
   }
-  if (year) await loadSalesTaxYear(year, { fromAll: stFromAll });
+  if (year) await loadSalesTaxYear(year);
   else stPaint();
 }
-
 export function stSaveCarryforward() {
   if (!stData) return Promise.resolve();
   const d = stCfDraft && stCfDraft.year === stData.year ? stCfDraft : {};
   const pick = (id) => { const el = document.getElementById(id); return el ? el.value : (d[id] ?? ""); };
   return stPost("/api/sales/carryforward", { year: stData.year, carryforward_short: pick("stCfShort"), carryforward_long: pick("stCfLong") }, "Carryforward saved.", () => { stCfDraft = null; });
 }
-
-export const stRefreshWash = () => stPost("/api/sales/wash/refresh", null, "Wash-sale check done.");
-
-Object.assign(window, { stTilesHtml, st1099bStatusRowHtml, stYearEndLinkHtml, stSummary, stNettingHtml, stTaxHtml, stCarryforwardHtml, stCfDraftSet, stOnShown, stWashHtml, stIncomeHtml, stSetSymbolType, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward, stRefreshWash });
+Object.assign(window, { stRepaint: stPaint, stTilesHtml, st1099bStatusRowHtml, stYearEndLinkHtml, stSummary, stNettingHtml, stTaxHtml, stCarryforwardHtml, stCfDraftSet, stOnShown, stIncomeHtml, stSetSymbolType, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward });

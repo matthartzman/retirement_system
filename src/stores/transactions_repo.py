@@ -63,6 +63,19 @@ CREATE TABLE transaction_accounts (
 ) WITHOUT ROWID;
 """
 
+# v24 (Sales Ledger v3, rule W4): where a disallowed wash-sale loss went. One record per replacement buy; the log rows are never edited.
+SCHEMA_V24_DDL = """
+CREATE TABLE wash_adjustments (
+    adjustment_id         INTEGER PRIMARY KEY,
+    sale_key              TEXT NOT NULL,
+    replacement_txn_id    INTEGER NOT NULL REFERENCES transactions (txn_id),
+    shares                REAL NOT NULL,
+    amount                REAL NOT NULL,
+    tacked_purchase_date  TEXT
+);
+CREATE INDEX ix_wash_adjustments_lot ON wash_adjustments (replacement_txn_id);
+"""
+
 _FIELDS = ("txn_date", "settle_date", "account", "type", "symbol", "shares", "price", "amount", "fees", "lot_type",
            "transfer_group", "lot_date", "origin_lot_txn_id", "source", "activity_id", "candidate_id", "note",
            "revision_ref")
@@ -159,6 +172,17 @@ class TransactionsRepo:
         with self._store._write() as con:
             con.execute("UPDATE transactions SET status = 'voided', activity_id = NULL, note = ?, updated_at = ? WHERE txn_id = ?",
                         (note, self._store._clock(), txn_id))
+
+    # ---- wash adjustments (schema v24)
+    def wash_adjustments(self) -> list[dict[str, Any]]:
+        with self._store._read() as con:
+            return [dict(r) for r in con.execute("SELECT * FROM wash_adjustments ORDER BY adjustment_id")]
+
+    def replace_wash_adjustments(self, rows: list[dict[str, Any]]) -> None:
+        with self._store._write() as con:
+            con.execute("DELETE FROM wash_adjustments")
+            con.executemany("INSERT INTO wash_adjustments (sale_key, replacement_txn_id, shares, amount, tacked_purchase_date) VALUES (?, ?, ?, ?, ?)",
+                            [(r["sale_key"], int(r["replacement_txn_id"]), float(r["shares"]), float(r["amount"]), r.get("tacked_purchase_date")) for r in rows])
 
     # ---- managed accounts (schema v22): accounts whose holdings the log writes
     def managed_accounts(self) -> list[str]:

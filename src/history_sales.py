@@ -12,6 +12,7 @@ recorded as a capital gain (the owner decision of 2026-11-04).
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -50,11 +51,22 @@ def is_taxable_account(account: str) -> bool:
         return True
 
 
-def _dismissed(store) -> set[str]:
+def _today() -> str:
+    from .platform_runtime import today
+    return today().isoformat()
+
+
+def _dismissed(store) -> dict[str, str | None]:
+    """``{key: iso date it was hidden}``; the legacy format was a bare list of keys (hidden date unknown)."""
     try:
-        return {str(k) for k in json.loads(store.get_meta(DISMISS_KEY) or "[]")}
+        raw = json.loads(store.get_meta(DISMISS_KEY) or "{}")
     except (TypeError, ValueError):
-        return set()
+        return {}
+    if isinstance(raw, dict):
+        return {str(k): (str(v) if v else None) for k, v in raw.items()}
+    if isinstance(raw, list):
+        return {str(k): None for k in raw}
+    return {}
 
 
 def _replay(rows: list[dict[str, Any]]) -> dict[tuple, list[dict[str, Any]] | None]:
@@ -96,7 +108,7 @@ def _already_in_ledger(sales: list[dict[str, Any]], account: str, o: dict[str, A
     return bool(mine) and abs(sum(s["proceeds"] for s in mine) - o["proceeds"]) <= 1.0
 
 
-def _items(store, year: int | None) -> list[dict[str, Any]]:
+def _items(store, year: int | None, include_hidden: bool = False) -> list[dict[str, Any]]:
     imports = [i for i in store.broker.list_imports() if i["status"] == "applied"
                and (i.get("summary") or {}).get("history_only")]
     accounts = sorted({i["account"] for i in imports})
@@ -117,7 +129,7 @@ def _items(store, year: int | None) -> list[dict[str, Any]]:
             if (year is not None and y != year) or y < FIRST_YEAR:
                 continue
             key = _order_key(account, o)
-            if key in dismissed or _already_in_ledger(sales, account, o, key):
+            if (key in dismissed and not include_hidden) or _already_in_ledger(sales, account, o, key):
                 continue
             pieces = replay.get((o["symbol"], o["trade_date"], o["shares"]))
             item = {"key": key, "account": account, "symbol": o["symbol"], "sale_date": o["trade_date"],
@@ -131,15 +143,21 @@ def _items(store, year: int | None) -> list[dict[str, Any]]:
             y = int(r["run_date"][:4])
             if (year is not None and y != year) or y < FIRST_YEAR:
                 continue
-            out.append({"key": f"{account}|{r['symbol']}|{r['run_date']}|interest", "account": account, "symbol": r["symbol"],
+            key = f"{account}|{r['symbol']}|{r['run_date']}|interest"
+            if key in dismissed and not include_hidden:
+                continue
+            out.append({"key": key, "account": account, "symbol": r["symbol"],
                         "sale_date": r["run_date"], "shares": abs(r["quantity"] or 0.0), "proceeds": float(r["amount"] or 0.0),
                         "kind": "interest", "complete": False, "pieces": []})
+    for item in out:
+        item["hidden"] = item["key"] in dismissed
+        item["hidden_on"] = dismissed.get(item["key"])
     return sorted(out, key=lambda x: (x["sale_date"], x["account"], x["symbol"]))
 
 
-def list_unrecorded(input_dir: str | Path, *, year: int | None = None) -> dict[str, Any]:
+def list_unrecorded(input_dir: str | Path, *, year: int | None = None, include_hidden: bool = False) -> dict[str, Any]:
     with active_plan.workspace_store(_base(input_dir)) as store:
-        items = _items(store, year)
+        items = _items(store, year, include_hidden)
     return {"items": items}
 
 
@@ -172,5 +190,14 @@ def record(input_dir: str | Path, key: str, *, tax_class: str | None = None) -> 
 def dismiss(input_dir: str | Path, key: str) -> None:
     """Hide a listed item (a sale already recorded another way, or an interest item handled elsewhere)."""
     with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
-        keys = _dismissed(store) | {key}
-        store.set_meta(DISMISS_KEY, json.dumps(sorted(keys)))
+        keys = _dismissed(store)
+        keys.setdefault(key, _today())
+        store.set_meta(DISMISS_KEY, json.dumps(dict(sorted(keys.items()))))
+
+
+def undismiss(input_dir: str | Path, key: str) -> None:
+    """Bring a hidden item back."""
+    with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
+        keys = _dismissed(store)
+        keys.pop(key, None)
+        store.set_meta(DISMISS_KEY, json.dumps(dict(sorted(keys.items()))))

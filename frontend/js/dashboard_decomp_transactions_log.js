@@ -1,8 +1,7 @@
-// Transaction log panel (phase 2 of the transaction log plan): one section with two modes over one filter bar. "Edit log"
-// starts the log from existing imports and holdings, then adds, revises, voids and transfers; "History & held lots" is the
-// read-only list of dashboard_decomp_transactions.js (trLoad/trHtml), fetched with the same filters.
+// Activity: the transaction log, mounted on Investment Holdings (dashboard_decomp_holdings_tabs.js). One view over one filter bar:
+// start the log from existing imports and holdings, then add, revise, void and transfer. Changes save immediately and rewrite the
+// holdings of the accounts the log manages. The drift list ("log health") is also mounted on the Sales Ledger's To fix tab.
 // Logic lives on the server (src/transactions.py, /api/transactions/*). Helpers are bare globals.
-
 const TL_TYPES = [["buy", "Buy"], ["reinvest", "Reinvest"], ["sell", "Sale / redemption"], ["opening", "Opening lot"]];
 const TL_LABEL = { buy: "Buy", reinvest: "Reinvest", sell: "Sale / redemption", transfer_out: "Transfer out", transfer_in: "Transfer in", opening: "Opening lot" };
 let tlLog = null;
@@ -12,59 +11,52 @@ let tlXfer = { from_account: "", to_account: "", symbol: "", txn_date: "", picks
 let tlMessage = null;
 let tlHealthAll = false; // health list: false shows the first TL_HEALTH_MAX rows
 const TL_PAGE = 25;
-let tlFilter = { account: "", symbol: "", year: "", type: "", held: false }; // shared: client-side in edit mode, server-side in history
-let tlMode = "edit"; // "edit" | "history"
-let tlHistKey = null; // filters of the last history load (JSON), or null before the first one
-let tlHistView = null; // the history view loaded for tlHistKey
-let tlHistSeq = 0; // number of the latest history request
+let tlFilter = { account: "", symbol: "", year: "", type: "", showCashOpening: false };
 let tlShown = TL_PAGE; // entries rows currently shown; reset to one page whenever a filter changes
 let tlDrawer = { add: false, xfer: false }; // drawers the user has open (kept across repaints)
 let tlLoadFailed = false; // the last log load failed: the state is unknown, so no alert is published for it
 let tlSlotStarted = null; // started state last painted into the health slot
+let tlBank = []; // bank accounts that still have opening rows in the log (GET /api/transactions/bank-cleanup)
 const TL_HEALTH_MAX = 5;
-
 const tlNum = (v) => esc(String(Math.round(Number(v) * 1e6) / 1e6));
 const tlAccounts = (log) => [...new Set([...(log.rows || []).map((r) => r.account), ...(log.open || []).map((l) => l.account)])].sort();
 const tlSelect = (id, opts, cur, fn) => `<select id="${id}" onchange="${fn}(this.value)">${opts.map(([v, t]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
-
-const tlJs = (v) => esc(String(v).replace(/[\\']/g, "\\$&"));
+const tlLink = (account, symbol) => (window.hsActivityLink ? window.hsActivityLink({ account, symbol, back: "sales" })
+  : `#holdings/activity?account=${encodeURIComponent(account)}&symbol=${encodeURIComponent(symbol)}&back=sales`);
 const tlMsgHtml = () => tlMessage ? `<p role="status" class="${tlMessage.error ? "error" : "muted"}">${esc(tlMessage.text)}</p>` : "";
-const tlNotStartedHtml = (msg) => `<h3>Transaction log</h3>${msg}<p class="muted">The log is not started. Starting builds it from your broker imports and holdings; the holdings are not changed.</p>` +
+const tlNotStartedHtml = (msg) => `<h3>Activity</h3>${msg}<p class="muted">The log is not started. Starting builds it from your broker imports and holdings; the holdings are not changed.</p>` +
   `<button type="button" class="btn" id="tlStartBtn" onclick="tlStart()">Start the transaction log</button>`;
-const tlManagedListHtml = (log, accts) => {
-  const managed = new Set((log.managed || []).map((a) => a.toLowerCase()));
-  return `<p class="muted">A managed account's holdings are written by this log; edit it here, not in Holdings. Turning it off leaves the last holdings as they are.</p><ul class="tl-managed">` +
-    accts.map((a) => `<li><label><input type="checkbox" data-managed="${esc(a)}"${managed.has(a.toLowerCase()) ? " checked" : ""} onchange="tlSetManaged('${esc(a)}',this.checked)"> ${esc(accountDisplayLabel(a))}</label></li>`).join("") + `</ul>`;
-};
-
 export function tlHealthHtml(log) {
   const drift = (log && log.drift) || [];
   if (!drift.length) return `<p class="muted">The log agrees with the holdings.</p>`;
   const shown = tlHealthAll ? drift : drift.slice(0, TL_HEALTH_MAX);
   return `<div role="alert"><b>The log and the holdings differ:</b><ul>` + shown.map((d) =>
     `<li>${esc(accountDisplayLabel(d.account))} ${esc(d.symbol)} ${esc(d.purchase_date)}: holdings ${tlNum(d.holdings_shares)}, log ${tlNum(d.log_shares)}. ${esc(d.reason)} ` +
-    `<button type="button" class="btn" onclick="tlFocusRow('${tlJs(d.account)}','${tlJs(d.symbol)}','${tlJs(d.purchase_date)}')">Show in log</button></li>`).join("") + `</ul>` +
+    `<a href="${esc(tlLink(d.account, d.symbol))}">Show in Activity</a></li>`).join("") + `</ul>` +
     (drift.length > TL_HEALTH_MAX ? `<button type="button" class="btn" id="tlHealthToggle" onclick="tlShowAllHealth(${!tlHealthAll})">${tlHealthAll ? "Show fewer" : `Show all ${drift.length}`}</button>` : "") + `</div>`;
 }
-
-export function tlManagedChipsHtml(log) {
-  const managed = (log && log.managed) || [];
-  return `<div class="tl-managed-chips"><b>Managed accounts (${managed.length}):</b> ` +
-    (managed.length ? managed.map((a) => `<span class="sl-sec-badge sl-tone-none">${esc(accountDisplayLabel(a))} · managed</span>`).join(" ") : "none") +
-    ` <details class="tl-managed-edit"><summary>Edit…</summary>${tlManagedListHtml(log, tlAccounts(log))}</details></div>`;
+// "Log agrees with holdings" for the Positions toolbar; loads the log when nothing has yet.
+export function tlStatusHtml() {
+  if (tlLog === null) setTimeout(tlLoad, 0);
+  const n = tlLog && tlLog.started ? new Set((tlLog.drift || []).map((d) => d.account)).size : -1;
+  return `<span id="tlStatusRoot" class="muted">${n < 0 ? "" : n ? `Log differs for ${n} account${n === 1 ? "" : "s"} → <a href="${esc(window.hsActivityLink ? window.hsActivityLink({}) : "#holdings/activity")}">Activity</a>` : "Log agrees with holdings"}</span>`;
 }
-
 const tlHealthInner = () => !tlLog ? `<p class="muted">Loading…</p>` : !tlLog.started ? tlNotStartedHtml(tlMsgHtml()) : tlHealthHtml(tlLog);
 export function renderLogHealth() {
   if (tlLog === null) setTimeout(tlLoad, 0);
   return `<div id="tlHealthRoot">${tlHealthInner()}</div>`;
 }
+// The open lot a Positions row is, when it carries a wash-sale add-back (the holdings hold the adjusted cost and the tacked date).
+export function tlWashFor(account, symbol, date, unitCost) {
+  return ((tlLog && tlLog.open) || []).find((l) => l.account === account && String(l.symbol).toUpperCase() === String(symbol).toUpperCase() && l.wash_adjustment &&
+    (l.tacked_date || l.purchase_date) === date && Math.abs(Number(l.adjusted_unit_cost) - Number(unitCost)) < 1e-6) || null;
+}
 export const tlStarted = () => !(tlLog && tlLog.started === false); // false only once the log is known to be not started
-
+const tlIsCashOpening = (r) => r.type === "opening" && String(r.symbol).toUpperCase() === "CASH";
 export function tlFilterRows(rows, f = {}) {
   const sym = String(f.symbol || "").trim().toUpperCase();
   return (rows || []).filter((r) => (!f.account || r.account === f.account) && (!sym || String(r.symbol).toUpperCase() === sym) &&
-    (!f.year || String(r.txn_date).startsWith(String(f.year))) && (!f.type || r.type === f.type));
+    (!f.year || String(r.txn_date).startsWith(String(f.year))) && (!f.type || r.type === f.type) && (f.showCashOpening || !tlIsCashOpening(r)));
 }
 export function tlPage(rows, shown) {
   const n = Math.max(0, Number(shown) || 0);
@@ -77,62 +69,34 @@ function tlEntriesHtml(log) {
   const f = tlNewestFirst(log), pg = tlPage(f, tlShown);
   if (!f.length) return `<p class="muted">No transactions match.</p>`;
   const rows = pg.rows.map((r) => `<tr id="${tlRowId(r)}" tabindex="-1"><td>${esc(r.txn_date)}</td><td>${esc(accountDisplayLabel(r.account))}</td><td>${esc(TL_LABEL[r.type] || r.type)}</td><td>${esc(r.symbol)}</td>` +
-    `<td class="rc-num">${tlNum(r.shares)}</td><td class="rc-num">${r.price == null ? "" : tlNum(r.price)}</td><td>${esc(r.source)}</td><td>${esc(r.note || "")}</td>` +
-    `<td><button type="button" onclick="tlEditRow(${Number(r.txn_id)})">Edit</button> <button type="button" onclick="tlVoid(${Number(r.txn_id)})">Void</button></td></tr>`).join("");
+    `<td class="rc-num">${tlNum(r.shares)}</td><td class="rc-num">${r.price == null ? "" : tlNum(r.price)}</td><td>${esc(r.source)}</td><td>${esc(r.note || "")}${r.type === "sell" ? ` <a href="#sales_ledger?tab=ledger">Sale in Sales Ledger</a>` : ""}</td>` +
+    `<td><button type="button" onclick="tlEditRow(${Number(r.txn_id)})">Edit</button></td></tr>`).join("");
   return `<p class="muted tl-count">Showing ${pg.rows.length} of ${f.length}</p><div class="tl-table-wrap"><table class="rc-table"><thead><tr><th>Date</th><th>Account</th><th>Type</th><th>Symbol</th><th class="rc-num">Shares</th><th class="rc-num">Price</th><th>Source</th><th>Note</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` +
     (pg.remaining > 0 ? `<button type="button" class="btn" id="tlShowMore" onclick="tlShowMore()">Show ${TL_PAGE} more</button>` : "");
 }
-const TL_HIST_TYPES = [["buy", "Buy"], ["reinvest", "Reinvest"], ["sell", "Sale / redemption"]]; // the types the history view knows
-// The mode shown: history whenever the log is not started (history comes from imports, sales and holdings, not the log).
-const tlModeOf = (log) => (log && log.started === false ? "history" : tlMode);
 const tlFilterBarHtml = (log, accts) => {
-  const hist = tlModeOf(log) === "history", hv = (hist && tlHistView) || {}, hRows = hv.rows || [];
-  const years = [...new Set([...(log.rows || []).map((r) => r.txn_date), ...hRows.map((r) => r.date)].map((d) => String(d || "").slice(0, 4)).filter(Boolean))].sort().reverse();
-  const all = [...new Set([...accts, ...hRows.map((r) => r.account), ...(hv.held || []).map((h) => h.account)])].sort();
+  const years = [...new Set((log.rows || []).map((r) => String(r.txn_date || "").slice(0, 4)).filter(Boolean))].sort().reverse();
   const keep = (list, v) => (v && !list.includes(v) ? [...list, v] : list); // keep the active filter selectable
-  const types = hist ? TL_HIST_TYPES : Object.entries(TL_LABEL);
   const sel = (id, label, opts, key) => `<label for="${id}">${label} ` + tlSelect(id, opts, tlFilter[key], `tlSetFilter.bind(null,'${key}')`) + `</label>`;
-  return `<div class="sl-filters tl-filters">` + sel("tlFAcct", "Account", [["", "All accounts"], ...keep(all, tlFilter.account).map((a) => [a, accountDisplayLabel(a)])], "account") +
+  const cash = (log.rows || []).filter(tlIsCashOpening).length;
+  return `<div class="sl-filters tl-filters">` + sel("tlFYear", "Year", [["", "All years"], ...keep(years, tlFilter.year).map((y) => [y, y])], "year") +
+    sel("tlFAcct", "Account", [["", "All accounts"], ...keep(accts, tlFilter.account).map((a) => [a, accountDisplayLabel(a)])], "account") +
     `<label for="tlFSym">Symbol <input id="tlFSym" size="7" value="${esc(tlFilter.symbol)}" onchange="tlSetFilter('symbol',this.value)"></label>` +
-    sel("tlFYear", "Filter year", [["", "All years"], ...keep(years, tlFilter.year).map((y) => [y, y])], "year") +
-    sel("tlFType", "Type", [["", "All types"], ...types, ...(tlFilter.type && !types.some(([v]) => v === tlFilter.type) ? [[tlFilter.type, TL_LABEL[tlFilter.type] || tlFilter.type]] : [])], "type") +
-    (hist ? `<label for="tlFHeld"><input type="checkbox" id="tlFHeld"${tlFilter.held ? " checked" : ""} onchange="tlSetFilter('held',this.checked)"> Held only</label>` : "") + `</div>`;
+    sel("tlFType", "Type", [["", "All types"], ...Object.entries(TL_LABEL), ...(tlFilter.type && !TL_LABEL[tlFilter.type] ? [[tlFilter.type, tlFilter.type]] : [])], "type") +
+    `<label for="tlFCash"><input type="checkbox" id="tlFCash"${tlFilter.showCashOpening ? " checked" : ""} onchange="tlSetFilter('showCashOpening',this.checked)"> Show cash opening rows (${cash})</label></div>`;
 };
-const tlModeHtml = (log) => `<div class="tl-mode" role="group" aria-label="Log view">` + [["edit", "tlModeEdit", "Edit log"], ["history", "tlModeHistory", "History &amp; held lots"]].map(([k, id, t]) =>
-  `<button type="button" class="btn" id="${id}" aria-pressed="${tlModeOf(log) === k}"${k === "edit" && log.started === false ? " disabled" : ""} onclick="tlSetMode('${k}')">${t}</button>`).join(" ") + `</div>`;
-const tlFilterKey = () => JSON.stringify(tlFilter);
-const tlHistoryHtml = () => { // history for the current filters, once loaded
-  const v = tlHistKey === tlFilterKey() && tlHistView;
-  if (!v || !window.trHtml) return `<p class="muted">Loading…</p>`;
-  const n = (v.rows || []).length;
-  return `<p class="muted tl-count">${n} transaction${n === 1 ? "" : "s"}</p>` + window.trHtml(v, tlFilter);
-};
-const tlBodyHtml = (log) => (tlModeOf(log) === "history" ? tlHistoryHtml() : tlEntriesHtml(log));
 function tlPaintEntries() {
   const el = tlLog && document.getElementById("tlEntries");
-  if (el) el.innerHTML = tlBodyHtml(tlLog);
+  if (el) el.innerHTML = tlEntriesHtml(tlLog);
 }
-async function tlLoadHistory() { // latest request wins: an older response never replaces a newer one
-  if (!window.trLoad) return;
-  const f = { ...tlFilter }, seq = ++tlHistSeq;
-  const view = await window.trLoad(f);
-  if (seq !== tlHistSeq) return;
-  tlHistView = view; tlHistKey = JSON.stringify(f);
-  if (tlModeOf(tlLog) === "history") tlPaintEntries();
-}
-// Edit mode filters the loaded rows; history mode asks the server with the same filters.
 export function tlSetFilter(key, value) {
-  tlFilter = { ...tlFilter, [key]: key === "held" ? !!value : String(value || "") }; tlShown = TL_PAGE;
-  if (tlModeOf(tlLog) === "history") return tlLoadHistory();
+  tlFilter = { ...tlFilter, [key]: key === "showCashOpening" ? !!value : String(value || "") }; tlShown = TL_PAGE;
   tlPaintEntries();
 }
-// Switching keeps the filters and the edit-mode paging; history is fetched only when not loaded for these filters.
-export function tlSetMode(mode) {
-  tlMode = mode === "history" ? "history" : "edit";
-  tlPaintRoot();
-  const hist = tlModeOf(tlLog) === "history", b = document.getElementById(hist ? "tlModeHistory" : "tlModeEdit");
-  if (b && b.focus) b.focus(); // the pressed button was repainted
-  return hist && tlHistKey !== tlFilterKey() ? tlLoadHistory() : Promise.resolve();
+// A deep link from the ledger or Holdings sets the filters before the first paint.
+export function tlApplyFilters(f = {}) {
+  tlFilter = { account: f.account || "", symbol: f.symbol || "", year: f.year || "", type: f.type || "", showCashOpening: !!f.showCashOpening || f.source === "backfill" };
+  tlShown = TL_PAGE; tlPaintRoot();
 }
 export function tlShowMore() {
   const first = tlNewestFirst(tlLog)[tlShown];
@@ -141,33 +105,25 @@ export function tlShowMore() {
   if (el && el.focus) el.focus();
   if (window.slAnnounce) window.slAnnounce(`${TL_PAGE} more rows shown`);
 }
-export function tlFocusRow(account, symbol, purchase_date) { // purchase_date identifies the health row; the log filters by account and symbol
-  tlFilter = { account, symbol, year: "", type: "", held: false }; tlShown = TL_PAGE; tlMode = "edit";
-  tlPaint(); // full log repaint so the filter controls show the new values
-  if (typeof window.slGo === "function") window.slGo("fix", "log");
-}
 export function tlShowAllHealth(on) {
   tlHealthAll = !!on;
   const root = document.getElementById("tlHealthRoot");
   if (root) { root.innerHTML = tlHealthInner(); const b = document.getElementById("tlHealthToggle"); if (b && b.focus) b.focus(); }
 }
 export function tlDrawerToggle(key, open) { tlDrawer = { ...tlDrawer, [key]: !!open }; }
-
-export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit, opts = { health: true }) {
+const tlBankHtml = () => tlBank.length ? `<div role="alert" class="error tl-bank">${tlBank.length} bank account${tlBank.length === 1 ? " has" : "s have"} log rows that do not belong here: ${tlBank.map((a) => esc(accountDisplayLabel(a))).join(", ")}. ` +
+  `<button type="button" class="btn" onclick="tlCleanBank()">Clean up</button></div>` : "";
+export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit) {
   const msg = tlMsgHtml();
-  if (!log) return `<h3>Transaction log</h3>${msg}<p class="muted">Loading…</p>`;
-  if (!log.started) return opts.health ? tlNotStartedHtml(msg) : `<h3>Transaction log</h3>${msg}<p class="muted">The log is not started. Start it in the log health section.</p>` +
-    `${tlModeHtml(log)}${tlFilterBarHtml(log, tlAccounts(log))}<div id="tlEntries">${tlHistoryHtml()}</div>`; // history works without the log
-  const drift = opts.health ? (log.drift || []).length ? `<div role="alert" class="error"><b>The log and the holdings differ:</b><ul>` +
-    log.drift.map((d) => `<li>${esc(accountDisplayLabel(d.account))} ${esc(d.symbol)} ${esc(d.purchase_date)}: holdings ${tlNum(d.holdings_shares)}, log ${tlNum(d.log_shares)}. ${esc(d.reason)}</li>`).join("") + `</ul></div>` : `<p class="muted">The log agrees with the holdings.</p>` : "";
+  if (!log) return `<h3>Activity</h3>${msg}<p class="muted">Loading…</p>`;
+  if (!log.started) return tlNotStartedHtml(msg);
   const accts = tlAccounts(log);
   const acctOpts = [["", "Account"], ...accts.map((a) => [a, accountDisplayLabel(a)])];
-  const managedBox = opts.health ? `<h4>Managed accounts</h4>${tlManagedListHtml(log, accts)}` : tlManagedChipsHtml(log);
   const field = (k, ph, size) => `<input aria-label="${ph}" placeholder="${ph}" value="${esc(form[k])}" size="${size}" onchange="tlSetForm('${k}',this.value)">`;
   const addForm = `<div class="sl-filters">` +
     `<input type="date" id="tlFDate" aria-label="Date" value="${esc(form.txn_date)}" onchange="tlSetForm('txn_date',this.value)">` + tlSelect("tlAcct", acctOpts, form.account, "tlSetFormAccount") +
     tlSelect("tlType", TL_TYPES, form.type, "tlSetFormType") + field("symbol", "Symbol", 7) + field("shares", "Shares", 8) + field("price", "Price", 8) +
-    `<button type="button" onclick="tlSave()">${edit ? "Save revision" : "Add"}</button>${edit ? ` <button type="button" onclick="tlCancel()">Cancel</button>` : ""}</div>` +
+    `<button type="button" onclick="tlSave()">${edit ? "Save revision" : "Add"}</button>${edit ? ` <button type="button" onclick="tlCancel()">Cancel</button> <button type="button" class="btn" onclick="tlVoid(${Number(edit)})">Void this transaction</button>` : ""}</div>` +
     (form.type === "sell" ? `<p class="muted">A sale takes the oldest lots first.</p>` : "");
   const lotsForSymbol = (log.open || []).filter((l) => l.account === xfer.from_account && (!xfer.symbol || l.symbol.toUpperCase() === xfer.symbol.toUpperCase()));
   const xferForm = `<div class="sl-filters">` + tlSelect("tlFrom", [["", "From"], ...accts.map((a) => [a, accountDisplayLabel(a)])], xfer.from_account, "tlSetXferFrom") +
@@ -180,71 +136,54 @@ export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit, opts = 
     `<button type="button" onclick="tlTransfer()">Transfer</button>`;
   const drawer = (key, id, title, body, open) => `<details class="drawer" id="${id}"${open ? " open" : ""} ontoggle="tlDrawerToggle('${key}',this.open)"><summary>${title}</summary>${body}</details>`;
   const drawers = `<div class="tl-drawers">` + drawer("add", "tlAddDrawer", edit ? "＋ Revise transaction" : "＋ Add transaction", addForm, edit || tlDrawer.add) +
-    drawer("xfer", "tlXferDrawer", "＋ Transfer between accounts", xferForm, tlDrawer.xfer) + `</div>`;
-  const editOnly = tlMode === "edit" ? `${managedBox}${drawers}` : "";
-  return `<h3>Transaction log</h3>${msg}${drift}${tlModeHtml(log)}${editOnly}${tlFilterBarHtml(log, accts)}<div id="tlEntries">${tlBodyHtml(log)}</div>`;
+    drawer("xfer", "tlXferDrawer", "⇄ Transfer", xferForm, tlDrawer.xfer) + `</div>`;
+  return `<h3>Activity</h3>${msg}${tlBankHtml()}<p class="muted">Changes here save immediately.</p>${drawers}${tlFilterBarHtml(log, accts)}<div id="tlEntries">${tlEntriesHtml(log)}</div>`;
 }
-
 export function renderTransactionLog() {
-  if (tlLog === null) setTimeout(tlReloadAll, 0); // a not-started log shows history, so it loads too
-  return `<div class="sl-import" id="tlRoot">${tlHtml(tlLog, undefined, undefined, undefined, { health: false })}</div>`;
+  if (tlLog === null) setTimeout(tlLoad, 0);
+  return `<div class="sl-import" id="tlRoot">${tlHtml(tlLog)}</div>`;
 }
-
 export function tlSummary() {
-  if (tlLoadFailed) return { health: { count: 0, tone: "", text: "" }, log: { count: 0, tone: "", text: "" } }; // a transient failure is not "log not started"
-  if (tlLog && !tlLog.started) return { health: { count: 1, tone: "bad", text: "log not started" }, log: { count: 0, tone: "", text: "" } };
+  if (tlLoadFailed) return { health: { count: 0, tone: "", text: "" } }; // a transient failure is not "log not started"
+  if (tlLog && !tlLog.started) return { health: { count: 1, tone: "bad", text: "log not started" } };
   const n = new Set(((tlLog && tlLog.drift) || []).map((d) => d.account)).size;
-  return { health: { count: n, tone: n > 0 ? "bad" : "", text: n > 0 ? `drift: ${n} accounts` : "" }, log: { count: tlLog ? (tlLog.rows || []).length : 0, tone: "", text: "" } };
+  return { health: { count: n, tone: n > 0 ? "bad" : "", text: n > 0 ? `drift: ${n} accounts` : "" } };
 }
-
 function tlPaintRoot() {
   const root = document.getElementById("tlRoot");
-  if (root) root.innerHTML = tlHtml(tlLog, undefined, undefined, undefined, { health: false });
+  if (root) root.innerHTML = tlHtml(tlLog);
 }
 function tlPaint() {
   tlPaintRoot();
+  const st = document.getElementById("tlStatusRoot");
+  if (st) st.outerHTML = tlStatusHtml();
   const slot = document.getElementById("tlHealthSlot"), hroot = document.getElementById("tlHealthRoot");
   const started = tlStarted();
   if (slot && window.slHealthSlotHtml && started !== tlSlotStarted) slot.innerHTML = window.slHealthSlotInnerHtml ? window.slHealthSlotInnerHtml() : ""; // content only: the slot node stays, never a nested wrapper; shell <-> bare prompt only when the started state flips
   else if (hroot) hroot.innerHTML = tlHealthInner();
   tlSlotStarted = started;
-  if (window.slPublish) { const s = tlSummary(); window.slPublish("health", s.health); window.slPublish("log", s.log); }
+  if (window.slPublish) window.slPublish("health", tlSummary().health);
 }
-
 export async function tlLoad() {
+  const first = tlLog === null;
   tlLoadFailed = false;
   try { tlLog = await api("/api/transactions/log"); } catch (e) { tlLoadFailed = true; tlLog = { started: false, rows: [], open: [], drift: [] }; tlMessage = { text: e.message, error: true }; }
+  try { tlBank = ((await api("/api/transactions/bank-cleanup")) || {}).accounts.map((a) => a.account); } catch (e) { tlBank = []; }
   tlPaint();
+  if (first && window.activeStep === "holdings" && typeof renderMain === "function") renderMain(); // Positions markers need the log
 }
-
 async function tlPost(url, body, done) {
   try { await api(url, { method: "POST", body: JSON.stringify(body || {}) }); tlMessage = { text: done, error: false }; }
   catch (e) { tlMessage = { text: e.message, error: true }; tlPaint(); return false; }
-  await tlReloadAll();
+  await tlLoad();
   return true;
 }
-// Refresh the log and, when history is shown or was loaded, the history once (with the current filters).
-export async function tlReloadAll() {
-  await tlLoad();
-  if (tlModeOf(tlLog) === "history" || tlHistKey !== null) await tlLoadHistory();
-}
-
+export const tlReloadAll = () => tlLoad();
 // Proceeds when no dialog is available, by design (tests, embedded views).
 const tlConfirmed = (msg) => !(typeof window !== "undefined" && typeof window.confirm === "function") || window.confirm(msg);
 export const tlStart = () => !tlConfirmed("Starting the log means holdings will now be written by the log.") ? Promise.resolve(false) : tlPost("/api/transactions/backfill", {}, "The transaction log was started.");
-function tlRevertManaged(account) { // re-check only this checkbox; no repaint, so an open "Edit…" details stays open
-  const boxes = typeof document !== "undefined" && document.querySelectorAll ? document.querySelectorAll("input[data-managed]") : [];
-  for (const b of boxes) if (b.getAttribute("data-managed") === account) b.checked = true;
-}
-export function tlSetManaged(account, on) {
-  if (!on && !tlConfirmed("Holdings freeze at their last state and the log stops updating them.")) { tlRevertManaged(account); return Promise.resolve(false); }
-  return tlPost(`/api/transactions/accounts/${encodeURIComponent(account)}/managed`, { managed: !!on },
-    on ? "The account is now managed by the log." : "The account is no longer managed; its holdings stay as they are.").then((ok) => {
-    if (ok && window.loadManagedHoldingAccounts) window.loadManagedHoldingAccounts();
-    if (!ok) tlLoad();
-    return ok;
-  });
-}
+export const tlCleanBank = () => (!tlBank.length || !tlConfirmed(`Void the opening rows of ${tlBank.length} bank account(s)? They are cash accounts, not investments; their cash balances stay as they are.`)) ? Promise.resolve(false) :
+  tlPost("/api/transactions/bank-cleanup", { accounts: tlBank }, "Bank-account rows were voided.");
 export function tlSetForm(k, v) { tlForm = { ...tlForm, [k]: v }; }
 export function tlSetFormAccount(v) { tlSetForm("account", v); }
 export function tlSetFormType(v) { tlSetForm("type", v); tlPaint(); }
@@ -272,9 +211,11 @@ export function tlCancel() { tlEdit = null; tlDrawer = { ...tlDrawer, add: false
 if (typeof document !== "undefined" && document.addEventListener) {
   document.addEventListener("keydown", tlOnKeydown);
 }
-export function tlVoid(id) {
-  if (!tlConfirmed("Void this transaction? It stays in the history as voided.")) return Promise.resolve(false);
-  return tlPost(`/api/transactions/${Number(id)}/void`, {}, "Transaction voided.");
+export async function tlVoid(id) {
+  if (!tlConfirmed("Void this transaction? It stays in the history as voided.")) return false;
+  const ok = await tlPost(`/api/transactions/${Number(id)}/void`, {}, "Transaction voided.");
+  if (ok && tlEdit === Number(id)) tlCancel();
+  return ok;
 }
 export function tlSetXfer(k, v) { tlXfer = { ...tlXfer, [k]: v }; }
 export function tlSetXferFrom(v) { tlXfer = { ...tlXfer, from_account: v, picks: {} }; tlPaint(); }
@@ -285,6 +226,5 @@ export function tlTransfer() {
   for (const [lot, v] of Object.entries(tlXfer.picks)) if (Number(v) > 0) allocation[lot] = Number(v);
   return tlPost("/api/transactions/transfer", { from_account: tlXfer.from_account, to_account: tlXfer.to_account, symbol: tlXfer.symbol, txn_date: tlXfer.txn_date, allocation }, "Shares transferred.");
 }
-
-Object.assign(window, { tlHealthHtml, tlManagedChipsHtml, renderLogHealth, tlStarted, tlFocusRow, tlShowAllHealth, tlSummary, renderTransactionLog, tlHtml, tlFilterRows, tlPage, tlSetFilter, tlSetMode, tlReloadAll, tlShowMore, tlDrawerToggle, tlLoad, tlStart, tlSetManaged, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlOnKeydown, tlVoid,
+Object.assign(window, { tlWashFor, tlStatusHtml, tlHealthHtml, renderLogHealth, tlStarted, tlShowAllHealth, tlSummary, renderTransactionLog, tlHtml, tlFilterRows, tlPage, tlSetFilter, tlApplyFilters, tlReloadAll, tlShowMore, tlDrawerToggle, tlLoad, tlStart, tlCleanBank, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlOnKeydown, tlVoid,
   tlSetXfer, tlSetXferFrom, tlSetXferTo, tlPick, tlTransfer });

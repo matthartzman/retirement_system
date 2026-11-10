@@ -163,10 +163,31 @@ def _covered_monarch(store, account: str, orders: list[Mapping[str, Any]]) -> li
     return out
 
 
+def investment_accounts(store_or_dir) -> list[str]:
+    """Holdings accounts that are investment accounts: a setup row with Role ``Investment`` maps to them. An account the
+    setup names with any other Role (or none: ``cash_accounts`` treats that as cash), by its mapped id or by its own name
+    (``Family Checking`` -> ``Family_Checking``), is never one. An account the setup does not mention at all is judged by
+    the old rule (an ``_`` in its name) so plans without a setup table keep working."""
+    if isinstance(store_or_dir, (str, Path)):
+        with active_plan.workspace_store(_base(store_or_dir)) as store:
+            return investment_accounts(store)
+    store = store_or_dir
+    setup = store.dataset("ytd_account_setup").rows()
+    invest, other = set(), set()
+    for r in setup:
+        mapped = str(r.get("Mapped Investment Account") or "").strip()
+        own = "_".join(str(r.get("Account") or "").split())
+        if str(r.get("Role") or "").strip() == "Investment":
+            if mapped:
+                invest.add(mapped)
+        else:
+            other |= {n for n in (mapped, own) if n}
+    names = {str(r.get("account") or "").strip() for r in store.dataset("holdings").rows()} | invest
+    return sorted(n for n in names if n and "_" in n and (n in invest or n not in other))
+
+
 def plan_accounts(store) -> list[str]:
-    names = {str(r.get("account") or "").strip() for r in store.dataset("holdings").rows()}
-    names |= {str(r.get("Mapped Investment Account") or "").strip() for r in store.dataset("ytd_account_setup").rows()}
-    return sorted(n for n in names if n and "_" in n)
+    return investment_accounts(store)
 
 
 def _match_plan_account(store, hint: str) -> str:

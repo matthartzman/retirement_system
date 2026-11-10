@@ -16,6 +16,7 @@ before(async () => {
     if (url === "/api/sales/broker/commit") return { success: true, rows_new: 3, lots_added: 1, confirmed: [1], queued: [] };
     return { success: true };
   };
+  await import("../../frontend/js/dashboard_decomp_sales_group.js");
   await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
   sl = await import("../../frontend/js/dashboard_decomp_sales_ledger.js");
   m = await import("../../frontend/js/dashboard_decomp_broker_import.js");
@@ -115,11 +116,10 @@ describe("calls", () => {
 describe("ledger row actions", () => {
   const S = (o) => ({ sale_id: 7, sale_date: "2026-06-10", account: "A", symbol: "X", shares: 1, proceeds: 1, fees: 0, basis: 1,
     gain: 0, holding_period: "long", status: "confirmed", ...o });
-  test("manual rows can be edited; queue rows go back to the queue; 1099-B rows can only be voided", () => {
-    assert.match(sl.slRowHtml(S({ source: "manual" })), /slEdit\(7\).*slVoid\(7\)/);
-    assert.match(sl.slRowHtml(S({ source: "broker" })), /slRequeue\(7\)/);
-    assert.doesNotMatch(sl.slRowHtml(S({ source: "broker" })), /slVoid/);
-    assert.match(sl.slRowHtml(S({ source: "1099b" })), /slVoid\(7\)/);
+  test("a manual lot can be edited and voided; a queue sale goes back to the queue", () => {
+    assert.match(sl.slLotRowHtml(S({ source: "manual" })), /slEdit\(7\)[^]*slVoid\(7\)/);
+    assert.match(sl.slSaleRowHtml(window.slGroupSales([S({ source: "broker" })])[0], 0), /slRequeue\(7\)/);
+    assert.match(sl.slLotRowHtml(S({ source: "1099b" })), /slVoid\(7\)/);
   });
   test("requeue posts to the sale's requeue route", async () => {
     await sl.slRequeue(7);
@@ -174,7 +174,7 @@ describe("unreadable files and the imports table", () => {
     assert.match(m.biPreviewHtml({ errors: [], will_write: [] }), /could be read/);
   });
   test("imports sort by the clicked heading, newest first by default", () => {
-    const list = [{ import_id: 1, account: "B", rows_new: 5, status: "applied" }, { import_id: 2, account: "A", rows_new: 9, status: "reverted" }];
+    const list = [{ import_id: 1, account: "B", rows_new: 5, status: "applied" }, { import_id: 2, account: "A", rows_new: 9, status: "applied" }];
     const ids = (h) => [...h.matchAll(/<tr><td>(\d+)<\/td>/g)].map((x) => x[1]).join(",");
     assert.equal(ids(m.biImportsHtml(list)), "2,1");
     m.biSortBy("rows_new");
@@ -208,29 +208,10 @@ describe("panel wording", () => {
   });
 });
 
-describe("summary publish", () => {
-  test("imports count is published with tone ''; no slPublish does not throw", async () => {
-    const pub = [];
-    globalThis.slPublish = (k, s) => pub.push([k, s]);
-    const orig = globalThis.api;
-    globalThis.api = async () => ({ success: true, imports: [{ import_id: 1 }, { import_id: 2 }], accounts: [] });
-    await m.biLoadImports();
-    assert.deepEqual(pub.at(-1), ["imports", { count: 2, tone: "", text: "2 imports" }]);
-    delete globalThis.slPublish;
-    await assert.doesNotReject(m.biLoadImports());
-    globalThis.api = orig;
-  });
-});
-
 describe("skeleton and next steps (Task 15)", () => {
-  test("step 1 before a preview, step 2 once one exists, back to 1 after commit", async () => {
+  test("the step labels are gone", async () => {
     await m.biLoadImports();
-    assert.match(m.renderBrokerImport(), /aria-current="step"[^>]*><strong>1 Source<\/strong>/);
-    globalThis.api = ((orig) => async (url, opts) => (url === "/api/sales/broker/preview" ? PREVIEW : orig(url, opts)))(globalThis.api);
-    await m.biPreviewFile();
-    assert.match(m.renderBrokerImport(), /aria-current="step"[^>]*><strong>2 Preview<\/strong>/);
-    await m.biCommit();
-    assert.match(m.renderBrokerImport(), /aria-current="step"[^>]*><strong>1 Source<\/strong>/);
+    assert.doesNotMatch(m.renderBrokerImport(), /1 Source|2 Preview|aria-current="step"/);
   });
   test("after a commit the next-step links are rendered; the imports history markup is unchanged", async () => {
     const ui = await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
@@ -240,21 +221,40 @@ describe("skeleton and next steps (Task 15)", () => {
     const h = m.renderBrokerImport();
     assert.match(h, /2 sales waiting → Fix lots/);
     assert.match(h, /<details\s+ontoggle/);
-    assert.equal(m.biStateText(), "Last import 2026-10-30 · 1 imports");
     ui.slPublish("queue", { count: 0, tone: "", text: "" });
   });
 });
 
-describe("shell state follows the panel (Task 15 fix)", () => {
-  test("the imports state text updates after a commit reloads the list", async () => {
-    const el = { textContent: "old" };
-    const prev = globalThis.document;
-    globalThis.document = { getElementById: (id) => (id === "sl-sec-state-imports" ? el : null) };
+describe("import history (Holdings Import tab)", () => {
+  const L = [{ import_id: 1, account: "A", date_from: "2025-03-01", date_to: "2025-12-31", rows_new: 5, status: "applied" },
+    { import_id: 2, account: "A", date_from: "2026-01-01", date_to: "2026-09-30", rows_new: 9, status: "reverted" },
+    { import_id: 3, account: "B", date_from: "2025-11-01", date_to: "2026-02-28", rows_new: 2, status: "applied" }];
+  const ids = (h) => [...h.matchAll(/<tr><td>(\d+)<\/td>/g)].map((x) => x[1]).sort().reverse().join(",");
+  test("import history hides reverted imports unless asked", () => {
+    assert.equal(ids(m.biImportsHtml(L)), "3,1");
+    assert.equal(ids(m.biImportsHtml(L, { showReverted: true })), "3,2,1");
+  });
+  test("import history filters by year overlap", () => {
+    assert.equal(ids(m.biImportsHtml(L, { year: "2026" })), "3");                       // 1 ended 2025; 2 is reverted
+    assert.equal(ids(m.biImportsHtml(L, { year: "2026", showReverted: true })), "3,2");
+    assert.equal(ids(m.biImportsHtml(L, { year: "2025" })), "3,1");
+    assert.match(m.biImportsHtml(L, { year: "2031" }), /No imports in 2031/);
+  });
+  test("the history card has its own Year and a show reverted (n) control", async () => {
     const orig = globalThis.api;
-    globalThis.api = async (url, o) => (url === "/api/sales/broker/imports" ? { imports: [{ import_id: 1, imported_at: "2026-11-01T00:00:00" }, { import_id: 2, imported_at: "2026-11-02T00:00:00" }], accounts: [] } : orig(url, o));
-    try {
-      await m.biCommit();
-      assert.equal(el.textContent, "Last import 2026-11-02 · 2 imports");
-    } finally { globalThis.document = prev; globalThis.api = orig; }
+    globalThis.api = async (url) => (url === "/api/sales/broker/imports" ? { imports: L, accounts: ["Matt_Trust"] } : orig(url));
+    try { await m.biLoadImports(); } finally { globalThis.api = orig; }
+    const h = m.renderBrokerImport();
+    assert.match(h, /aria-label="Import history year"/);
+    assert.match(h, /show reverted \(1\)/);
+    assert.match(h, /<option value="2026">2026<\/option>/);
+  });
+  test("the broker account list is what the server sends: investment accounts only, never a bank account", async () => {
+    const orig = globalThis.api;
+    globalThis.api = async (url) => (url === "/api/sales/broker/imports" ? { imports: [], accounts: ["Matt_Trust"] } : orig(url));
+    try { await m.biLoadImports(); } finally { globalThis.api = orig; }
+    const h = m.renderBrokerImport();
+    assert.match(h, /<option value="Matt_Trust"/);
+    assert.doesNotMatch(h, /Checking/);
   });
 });

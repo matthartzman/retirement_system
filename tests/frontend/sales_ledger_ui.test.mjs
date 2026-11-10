@@ -14,7 +14,7 @@ const mem = (initial) => {
 };
 
 describe("slUiLoad / slUiSave", () => {
-  const DEFAULTS = { tab: "fix", sections: {}, density: "" };
+  const DEFAULTS = { tab: "fix", sections: {}, taxableOnly: true };
   test("defaults when getItem throws", () => {
     assert.deepEqual(m.slUiLoad({ getItem() { throw new Error("denied"); } }), DEFAULTS);
   });
@@ -25,7 +25,7 @@ describe("slUiLoad / slUiSave", () => {
     assert.deepEqual(m.slUiLoad(mem(null)), DEFAULTS);
   });
   test("round-trips a saved state", () => {
-    const st = { tab: "tax", sections: { queue: { open: false, lastAlertCount: 3 } }, density: "compact" };
+    const st = { tab: "tax", sections: { queue: { open: false, lastAlertCount: 3 } }, taxableOnly: false };
     const s = mem();
     m.slUiSave(st, s);
     assert.deepEqual(m.slUiLoad(s), st);
@@ -36,18 +36,32 @@ describe("slUiLoad / slUiSave", () => {
   test("unknown tab in storage falls back to fix", () => {
     assert.equal(m.slUiLoad(mem(JSON.stringify({ tab: "nope" }))).tab, "fix");
   });
+  test('old stored tab "import" falls back to "fix"', () => {
+    assert.equal(m.slUiLoad(mem(JSON.stringify({ tab: "import" }))).tab, "fix");
+  });
+  test("Taxable accounts only defaults on and persists; an old density value is ignored", () => {
+    assert.equal(m.slUiLoad(mem(null)).taxableOnly, true);
+    const s = mem();
+    m.slUiSave({ ...m.slUiLoad(s), taxableOnly: false }, s);
+    assert.equal(m.slUiLoad(s).taxableOnly, false);
+    const old = m.slUiLoad(mem(JSON.stringify({ tab: "tax", density: "compact" })));
+    assert.deepEqual(old, { tab: "tax", sections: {}, taxableOnly: true });
+  });
 });
 
 describe("tabs and hash", () => {
-  test("SL_TABS", () => {
-    assert.deepEqual(m.SL_TABS.map((t) => t[0]), ["fix", "ledger", "tax", "import"]);
+  test("SL_TABS has three tabs in order", () => {
+    assert.deepEqual(m.SL_TABS.map((t) => t[0]), ["fix", "ledger", "tax"]);
+    assert.deepEqual(m.SL_TABS.map((t) => t[1]), ["To fix", "Sales", "Tax year"]);
   });
   test("slUiSetTab", () => {
-    assert.equal(m.slUiSetTab({ tab: "fix", sections: {}, density: "" }, "import").tab, "import");
-    assert.equal(m.slUiSetTab({ tab: "fix", sections: {}, density: "" }, "bogus").tab, "fix");
+    assert.equal(m.slUiSetTab({ tab: "fix", sections: {}, taxableOnly: true }, "tax").tab, "tax");
+    assert.equal(m.slUiSetTab({ tab: "fix", sections: {}, taxableOnly: true }, "import").tab, "fix");
+    assert.equal(m.slUiSetTab({ tab: "fix", sections: {}, taxableOnly: true }, "bogus").tab, "fix");
   });
   test("slParseHash", () => {
-    assert.deepEqual(m.slParseHash("#sales_ledger?tab=import&sec=queue"), { tab: "import", sec: "queue" });
+    assert.deepEqual(m.slParseHash("#sales_ledger?tab=tax&sec=queue"), { tab: "tax", sec: "queue" });
+    assert.deepEqual(m.slParseHash("#sales_ledger?tab=import&sec=queue"), { tab: null, sec: "queue" });
     assert.deepEqual(m.slParseHash("#sales_ledger?tab=zzz&sec=queue"), { tab: null, sec: "queue" });
     assert.deepEqual(m.slParseHash("#other"), { tab: null, sec: null });
     assert.deepEqual(m.slParseHash(""), { tab: null, sec: null });
@@ -55,7 +69,7 @@ describe("tabs and hash", () => {
 });
 
 describe("slSecOpen / slUiRecordToggle", () => {
-  const st = (e) => ({ tab: "fix", sections: e ? { q: e } : {}, density: "" });
+  const st = (e) => ({ tab: "fix", sections: e ? { q: e } : {}, taxableOnly: true });
   test("nothing stored returns defaultOpen", () => {
     assert.equal(m.slSecOpen(st(), "q", true, 0), true);
     assert.equal(m.slSecOpen(st(), "q", false, 0), false);
@@ -83,7 +97,7 @@ describe("ARIA tab bar and panels", () => {
     assert.match(h, /role="tablist"/);
     assert.match(h, /aria-label="/);
     assert.equal((h.match(/tabindex="0"/g) || []).length, 1);
-    assert.equal((h.match(/tabindex="-1"/g) || []).length, 3);
+    assert.equal((h.match(/tabindex="-1"/g) || []).length, 2);
     for (const [id] of m.SL_TABS) {
       assert.ok(h.includes(`aria-controls="sl-p-${id}"`));
       assert.ok(h.includes(`id="sl-t-${id}"`));
@@ -136,11 +150,11 @@ describe("ARIA tab bar and panels", () => {
       return prevented;
     };
     const active = () => m.SL_TABS.map((t) => t[0]).find((id) => doc.els[`sl-t-${id}`].tabIndex === 0);
-    assert.ok(press("ArrowRight", "import")); assert.equal(active(), "fix");
-    press("ArrowLeft", "fix"); assert.equal(active(), "import");
+    assert.ok(press("ArrowRight", "tax")); assert.equal(active(), "fix");
+    press("ArrowLeft", "fix"); assert.equal(active(), "tax");
     press("Home", "tax"); assert.equal(active(), "fix");
-    press("End", "tax"); assert.equal(active(), "import");
-    assert.equal(doc.els["sl-t-import"].focused, true);
+    press("End", "fix"); assert.equal(active(), "tax");
+    assert.equal(doc.els["sl-t-tax"].focused, true);
     assert.equal(press("a", "fix"), false);
     delete globalThis.document;
   });
@@ -172,23 +186,23 @@ describe("panel summary publish hook", () => {
 describe("alert strip, markers, live region, slGo (Task 6)", () => {
   const S = (count, tone, text) => ({ count, tone, text });
   const fixture = () => ({
-    queue: S(3, "bad", "3 waiting"), health: S(2, "warn", "drift: 2 accounts"), log: S(0, "", "never run"),
-    cash: S(1, "warn", "1 to review"), wash: S(0, "", ""), cf: S(0, "", ""), b1099: S(0, "", ""), imports: S(0, "", "")
+    queue: S(3, "bad", "3 waiting"), health: S(2, "warn", "drift: 2 accounts"), wash: S(0, "", "never run"),
+    cf: S(1, "warn", "1 to review"), b1099: S(0, "", "")
   });
-  test("strip lists queue, drift, log-not-started and cash items as text-only badges", () => {
+  test("strip lists queue, drift, wash-never-run and carryforward items as text-only badges", () => {
     const h = m.slStripHtml(fixture());
     assert.match(h, /<nav aria-label="Needs attention"/);
     for (const t of ["3 waiting", "drift: 2 accounts", "never run", "1 to review"]) assert.ok(h.includes(t), t);
     assert.ok(h.includes('href="#sales_ledger?tab=fix&amp;sec=queue"') || h.includes('href="#sales_ledger?tab=fix&sec=queue"'));
     assert.ok(h.includes('data-go="fix:queue"') && h.includes("slGo('fix','queue');return false"));
-    assert.ok(!h.includes("data-go=\"tax:wash\""));
   });
   test("key to tab mapping", () => {
-    const all = Object.fromEntries(["queue", "health", "log", "wash", "cf", "b1099", "cash", "imports"].map((k) => [k, S(1, "warn", "x " + k)]));
+    const all = Object.fromEntries(["queue", "health", "wash", "cf", "b1099"].map((k) => [k, S(1, "warn", "x " + k)]));
     const h = m.slStripHtml(all);
-    for (const [k, t] of [["queue", "fix"], ["health", "fix"], ["log", "fix"], ["cash", "fix"], ["wash", "tax"], ["cf", "tax"], ["b1099", "import"], ["imports", "import"]]) {
+    for (const [k, t] of [["queue", "fix"], ["health", "fix"], ["wash", "fix"], ["cf", "tax"], ["b1099", "tax"]]) {
       assert.ok(h.includes(`data-go="${t}:${k}"`), k);
     }
+    for (const k of ["log", "cash", "imports", "csv"]) assert.ok(!m.slStripHtml({ [k]: S(1, "warn", "x") }).includes("data-go"), k);
   });
   test("a prior-year item still appears (no year filter)", () => {
     const h = m.slStripHtml({ wash: S(2, "warn", "2 wash flags (2023)") });
@@ -196,7 +210,7 @@ describe("alert strip, markers, live region, slGo (Task 6)", () => {
   });
   test("count>0 with neutral tone is not an alert; stale text is", () => {
     assert.ok(m.slStripHtml({ queue: S(5, "", "5 rows") }).includes("No open items"));
-    assert.ok(m.slStripHtml({ wash: S(0, "", "stale") }).includes('data-go="tax:wash"'));
+    assert.ok(m.slStripHtml({ wash: S(0, "", "stale") }).includes('data-go="fix:wash"'));
   });
   test("clear state says No open items and never mentions reconcile", () => {
     for (const s of [{}, { log: S(0, "", "never run"), queue: S(0, "", "") }, { queue: S(0, "", "") }]) {
@@ -208,27 +222,27 @@ describe("alert strip, markers, live region, slGo (Task 6)", () => {
   // Final review I3: raw counts are in different units (sales, accounts, cash rows), so a tab counts its counted alert ITEMS.
   test("slMarkers counts alert items per tab (not summed raw counts), tone bad wins, empty tabs omitted", () => {
     const mk = m.slMarkers(fixture());
-    assert.deepEqual(mk.fix, { count: 3, tone: "bad" }); // queue, drift, cash; the uncounted "never run" log item adds no number
-    assert.equal(mk.tax, undefined);
-    assert.equal(mk.import, undefined);
+    assert.deepEqual(mk.fix, { count: 2, tone: "bad" }); // queue and drift
+    assert.deepEqual(mk.tax, { count: 1, tone: "warn" }); // carryforward
+    assert.deepEqual(mk.fix, { count: 2, tone: "bad" });  // queue and drift; the uncounted "never run" wash item adds no number
     const mk2 = m.slMarkers({ wash: S(2, "warn", "w"), cf: S(1, "warn", "c"), b1099: S(4, "bad", "b") });
-    assert.deepEqual(mk2.tax, { count: 2, tone: "warn" });
-    assert.deepEqual(mk2.import, { count: 1, tone: "bad" });
-    assert.deepEqual(m.slMarkers({ cash: S(104, "warn", "104 unmatched cash rows") }).fix, { count: 1, tone: "warn" });
+    assert.deepEqual(mk2.fix, { count: 1, tone: "warn" });
+    assert.deepEqual(mk2.tax, { count: 2, tone: "bad" });
+    assert.equal(mk2.import, undefined);
   });
   test("a tab whose alert item has count 0 still gets a text marker (!, needs attention)", () => {
     const mk = m.slMarkers({ wash: S(0, "", "stale") });
-    assert.equal(mk.tax.count, 0);
-    assert.equal(mk.tax.attn, true);
-    const h = m.slTabBarHtml("fix", mk);
-    assert.match(h, /id="sl-t-tax"[^>]*>[^]*?<span class="sl-tab-badge warn"[^>]*>[^]*?!<[^]*?needs attention[^]*?<\/button>/);
+    assert.equal(mk.fix.count, 0);
+    assert.equal(mk.fix.attn, true);
+    const h = m.slTabBarHtml("tax", mk);
+    assert.match(h, /id="sl-t-fix"[^>]*>[^]*?<span class="sl-tab-badge warn"[^>]*>[^]*?!<[^]*?needs attention[^]*?<\/button>/);
     assert.doesNotMatch(m.slTabBarHtml("fix", { tax: { count: 0, tone: "warn" } }), /sl-tab-badge/); // no alert flag, nothing to show
-    assert.equal(m.slMarkers(fixture()).fix.attn, undefined);
+    assert.equal(m.slMarkers({ queue: S(3, "bad", "3 waiting") }).fix.attn, undefined);
   });
-  test("queue and health default closed; log, ledger and wash default open", () => {
+  test("queue and health default closed; ledger and wash default open", () => {
     const st = { sections: {} };
     for (const k of ["queue", "health"]) { assert.equal(m.slSecWantOpen(st, k, 0), false, k); assert.equal(m.slSecWantOpen(st, k, 2), true, k); }
-    for (const k of ["log", "ledger", "wash"]) assert.equal(m.slSecWantOpen(st, k, 0), true, k);
+    for (const k of ["ledger", "wash"]) assert.equal(m.slSecWantOpen(st, k, 0), true, k);
   });
   const liveDoc = (withLive = true) => {
     const els = {};
@@ -255,14 +269,14 @@ describe("alert strip, markers, live region, slGo (Task 6)", () => {
   test("slGo switches tab, tolerates missing sections, opens and focuses a present one", () => {
     const d = liveDoc(); globalThis.document = d;
     globalThis.history = { replaceState(_s, _t, u) { this.url = u; } };
-    assert.doesNotThrow(() => m.slGo("tax", "wash"));
+    assert.doesNotThrow(() => m.slGo("tax", "b1099"));
     assert.equal(d.els["sl-p-tax"].hidden, false);
     assert.equal(d.els["sl-p-fix"].hidden, true);
     assert.equal(globalThis.history.url, undefined); // no location in node: the clean-URL write is skipped; it never writes a hash
     const sum = { focus() { this.focused = true; } };
-    d.els["sl-sec-wash"] = { open: false, querySelector: () => sum };
-    m.slGo("tax", "wash");
-    assert.equal(d.els["sl-sec-wash"].open, true);
+    d.els["sl-sec-b1099"] = { open: false, querySelector: () => sum };
+    m.slGo("tax", "b1099");
+    assert.equal(d.els["sl-sec-b1099"].open, true);
     assert.equal(sum.focused, true);
     m.slGo("tax", "bogus");
     assert.equal(globalThis.history.url, undefined); // still no hash written
@@ -354,28 +368,28 @@ describe("collapsible section shell (Task 7)", () => {
     assert.equal(m.slCurrentTab(), "tax");
     const s = store(); setStore(s);
     assert.equal(m.slCurrentTab(), "fix");
-    m.slUiSave({ tab: "import", sections: {}, density: "" }, s);
-    assert.equal(m.slCurrentTab(), "import");
+    m.slUiSave({ tab: "ledger", sections: {}, taxableOnly: true }, s);
+    assert.equal(m.slCurrentTab(), "ledger");
     delete globalThis.document;
   });
   test("slSecAll collapse leaves alerting sections open; expand opens all", () => {
-    setStore(store()); const d = secDoc(["queue", "health", "log", "cash"]); globalThis.document = d;
-    for (const k of ["queue", "health", "log", "cash"]) d.els[`sl-sec-${k}`].open = true;
+    setStore(store()); const d = secDoc(["queue", "health"]); globalThis.document = d;
+    for (const k of ["queue", "health"]) d.els[`sl-sec-${k}`].open = true;
     m.slPublish("queue", { count: 2, tone: "warn", text: "2 waiting" });
-    m.slPublish("health", { count: 0, tone: "", text: "" }); m.slPublish("log", { count: 0, tone: "", text: "" }); m.slPublish("cash", { count: 0, tone: "", text: "" });
+    m.slPublish("health", { count: 0, tone: "", text: "" });
     m.slSecAll("fix", false);
     assert.equal(d.els["sl-sec-queue"].open, true);
-    assert.equal(d.els["sl-sec-log"].open, false);
+    assert.equal(d.els["sl-sec-health"].open, false);
     m.slSecAll("fix", true);
-    assert.equal(d.els["sl-sec-log"].open, true);
+    assert.equal(d.els["sl-sec-health"].open, true);
     delete globalThis.document;
   });
-  test("slGo('fix','cash') opens and focuses the Cash section shell like any other section", () => {
-    setStore(store()); const d = secDoc(["cash"]); globalThis.document = d;
+  test("slGo('tax','b1099') opens the 1099-B section shell like any other section", () => {
+    setStore(store()); const d = secDoc(["b1099"]); globalThis.document = d;
     globalThis.history = { replaceState() {} };
     try {
-      m.slGo("fix", "cash");
-      assert.equal(d.els["sl-sec-cash"].open, true);
+      m.slGo("tax", "b1099");
+      assert.equal(d.els["sl-sec-b1099"].open, true);
     } finally { delete globalThis.document; }
   });
   test("slGo rejects an unknown tab, tolerates no document, records the opened section", () => {
@@ -385,22 +399,22 @@ describe("collapsible section shell (Task 7)", () => {
     m.slGo("bogus", "wash");
     assert.equal(globalThis.history.url, undefined);
     d.els["sl-sec-wash"].querySelector = () => null;
-    m.slGo("tax", "wash");
+    m.slGo("fix", "wash");
     assert.deepEqual(m.slUiLoad(s).sections.wash, { open: true, lastAlertCount: 0 });
     delete globalThis.document;
-    assert.doesNotThrow(() => m.slGo("tax", "wash"));
+    assert.doesNotThrow(() => m.slGo("fix", "wash"));
     delete globalThis.history;
   });
-  test("informational counts (log rows) are not alerts: collapse-all closes, user collapse sticks, no announcement", async () => {
-    const s = store(); setStore(s); const d = secDoc(["log"]); globalThis.document = d;
-    d.els["sl-sec-log"].open = true;
-    m.slPublish("log", { count: 12, tone: "", text: "12 rows" });
+  test("informational counts (row totals) are not alerts: collapse-all closes, user collapse sticks, no announcement", async () => {
+    const s = store(); setStore(s); const d = secDoc(["health"]); globalThis.document = d;
+    d.els["sl-sec-health"].open = true;
+    m.slPublish("health", { count: 12, tone: "", text: "12 rows" });
     m.slSecAll("fix", false);
-    assert.equal(d.els["sl-sec-log"].open, false);
-    assert.equal(m.slUiLoad(s).sections.log.lastAlertCount, 0);
+    assert.equal(d.els["sl-sec-health"].open, false);
+    assert.equal(m.slUiLoad(s).sections.health.lastAlertCount, 0);
     d.els.slLive.textContent = "";
-    m.slPublish("log", { count: 13, tone: "", text: "13 rows" });
-    assert.equal(d.els["sl-sec-log"].open, false);
+    m.slPublish("health", { count: 13, tone: "", text: "13 rows" });
+    assert.equal(d.els["sl-sec-health"].open, false);
     assert.equal(d.els.slLive.textContent, "");
     delete globalThis.document;
   });
@@ -417,59 +431,3 @@ describe("collapsible section shell (Task 7)", () => {
   });
 });
 
-describe("slSetDensity (Task 16b)", () => {
-  const withMedia = (coarse, fn) => () => {
-    globalThis.matchMedia = (q) => ({ matches: coarse && q === "(pointer:coarse)" });
-    try { fn(); } finally { delete globalThis.matchMedia; }
-  };
-  test("persists compact and then comfortable", withMedia(false, () => {
-    const s = mem();
-    m.slSetDensity("compact", { storage: s });
-    assert.equal(m.slUiLoad(s).density, "compact");
-    assert.equal(m.slIsCompact(s), true);
-    m.slSetDensity("", { storage: s });
-    assert.equal(m.slUiLoad(s).density, "");
-  }));
-  test("rejects any other value", withMedia(false, () => {
-    const s = mem();
-    m.slSetDensity("compact", { storage: s });
-    for (const bad of ["dense", "COMPACT", null, undefined, 1]) m.slSetDensity(bad, { storage: s });
-    assert.equal(m.slUiLoad(s).density, "compact");
-  }));
-  test("keeps the other stored fields", withMedia(false, () => {
-    const s = mem(JSON.stringify({ tab: "tax", sections: { cf: { open: true, lastAlertCount: 0 } } }));
-    m.slSetDensity("compact", { storage: s });
-    const st = m.slUiLoad(s);
-    assert.equal(st.tab, "tax");
-    assert.equal(st.sections.cf.open, true);
-  }));
-  test("is ignored on coarse pointers: nothing stored, nothing applied", withMedia(true, () => {
-    const s = mem();
-    m.slSetDensity("compact", { storage: s });
-    assert.equal(s.raw, null);
-    assert.equal(m.slIsCompact(mem(JSON.stringify({ density: "compact" }))), false);
-  }));
-  test("a storage failure does not throw", withMedia(false, () => {
-    const bad = { getItem() { throw new Error("denied"); }, setItem() { throw new Error("full"); } };
-    const cls = new Set();
-    globalThis.document = { getElementById: (id) => (id === "slRoot" ? { classList: { toggle: (c, on) => (on ? cls.add(c) : cls.delete(c)) } } : null) };
-    try {
-      assert.doesNotThrow(() => m.slSetDensity("compact", { storage: bad }));
-      assert.ok(cls.has("sl-compact"));
-    } finally { delete globalThis.document; }
-  }));
-  test("applies the class to #slRoot and updates pressed state in place", withMedia(false, () => {
-    const cls = new Set(); const attrs = {};
-    const els = { slRoot: { classList: { toggle: (c, on) => (on ? cls.add(c) : cls.delete(c)) } },
-      slDensityComfort: { setAttribute: (k, v) => { attrs.comfort = v; } }, slDensityCompact: { setAttribute: (k, v) => { attrs.compact = v; } } };
-    globalThis.document = { getElementById: (id) => els[id] || null };
-    try {
-      m.slSetDensity("compact", { storage: mem() });
-      assert.ok(cls.has("sl-compact"));
-      assert.deepEqual(attrs, { comfort: "false", compact: "true" });
-      m.slSetDensity("", { storage: mem() });
-      assert.ok(!cls.has("sl-compact"));
-      assert.deepEqual(attrs, { comfort: "true", compact: "false" });
-    } finally { delete globalThis.document; }
-  }));
-});

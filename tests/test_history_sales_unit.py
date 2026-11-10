@@ -1,6 +1,8 @@
 """Sales that a history-only broker import left out of the ledger: listed, recorded from the replayed buys, dismissed."""
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from src import active_plan, history_sales
@@ -69,6 +71,49 @@ def test_dismiss_hides_an_item(input_dir):
     key = next(i["key"] for i in history_sales.list_unrecorded(input_dir)["items"] if i["kind"] == "sale")
     history_sales.dismiss(input_dir, key)
     assert not [i for i in history_sales.list_unrecorded(input_dir)["items"] if i["kind"] == "sale"]
+
+
+def _bill_key(input_dir):
+    return next(i["key"] for i in history_sales.list_unrecorded(input_dir)["items"] if i["kind"] == "interest")
+
+
+def test_treasury_row_hidden_after_dismiss(input_dir):
+    key = _bill_key(input_dir)
+    history_sales.dismiss(input_dir, key)
+    assert not [i for i in history_sales.list_unrecorded(input_dir)["items"] if i["kind"] == "interest"]
+
+
+def test_include_hidden_returns_row_with_hidden_on(input_dir, monkeypatch):
+    monkeypatch.setattr(history_sales, "_today", lambda: "2026-11-09")
+    key = _bill_key(input_dir)
+    history_sales.dismiss(input_dir, key)
+    items = history_sales.list_unrecorded(input_dir, include_hidden=True)["items"]
+    bill = next(i for i in items if i["key"] == key)
+    assert bill["hidden"] is True and bill["hidden_on"] == "2026-11-09"
+    assert all(i["hidden"] is False for i in items if i["key"] != key)
+
+
+def test_undismiss_restores_row(input_dir):
+    key = _bill_key(input_dir)
+    history_sales.dismiss(input_dir, key)
+    history_sales.undismiss(input_dir, key)
+    assert key in {i["key"] for i in history_sales.list_unrecorded(input_dir)["items"]}
+
+
+def test_year_filters_hidden_count(input_dir):
+    history_sales.dismiss(input_dir, _bill_key(input_dir))
+    assert len(history_sales.list_unrecorded(input_dir, year=2026, include_hidden=True)["items"]) == 2
+    assert not [i for i in history_sales.list_unrecorded(input_dir, year=2027, include_hidden=True)["items"]]
+
+
+def test_old_dismissed_set_still_read(input_dir):
+    key = _bill_key(input_dir)
+    with active_plan.workspace_store(input_dir.parent, write=True) as store:
+        store.set_meta(history_sales.DISMISS_KEY, json.dumps([key]))       # the legacy list-of-keys format
+    items = history_sales.list_unrecorded(input_dir, include_hidden=True)["items"]
+    bill = next(i for i in items if i["key"] == key)
+    assert bill["hidden"] is True and bill["hidden_on"] is None
+    assert key not in {i["key"] for i in history_sales.list_unrecorded(input_dir)["items"]}
 
 
 def test_a_sale_the_files_cannot_cover_is_listed_incomplete_and_not_recordable(tmp_path):

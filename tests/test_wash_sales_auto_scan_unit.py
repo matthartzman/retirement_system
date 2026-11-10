@@ -58,14 +58,6 @@ def test_a_gain_is_not_flagged(input_dir):
     assert _loss_sale(input_dir, proceeds=3000.0)["wash_flag"] == "none"
 
 
-def test_csv_import_flags_after_commit(input_dir):
-    _monarch_buy(input_dir)
-    text = ("sale_date,account,tax_class,symbol,shares,proceeds,basis,purchase_date\n"
-            "2026-06-10,Trust,taxable,VTI,10,1000,2000,2026-01-10\n")
-    assert sales_service.commit_csv(input_dir, text)["written"] == 1
-    assert [r["wash_flag"] for r in _rows(input_dir)] == ["possible"]
-
-
 def test_confirm_flags_and_undo_clears_without_the_button(input_dir):
     _monarch_buy(input_dir, date="2026-06-12")
     with active_plan.workspace_store(input_dir.parent, write=True) as store:

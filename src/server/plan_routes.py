@@ -1077,6 +1077,63 @@ def sales_list():
     return _sales_call(_sales.list_sales, year=year, include_voided=request.args.get("include_voided") == "1")
 
 
+@app.route("/api/sales/summary", methods=["GET"])
+def sales_summary_route():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    try:
+        year = int(request.args["year"]) if request.args.get("year") else None
+    except ValueError:
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    taxable_only = request.args.get("taxable_only", "1") != "0"
+    return _sales_call(lambda root: {"summary": _sales.sales_summary(root, year, taxable_only=taxable_only)})
+
+
+@app.route("/api/sales/holding-period-check", methods=["GET"])
+def sales_holding_period_check():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    if not request.args.get("year", "").isdigit():
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(lambda root: {"check": _sales.holding_period_check(root, int(request.args["year"]))})
+
+
+@app.route("/api/sales/years", methods=["GET"])
+def sales_years_route():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    return _sales_call(lambda root: {"years": _sales.sales_years(root), "taxable_accounts": _sales.taxable_accounts(root),
+                                         "account_classes": _sales.account_classes(root)})
+
+
+@app.route("/api/sales/open-lots", methods=["GET"])
+def sales_open_lots():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    a = request.args
+    return _sales_call(_sales.open_lots, a.get("account", ""), a.get("symbol", ""), a.get("as_of") or None)
+
+
+@app.route("/api/sales/batch", methods=["POST"])
+def sales_batch():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    rows = (request.get_json(silent=True) or {}).get("rows")
+    if not isinstance(rows, list) or not rows:
+        return jsonify({"success": False, "error": "add at least one sale"}), 400
+    return _sales_call(_sales.add_sales, rows)
+
+
 @app.route("/api/sales", methods=["POST"])
 def sales_add():
     denied = _require("write_config")
@@ -1106,27 +1163,6 @@ def sales_unvoid(sale_id: int):
         return denied
     from .. import sales_service as _sales
     return _sales_call(_sales.unvoid_sale, sale_id)
-
-
-@app.route("/api/sales/import/preview", methods=["POST"])
-def sales_import_preview():
-    denied = _require("view_dashboard")
-    if denied:
-        return denied
-    from .. import sales_service as _sales
-    return _sales_call(_sales.preview_csv, str((request.get_json(silent=True) or {}).get("content") or ""))
-
-
-@app.route("/api/sales/import/commit", methods=["POST"])
-def sales_import_commit():
-    denied = _require("write_config")
-    if denied:
-        return denied
-    from .. import sales_service as _sales
-    response = _sales_call(_sales.commit_csv, str((request.get_json(silent=True) or {}).get("content") or ""))
-    if response[1] == 200:
-        _audit("sales_imported", {"written": response[0].get_json().get("written", 0)})
-    return response
 
 
 # ---- Tax-year panel (step 3a.3; logic in src/sales_tax_year.py): netting, carryforward entry, wash-flag refresh ----
@@ -1165,6 +1201,46 @@ def sales_wash_refresh():
         return denied
     from .. import sales_tax_year as _tax_year
     return _sales_call(_tax_year.refresh_wash_flags)
+
+
+@app.route("/api/sales/wash", methods=["GET"])
+def sales_wash_cards():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_tax_year as _tax_year
+    if not request.args.get("year", "").isdigit():
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(_tax_year.wash_cards, int(request.args["year"]))
+
+
+@app.route("/api/sales/wash/open-windows", methods=["GET"])
+def sales_wash_open_windows():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_tax_year as _tax_year
+    return _sales_call(_tax_year.wash_open_windows)
+
+
+@app.route("/api/sales/wash/review", methods=["POST"])
+def sales_wash_review():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import sales_tax_year as _tax_year
+    b = request.get_json(silent=True) or {}
+    return _sales_call(_tax_year.set_wash_review, str(b.get("sale_key") or ""), str(b.get("outcome") or ""), reason=b.get("reason"),
+                       broker_amount=b.get("broker_amount"))
+
+
+@app.route("/api/sales/wash/review/clear", methods=["POST"])
+def sales_wash_review_clear():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import sales_tax_year as _tax_year
+    return _sales_call(_tax_year.clear_wash_review, str((request.get_json(silent=True) or {}).get("sale_key") or ""))
 
 
 # ---- Sale queue: confirm against specific lots, undo, dismiss (step 2.2; logic in src/sales_confirm.py) ----
@@ -1417,7 +1493,11 @@ def sales_history_list():
     if denied:
         return denied
     from .. import history_sales as _hs
-    return _sales_call(_hs.list_unrecorded)
+    try:
+        year = int(request.args["year"]) if request.args.get("year") else None
+    except ValueError:
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(_hs.list_unrecorded, year=year, include_hidden=request.args.get("include_hidden") == "1")
 
 
 @app.route("/api/sales/history/record", methods=["POST"])
@@ -1441,6 +1521,16 @@ def sales_history_dismiss():
     from .. import history_sales as _hs
     b = request.get_json(silent=True) or {}
     return _sales_call(lambda root: _hs.dismiss(root, str(b.get("key") or "")))
+
+
+@app.route("/api/sales/history/undismiss", methods=["POST"])
+def sales_history_undismiss():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import history_sales as _hs
+    b = request.get_json(silent=True) or {}
+    return _sales_call(lambda root: _hs.undismiss(root, str(b.get("key") or "")))
 
 
 # ---- Broker activity bulk import (src/broker_import.py) ----
@@ -1680,6 +1770,23 @@ def transactions_set_managed(account: str):
     if not isinstance(on, bool):
         return jsonify({"success": False, "error": "managed must be true or false"}), 400
     return _log_write(lambda t, root, *_: t.set_managed(root, account, on), "transaction_account_managed", account)
+
+
+@app.route("/api/transactions/bank-cleanup", methods=["GET"])
+def transactions_bank_cleanup_preview():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import transactions as _t
+    return _sales_call(_t.bank_account_cleanup_preview)
+
+
+@app.route("/api/transactions/bank-cleanup", methods=["POST"])
+def transactions_bank_cleanup_apply():
+    accounts = _log_body().get("accounts")
+    if not isinstance(accounts, list) or not accounts:
+        return jsonify({"success": False, "error": "name the accounts to clean up"}), 400
+    return _log_write(lambda t, root: t.bank_account_cleanup_apply(root, [str(a) for a in accounts]), "bank_accounts_cleaned_up")
 
 
 @app.route("/api/transactions/backfill", methods=["POST"])
