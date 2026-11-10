@@ -305,6 +305,7 @@ def apply_roth_conversion_stage(
     h_medicare_frac: float = 0.0,
     w_medicare_frac: float = 0.0,
     irmaa_surcharge_fn: Callable[[float, int, float, str], float] | None = None,
+    pretax_contributions: float = 0.0,
 ) -> RothConversionResult:
     """Design doc Stage 8 (Roth Conversions), plus the DAF in-kind
     (appreciated-securities) gift the legacy engine applies immediately
@@ -355,6 +356,7 @@ def apply_roth_conversion_stage(
 
     conv_plan = _legacy_pe.plan_roth_conversion(
         c, bal, year=year, filing=filing, earned_base=earned_base,
+        earned_taxable=net_earned_taxable,
         half_se_ded=half_se_ded, sehi_ded=sehi_ded, h_ss=h_ss, w_ss=w_ss,
         rmd_total=rmd_taxable_total, pension=pension, wife_single_ann=wife_single_ann,
         wife_joint_ann=wife_joint_ann, h_single_ann=h_single_ann,
@@ -367,7 +369,8 @@ def apply_roth_conversion_stage(
         brackets_by_status=FEDERAL_BRACKETS_BASE_YEAR, brackets_mfj=FEDERAL_BRACKETS_MFJ,
         inflate_brackets_fn=inflate_brackets_fn, standard_deduction_fn=standard_deduction_fn,
         compute_fed_tax_fn=compute_fed_tax_fn, state_tax_estimate_fn=_state_tax_estimate,
-        other_cash_need=_irmaa_est,
+        # The 401(k)/HSA contributions leave pay before it can fund anything.
+        other_cash_need=_irmaa_est + max(0.0, float(pretax_contributions or 0.0)),
     )
     moved =_legacy_pe.apply_roth_conversion(c, bal, conv_plan.amount, forced=conv_plan.forced, source_account=getattr(conv_plan, "source_account", ""), forced_sources=getattr(conv_plan, "forced_sources", []))
     roth_conv = moved.amount

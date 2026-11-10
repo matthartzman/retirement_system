@@ -118,6 +118,14 @@ def compute_cashflow_breakdown(row: dict[str, Any]) -> tuple[dict[str, Any], flo
         'surplus': row.get('surplus', 0.0),  # authoritative engine value, not re-derived
         'unfunded_gap': row['unfunded_gap'],
     }
+    # Pre-tax 401(k) deferral + HSA contribution: 'earned' stays gross pay,
+    # and this negative line takes the deposited part back out so
+    # sum(income) is the take-home income the engine actually funded the
+    # gap with. Only when nonzero, so a plan without contributions keeps the
+    # key set above.
+    _pretax = float(row.get('pretax_payroll_deductions', 0.0) or 0.0)
+    if _pretax:
+        cashflow_breakdown['income']['pretax_contributions'] = -_pretax
     # WP12.2: Rental Properties, only when the feature ran this year (its row
     # fields exist), so a plan without it keeps the exact key set above.
     # 'rental' is the net operating cash (negative when the rentals cost more

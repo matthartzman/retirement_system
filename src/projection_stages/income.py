@@ -56,6 +56,10 @@ class IncomeResult(NamedTuple):
     # Rental Properties feature is off -- read by the AGI stage (passive-loss limit) and
     # the withdrawal cascade (cash).
     rental_year: Any = None
+    # The year's 401(k) deferral plus HSA contribution: already out of
+    # ``net_earned_taxable`` (AGI), and cash the household no longer has, so
+    # the withdrawal cascade takes it out of take-home income.
+    pretax_contributions: float = 0.0
 
 
 
@@ -230,6 +234,7 @@ def apply_income(
     net_earned_taxable = 0.0
     business_expenses_yr = 0.0
     ss_test_earnings = 0.0   # wages / net SE earnings counted by the SS earnings test
+    deferral_comp = 0.0      # compensation a 401(k) elective deferral can come out of
     if earned_base > 0:
         if c['entity'] == 'sole_prop':
             net_se   = earned_base - c['biz_exp'] - c['home_off']
@@ -246,6 +251,7 @@ def apply_income(
                 qbi_ded  = qbi_base * 0.20
             payroll_tax = se_tax
             net_earned_taxable = net_se
+            deferral_comp = max(0.0, net_se - half_se_ded)
             ss_test_earnings = max(0.0, net_se)
             business_expenses_yr = c['biz_exp'] + c['home_off']
         else:
@@ -279,6 +285,7 @@ def apply_income(
             # IL corporate surcharge on distributable income
             # (already captured in state_tax via AGI; no separate payroll item)
             net_earned_taxable = salary + distribution
+            deferral_comp = max(0.0, salary)   # a deferral comes out of W-2 wages, never the distribution
             ss_test_earnings = salary   # S-corp distributions are not earnings
             business_expenses_yr = c['biz_exp'] + c['home_off']
 
@@ -302,7 +309,7 @@ def apply_income(
     k401_contrib = 0.0
     if c['earn_start'] <= year <= c['earn_end']:
         k401_limit_yr = c['k401_lim'] * ((1 + c.get('brk_inf', c.get('inf', 0.025))) ** max(0, year - c['plan_start'])) if c.get('k401_limit_indexed', True) else c['k401_lim']
-        k401_contrib = min(c['k401_mo']*12, k401_limit_yr) * _contrib_proration
+        k401_contrib = min(c['k401_mo']*12, k401_limit_yr, deferral_comp) * _contrib_proration
         row['k401_limit_used'] = k401_limit_yr
         _k401_acct = _aa.first_account(c, owner_idx=0, acct_type='401k') or _aa.first_pretax(c, 0)
         _aa.deposit(bal, _k401_acct, k401_contrib)
@@ -349,6 +356,20 @@ def apply_income(
         _add_account_flow(row['_account_deposits'], _hsa_acct, hsa_contrib)
         _tag_deposit_source(row, _hsa_acct, 'HSA Contribution', hsa_contrib)
     row['hsa_contrib'] = hsa_contrib
+
+    # ── Pre-tax contributions leave AGI ─────────────────────────────────
+    # A traditional 401(k) deferral comes out of W-2 wages / net SE income
+    # and an HSA contribution is an above-the-line deduction (Form 8889; a
+    # >2% S-corp shareholder's W-2-routed contribution nets the same way),
+    # so both reduce the earned income every AGI, state-tax and Roth-sizing
+    # reader uses. FICA/SE tax above is unchanged: neither is exempt from it
+    # here. A sole proprietor's own-plan deferral also reduces QBI; an S-corp
+    # QBI base is the distribution, which a wage deferral never touches.
+    pretax_contributions = k401_contrib + hsa_contrib
+    net_earned_taxable -= pretax_contributions
+    if c['entity'] == 'sole_prop' and c['qbi_elig'] and k401_contrib > 0:
+        qbi_ded = max(0.0, qbi_ded - 0.20 * k401_contrib)
+    row['pretax_payroll_deductions'] = pretax_contributions
 
     # ── Social Security ──────────────────────────────────────────────────
     # Each spouse's benefit table (ss_benefit_age_62..70) holds the actual
@@ -572,6 +593,7 @@ def apply_income(
         di_taxable=di_taxable,
         di_cash=di_cash,
         rental_year=rental_year,
+        pretax_contributions=pretax_contributions,
     )
 
 

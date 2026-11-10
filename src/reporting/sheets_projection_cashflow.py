@@ -266,7 +266,7 @@ def build_sheet6(ws, c, rows):
             # Defensive fallback for any row not produced by the full
             # deterministic engine (e.g. a hand-built row dict); mirrors the
             # engine's own itemization.
-            inc_total = (row.get('earned', 0) + row.get('h_ss', 0) + row.get('w_ss', 0) + row.get('pension', 0) +
+            inc_total = (row.get('earned', 0) - row.get('pretax_payroll_deductions', 0) + row.get('h_ss', 0) + row.get('w_ss', 0) + row.get('pension', 0) +
                          row.get('wife_single_ann', 0) + row.get('wife_joint_ann', 0) +
                          row.get('h_single_ann', 0) + row.get('h_joint_ann', 0) +
                          row.get('note_princ', 0) + row.get('note_int', 0) + row.get('rmd_total', 0)
@@ -296,7 +296,8 @@ def build_sheet6(ws, c, rows):
             COL['Year']:      row['year'],
             COL['H_Age']:     row['h_age'],
             COL['W_Age']:     row['w_age'],
-            COL['Earned']:    row['earned'],
+            # Take-home pay: the 401(k)/HSA part of gross pay went into accounts.
+            COL['Earned']:    row['earned'] - row.get('pretax_payroll_deductions', 0),
             COL['H_SS']:      row['h_ss'],
             COL['W_SS']:      row['w_ss'],
             COL['Pension']:   row['pension'],
