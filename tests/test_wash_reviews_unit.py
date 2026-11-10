@@ -72,6 +72,7 @@ def test_migration_adds_table_on_existing_plan(input_dir):
     con = sqlite3.connect(path)
     assert con.execute("SELECT name FROM sqlite_master WHERE name = 'wash_reviews'").fetchone()
     con.execute("DROP TABLE wash_reviews")
+    con.execute("DROP TABLE wash_adjustments")
     con.execute("PRAGMA user_version = 22")
     con.commit()
     con.close()

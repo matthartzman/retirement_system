@@ -113,12 +113,12 @@ def _wash_totals(detected: dict[str, dict[str, Any]], year: int) -> dict[str, An
 
 def wash_open_windows(input_dir: str | Path) -> dict[str, Any]:
     """The open-window warnings (see ``wash_sales.open_windows``) with friendly account names, as of today."""
-    from datetime import date
+    from . import platform_runtime
     from .person_labels import display_account
     from .wash_sales import open_windows
     cfg = _plan_config(input_dir) or {}
     with active_plan.workspace_store(_base(input_dir)) as store:
-        return {"windows": open_windows(store, date.today(), label=lambda a: display_account(a, cfg))}
+        return {"windows": open_windows(store, platform_runtime.today(), label=lambda a: display_account(a, cfg))}
 
 
 def wash_cards(input_dir: str | Path, year: int) -> dict[str, Any]:

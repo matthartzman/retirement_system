@@ -70,7 +70,8 @@ def sales_summary(input_dir: str | Path, year: int | None, *, taxable_only: bool
 
 def sales_years(input_dir: str | Path) -> list[int]:
     """Years that have ledger or log rows, ascending, never in the future."""
-    this_year = date.today().year
+    from .platform_runtime import today
+    this_year = today().year
     with active_plan.workspace_store(_base(input_dir)) as store:
         found = {str(s["sale_date"])[:4] for s in store.sales.list_sales()}
         found |= {str(r["txn_date"])[:4] for r in store.transactions.list()}

@@ -218,7 +218,9 @@ def test_applied_wash_adjustments_are_shown_by_year_and_do_not_touch_flags_or_ga
 
 def test_wash_adjustments_for_a_year_without_a_statement_is_empty(ws):
     sales_1099b.apply(ws / "input", **kw())
-    assert sales_1099b.wash_adjustments(ws / "input", 2024) == {"tax_year": 2024, "adjustments": [], "total": 0.0}
+    out = sales_1099b.wash_adjustments(ws / "input", 2024)
+    assert {k: out[k] for k in ("tax_year", "adjustments", "total")} == {"tax_year": 2024, "adjustments": [], "total": 0.0}
+    assert out["tie"] == {"same_account": [], "cross_account": []}
 
 
 def test_superseded_statement_wash_amounts_are_not_shown(ws):

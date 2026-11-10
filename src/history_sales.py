@@ -52,7 +52,8 @@ def is_taxable_account(account: str) -> bool:
 
 
 def _today() -> str:
-    return date.today().isoformat()
+    from .platform_runtime import today
+    return today().isoformat()
 
 
 def _dismissed(store) -> dict[str, str | None]:
