@@ -141,7 +141,33 @@ def _estate_tax_for_row(c, fed_exempt_base, row: Mapping) -> float:
     return federal_tax + state_tax
 
 
-def _roth_conversion_amount_and_caps(aca_bridge_people, bal, base_tax_est, bracket_room, c, filing, h_age, income_streams, note_int_yr, policy, portfolio_ordinary, portfolio_qualified, pre_agi, spend, std, target_rate, top_target, total_spend_need, w_age, year):
+def _conversion_funding_cap(room: float, non_roth_surplus: float, tax_rate: float) -> tuple[float, float]:
+    """Largest conversion that leaves bracket room for the pre-tax draw it causes.
+
+    The withdrawal cascade runs after the conversion is sized. Whatever the
+    year's non-Roth surplus (income plus spendable taxable assets, less
+    spending and pre-conversion tax) cannot pay -- the spending shortfall and
+    the conversion's own tax -- is drawn from pre-tax accounts, and that draw
+    is ordinary income stacked on top of the conversion. Sizing the conversion
+    to the whole bracket room therefore pushes the year past the target
+    bracket (a $305k conversion plus a $292k IRA spending draw landed a real
+    plan in the 35% bracket).
+
+    With conversion C, surplus S and rate t on the bracket's last dollars, the
+    draw is W = max(0, (t*C - S) / (1 - t)); keeping C + W <= room gives
+    C <= room*(1 - t) + S whenever S < t*room. Returns ``(cap, reserve)``
+    where ``reserve`` is the room set aside for W.
+    """
+    room = max(0.0, float(room))
+    t = min(0.9, max(0.0, float(tax_rate)))
+    funded = room * (1.0 - t) + float(non_roth_surplus)
+    if funded >= room:
+        return room, 0.0
+    cap = max(0.0, funded)
+    return cap, room - cap
+
+
+def _roth_conversion_amount_and_caps(aca_bridge_people, bal, base_tax_est, bracket_room, c, filing, h_age, income_streams, note_int_yr, policy, portfolio_ordinary, portfolio_qualified, pre_agi, spend, std, target_rate, top_target, total_spend_need, w_age, year, conv_tax_rate=None):
     """Size the conversion amount against the binding bracket, ACA, LTCG and NIIT caps."""
     from ..engine_kernels import (
         ConversionPlan,
@@ -187,6 +213,7 @@ def _roth_conversion_amount_and_caps(aca_bridge_people, bal, base_tax_est, brack
     max_pct_cap = ira_total * max_pct if max_pct > 0 else float("inf")
 
     caps_seen: list[dict] = []
+    ira_draw_reserve = 0.0
 
     if policy == "fixed_dollar":
         fixed_amt = float(c.get("roth_fixed_amount", 50000) or 0.0)
@@ -229,6 +256,11 @@ def _roth_conversion_amount_and_caps(aca_bridge_people, bal, base_tax_est, brack
         cap_bracket = bracket_room * float(c.get('roth_headroom_usage_pct', 0.95) or 0.95)
         caps = [("IRA balance", ira_total), ("Annual IRA percentage cap", max_pct_cap)]
         if _bracket_on:
+            # Leave room in the bracket for the pre-tax draw the cascade will
+            # take for spending and for this conversion's tax.
+            cap_bracket, ira_draw_reserve = _conversion_funding_cap(
+                cap_bracket, non_roth_surplus,
+                target_rate if conv_tax_rate is None else conv_tax_rate)
             caps.insert(0, (f"{int(target_rate * 100)}% bracket", cap_bracket))
         if aca_bridge_people and c.get('aca_ptc_enabled', True) and c.get('roth_aca_cap', True):
             # Roth conversions in bridge years can destroy ACA premium tax
@@ -301,6 +333,7 @@ def _roth_conversion_amount_and_caps(aca_bridge_people, bal, base_tax_est, brack
         top_target=top_target,
         bracket_room=bracket_room,
         non_roth_surplus=non_roth_surplus,
+        ira_draw_reserve=ira_draw_reserve,
         primary_pretax_available=primary_avail,
         secondary_pretax_available=secondary_avail,
         binding_limit=binding,

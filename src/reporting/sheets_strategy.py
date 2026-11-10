@@ -969,6 +969,24 @@ def build_sheet_hsa_drawdown(ws, c, rows):
     qc('11C. HSA Drawdown', 'Optimizer-proposed HSA schedule and its modeling limits rendered', True, '')
 
 
+def _over_target_bracket(row, top_target, tolerance=1000.0):
+    """True when the year's final ordinary taxable income passed the target bracket top.
+
+    Ordinary taxable income is read the way the Lifetime Tax sheet's
+    "Marginal Rate (bracket)" column reads it: taxable income less qualified
+    dividends, which stack above ordinary income.
+    """
+    try:
+        top = float(top_target or 0.0)
+        taxable = max(0.0, float(row.get('taxable_inc') or 0.0))
+    except (TypeError, ValueError):
+        return False
+    if top <= 0:
+        return False
+    qualified = min(max(0.0, float(row.get('portfolio_qualified_dividends') or 0.0)), taxable)
+    return taxable - qualified > top + tolerance
+
+
 def build_sheet11(ws, c, rows):
     """Roth Conversion Plan — canonical strategy contract and diagnostics."""
     ws.sheet_view.showGridLines = False
@@ -1100,6 +1118,11 @@ def build_sheet11(ws, c, rows):
         post_agi = row.get('agi', 0)
         if forced > 0 and volun == 0:
             conv_type, status, row_bg = 'Forced', '★ FORCED', 'FFF2CC'
+        elif tot > 0 and _over_target_bracket(row, top_target):
+            # The year's final ordinary taxable income (after the cascade's
+            # pre-tax draws) ended above the target bracket the conversion
+            # was sized to fill.
+            conv_type, status, row_bg = 'Voluntary', '⚠ Over target bracket', 'FCE4D6'
         elif tot > 0:
             conv_type, status, row_bg = 'Voluntary', '✓ OK' if post_agi <= irmaa_t * 1.05 else '⚠ Near IRMAA', 'E2EFDA'
         elif yr > c['h_dob_yr'] + int(c.get('rmd_start_age',75)) - 1:

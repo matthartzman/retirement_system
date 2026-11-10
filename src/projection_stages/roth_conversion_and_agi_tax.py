@@ -208,6 +208,59 @@ class RothConversionResult(NamedTuple):
     daf_contrib_yr: float
 
 
+def irmaa_surcharge_for_year(
+    c: dict[str, Any],
+    rows: list,
+    *,
+    year: int,
+    filing: str,
+    irmaa_magi_current: float,
+    medicare_fraction_people: float,
+    h_medicare_frac: float,
+    w_medicare_frac: float,
+    irmaa_surcharge_fn: Callable[[float, int, float, str], float],
+) -> tuple[float, float, str, bool, float]:
+    """This year's IRMAA surcharge: ``(surcharge, magi_used, filing_used, ssa44_relief_active, n_medicare)``.
+
+    The AGI/tax stage uses it for the year's bill; the conversion stage uses it
+    beforehand to count the surcharge as a cash need, which it already is: the
+    two-year lookback reads earlier rows, never this year's conversion.
+    """
+    # IRMAA uses the statutory two-year MAGI lookback when prior rows exist.
+    # The surcharge is billed monthly alongside Medicare enrollment, so it
+    # is prorated in the transition year with the same fraction used for
+    # Part B/D/G premiums (medicare_fraction_people).
+    n_medicare = medicare_fraction_people
+    # P12 second half (item 4.5): an approved Form SSA-44 life-changing-event
+    # appeal suppresses the IRMAA *surcharge* only (the base Part B/D/G
+    # premiums are still owed) for that member from the stated year
+    # onward. Modeled per-member since one spouse's appeal doesn't excuse
+    # the other's surcharge.
+    h_ssa44_relief_yr = c.get('h_ssa44_relief_year')
+    w_ssa44_relief_yr = c.get('w_ssa44_relief_year')
+    h_ssa44_active = h_ssa44_relief_yr is not None and year >= int(h_ssa44_relief_yr)
+    w_ssa44_active = w_ssa44_relief_yr is not None and year >= int(w_ssa44_relief_yr)
+    if h_ssa44_active or w_ssa44_active:
+        n_medicare = (0.0 if h_ssa44_active else h_medicare_frac) + (0.0 if w_ssa44_active else w_medicare_frac)
+    # Seed plan years 1-2 (no projected AGI row exists yet for their
+    # lookback target year) with the household's actual historical MAGI
+    # when provided (item 2.6), instead of always falling back to this
+    # year's own AGI. Blank/absent inputs (e.g. a saved plan predating
+    # these fields) leave the entry out of the dict, so
+    # irmaa_lookback_magi() falls back to current-year AGI unchanged.
+    _irmaa_historical_magi = {
+        2: c.get('irmaa_actual_magi_2yr_prior'),
+        1: c.get('irmaa_actual_magi_1yr_prior'),
+    }
+    # WI-304 / FIN-009: assess on the lookback row's MAGI (AGI + tax-exempt
+    # interest) against the filing status of THAT year's return.
+    irmaa_magi, irmaa_filing = irmaa_lookback_magi_and_filing(
+        rows, irmaa_magi_current, filing, c.get('irmaa_lookback_years', 2),
+        historical_magi=_irmaa_historical_magi)
+    irmaa_yr = irmaa_surcharge_fn(irmaa_magi, year, n_medicare, irmaa_filing) if n_medicare > 0 else 0.0
+    return irmaa_yr, irmaa_magi, irmaa_filing, bool(h_ssa44_active or w_ssa44_active), n_medicare
+
+
 def apply_roth_conversion_stage(
     c: dict[str, Any],
     bal: dict[str, float],
@@ -247,6 +300,11 @@ def apply_roth_conversion_stage(
     emit: Callable[[Any], None],
     h_alive: bool = True,
     w_alive: bool = True,
+    rows: list | None = None,
+    medicare_fraction_people: float = 0.0,
+    h_medicare_frac: float = 0.0,
+    w_medicare_frac: float = 0.0,
+    irmaa_surcharge_fn: Callable[[float, int, float, str], float] | None = None,
 ) -> RothConversionResult:
     """Design doc Stage 8 (Roth Conversions), plus the DAF in-kind
     (appreciated-securities) gift the legacy engine applies immediately
@@ -284,6 +342,16 @@ def apply_roth_conversion_stage(
         portfolio_qualified=portfolio_qualified,
         h_alive=h_alive, w_alive=w_alive,
     )
+    # This year's IRMAA surcharge is already set by the lookback (earlier
+    # rows), so it is a known cash need the conversion's funding must leave
+    # room for. Without a lookback row or historical MAGI the estimate is 0.
+    _irmaa_est = 0.0
+    if irmaa_surcharge_fn is not None and rows is not None and medicare_fraction_people > 0:
+        _irmaa_est = irmaa_surcharge_for_year(
+            c, rows, year=year, filing=filing, irmaa_magi_current=0.0,
+            medicare_fraction_people=medicare_fraction_people,
+            h_medicare_frac=h_medicare_frac, w_medicare_frac=w_medicare_frac,
+            irmaa_surcharge_fn=irmaa_surcharge_fn)[0]
 
     conv_plan = _legacy_pe.plan_roth_conversion(
         c, bal, year=year, filing=filing, earned_base=earned_base,
@@ -299,8 +367,9 @@ def apply_roth_conversion_stage(
         brackets_by_status=FEDERAL_BRACKETS_BASE_YEAR, brackets_mfj=FEDERAL_BRACKETS_MFJ,
         inflate_brackets_fn=inflate_brackets_fn, standard_deduction_fn=standard_deduction_fn,
         compute_fed_tax_fn=compute_fed_tax_fn, state_tax_estimate_fn=_state_tax_estimate,
+        other_cash_need=_irmaa_est,
     )
-    moved = _legacy_pe.apply_roth_conversion(c, bal, conv_plan.amount, forced=conv_plan.forced, source_account=getattr(conv_plan, "source_account", ""), forced_sources=getattr(conv_plan, "forced_sources", []))
+    moved =_legacy_pe.apply_roth_conversion(c, bal, conv_plan.amount, forced=conv_plan.forced, source_account=getattr(conv_plan, "source_account", ""), forced_sources=getattr(conv_plan, "forced_sources", []))
     roth_conv = moved.amount
     row.update(conv_plan.as_row_fields())
     row['roth_conv'] = roth_conv
@@ -831,41 +900,14 @@ def apply_agi_and_tax(
     row['_niit_ws_taxable'] = ws_taxable  # stash for later NIIT calc
     row['_niit_hs_taxable'] = hs_taxable
 
-    # IRMAA uses the statutory two-year MAGI lookback when prior rows exist.
-    # The surcharge is billed monthly alongside Medicare enrollment, so it
-    # is prorated in the transition year with the same fraction used for
-    # Part B/D/G premiums above (medicare_fraction_people).
-    n_medicare = medicare_fraction_people
-    # P12 second half (item 4.5): an approved Form SSA-44 life-changing-event
-    # appeal suppresses the IRMAA *surcharge* only (the base Part B/D/G
-    # premiums above are still owed) for that member from the stated year
-    # onward. Modeled per-member since one spouse's appeal doesn't excuse
-    # the other's surcharge.
-    h_ssa44_relief_yr = c.get('h_ssa44_relief_year')
-    w_ssa44_relief_yr = c.get('w_ssa44_relief_year')
-    h_ssa44_active = h_ssa44_relief_yr is not None and year >= int(h_ssa44_relief_yr)
-    w_ssa44_active = w_ssa44_relief_yr is not None and year >= int(w_ssa44_relief_yr)
-    if h_ssa44_active or w_ssa44_active:
-        n_medicare = (0.0 if h_ssa44_active else h_medicare_frac) + (0.0 if w_ssa44_active else w_medicare_frac)
-    row['irmaa_ssa44_relief_active'] = h_ssa44_active or w_ssa44_active
-    # Seed plan years 1-2 (no projected AGI row exists yet for their
-    # lookback target year) with the household's actual historical MAGI
-    # when provided (item 2.6), instead of always falling back to this
-    # year's own AGI. Blank/absent inputs (e.g. a saved plan predating
-    # these fields) leave the entry out of the dict, so
-    # irmaa_lookback_magi() falls back to current-year AGI unchanged.
-    _irmaa_historical_magi = {
-        2: c.get('irmaa_actual_magi_2yr_prior'),
-        1: c.get('irmaa_actual_magi_1yr_prior'),
-    }
-    # WI-304 / FIN-009: assess on the lookback row's MAGI (AGI + tax-exempt
-    # interest) against the filing status of THAT year's return.
-    irmaa_magi, irmaa_filing = irmaa_lookback_magi_and_filing(
-        rows, irmaa_magi_current, filing, c.get('irmaa_lookback_years', 2),
-        historical_magi=_irmaa_historical_magi)
+    irmaa_yr, irmaa_magi, irmaa_filing, _ssa44_active, n_medicare = irmaa_surcharge_for_year(
+        c, rows, year=year, filing=filing, irmaa_magi_current=irmaa_magi_current,
+        medicare_fraction_people=medicare_fraction_people,
+        h_medicare_frac=h_medicare_frac, w_medicare_frac=w_medicare_frac,
+        irmaa_surcharge_fn=irmaa_surcharge_fn)
+    row['irmaa_ssa44_relief_active'] = _ssa44_active
     row['irmaa_magi_used'] = irmaa_magi
     row['irmaa_filing_used'] = irmaa_filing
-    irmaa_yr = irmaa_surcharge_fn(irmaa_magi, year, n_medicare, irmaa_filing) if n_medicare > 0 else 0.0
     row['irmaa_tier'] = irmaa_tier_fn(irmaa_magi, year, irmaa_filing)
 
     # Resolve the deferred home-sale taxable-gain tax (extracted stage):
