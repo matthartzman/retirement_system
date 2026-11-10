@@ -997,6 +997,7 @@ def run_deterministic_projection_stage(c):
         )
         earned_base = _stage5.earned_base
         net_earned_taxable = _stage5.net_earned_taxable
+        pretax_contributions_yr = _stage5.pretax_contributions
         half_se_ded = _stage5.half_se_ded
         sehi_ded = _stage5.sehi_ded
         qbi_ded = _stage5.qbi_ded
@@ -1149,6 +1150,7 @@ def run_deterministic_projection_stage(c):
             year=year, filing=filing, h_age=h_age, w_age=w_age,
             h_alive=h_alive, w_alive=w_alive,
             earned_base=earned_base, net_earned_taxable=net_earned_taxable,
+            pretax_contributions=pretax_contributions_yr,
             half_se_ded=half_se_ded, sehi_ded=sehi_ded, h_ss=h_ss, w_ss=w_ss,
             rmd_taxable_total=rmd_taxable_total, pension=pension,
             wife_single_ann=wife_single_ann, wife_joint_ann=wife_joint_ann,
@@ -1383,6 +1385,7 @@ def run_deterministic_projection_stage(c):
             heloc_draw_yr=heloc_draw_yr, heloc_interest_yr=heloc_interest_yr,
             heloc_repayment_principal_yr=heloc_repayment_principal_yr,
             rental_cash=None if _rental_year is None else _rental.net_cash_flow(_rental_year),
+            pretax_contributions=pretax_contributions_yr,
         )
 
         # ── Withdrawal Cascade — order matches client_data.csv Withdrawal Policy ──

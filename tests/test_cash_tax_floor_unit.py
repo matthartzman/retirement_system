@@ -1,6 +1,8 @@
 """Pair-status tax floor (cash plan section 10 item 3; owner choice "floor"): default OFF, and a no-op while OFF."""
 import copy
 
+import pytest
+
 from src import cash_tax_floor, cash_view
 from src import sales_confirm
 
@@ -36,7 +38,9 @@ def test_engine_off_is_identical_and_on_forces_a_taxed_pretax_draw():
         on = project({**copy.deepcopy(c), "cash_pair_status_tax": True, "cash_pair_floor_draws": {"Member_2_IRA": 30000.0}})
     assert off == base and all("_pair_floor_draws" not in r for r in base)
     assert on[0]["_pair_floor_draws"] == {"Member_2_IRA": 30000.0}
-    assert on[0]["_account_withdrawals"]["Member_2_IRA"] == 30000.0
+    # The cascade may top the forced draw up by cents of elective draw (the
+    # year's 401(k)/HSA contributions now come out of take-home pay).
+    assert on[0]["_account_withdrawals"]["Member_2_IRA"] == pytest.approx(30000.0, abs=1.0)
     assert on[0]["total_tax"] > base[0]["total_tax"]                  # ordinary income, like an RMD
     assert all("_pair_floor_draws" not in r for r in on[1:])          # first year only
 

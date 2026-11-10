@@ -2191,12 +2191,19 @@ def plan_roth_conversion(
     compute_fed_tax_fn: Callable,
     state_tax_estimate_fn: Callable[[float, int], float],
     other_cash_need: float = 0.0,
+    earned_taxable: float | None = None,
 ) -> ConversionPlan:
     """Compute the Roth conversion amount and diagnostics for a projection year.
 
     ``other_cash_need`` is cash the year must pay that is neither spending nor
-    income tax (this year's IRMAA surcharge), counted against the non-Roth
-    surplus that funds the conversion's tax.
+    income tax (this year's IRMAA surcharge, the 401(k)/HSA contributions taken
+    out of pay), counted against the non-Roth surplus that funds the
+    conversion's tax.
+
+    ``earned_taxable`` is the earned income AGI actually counts (net of
+    business expenses, employer FICA and pre-tax 401(k)/HSA contributions);
+    the pre-conversion AGI estimate uses it instead of gross ``earned_base``
+    when given, so the bracket room matches the AGI the year is taxed on.
     """
     _call_args = dict(locals())
     forced_amount = float((c.get("forced_roth", {}) or {}).get(year, 0.0) or 0.0)
@@ -2256,7 +2263,7 @@ def plan_roth_conversion(
     top_target = _bracket_top_match if _bracket_top_match is not None else 400000.0
 
     pre_non_ss = (
-        earned_base - half_se_ded - sehi_ded
+        (earned_base if earned_taxable is None else earned_taxable) - half_se_ded - sehi_ded
         + rmd_total + pension + wife_single_ann + wife_joint_ann
         + h_single_ann + h_joint_ann + note_int_yr
         + portfolio_ordinary + portfolio_qualified

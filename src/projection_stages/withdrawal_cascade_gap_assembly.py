@@ -31,6 +31,7 @@ def apply_gap_assembly(
     heloc_interest_yr: float,
     heloc_repayment_principal_yr: float,
     rental_cash: float | None = None,
+    pretax_contributions: float = 0.0,
 ) -> float:
     """Withdrawal Cascade sub-stage #0 (design doc addendum): assemble this
     year's cash ``gap`` (design doc Stage 10, lines ~959-1050), apply new
@@ -59,6 +60,12 @@ def apply_gap_assembly(
         # HELOC draw is sized; income_funding carries it to the Monte Carlo
         # replay. None = Rental Properties off.
         income_from_streams += rental_cash
+    if pretax_contributions:
+        # The 401(k) deferral and HSA contribution come out of pay before it
+        # reaches the household (income.py deposits them), so only take-home
+        # earnings fund the gap; income_funding carries the same net figure
+        # to the Monte Carlo replay.
+        income_from_streams -= pretax_contributions
     row['income_funding'] = income_from_streams
     row['other_cash_need_yr'] = other_cash_need_yr
     row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr

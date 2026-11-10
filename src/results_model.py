@@ -53,7 +53,7 @@ def _row_cashflow_breakdown(r: dict[str, Any]) -> dict[str, Any]:
     ltcg = _n(r.get('ltcg_tax'))
     return {
         'income': {
-            'earned': _n(r.get('earned')), 'h_ss': _n(r.get('h_ss')), 'w_ss': _n(r.get('w_ss')),
+            'earned': _n(r.get('earned')) - _n(r.get('pretax_payroll_deductions')), 'h_ss': _n(r.get('h_ss')), 'w_ss': _n(r.get('w_ss')),
             'pension': _n(r.get('pension')), 'wife_single_ann': _n(r.get('wife_single_ann')),
             'wife_joint_ann': _n(r.get('wife_joint_ann')), 'h_single_ann': _n(r.get('h_single_ann')),
             'h_joint_ann': _n(r.get('h_joint_ann')),
@@ -375,6 +375,9 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
     # Because every real cash-need component is now itemized above, the two
     # bars still reconcile: income+draws+unfunded == spend+taxes+surplus, using
     # the engine's own surplus/unfunded_gap rather than a chart-local guess.
+    if any('pretax_contributions' in bd['income'] for bd in bds):
+        # Gross pay is on the income bar; the 401(k)/HSA part of it went into accounts.
+        exp_values["401(k)/HSA Contributions"] = [round(-_n(bd['income'].get('pretax_contributions'))) for bd in bds]
     exp_values["Surplus (Reinvested)"] = [round(max(0, _n(bd['surplus']))) for bd in bds]
     if rental_on:
         exp_values["Rental Net Cost"] = [round(max(0, -_n(bd['income'].get('rental')))) for bd in bds]
@@ -522,7 +525,7 @@ def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
         wd_total = trust_total + _n(r.get('hsa_wd')) + roth_total + h_ira_cash + w_ira_cash + _n(r.get('heloc_draw'))
         data_rows.append(row([
             (r.get('year'), 'year'), (r.get('h_age'), 'integer'), (r.get('w_age'), 'integer'),
-            (r.get('earned'), 'currency'), (r.get('h_ss'), 'currency'), (r.get('w_ss'), 'currency'), (r.get('pension'), 'currency'),
+            (_n(r.get('earned')) - _n(r.get('pretax_payroll_deductions')), 'currency'), (r.get('h_ss'), 'currency'), (r.get('w_ss'), 'currency'), (r.get('pension'), 'currency'),
             (r.get('wife_single_ann'), 'currency'), (r.get('wife_joint_ann'), 'currency'), (r.get('h_single_ann'), 'currency'), (r.get('h_joint_ann'), 'currency'),
             (_n(r.get('note_princ')) + _n(r.get('note_int')), 'currency'), (r.get('rmd_total'), 'currency'),
             *([(_bi.get('rental', 0.0), 'currency')] if rental_on else []),

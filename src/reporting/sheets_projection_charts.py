@@ -158,7 +158,10 @@ def build_sheet8(ws, c, rows, mc_data=None):
             }
 
         streams = {
-            'earned':  round(_inc['earned']),
+            # Take-home pay: the fixed column layout has no contributions series,
+            # so the 401(k)/HSA part of gross pay (a negative income line) is netted
+            # here, keeping Σ Income equal to the engine's own income total.
+            'earned':  round(_inc['earned'] + _inc.get('pretax_contributions', 0.0)),
             'h_ss':    round(_inc['h_ss']),
             'w_ss':    round(_inc['w_ss']),
             'pension': round(_inc['pension']),
