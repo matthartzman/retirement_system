@@ -2,10 +2,10 @@
 
 **Basis:** two design documents, both design-only, neither started:
 
-* `documentation/future/superpowers/plans/2026-09-09-dashboard-js-modularization-design.md` — `frontend/js/dashboard.js`, 7,512 lines
-* `documentation/future/superpowers/plans/2026-09-09-planning-engines-modularization-design.md` — `src/planning_engines.py`, 6,418 lines
+* `documentation/archive/superpowers/plans/2026-09-09-dashboard-js-modularization-design.md` — `frontend/js/dashboard.js`, 7,512 lines
+* `documentation/archive/superpowers/plans/2026-09-09-planning-engines-modularization-design.md` — `src/planning_engines.py`, 6,418 lines
 
-Status: planned (not started per its own text; WI-016 did not re-verify, and the `dashboard_decomp_*.js` files suggest part of the frontend split has since been done). **Original status line:** not started. This plan sequences both and assigns a model tier and
+Status: superseded (the split shipped through the codemod-driven plan instead: the 54 `dashboard_decomp_*.js` files, and `engine_kernels.py` for the engine, PR #253; see `documentation/reference/CURRENT_SYSTEM_DESIGN_SPEC.md` 7.2 and `documentation/archive/superpowers/plans/2026-08-10-dashboard-js-split-codemod.md`)
 reasoning effort per item, following the policy convention established in
 `documentation/archive/reports/REMAINING_WORK_PLAN_2026-08-12.md` §5.
 

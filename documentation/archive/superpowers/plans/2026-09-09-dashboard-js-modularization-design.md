@@ -1,6 +1,6 @@
 # dashboard.js modularization — design
 
-Status: planned (design only). The text below says nothing is implemented; WI-016 did not re-verify that, and the `dashboard_decomp_*.js` files now beside `dashboard.js` (see `documentation/reference/CURRENT_SYSTEM_DESIGN_SPEC.md` 7.2) mean parts may already be done. Confirm before acting on it.
+Status: superseded (the split shipped through the codemod-driven plan instead: the 54 `dashboard_decomp_*.js` files, and `engine_kernels.py` for the engine, PR #253; see `documentation/reference/CURRENT_SYSTEM_DESIGN_SPEC.md` 7.2 and `documentation/archive/superpowers/plans/2026-08-10-dashboard-js-split-codemod.md`)
 
 Original status line: design only. Nothing in this document has been implemented.
 **Date:** 2026-09-09

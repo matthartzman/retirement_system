@@ -1,6 +1,6 @@
 # Housing Optimizer Panel Fixes Implementation Plan
 
-Status: planned (all 58 of its checkboxes are unchecked, but the later housing work in `src/housing/` already carries a bedrooms criterion, so part of it may be done or superseded; WI-016 did not verify which, so confirm before acting on it).
+Status: implemented (merged to main 2026-09-14 to 2026-09-15: per-move buy/rent selects 501bebad, concurrent move-2 backend fef6d0f1 and UI 6f7ffd1a, review fixes c27b39dc and d16f56d5; the checkboxes in the body were never ticked)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

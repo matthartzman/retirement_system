@@ -1,6 +1,6 @@
 # planning_engines.py modularization — design
 
-Status: planned (design only; WI-016 did not re-verify the "nothing implemented" claim). **Original status line:** design only. Nothing in this document has been implemented. §2.4 is
+Status: superseded (the split shipped through the codemod-driven plan instead: the 54 `dashboard_decomp_*.js` files, and `engine_kernels.py` for the engine, PR #253; see `documentation/reference/CURRENT_SYSTEM_DESIGN_SPEC.md` 7.2 and `documentation/archive/superpowers/plans/2026-08-10-dashboard-js-split-codemod.md`)
 the one section backed by measurement rather than analysis — it settles the
 feasibility question the first draft flagged as the risk to Tier 1, and §6, §7
 and §9's question 4 were rewritten from its numbers.

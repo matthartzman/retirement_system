@@ -89,7 +89,7 @@ def _apply_ss_earnings_test(c, bal, row, who, year, annual_benefit, monthly_bene
                 return annual_benefit * ss_claim_factor(eff, c[f'{who}_dob_yr'], fra_override) / base_factor
     return annual_benefit
 
-IL_REPLACEMENT_TAX_EXEMPTION = 1_000.0   # standard exemption off the replacement-tax base (CPA to confirm, W3-01)
+IL_REPLACEMENT_TAX_EXEMPTION = 1_000.0   # standard exemption off the replacement-tax base (CPA confirmed 2026-11)
 
 
 def _scorp_replacement_tax(c, year, net_business_income):
@@ -299,7 +299,7 @@ def apply_income(
             # exemption. It is deductible by the entity, so like employer FICA it reduces
             # the distribution, the QBI base and the owner's federal taxable income.
             # Base approximation: net business income after salary and employer FICA, all
-            # treated as Illinois-apportioned (CPA to confirm base and PTE-election, W3-01).
+            # treated as Illinois-apportioned (base and PTE approach approved by the CPA, 2026-11).
             replacement_tax = _scorp_replacement_tax(c, year, distribution)
             distribution = max(0, distribution - replacement_tax)
             row['scorp_replacement_tax'] = replacement_tax

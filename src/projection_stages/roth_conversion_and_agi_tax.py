@@ -843,7 +843,7 @@ def apply_agi_and_tax(
     # SALT (FIN-003): the state income tax in the deduction is the state tax the engine actually
     # computes below (same income classification: retirement distributions, Social Security and
     # conversions are excluded where the state exempts them), computed once and reused for the
-    # tax line. Current-year computed tax stands in for cash-basis payments (CPA to confirm timing).
+    # tax line. Current-year computed tax stands in for cash-basis payments (CPA confirmed this timing, 2026-11).
     # Preliminary state tax estimate for SALT deduction (computed before final state_tax)
     # SALT estimate: use residence state rate (not hardcoded IL). Item 291
     # (2026-08-19): a Step 7.7 sweep flagged this fallback and neutralized
