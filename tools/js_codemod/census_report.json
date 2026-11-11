@@ -2969,6 +2969,36 @@
       "scope": "inside-function"
     },
     {
+      "name": "stripUiLabelPrefix",
+      "file": "frontend/js/dashboard_decomp_labels.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "humanizeGroupKey",
+      "file": "frontend/js/dashboard_decomp_labels.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "stripUiLabelPrefix",
+      "file": "frontend/js/dashboard_decomp_labels.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "humanizeGroupKey",
+      "file": "frontend/js/dashboard_decomp_labels.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "stripUiLabelPrefix",
+      "file": "frontend/js/dashboard_decomp_labels.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "budgetLines",
       "file": "frontend/js/dashboard_decomp_large_discretionary.js",
       "kind": "read",
@@ -3866,36 +3896,6 @@
       "name": "apiBase",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "stripUiLabelPrefix",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "humanizeGroupKey",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "stripUiLabelPrefix",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "humanizeGroupKey",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "stripUiLabelPrefix",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
       "scope": "inside-function"
     },
     {

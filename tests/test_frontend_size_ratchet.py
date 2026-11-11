@@ -770,7 +770,7 @@ PER_FILE_CAPS = {
     "dashboard_decomp_checklist_closeout.js": 1_399,
     "dashboard_decomp_housing_optimizer.js": 2_832,
     "dashboard_decomp_housing_scenarios.js": 1_466,
-    "dashboard_decomp_row_model.js": 5_415,
+    "dashboard_decomp_row_model.js": 4_927,
     "dashboard_decomp_ytd_and_plan_folder_io.js": 1_184,
     "help_registry.js": 1_124,
     "reports_ui.js": 1_550,
@@ -791,6 +791,7 @@ PER_FILE_CAP_LOG = [
     ("2026-11-11", "dashboard_decomp_row_model.js", 5_974, 5_935, "lowered: inline api() fetch fallback removed (W1-06)"),
     ("2026-11-11", "dashboard_decomp_row_model.js", 5_935, 5_674, "lowered: YTD edit helpers extracted to dashboard_decomp_ytd_edit.js (W4-06)"),
     ("2026-11-11", "dashboard_decomp_row_model.js", 5_674, 5_415, "lowered: in-app modals extracted to dashboard_decomp_inapp_modals.js (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 5_415, 4_927, "lowered: labels/acronyms extracted to dashboard_decomp_labels.js (W4-06)"),
 ]
 
 
