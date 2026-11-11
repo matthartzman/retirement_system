@@ -1,5 +1,5 @@
 // Note Receivable installment-sale inputs show the Form 8949 names, not the raw keys
-// (design: documentation/future/superpowers/plans/2026-11-06-note-installment-gain-tax-design-and-plan.md 4.1).
+// (design: documentation/archive/superpowers/plans/2026-11-06-note-installment-gain-tax-design-and-plan.md 4.1).
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { loadDashboardSandbox } from "./load_dashboard.mjs";

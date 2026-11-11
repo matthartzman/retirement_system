@@ -1,6 +1,6 @@
 # Financial Trends Percent View Implementation Plan
 
-Status: approved
+Status: implemented (merged to main as PR #297 on 2026-10-28)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -10,7 +10,7 @@ Status: approved
 
 **Tech Stack:** Python / Flask / sqlite (`financial_trends_reporter/`), vanilla ES modules, pytest, `node --test`.
 
-**Spec:** `documentation/future/superpowers/plans/2026-10-28-trends-percent-view-design.md` (decisions in §7).
+**Spec:** `documentation/archive/superpowers/plans/2026-10-28-trends-percent-view-design.md` (decisions in §7).
 
 ## Global Constraints
 

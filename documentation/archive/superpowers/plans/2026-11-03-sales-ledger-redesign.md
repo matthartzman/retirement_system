@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-Status: approved
+Status: implemented (merged to main as PR #388, Sales Ledger redesign; superseded in part by the v3 design, PR #418)
 
 **Goal:** Replace the single 5,400px Sales Ledger column with four workflow tabs of collapsible, alert-aware sections (default tab = fix lots & transactions), fix the repaint bug that wipes drafts, and consolidate the year-end checklist on the existing Year-End Transition page.
 
@@ -10,7 +10,7 @@ Status: approved
 
 **Tech Stack:** Browser JS (ES modules, no framework), `node --test` frontend tests, Python 3 / pytest backend (`src/year_end.py` only), CSS in `frontend/css/dashboard.css`.
 
-**Spec:** `documentation/future/superpowers/specs/2026-11-03-sales-ledger-redesign-design.md` (v2.1, accepted). Mockup: `documentation/future/superpowers/mockups/sales-ledger-v2.html`.
+**Spec:** `documentation/archive/superpowers/specs/2026-11-03-sales-ledger-redesign-design.md` (v2.1, accepted). Mockup: `documentation/future/superpowers/mockups/sales-ledger-v2.html`.
 
 ## Global Constraints
 - Step id `sales_ledger` and all existing server APIs/data model/tax logic unchanged; the only backend change is new steps in `src/year_end.py` (Task 14).

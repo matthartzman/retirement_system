@@ -828,7 +828,9 @@ def apply_agi_and_tax(
     # Classify income for state taxation (retirement income may be exempt)
     qual_ann, nonqual_ann = _qualified_and_nonqualified_annuity_income(c, year)
     retirement_dist = rmd_taxable_total + qual_ann  # pension already included in qual_ann if qualified
-    earned_net = max(0, net_earned_taxable - half_se_ded - sehi_ded)
+    # PTE election: the owner's Illinois return takes a credit for the entity tax, modeled as excluding the
+    # taxed income from the owner's state base (equal while the entity and state rates agree).
+    earned_net = max(0, net_earned_taxable - half_se_ded - sehi_ded - float(row.get('scorp_pte_base', 0.0) or 0.0))
     # WI-305 / FIN-006: count of qualifying LIVING members (per-person NY/CO
     # retirement exclusion), not a household-wide OR of both ages. Name kept
     # for the downstream stages that thread it into state_income_tax.

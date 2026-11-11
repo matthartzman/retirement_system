@@ -1,6 +1,6 @@
 # Note Receivable installment-sale gain tax — design and plan
 
-Status: approved
+Status: implemented (merged to main as PR #412 on 2026-11-07)
 
 Date: 2026-11-06. Decisions confirmed by the user in chat the same day (section 1).
 

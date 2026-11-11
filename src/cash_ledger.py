@@ -1,7 +1,7 @@
 """Cash ledger of one plan investment account (cash tracking Phase 2): a derived view, nothing is stored.
 
 Pure functions. Rows come from ``store.broker.activity(account=...)`` and the kept Monarch cash-movement rows of the
-account (``ytd_transactions``); see ``documentation/future/superpowers/plans/2026-10-31-investment-account-cash-tracking-design-and-plan.md``
+account (``ytd_transactions``); see ``documentation/archive/superpowers/plans/2026-10-31-investment-account-cash-tracking-design-and-plan.md``
 sections 4.2 (classes), 4.4 (source precedence) and 4.8 (derived view). Transfer pairing (Phase 3), balances and anchors
 (Phase 4) and the screen (Phase 5) are not here: every row leaves ``pair_status`` at ``"unpaired"`` (``cash_pairing``
 fills it across accounts) and carries the running ``cash_balance`` of the broker file when it has one.

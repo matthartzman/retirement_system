@@ -60,6 +60,10 @@ Cashflow,Earned Income,earned_income_start_year,year,TRUE,,,First year of earned
 Cashflow,Earned Income,earned_income_annual_increase,percent,TRUE,3.00%,-100,20,Annual growth rate (can be negative for a planned pay cut, sabbatical year, reduced hours, or dropping to part-time -- e.g. -50% means earning half as much the following year); -100% is the mathematical floor (income stops)
 Cashflow,Earned Income,entity_type,choice,TRUE,s_corp,,,s_corp | sole_prop | W2
 Cashflow,S-Corp,reasonable_salary_annual,dollars,FALSE,60000,0,,W-2 salary for FICA
+Cashflow,S-Corp,pte_election,boolean,FALSE,FALSE,,,Illinois pass-through-entity tax election: the S-corp pays the entity tax and you take a credit on your Illinois return
+Cashflow,S-Corp,pte_tax_rate,percent,FALSE,4.95%,0,15,Illinois pass-through-entity tax rate used when the election is on
+Cashflow,Self-Employment,qbi_sstb,boolean,FALSE,FALSE,,,TRUE if the business is a specified service trade or business for the QBI deduction (health law accounting consulting and similar)
+Cashflow,Self-Employment,qbi_ubia,dollars,FALSE,0,0,,Unadjusted basis of qualified property held by the business for the QBI wage-and-property limit
 Cashflow,Spending,annual_spending_base_year,dollars,TRUE,,,Base annual spending,
 Cashflow,Spending,core_spending_growth_mode,choice,TRUE,cpi,,,cpi | manual_override; Choose whether core spending increases with general CPI or a manual spending-specific rate.
 Cashflow,Spending,core_spending_manual_growth_rate,percent,FALSE,0.00%,0,20,Annual core-spending increase used only when core_spending_growth_mode is manual_override.

@@ -1,3 +1,9 @@
+## 2026-11-11 — Full-row engine snapshot regenerated for the PTE election row keys
+
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=943468fa20cc29cf58e1d16fb4f94fdc270e49f45ce54165eab5ed91b5fc8425 -->
+
+**Reason.** The Illinois PTE election adds row keys scorp_pte_tax and scorp_pte_base to S-corp scenarios; with the election off they are zero, so no value moves. The election's hand check is in tests/test_scorp_pte_election_functional.py (frozen plan 2026: base 222,654.55, tax 11,021.40).
+
 ## 2026-11-11 — Full-row engine snapshot regenerated for the non-itemizer charitable deduction
 
 <!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=72377d13d9c55ea3bacd752382f96b33d4994a2b0ce2c58145b4f4edcb977e49 -->

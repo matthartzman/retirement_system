@@ -1,6 +1,6 @@
 # Investment Sales Ledger v3 Implementation Plan
 
-Status: approved
+Status: implemented (merged to main as PR #418 on 2026-11-09); open items are in BACKLOG.md
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -10,7 +10,7 @@ Status: approved
 
 **Tech Stack:** Python 3 / Flask / SQLite plan store, vanilla-JS ES modules, `node --test` frontend tests (`tests/frontend/load_dashboard.mjs` vm sandbox), pytest.
 
-**Spec:** `documentation/future/superpowers/specs/2026-11-09-sales-ledger-v3-design.md` (approved). Mockup: `documentation/future/superpowers/mockups/sales-ledger-v3.html`. Read both first.
+**Spec:** `documentation/archive/superpowers/specs/2026-11-09-sales-ledger-v3-design.md` (approved). Mockup: `documentation/future/superpowers/mockups/sales-ledger-v3.html`. Read both first.
 
 ## Global Constraints
 

@@ -1,6 +1,6 @@
 # Financial Trends — Percent View (design, draft for review)
 
-Status: approved. Decisions made 2026-10-28 (§7); implementation plan written.
+Status: implemented (merged to main as PR #297 on 2026-10-28)
 
 ## 1. Goal
 

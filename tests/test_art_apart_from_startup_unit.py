@@ -4,7 +4,7 @@ Before 2026-11 the net worth "Startup Equity" line summed every non-vehicle Othe
 plus its $9,000 art showed as one $74,700 line, and the art alone (no sale date) kept the line above zero after the
 start-up was sold.
 
-Design: documentation/future/superpowers/plans/2026-11-07-cash-balances-and-art-split-design-and-plan.md 3.4."""
+Design: documentation/archive/superpowers/plans/2026-11-07-cash-balances-and-art-split-design-and-plan.md 3.4."""
 from __future__ import annotations
 
 import os

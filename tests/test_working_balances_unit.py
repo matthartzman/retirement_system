@@ -4,7 +4,7 @@ The forecast used to hold today's checking balance and today's credit-card liabi
 now takes a standard balance for all checking accounts together and for all credit cards together, used from the
 year after the current one, each with its own annual percent change; the current year keeps today's balances.
 
-Design: documentation/future/superpowers/plans/2026-11-07-cash-balances-and-art-split-design-and-plan.md 3.1-3.3."""
+Design: documentation/archive/superpowers/plans/2026-11-07-cash-balances-and-art-split-design-and-plan.md 3.1-3.3."""
 from __future__ import annotations
 
 import os

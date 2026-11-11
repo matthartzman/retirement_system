@@ -6,7 +6,7 @@ figures for the note -- short-term (Part I) and long-term (Part II) proceeds and
 same fraction of every later principal payment. All four blank or $0 means no gain is modeled (the behaviour
 before 2026-11).
 
-Design: documentation/future/superpowers/plans/2026-11-06-note-installment-gain-tax-design-and-plan.md 4.1-4.2.
+Design: documentation/archive/superpowers/plans/2026-11-06-note-installment-gain-tax-design-and-plan.md 4.1-4.2.
 """
 from __future__ import annotations
 

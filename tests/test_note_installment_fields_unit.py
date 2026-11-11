@@ -1,7 +1,7 @@
 """Note Receivable installment-sale inputs: the four Form 8949 rows per note, their backfill, the gain ratios
 the parser derives from them, and the interest schedule read for every year the note pays.
 
-Design: documentation/future/superpowers/plans/2026-11-06-note-installment-gain-tax-design-and-plan.md 4.1-4.4."""
+Design: documentation/archive/superpowers/plans/2026-11-06-note-installment-gain-tax-design-and-plan.md 4.1-4.4."""
 from __future__ import annotations
 
 import pytest

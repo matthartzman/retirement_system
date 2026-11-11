@@ -159,7 +159,8 @@ def build_sheet9(ws, c, rows):
     _il_pprt_modeled = _resident_state.strip().lower() == 'illinois' and _il_pprt_rate > 0
     _entity_tax_cell = (
         f'Modeled: {_il_pprt_rate:.1%} replacement tax on net income after salary, employer payroll tax and a $1,000 exemption; '
-        'a pass-through-entity (PTE) tax election is not modeled'
+        + (f'the pass-through-entity (PTE) tax election is ON at {float(c.get("pte_rate", 0.0495) or 0.0):.2%}, with the Illinois credit' if c.get('pte_election')
+           else 'the pass-through-entity (PTE) tax election is off')
         if _il_pprt_modeled else 'Not modeled in the projection')
 
     comparison_rows = [
@@ -199,8 +200,8 @@ def build_sheet9(ws, c, rows):
     note = (f'At ${gross:,.0f} gross income with ${salary:,.0f} reasonable salary, '
             f'the S-Corp saves approximately ${se_tax_savings:,.0f} in payroll taxes '
             f'less ~$2,500 in administrative overhead = net ${max(0,se_tax_savings-2500):,.0f}/yr benefit. '
-            'The QBI deduction applies the income-threshold phase-in, the W-2 wage limit, the taxable-income cap and the 2026 minimum deduction; the business is treated as not a specified service business with no qualified property. '
-            + (f'The Illinois replacement tax ({_il_pprt_rate:.1%}) is deducted from the distribution in the projection; a pass-through-entity tax election is not modeled. '
+            'The QBI deduction applies the income-threshold phase-in, the W-2 wage limit, the taxable-income cap and the 2026 minimum deduction; the specified-service status and qualified property are the Plan Data inputs (default: not a specified service business, no property). '
+            + (f'The Illinois replacement tax ({_il_pprt_rate:.1%}) is deducted from the distribution in the projection; the pass-through-entity tax election is ' + ('on, with the Illinois credit. ' if c.get('pte_election') else 'off (turn it on in Plan Data, Cashflow, S-Corp). ')
                if _il_pprt_modeled else
                f'{_resident_state or "The configured state"} entity-level taxes on S-corp income are not modeled in the projection; enter any such tax as a business expense. ') +
             'Annuity PV/reserve figures elsewhere in the workbook are calibration-dependent and should be refreshed against current carrier illustrations before sale/replacement decisions.')

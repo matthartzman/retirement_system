@@ -3,7 +3,7 @@
 Each principal payment carries a fixed share of short-term gain (ordinary income) and long-term gain (LTCG),
 from the note's Form 8949 inputs. Before 2026-11 principal was untaxed.
 
-Design: documentation/future/superpowers/plans/2026-11-06-note-installment-gain-tax-design-and-plan.md 4.2-4.3."""
+Design: documentation/archive/superpowers/plans/2026-11-06-note-installment-gain-tax-design-and-plan.md 4.2-4.3."""
 from __future__ import annotations
 
 import os

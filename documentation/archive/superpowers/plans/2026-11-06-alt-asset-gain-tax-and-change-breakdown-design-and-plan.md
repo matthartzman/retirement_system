@@ -1,6 +1,6 @@
 # Alternative-asset gain tax, and the Change breakdown on the Liquid pop-up — design and plan
 
-Status: approved
+Status: implemented (merged to main as PR #411 on 2026-11-07; the change breakdown in commit aac05088 on 2026-11-06)
 
 Date: 2026-11-06. Decisions confirmed by the user the same day (see section 1).
 

@@ -2,7 +2,7 @@
 
 Date: 2026-11-02.
 
-Status: approved. Phases 1 (cash-year close), 2 (guided Year-end page) and 3 (snapshot retention) built 2026-11-03 (see section 8); Phase 4 (verified-account gate on the pair-status floor) built 2026-11-03.
+Status: implemented (merged to main as PRs #380, #383 and #388, 2026-11-03 to 2026-11-04)
 
 Related: `2026-10-31-investment-account-cash-tracking-design-and-plan.md` (sections 9 and 10 and the Phase 6 Built note), the
 report-only current-year comparison (built in a separate session from the owner's 2026-11-02 decisions), and

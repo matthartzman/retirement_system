@@ -1,6 +1,6 @@
 # Investment Sales Ledger v3: simplify the page (item 378)
 
-Status: approved
+Status: implemented (merged to main as PR #418 on 2026-11-09); open items are in BACKLOG.md
 
 Date: 2026-11-09. Mockup: `documentation/future/superpowers/mockups/sales-ledger-v3.html` (the two
 "Option B" views, plus "Where the cash section goes"; Option A there is the rejected alternative, though

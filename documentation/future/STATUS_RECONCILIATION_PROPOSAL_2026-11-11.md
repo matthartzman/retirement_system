@@ -1,8 +1,8 @@
 # Future-document status reconciliation: proposal for owner approval
 
-Status: draft
+Status: approved (by the owner, 2026-11-11; applied the same day; rows marked owner to decide are untouched)
 
-Prepared in Wave 3 (W3-08). Evidence is `git log main` subjects (the repository squash-merges, so a pull request shows as "(#NNN)" or a "Merge pull request" commit). Nothing below has been applied except the Trends drill-down design and plan, which are now implemented and archived. Approve or change each row; I then edit the Status lines and move the shipped documents to `archive/superpowers/plans/`.
+Prepared in Wave 3 (W3-08). Evidence is `git log main` subjects (the repository squash-merges, so a pull request shows as "(#NNN)" or a "Merge pull request" commit). Applied 2026-11-11 after the owner approved the table: the Status lines of the 'implemented' rows were rewritten with their merge references and the documents moved to `archive/superpowers/`. Rows marked 'owner to decide' were left as they were.
 
 | Document | Current status | Evidence found | Proposed status |
 |---|---|---|---|

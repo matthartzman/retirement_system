@@ -1,6 +1,6 @@
 # Standard cash and credit-card balances, and Art shown apart from Start-up — design and plan
 
-Status: approved
+Status: implemented (merged to main as PR #415 on 2026-11-07)
 
 Date: 2026-11-07. Requests and decisions are the user's, from chat the same day (section 1); the rest are marked
 as the designer's calls.

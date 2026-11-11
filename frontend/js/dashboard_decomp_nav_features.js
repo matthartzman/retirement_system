@@ -1,5 +1,5 @@
 // Left-nav redesign (2026-11-04): the Set up / Maintain switch and the per-heading "Features" popover.
-// Spec: documentation/future/superpowers/specs/2026-11-04-left-nav-redesign-design.md
+// Spec: documentation/archive/superpowers/specs/2026-11-04-left-nav-redesign-design.md
 //
 // Everything here is derived, never stored: a feature's on/off state is read through the same accessors the
 // Plan Features page uses (optionalFunctionEnabled / sectionFlagEnabled) and written through the same setter

@@ -104,6 +104,13 @@ def _scorp_replacement_tax(c, year, net_business_income):
     return max(0.0, net_business_income - IL_REPLACEMENT_TAX_EXEMPTION) * rate if rate > 0 else 0.0
 
 
+def _scorp_pte_tax(c, year, net_business_income):
+    """Illinois pass-through-entity tax when the election is on and the resident state is Illinois."""
+    if not c.get('pte_election') or str(_aa.state_for_year(c, year) or '').strip().lower() != 'illinois':
+        return 0.0
+    return max(0.0, net_business_income) * float(c.get('pte_rate', 0.0495) or 0.0)
+
+
 def apply_income(
     c: dict[str, Any],
     *,
@@ -296,6 +303,14 @@ def apply_income(
             replacement_tax = _scorp_replacement_tax(c, year, distribution)
             distribution = max(0, distribution - replacement_tax)
             row['scorp_replacement_tax'] = replacement_tax
+            # Illinois PTE tax election (CPA-approved approach): the entity pays rate x its net income after the
+            # replacement tax, deducts it federally (outside the SALT cap) like any entity expense, and the owner
+            # takes a credit against the Illinois tax (applied in apply_agi_and_tax).
+            pte_tax = _scorp_pte_tax(c, year, distribution)
+            row['scorp_pte_base'] = distribution if pte_tax > 0 else 0.0   # income the owner's Illinois return excludes
+            distribution = max(0, distribution - pte_tax)
+            row['scorp_pte_tax'] = pte_tax
+            replacement_tax += pte_tax   # both are paid from cash by the entity
             # SEHI: deducted via W-2 box 1 treatment. Real law requires the
             # premium to actually be added to the shareholder-employee's W-2
             # Box 1 wages for the personal SEHI deduction to be allowed at
@@ -306,8 +321,7 @@ def apply_income(
             if c['qbi_elig']:
                 qbi_base = distribution - sehi_ded
                 qbi_ded  = max(0, qbi_base * 0.20)
-            # The Illinois replacement tax is modeled above (_scorp_replacement_tax); a
-            # pass-through-entity (PTE) tax election is not modeled.
+            # The Illinois replacement tax and the optional PTE tax election are modeled above.
             net_earned_taxable = salary + distribution
             deferral_comp = max(0.0, salary)   # a deferral comes out of W-2 wages, never the distribution
             ss_test_earnings = salary   # S-corp distributions are not earnings

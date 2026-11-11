@@ -2,7 +2,7 @@
 
 Date: 2026-11-02.
 
-Status: draft. Verifies the four assumptions in `2026-10-31-investment-account-cash-tracking-design-and-plan.md`
+Status: implemented (findings document; merged to main as PR #343 on 2026-11-02)
 (section 6, Phase 0). Read-only: no code changed. Account numbers are deliberately left out (account-number protection
 plan); accounts are named by type. Evidence for (c) and (d) is the owner's real downloads of 2026-10-31, kept outside
 the repo.

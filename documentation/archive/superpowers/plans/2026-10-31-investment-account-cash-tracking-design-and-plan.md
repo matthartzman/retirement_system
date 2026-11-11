@@ -2,7 +2,7 @@
 
 Date: 2026-10-31.
 
-Status: approved, with the owner's decisions of 2026-10-31 (section 7). Built 2026-11-02: Phase 0 (#343), 1 (#345), 2 (#350), 3 (#352), 4 (#353, anchor 1 only), and the spending half of Phase 6 (#354). Phase 5 (screen) is merged (#355). Phase 6 engine half built 2026-11-02 as audit plus report-only (section 10 Built note). Engine wiring of the pair-status rule is built default OFF (section 13) and awaits the owner's approval of the numbers (`2026-11-03-cash-pair-status-tax-worked-example.md`).
+Status: implemented (merged to main as PRs #343 to #355 and #374, 2026-11-02 to 2026-11-03); the pair-status rule stays default OFF until the owner approves the numbers (see the worked example)
 
 Overlap with the transaction log (`2026-10-31-transaction-log-design-and-plan.md`): Phases 4 and 6 below are built
 together with the log's phase 3 as the combined phase in `2026-11-02-cash-and-transaction-log-integration.md`. That note

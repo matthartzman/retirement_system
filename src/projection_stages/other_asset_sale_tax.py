@@ -21,7 +21,7 @@ Approximations, stated so they can be lifted later: the federal stack base is th
 (IRA draws sized later in the cascade are not under it), the collectible gain does not push the year's other LTCG
 into higher brackets, and it does not raise taxable Social Security. A blank basis taxes the whole proceeds.
 
-Design: documentation/future/superpowers/plans/2026-11-06-alt-asset-gain-tax-and-change-breakdown-design-and-plan.md
+Design: documentation/archive/superpowers/plans/2026-11-06-alt-asset-gain-tax-and-change-breakdown-design-and-plan.md
 section 3.2.
 """
 from __future__ import annotations

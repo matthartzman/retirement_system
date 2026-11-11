@@ -2,7 +2,7 @@
 
 Status: planned
 Date: 2026-11-04
-Parent: `documentation/future/superpowers/specs/2026-11-04-left-nav-redesign-design.md`, shipped in PR #390 (branch `nav-redesign`).
+Parent: `documentation/archive/superpowers/specs/2026-11-04-left-nav-redesign-design.md`, shipped in PR #390 (branch `nav-redesign`).
 
 ## Decisions (from the review of the deviations)
 

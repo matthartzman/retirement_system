@@ -1224,6 +1224,86 @@
    {
     "$tuple": [
      "Cashflow",
+     "S-Corp",
+     "pte_election"
+    ]
+   },
+   {
+    "section": "Cashflow",
+    "subsection": "S-Corp",
+    "label": "pte_election",
+    "type": "boolean",
+    "required": "FALSE",
+    "default": "FALSE",
+    "min": "",
+    "max": "",
+    "description": "Illinois pass-through-entity tax election: the S-corp pays the entity tax and you take a credit on your Illinois return"
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Cashflow",
+     "S-Corp",
+     "pte_tax_rate"
+    ]
+   },
+   {
+    "section": "Cashflow",
+    "subsection": "S-Corp",
+    "label": "pte_tax_rate",
+    "type": "percent",
+    "required": "FALSE",
+    "default": "4.95%",
+    "min": "0",
+    "max": "15",
+    "description": "Illinois pass-through-entity tax rate used when the election is on"
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Cashflow",
+     "Self-Employment",
+     "qbi_sstb"
+    ]
+   },
+   {
+    "section": "Cashflow",
+    "subsection": "Self-Employment",
+    "label": "qbi_sstb",
+    "type": "boolean",
+    "required": "FALSE",
+    "default": "FALSE",
+    "min": "",
+    "max": "",
+    "description": "TRUE if the business is a specified service trade or business for the QBI deduction (health law accounting consulting and similar)"
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Cashflow",
+     "Self-Employment",
+     "qbi_ubia"
+    ]
+   },
+   {
+    "section": "Cashflow",
+    "subsection": "Self-Employment",
+    "label": "qbi_ubia",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "0",
+    "min": "0",
+    "max": "",
+    "description": "Unadjusted basis of qualified property held by the business for the QBI wage-and-property limit"
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Cashflow",
      "Spending",
      "annual_spending_base_year"
     ]

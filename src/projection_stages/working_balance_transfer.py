@@ -11,7 +11,7 @@ Run once a year before the cash gap is assembled. Each side is a transfer, so no
 Each account (card) keeps its share of the total. A plan with no standard balance and no percent change for a side
 leaves that side alone. Cards with a payoff date are paying themselves off and are left out.
 
-Design: documentation/future/superpowers/plans/2026-11-07-cash-balances-and-art-split-design-and-plan.md 3.2-3.3.
+Design: documentation/archive/superpowers/plans/2026-11-07-cash-balances-and-art-split-design-and-plan.md 3.2-3.3.
 """
 from __future__ import annotations
 

@@ -2,7 +2,7 @@
 
 Date: 2026-11-02.
 
-Status: approved and built 2026-11-02, and the engine half of C.4 as audit plus report-only (see task C.4). Tasks C.1 to C.3 shipped (#349, #353); C.4 spending half shipped (#354); log task 3.3 (per-account switch-over) is complete. Decisions marked **Claude's call** can be overridden by the owner.
+Status: implemented (merged to main as PRs #349, #351, #353 and #354, 2026-11-02)
 
 Settles where two plans overlap, so neither is built in a way the other has to undo:
 - `2026-10-31-transaction-log-design-and-plan.md` (the "log")

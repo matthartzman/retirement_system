@@ -297,6 +297,8 @@
    "roth_nw": 496062.21,
    "roth_wd": 0.0,
    "salt_gross": 32488.74,
+   "scorp_pte_base": 0.0,
+   "scorp_pte_tax": 0.0,
    "scorp_replacement_tax": 3375.45,
    "sehi_deduction_source": 10000.0,
    "senior_bonus_deduction": 0.0,
@@ -16516,7 +16518,7 @@
    [
     "WARNING",
     "N8",
-    "The qualified business income (QBI) deduction applies the income-threshold phase-in, the W-2 wage limit, the taxable-income cap and the 2026 minimum deduction, but treats the business as one business that is not a specified service business and owns no qualified property, because the plan has no screen for those facts. If your business is a specified service business (for example consulting, law, accounting or health), the deduction is overstated above the income threshold. Capital gains from withdrawals are not netted in the taxable-income cap. Ask a tax professional to confirm your status.",
+    "The qualified business income (QBI) deduction applies the income-threshold phase-in, the W-2 wage limit, the taxable-income cap and the 2026 minimum deduction, but treats the business as one business whose specified-service status and qualified property come from 5C. Plan Data (Cashflow, Self-Employment: qbi_sstb and qbi_ubia; the defaults are not a specified service business and no property). If your business is a specified service business (for example consulting, law, accounting or health), set qbi_sstb to TRUE: otherwise the deduction is overstated above the income threshold. Capital gains from withdrawals are not netted in the taxable-income cap. Ask a tax professional to confirm your status.",
     null,
     null,
     null,

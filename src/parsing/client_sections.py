@@ -1296,7 +1296,10 @@ def parse_ltc_and_holdings(data, c):
     c['scorp_salary']     = _nd(data,'Cashflow','S-Corp','reasonable_salary_annual')  # schema default (60000)
     c['scorp_sehi_on_w2'] = _b(_v(data,'Cashflow','S-Corp','sehi_added_to_w2','TRUE'))
     c['scorp_state_rate'] = _n(_v(data,'Cashflow','S-Corp','state_corporate_surcharge_rate','0.015'), 0.015)
-    c['scorp_qbi_phaseout']= _b(_v(data,'Cashflow','S-Corp','qbi_phaseout_applies','FALSE'))
+    c['scorp_qbi_phaseout']= _b(_v(data,'Cashflow','S-Corp','qbi_phaseout_applies','FALSE'))   # no effect: the QBI limits are computed from income
+    # Illinois pass-through-entity (PTE) tax election: entity pays the tax, owner takes a state credit.
+    c['pte_election']     = _b(_v(data,'Cashflow','S-Corp','pte_election','FALSE'))
+    c['pte_rate']         = _n(_v(data,'Cashflow','S-Corp','pte_tax_rate','4.95%'), 0.0495)
     # Salary for retire-later extension years (default = base scorp_salary)
     c['scen_retire_salary'] = _n(_v(data,'Scenarios','Retire Later',
                                      'salary_override', str(int(c['scorp_salary']))),

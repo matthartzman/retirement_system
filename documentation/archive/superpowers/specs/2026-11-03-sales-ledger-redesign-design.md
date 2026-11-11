@@ -1,7 +1,7 @@
 # Sales Ledger page redesign — design (v2, after peer review)
 
 Date: 2026-11-03 · Page: nav step `sales_ledger` ("Investment Sales Ledger", group *Reports & Review*; step id unchanged, so no nav change)
-Status: approved
+Status: implemented (merged to main as PR #388, Sales Ledger redesign; superseded in part by the v3 design, PR #418)
 
 Acceptance: Matt accepted the design on 2026-11-03 (v2.1, after four peer reviews and three resolved questions).
 

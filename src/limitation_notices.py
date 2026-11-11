@@ -125,11 +125,12 @@ NOTICES: tuple[Notice, ...] = (
         "N8", "FIN-001", SEVERITY_WARNING,
         "The qualified business income (QBI) deduction applies the income-threshold phase-in, the W-2 wage "
         "limit, the taxable-income cap and the 2026 minimum deduction, but treats the business as one "
-        "business that is not a specified service business and owns no qualified property, because the "
-        "plan has no screen for those facts. If your business is a specified service business (for example "
-        "consulting, law, accounting or health), the deduction is overstated above the income threshold. "
-        "Capital gains from withdrawals are not netted in the taxable-income cap. Ask a tax professional "
-        "to confirm your status.",
+        "business whose specified-service status and qualified property come from Plan Data (Cashflow, "
+        "Self-Employment: qbi_sstb and qbi_ubia; the defaults are not a specified service business and no "
+        "property). If your business is a specified service business (for example consulting, law, "
+        "accounting or health), set qbi_sstb to TRUE: otherwise the deduction is overstated above the "
+        "income threshold. Capital gains from withdrawals are not netted in the taxable-income cap. Ask a "
+        "tax professional to confirm your status.",
         "QBI is switched on and the plan has an S-corp or sole-proprietor business",
         (RemovalTrigger("W3-02", "CPA confirms the household's specified-service status and the plan gains screens for it and for qualified property: remove this notice"),),
     ),
