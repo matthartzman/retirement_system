@@ -502,7 +502,7 @@ export async function rpSave() {
     await loadRentalProperties();
     rpEdit(out.property.name);
     renderMain();
-    showMessage("Saved " + out.property.name + ".");
+    dismissMessage(); showMessage("Saved " + out.property.name + "."); // a successful retry replaces the stale save error
   } catch (e) {
     showMessage("Could not save the property: " + e.message, "error");
   }
