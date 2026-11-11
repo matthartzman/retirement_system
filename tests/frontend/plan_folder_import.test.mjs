@@ -17,7 +17,7 @@ const SRC = fs.readFileSync(
 
 let calls, messages, confirmed, unsaved, loads, win;
 function load() {
-  const src = SRC.replace(/^import .*$/m, "const { api, showMessage, showInAppConfirm, loadAll, hasUnsavedPlanChanges } = __h;").replace(/^export /gm, "");
+  const src = SRC.replace(/^import .*$/gm, (m) => (m.includes("row_model") ? "const { api, showMessage, showInAppConfirm, loadAll, hasUnsavedPlanChanges } = __h;" : "")).replace(/^export /gm, "");
   win = { esc: (s) => s };
   const __h = {
     api: async (url, opts) => {

@@ -694,7 +694,13 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # and the Sales Ledger / Holdings / Activity / Year-End modules lost their blank lines (237) to pay for it.
 # 2026-11-11 W1-06: lowered 43,777 -> 43,741 to the measured total (inline api() fetch fallback removed, +2 lines for the
 # automatic-backup failure message in dashboard_decomp_local_backups.js).
-TOTAL_JS_MAX_LINES = 43_741
+# 2026-11-11 W4-06: lowered 43,741 -> 43,733 to the measured total (row_model extraction; compact window bridges).
+# 2026-11-11 W4-06: lowered 43,733 -> 43,719 to the measured total (budget/taxonomy helpers extracted to dashboard_decomp_budget_edit.js).
+# 2026-11-11 W4-06: lowered 43,719 -> 43,710 to the measured total (field rendering extracted to dashboard_decomp_field_render.js).
+# 2026-11-11 W4-06: lowered 43,710 -> 43,704 to the measured total (field guidance and allocation policy extracted).
+# 2026-11-11 W4-06: lowered 43,704 -> 43,703 to the measured total (nav context and detailed results extracted).
+# 2026-11-11 W4-06: lowered 43,703 -> 43,685 to the measured total (row helpers, step stats, KPI/history, step gating extracted).
+TOTAL_JS_MAX_LINES = 43_685
 
 
 
@@ -769,7 +775,7 @@ PER_FILE_CAPS = {
     "dashboard_decomp_checklist_closeout.js": 1_399,
     "dashboard_decomp_housing_optimizer.js": 2_832,
     "dashboard_decomp_housing_scenarios.js": 1_466,
-    "dashboard_decomp_row_model.js": 5_935,
+    "dashboard_decomp_row_model.js": 822,
     "dashboard_decomp_ytd_and_plan_folder_io.js": 1_184,
     "help_registry.js": 1_124,
     "reports_ui.js": 1_550,
@@ -788,6 +794,18 @@ PER_FILE_CAP_LOG = [
     ("2026-11-11", "help_registry.js", None, 1_124, "initial per-file baseline (W1-01)"),
     ("2026-11-11", "reports_ui.js", None, 1_550, "initial per-file baseline (W1-01)"),
     ("2026-11-11", "dashboard_decomp_row_model.js", 5_974, 5_935, "lowered: inline api() fetch fallback removed (W1-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 5_935, 5_674, "lowered: YTD edit helpers extracted to dashboard_decomp_ytd_edit.js (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 5_674, 5_415, "lowered: in-app modals extracted to dashboard_decomp_inapp_modals.js (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 5_415, 4_927, "lowered: labels/acronyms extracted to dashboard_decomp_labels.js (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 4_927, 4_562, "lowered: budget/taxonomy helpers extracted to dashboard_decomp_budget_edit.js (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 4_562, 4_160, "lowered: planning levers/build-impact extracted to dashboard_decomp_planning_levers.js (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 4_160, 3_869, "lowered: build runner extracted to dashboard_decomp_build_runner.js (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 3_869, 3_653, "lowered: save-error mapping extracted to dashboard_decomp_save_errors.js (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 3_653, 2_936, "lowered: row routing extracted to dashboard_decomp_row_routing.js (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 2_936, 2_512, "lowered: field rendering extracted to dashboard_decomp_field_render.js (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 2_512, 1_982, "lowered: field guidance and allocation policy extracted (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 1_982, 1_720, "lowered: nav context and detailed results extracted (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 1_720, 822, "lowered: row helpers, step stats, KPI/history, step gating extracted (W4-06)"),
 ]
 
 
