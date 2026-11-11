@@ -1,413 +1,1234 @@
 [
   {
     "area": "Architecture, layering and module boundaries",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "architect",
-    "evidence": [],
+    "evidence": [
+      "src/projection_stages/deterministic_engine.py:91-1792 — run_deterministic_projection_stage — single function with 20+ nested helpers",
+      "src/planning_engines.py:49-199 — re-export block, wildcard import, rmd_divisor rebinding, docstring breadcrumbs",
+      "src/engine_kernels.py:19, src/reporting/workbook_common.py:16 — wildcard imports of core",
+      "src/housing_comparison.py:53-57; src/housing/{api,optimizer,plan_variant,results}.py; src/housing/zip_screen/screen.py:14 — domain modules import from server_services",
+      "src/server/workbook_routes.py:626 — src imports financial_trends_reporter.live_snapshot.classify_symbol",
+      "documentation/reference/SYSTEM_ARCHITECTURE_DIAGRAM.md:39-50 — generated graph shows Core->Server Services and Core->HTTP Routes edges",
+      "src/desktop_api.py:54-55,297-298 — Core->Routes edge is the in-process desktop adapter (acceptable host adapter)"
+    ],
     "github_items": [
       "ENG-01",
       "ENG-07",
-      "X-03"
+      "X-03",
+      "PR #390",
+      "PR #234"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "ENG-01",
+        "expert": "architect",
+        "disposition": "confirmed",
+        "note": "Verified at deterministic_engine.py:91-1792 and planning_engines.py:49-199. Recorded as ARC-001."
+      },
+      {
+        "ref": "ENG-07",
+        "expert": "architect",
+        "disposition": "confirmed",
+        "note": "Verified at housing_comparison.py:53-57, the five housing modules and workbook_routes.py:626. The Core->Routes edge is only the desktop_api adapter. Recorded as ARC-002."
+      },
+      {
+        "ref": "X-03",
+        "expert": "architect",
+        "disposition": "contextual_only",
+        "note": "requests and pypdf are guarded with working fallbacks or clear errors. Playwright lives in a separate venv, and PyInstaller is build-only. No runtime defect."
+      },
+      {
+        "ref": "PR #390",
+        "expert": "architect",
+        "disposition": "confirmed",
+        "note": "Corroborated by local git log -L on tests/test_frontend_size_ratchet.py:695 (425fd97a). Recorded as ARC-005."
+      },
+      {
+        "ref": "PR #234",
+        "expert": "architect",
+        "disposition": "resolved",
+        "note": "src/server_services/build_job_service.py:175-192 request_cancel terminates the build subprocess. Whether ProcessPool grandchildren are cleaned up on Windows was not verified."
+      }
+    ],
+    "finding_ids": [
+      "ARC-001",
+      "ARC-002",
+      "ARC-005"
+    ],
+    "residual_uncertainty": "No full import graph was computed. Edges were sampled by grep, so other inversions may exist. Whether the frozen exe bundles financial_trends_reporter (needed by /api/holdings/classes) was not verified."
   },
   {
     "area": "Compatibility layers, legacy conversion and generated files",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "architect",
-    "evidence": [],
-    "github_items": [],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
-  },
-  {
-    "area": "Dependencies and external integrations (market data, broker files, Monarch)",
-    "status": "not_inspected",
-    "expert": "architect",
-    "evidence": [],
-    "github_items": [
-      "X-03"
+    "evidence": [
+      "src/legacy_conversion/__init__.py:1-9 — removable module still present (2,993 lines), wired via src/server_services/conversion_service.py:49-50",
+      "src/plan_data_migration.py:1-60,394-503 — at-rest migration plus parse-time migrate_sectioned_data still called at src/data_io.py:628 and src/domain_models.py:193",
+      "src/detailed_results.py:944-996 — semantic model plus Excel parser fallback",
+      "src/local_store.py:1-10,28-38 — legacy retirement_system_v10.db is imported once and no longer written (refutes the recon claim)",
+      "documentation/reference/SYSTEM_ARCHITECTURE_DIAGRAM.md:1-5 — generated, with a do-not-hand-edit header"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
-  },
-  {
-    "area": "Configuration and version surfaces",
-    "status": "not_inspected",
-    "expert": "architect",
-    "evidence": [],
-    "github_items": [
-      "X-01"
-    ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
-  },
-  {
-    "area": "Persistence, schema migrations, import and export",
-    "status": "not_inspected",
-    "expert": "architect",
-    "evidence": [],
     "github_items": [
       "ENG-10"
     ],
+    "github_dispositions": [
+      {
+        "ref": "ENG-10",
+        "expert": "architect",
+        "disposition": "contextual_only",
+        "note": "The claim that the legacy v10 DB is still written is refuted by src/local_store.py:5-8 (imported once, no longer written). The schema counters are independent and each is guarded. The rollback and backup gap that was found is recorded as ARC-004."
+      }
+    ],
+    "finding_ids": [
+      "ARC-007",
+      "ARC-001"
+    ],
+    "residual_uncertainty": "Generator freshness of the diagram and of reference.db/demo_seed.rpx was not checked (binaries not opened). The individual steps of legacy_conversion were not read."
+  },
+  {
+    "area": "Dependencies and external integrations (market data, broker files, Monarch)",
+    "status": "inspected_no_material_finding",
+    "expert": "architect",
+    "evidence": [
+      "src/market_data.py:41-64,555-596 — requests is optional, with a urllib fallback path",
+      "src/broker_1099b/pdf_text.py:1-36 — pypdf is optional and raises a clear PdfUnavailable message",
+      "Monarch Extractor/monarch_extract.py:15-25 — playwright import guarded; separate venv",
+      "git status --ignored — Monarch Extractor/{.venv,monarch-browser,output,raw} and financial_trends_reporter/data/* are ignored, not tracked",
+      "retirement_planner.spec:62-112 — hidden imports collect src submodules"
+    ],
+    "github_items": [
+      "X-03"
+    ],
+    "github_dispositions": [
+      {
+        "ref": "X-03",
+        "expert": "architect",
+        "disposition": "contextual_only",
+        "note": "requests and pypdf are guarded with working fallbacks or clear errors. Playwright lives in a separate venv, and PyInstaller is build-only. No runtime defect."
+      }
+    ],
     "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "residual_uncertainty": "Not having a requirements file for the Monarch venv is a reproducibility gap, not a runtime defect. The bodies of the broker parsers, the Monarch import modules and the provider error handling in market_data (35 broad excepts) were not read. Package-lock transitive deps were not inspected."
+  },
+  {
+    "area": "Configuration and version surfaces",
+    "status": "finding_identified",
+    "expert": "architect",
+    "evidence": [
+      "src/version.py:4-9 — VERSION='12'",
+      "main.py:97; src/server/__main__.py:16 — hard-coded v11 banners",
+      "pyproject.toml:56; package.json:3 — 10.0.0",
+      "tools/check_version_surfaces.py:30-37 — patterns miss the current stale strings",
+      "frontend/admin.html:3,7 — fixed v11 cache-buster",
+      "src/bootstrap.py:37-52 — local-mode env defaults (127.0.0.1:5050)"
+    ],
+    "github_items": [
+      "X-01"
+    ],
+    "github_dispositions": [
+      {
+        "ref": "X-01",
+        "expert": "architect",
+        "disposition": "confirmed",
+        "note": "Recorded as ARC-006."
+      }
+    ],
+    "finding_ids": [
+      "ARC-006"
+    ],
+    "residual_uncertainty": "runtime_config.py and the system config CSV schema were not read. The project CLAUDE.md large-file table is stale (module_catalog.py is 2,568 lines, not 916; workbook_builder.py 1,560, not 1,443), which is noted for the documentation expert."
+  },
+  {
+    "area": "Persistence, schema migrations, import and export",
+    "status": "finding_identified",
+    "expert": "architect",
+    "evidence": [
+      "src/stores/db.py:1-126 — forward-only, per-step atomic migrations; a newer schema is refused",
+      "src/stores/_base.py:58-113 — auto-migrate on writable open, application_id check, read-only refuses an upgrade",
+      "src/stores/plan_store.py:164-165,222-245 — 24 plan migrations; unused plan_paths backups_dir",
+      "src/stores/broker_repo.py:59-60,82-83 — data-moving migration (INSERT...SELECT; DROP TABLE)",
+      "src/local_backup_scheduler.py:27-31,151-160,309-350 — opt-in backups, unchecked checkpoint, copy2",
+      "src/plan_db_replace.py:133-213 — replace with validation, backup API, atomic os.replace",
+      "src/server/admin_routes.py:143-158 — CSV backup export gated by permission and allow_downloads"
+    ],
+    "github_items": [
+      "ENG-10"
+    ],
+    "github_dispositions": [
+      {
+        "ref": "ENG-10",
+        "expert": "architect",
+        "disposition": "contextual_only",
+        "note": "The claim that the legacy v10 DB is still written is refuted by src/local_store.py:5-8 (imported once, no longer written). The schema counters are independent and each is guarded. The rollback and backup gap that was found is recorded as ARC-004."
+      }
+    ],
+    "finding_ids": [
+      "ARC-004"
+    ],
+    "residual_uncertainty": "app_store migrations and the bodies of csv_exchange import/export were not read. The backup-integrity risk is inferred from code and was not reproduced. Interplay with OneDrive sync (onedrive_guard.py) was not inspected."
   },
   {
     "area": "Performance and computational efficiency",
-    "status": "not_inspected",
+    "status": "partially_inspected",
     "expert": "architect",
-    "evidence": [],
-    "github_items": [],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "evidence": [
+      "src/detailed_results.py:810-996 — per-request XLSX open for the Excel fallback; result model has a one-entry cache",
+      "src/reporting/sheets_strategy_pair_worker.py:1-40; src/reporting/sheets_strategy.py:430-438 — claim-age sweep parallelised via ProcessPoolExecutor",
+      "src/market_data.py:50-64,1362-1363,1469-1470 — shared requests.Session; thread-pooled quote fetches",
+      "src/report_compute.py:313-330 — duplicate report_spec build already removed"
+    ],
+    "github_items": [
+      "PR #388"
+    ],
+    "github_dispositions": [
+      {
+        "ref": "PR #388",
+        "expert": "architect",
+        "disposition": "resolved",
+        "note": "git grep finds no /api/year-end or wash-signature calls in frontend/js at the reviewed ref, so this was superseded by the #418 redesign."
+      }
+    ],
+    "finding_ids": [
+      "ARC-007"
+    ],
+    "residual_uncertainty": "This was a static review, so no timings were taken. Monte Carlo vectorized vs scalar cost, build wall-clock and front-end render cost were not measured. Severity of performance items is therefore conservative."
   },
   {
     "area": "Privacy and security (local server, remote Trends access, secrets, exports)",
-    "status": "not_inspected",
+    "status": "inspected_no_material_finding",
     "expert": "architect",
-    "evidence": [],
+    "evidence": [
+      "src/http_runtime/host_guard.py:1-74 — loopback allow-list; refuses a non-loopback bind without a token; 64 MiB body cap",
+      "src/server/app_core.py:1095-1182 — Host allow-list on every method (DNS-rebinding defence), Origin/Referer check, CSRF token, Content-Type restriction, no CORS",
+      "financial_trends_reporter/access_routes.py:72-110 — local listener requires a loopback Host and refuses proxy headers; remote listener requires a session; owner-only paths return 404",
+      "financial_trends_reporter/access_routes.py:150-157 — session cookie Secure, HttpOnly, SameSite=Strict",
+      "financial_trends_reporter/access_store.py:1-200 — scrypt (n=2^15) with per-user salt, constant-time compare, lockout after 5 failures for 15 minutes, global throttle, dummy hash for unknown users",
+      "financial_trends_reporter/sessions.py:1-60 — token_urlsafe(32), 10-minute idle timeout",
+      "financial_trends_reporter/listeners.py:52-72 — refuses to start if Tailscale serves the unauthenticated local port",
+      "src/secrets_store.py:1-30 — keyring only, no plain-text fallback",
+      "src/bootstrap.py:59-104 — redacting formatter and account-number masking on the file handler"
+    ],
     "github_items": [
       "UIR-10"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "UIR-10",
+        "expert": "architect",
+        "disposition": "contextual_only",
+        "note": "Security controls inspected and judged sound. Guest edit rights are an owner decision per 2026-10-27-trends-remote-access-design.md:19. Usability and accessibility of the sign-in pages are left to the usability expert."
+      }
+    ],
+    "finding_ids": [
+      "ARC-003"
+    ],
+    "residual_uncertainty": "Remote guests can edit account mappings and start or cancel refreshes. This was confirmed as an owner decision in documentation/future/superpowers/plans/2026-10-27-trends-remote-access-design.md:19, so it is not a finding. The remote error handler (access_routes.py:112-116) returns exception text to signed-in non-percent guests, which is a minor disclosure. change_password does not end the user's other sessions. Git history was not scanned for secrets, and GitHub secret scanning was unavailable. The X-User-* identity path in _authorized_and_identity was not read."
   },
   {
     "area": "Logging and observability",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "architect",
-    "evidence": [],
+    "evidence": [
+      "src/bootstrap.py:55-104 — the file handler is attached to the 'retirement_system' logger only",
+      "src/sales_tax_year.py:25,170,342; src/year_end.py:18,184; src/data_io.py:69,328; src/market_data.py:298 — getLogger(__name__) outside that tree",
+      "src/fallback_log.py:14; src/report_compute.py:31,283-338 — correctly named loggers; post-projection degradations are logged and surfaced as config_contract_warnings",
+      "src/plan_data_migration.py:502-503; tools/launchers/START_DESKTOP.py:28; src/desktop_api.py:49; main.py:140-146 — migration failure reporting",
+      "frontend/js/dashboard_decomp_local_backups.js:118-134 — swallowed auto-backup error",
+      "git grep -c 'except Exception' src — 415 broad handlers (market_data.py 35, optimization.py 16, planning_engines.py 13)"
+    ],
     "github_items": [
       "ENG-03"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "ENG-03",
+        "expert": "architect",
+        "disposition": "contextual_only",
+        "note": "report_compute.py:283-338 logs each failure to 'retirement_system.report' and surfaces warnings, so this is not silent. The related logging gap is recorded under ARC-003."
+      }
+    ],
+    "finding_ids": [
+      "ARC-003"
+    ],
+    "residual_uncertainty": "The 415 broad except sites were not reviewed one by one. Many may be logged via fallback_log, some may be silent. report_compute degradations (ENG-03) were judged adequately logged."
   },
   {
     "area": "Calculation engine (deterministic year loop, withdrawal cascade, optimizers)",
-    "status": "not_inspected",
+    "status": "partially_inspected",
     "expert": "financial_planner",
-    "evidence": [],
+    "evidence": [
+      "src/projection_stages/income.py:234-372 — apply_income — the self-employment and S-corp paths, the 401(k) and HSA deposits, and the PR #420 AGI reduction (net_earned_taxable -= pretax_contributions at :369)",
+      "src/projection_stages/withdrawal_cascade_gap_assembly.py:60-71 — apply_gap_assembly — take-home pay funds the gap (income_from_streams -= pretax_contributions at :68)",
+      "src/engine_sections/roth_conversion.py:144-168 — _conversion_funding_cap — the PR #419 cap C <= room*(1-t)+S; the algebra checks out (draw W=(tC-S)/(1-t) and C+W<=room)",
+      "src/projection_stages/roth_conversion_and_agi_tax.py:820-886 — apply_agi_and_tax — DAF limit and carryforward, deduction stack, QBI added outside the standard/itemized max",
+      "src/projection_stages/withdrawal_cascade_investment_tax.py:250-297 — _refresh_investment_tax — brokerage gain now enters NIIT MAGI, ACA loss, extra taxable SS and state gain tax",
+      "src/after_tax.py:582-628 — estimate_terminal_taxable_deferred_cap_gain_tax — the 1014 step-up is applied before the heir haircut"
+    ],
     "github_items": [
       "ENG-04",
       "PR #419",
-      "PR #420"
+      "PR #420",
+      "ENG-01",
+      "Prior review FIN-001 (SYSTEM_REVIEW_2026-10-19)",
+      "Prior review FIN-009 (CST double count)"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "ENG-04",
+        "expert": "financial_planner",
+        "disposition": "confirmed",
+        "note": "The single-earner owner_idx=0 model, the missing age-based catch-up and Roth-catch-up rules, and the missing employer contributions are confirmed at income.py:307-318. Recorded as FIN-010 (low)."
+      },
+      {
+        "ref": "PR #419",
+        "expert": "financial_planner",
+        "disposition": "contextual_only",
+        "note": "_conversion_funding_cap is algebraically correct, and the IRMAA cash need is shared through irmaa_surcharge_for_year. Not executed."
+      },
+      {
+        "ref": "PR #420",
+        "expert": "financial_planner",
+        "disposition": "contextual_only",
+        "note": "The 401(k) and HSA AGI and cash treatment was inspected in income.py:361-371, gap_assembly.py:60-71 and engine_kernels.py:2191-2270, and reads correctly. The remaining scope gaps are in FIN-010. The golden re-pin (11f6e809) was not verified value by value."
+      },
+      {
+        "ref": "ENG-01",
+        "expert": "architect",
+        "disposition": "confirmed",
+        "note": "Verified at deterministic_engine.py:91-1792 and planning_engines.py:49-199. Recorded as ARC-001."
+      },
+      {
+        "ref": "Prior review FIN-001 (SYSTEM_REVIEW_2026-10-19)",
+        "expert": "financial_planner",
+        "disposition": "resolved",
+        "note": "withdrawal_cascade_investment_tax.py:256-297 now adds the gain to NIIT MAGI, ACA MAGI and taxable SS. IRMAA MAGI and the senior phase-out were not traced, so the fix may be partial."
+      },
+      {
+        "ref": "Prior review FIN-009 (CST double count)",
+        "expert": "financial_planner",
+        "disposition": "resolved",
+        "note": "after_tax.py:772-775 and roth_conversion.py:119-121 no longer subtract the CST federally. tax_update_dashboard.csv still says 'remains open' (documentation drift)."
+      }
+    ],
+    "finding_ids": [
+      "FIN-001",
+      "FIN-003",
+      "FIN-006",
+      "FIN-008",
+      "FIN-010"
+    ],
+    "residual_uncertainty": "The stage order was not traced end to end, and neither were the optimizer objectives (optimization.py, daf_optimizer, qlac_optimizer, housing optimizer, strategy_sweep), hsa_schedule.py, the rental, equity-comp or home-sale stages, or rounding and float behavior (ENG-08). Nothing was executed; PR #419 and #420 were checked algebraically only."
   },
   {
     "area": "Monte Carlo and capital market assumptions",
-    "status": "not_inspected",
+    "status": "partially_inspected",
     "expert": "financial_planner",
-    "evidence": [],
-    "github_items": [
-      "ENG-02"
+    "evidence": [
+      "src/engine_sections/monte_carlo.py:22-55 — vectorized setup — allocation='replay' zeroes tax_drag because replayed deterministic draws already include their tax, so taxes do not respond to each path's returns",
+      "src/engine_sections/monte_carlo_headline.py:15-60 — _scalar_mc_setup — asset-class covariance mu/sigma; success floor = configured floor or buffer years x base spending",
+      "src/engine_kernels.py:740-811 — mortality sampling — SSA table shape calibrated to the user's median age; positional sex",
+      "reference_src/capital_market_assumptions.csv:1-5 — CMA presets dated 2026-06-09, labeled 'not a forecast'",
+      "reference_src/mortality_table.csv:1-2 — SSA 2023 period table"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_items": [
+      "ENG-02",
+      "PR #416"
+    ],
+    "github_dispositions": [
+      {
+        "ref": "ENG-02",
+        "expert": "financial_planner",
+        "disposition": "contextual_only",
+        "note": "The replay allocation zeroes tax drag (monte_carlo.py:51-54). Parity was not measured."
+      },
+      {
+        "ref": "PR #416",
+        "expert": "financial_planner",
+        "disposition": "contextual_only",
+        "note": "Not opened in this run. Survivor Monte Carlo buckets not assessed."
+      }
+    ],
+    "finding_ids": [
+      "FIN-012"
+    ],
+    "residual_uncertainty": "Whether the CMA values are suitable, the mean versus geometric convention, regime and fat-tail sampling, and the agreement between the replay engine and the exact scalar engine (ENG-02) were not assessed. The replay design means path-dependent tax (RMDs and conversions scaling with returns) is approximated. That is a documented design choice, not proven to be a defect. Period rather than cohort mortality could understate longevity, but the user-calibrated median reduces that."
   },
   {
     "area": "Financial logic: federal and state tax, IRMAA, AGI, capital gains, wash sales",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "financial_planner",
-    "evidence": [],
+    "evidence": [
+      "src/core.py:846-906 — compute_fed_tax, standard_deduction, senior_bonus_deduction, social_security_taxable_amount — SS provisional thresholds are correctly not indexed; senior phase-out defect (FIN-002)",
+      "src/core.py:908-940 — irmaa_lookback_magi_and_filing — two-year lookback using the lookback year's filing status",
+      "src/core.py:1170-1172 — niit_tax — statutory thresholds, not indexed",
+      "src/core.py:1269-1295 — salt_cap — OBBBA 30% phase-down above the threshold, $10k floor, MFS half, 2030 reversion",
+      "src/core.py:1215-1266 — tentative_minimum_tax / amt_tax — dated 2026 exemption and 50% phase-out",
+      "src/core.py:1052-1109 — state_income_tax — retirement and SS exemptions; per-person exclusion count",
+      "src/projection_stages/roth_conversion_and_agi_tax.py:761-791 — SALT proxy (FIN-003); 0.5% AGI charitable floor applied in every year, including 2025 when OBBBA's floor was not yet in effect (minor)",
+      "src/wash_sales.py:91-185 — detect_wash_sales — W1-W3 implement the stated rules; IRA replacement disallowed with no basis add-back"
+    ],
     "github_items": [
       "ENG-05",
       "ENG-06",
       "PR #418",
       "PR #420"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "ENG-05",
+        "expert": "financial_planner",
+        "disposition": "confirmed",
+        "note": "Dated rows end in 2026, with inflation fallback after that (FIN-011). Wash-sale W1 is in the PR #418 entry."
+      },
+      {
+        "ref": "ENG-06",
+        "expert": "financial_planner",
+        "disposition": "confirmed",
+        "note": "The 'IL corporate surcharge ... already captured' comment is incorrect (FIN-008). The il_exempt identifiers are cosmetic."
+      },
+      {
+        "ref": "PR #418",
+        "expert": "financial_planner",
+        "disposition": "insufficient_evidence",
+        "note": "The code in wash_sales.py:91-185 matches the stated rules. CPA confirmation of W1 is still appropriate. Possible edge case: the (account, symbol, purchase_date) key skips an unsold same-day buy in the same account. No finding raised."
+      },
+      {
+        "ref": "PR #420",
+        "expert": "financial_planner",
+        "disposition": "contextual_only",
+        "note": "The 401(k) and HSA AGI and cash treatment was inspected in income.py:361-371, gap_assembly.py:60-71 and engine_kernels.py:2191-2270, and reads correctly. The remaining scope gaps are in FIN-010. The golden re-pin (11f6e809) was not verified value by value."
+      }
+    ],
+    "finding_ids": [
+      "FIN-001",
+      "FIN-002",
+      "FIN-003",
+      "FIN-006",
+      "FIN-008"
+    ],
+    "residual_uncertainty": "No primary source was fetched; values were compared with the reviewer's recollection. The OBBBA 2/37 itemized-deduction limit for 37% bracket filers and the 2026 non-itemizer charitable deduction were not found in a grep and were not traced further. The W1 lot key (account, symbol, purchase_date) would skip an unsold same-day buy in the same account; that edge case was not tested. IRMAA MAGI inclusion of brokerage gains was not traced."
   },
   {
     "area": "Canonical reference data currency (tax law, state tax, mortality, CMA)",
-    "status": "not_inspected",
+    "status": "requires_external_domain_verification",
     "expert": "financial_planner",
-    "evidence": [],
-    "github_items": [
-      "R-TDC-06"
+    "evidence": [
+      "reference_src/tax_law_v10.json — 2026 standard deduction 32,200 MFJ, LTCG 98,900/613,700, IRMAA 218k/274k/342k/410k/750k, Part B 202.90, AMT 140,200 / 1,000,000 at 50%, QCD 111,000, QLAC 210,000, estate 15,000,000, SS wage base 184,500, ACA 2026 applicable percentages 2.10%-9.96%. These match the reviewer's recollection of the cited IRS, CMS and SSA sources; no fetch",
+      "reference_src/tax_update_dashboard.csv:2-14 — annual process; state_tax REVIEW_REQUIRED_BY_STATE blocking TRUE; the estate row says FIN-009 is still open, but src/after_tax.py:772-773 says it is fixed (documentation drift)",
+      "reference_src/state_tax.csv:1-14 — 13 states, with Illinois estate calc il_credit_table and a $4M exemption"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_items": [
+      "R-TDC-06",
+      "ENG-05"
+    ],
+    "github_dispositions": [
+      {
+        "ref": "R-TDC-06",
+        "expert": "financial_planner",
+        "disposition": "confirmed",
+        "note": "Confirmed from tax_law_v10.json and state_tax.csv. Recorded as FIN-011."
+      },
+      {
+        "ref": "ENG-05",
+        "expert": "financial_planner",
+        "disposition": "confirmed",
+        "note": "Dated rows end in 2026, with inflation fallback after that (FIN-011). Wash-sale W1 is in the PR #418 entry."
+      }
+    ],
+    "finding_ids": [
+      "FIN-011",
+      "FIN-004"
+    ],
+    "residual_uncertainty": "Whether 2027 IRS and CMS figures have been published, whether enhanced ACA credits were extended past 2025 (the dataset assumes they end in 2025), and the 12 non-Illinois state rows were not verified externally. reference.db was not opened, so its parity with the JSON is unconfirmed."
   },
   {
     "area": "Retirement income and withdrawal workflows (RMDs, Roth conversions, account sequencing)",
-    "status": "not_inspected",
+    "status": "inspected_no_material_finding",
     "expert": "financial_planner",
-    "evidence": [],
+    "evidence": [
+      "src/core.py:752-781 — statutory_rmd_start_age — SECURE 2.0 ramp (72/73/75), treating 1959 as 73 per IRS administrative position",
+      "src/engine_kernels.py:919-1002 — compute_rmds — per-owner base minus capped QLAC; Table II divisor for a spouse more than 10 years younger who is sole beneficiary; no de-minimis gate",
+      "src/core.py:725-750 — joint_life_divisor / rmd_divisor — delegates to the kernel",
+      "src/engine_sections/roth_conversion.py:144-168 — _conversion_funding_cap — PR #419 sizing cap",
+      "src/projection_stages/roth_conversion_and_agi_tax.py:211-262 — irmaa_surcharge_for_year — shared IRMAA cash-need helper with SSA-44 relief"
+    ],
     "github_items": [
       "PR #419"
     ],
+    "github_dispositions": [
+      {
+        "ref": "PR #419",
+        "expert": "financial_planner",
+        "disposition": "contextual_only",
+        "note": "_conversion_funding_cap is algebraically correct, and the IRMAA cash need is shared through irmaa_surcharge_for_year. Not executed."
+      }
+    ],
     "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "residual_uncertainty": "The full withdrawal priority order, depletion behavior, the pre-59.5 penalty path and the Roth five-year rules were not traced. No finding does not mean the area is healthy."
   },
   {
     "area": "Tax planning workflows (Roth conversion, charitable giving, account tax basis, year-end)",
-    "status": "not_inspected",
+    "status": "partially_inspected",
     "expert": "financial_planner",
-    "evidence": [],
+    "evidence": [
+      "src/projection_stages/roth_conversion_and_agi_tax.py:791-855 — charitable netting of QCD and DAF grants; DAF 60%/30% AGI limit with five-year carryforward",
+      "src/core.py:1179-1196 — qcd_annual_limit / qcd_eligible_from_year — age 70.5 year rule",
+      "src/engine_kernels.py:2191-2270 — plan_roth_conversion — pre-conversion AGI now uses earned_taxable (PR #420)"
+    ],
     "github_items": [
       "PR #386",
       "PR #366"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "PR #386",
+        "expert": "financial_planner",
+        "disposition": "out_of_scope",
+        "note": "UI placement belongs to usability. The Roth basis and HSA expense-bank engine use was not traced."
+      },
+      {
+        "ref": "PR #366",
+        "expert": "financial_planner",
+        "disposition": "contextual_only",
+        "note": "Relevant to FIN-011, because the first plan year will roll to 2027 without dated rows. year_end.py was not read."
+      }
+    ],
+    "finding_ids": [
+      "FIN-002",
+      "FIN-003"
+    ],
+    "residual_uncertainty": "The Account Tax Basis page's Roth basis and HSA expense-bank logic and the year-end transition (src/year_end.py) were not read. Gain and loss harvesting (gain_harvest.py, tlh.py) was not read."
   },
   {
     "area": "Benefits workflows (Social Security claiming, pensions, annuities, employer plans)",
-    "status": "not_inspected",
+    "status": "partially_inspected",
     "expert": "financial_planner",
-    "evidence": [],
+    "evidence": [
+      "src/projection_stages/income.py:376-452 — Social Security — benefit-table lookup, excess-spousal (dual-entitlement) formula gated on the worker filing, payment in arrears in the claim year, earnings test for member 1",
+      "src/projection_stages/income.py:455-521 — survivor benefit — RIB-LIM (greater of claimed amount and 82.5% of PIA), delayed credits up to death, COLA-indexed, age-60 gate, survivor reduction",
+      "src/parsing/client_sections.py:385-386 — SS funding discount, 22% from 2032 (configurable)",
+      "src/projection_stages/income.py:307-334 — 401(k) deferral and rollover to the IRA"
+    ],
     "github_items": [
       "ENG-04"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "ENG-04",
+        "expert": "financial_planner",
+        "disposition": "confirmed",
+        "note": "The single-earner owner_idx=0 model, the missing age-based catch-up and Roth-catch-up rules, and the missing employer contributions are confirmed at income.py:307-318. Recorded as FIN-010 (low)."
+      }
+    ],
+    "finding_ids": [
+      "FIN-010"
+    ],
+    "residual_uncertainty": "PIA derivation, the claim-age sweep, pension and annuity pricing, joint-and-survivor annuities, and QLAC income were not read in this run. The earnings test is applied to member 1 only, which is consistent with the single-earner model."
   },
   {
     "area": "Healthcare workflows (HSA, Medicare/IRMAA, ACA premium credits)",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "financial_planner",
-    "evidence": [],
+    "evidence": [
+      "src/projection_stages/income.py:344-358 — HSA contribution — the parsed base already includes a $1,000 catch-up, and the code indexes it by brk_inf even though the statutory catch-up is fixed; hsa_catchup is never set; min(x, x) is a no-op; the full family amount continues while either spouse is under 65",
+      "src/parsing/hsa_policy.py:85-91 — hsa_contrib_base — the configured limit, not a chosen contribution",
+      "src/engine_kernels.py:1985-2050 — aca_fpl_for_year / aca_applicable_percentage / aca_premium_tax_credit — 400% FPL cliff in the original regime; benchmark halved when one spouse is in bridge years",
+      "src/projection_stages/spending_and_rmd.py:570-600 — prorated bridge and Medicare premiums by month",
+      "src/projection_stages/deterministic_engine.py:446-480 — SEHI source (FIN-006)"
+    ],
     "github_items": [
       "PR #420"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "PR #420",
+        "expert": "financial_planner",
+        "disposition": "contextual_only",
+        "note": "The 401(k) and HSA AGI and cash treatment was inspected in income.py:361-371, gap_assembly.py:60-71 and engine_kernels.py:2191-2270, and reads correctly. The remaining scope gaps are in FIN-010. The golden re-pin (11f6e809) was not verified value by value."
+      }
+    ],
+    "finding_ids": [
+      "FIN-006"
+    ],
+    "residual_uncertainty": "The HSA withdrawal and optimizer logic (hsa_schedule.py) and the Medicare Part B/D/G premium inputs were not read. ACA household size after a death is a fixed input. Enhanced credits after 2025 need external confirmation of current law."
   },
   {
     "area": "Estate, insurance and beneficiary workflows",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "financial_planner",
-    "evidence": [],
+    "evidence": [
+      "src/core.py:1298-1478 — state_death_tax_credit, illinois_estate_tax, new_york_estate_tax, state_estate_tax, indexed_federal_estate_exemption",
+      "src/after_tax.py:729-783 — estimate_terminal_estate_tax — flat 40% federal tax on the combined indexed exemption less lifetime gifts; CST subtracted for state only",
+      "src/engine_sections/roth_conversion.py:108-141 — _estate_tax_for_row — the same model in the optimizer",
+      "src/projection_stages/deaths_and_spousal_rollover.py:136-232 — CST funding capped by the Illinois-derived shelter cap",
+      "src/reporting/sheets_protection.py:1-14,53-110 — life insurance is report-only"
+    ],
     "github_items": [],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [],
+    "finding_ids": [
+      "FIN-004",
+      "FIN-005",
+      "FIN-007"
+    ],
+    "residual_uncertainty": "beneficiary_titling_audit (engine_kernels.py:513), gifting logic, special-needs trusts and ABLE accounts, and the 10-year heir-rate derivation were not read. The federal tax has no 2058 state-tax deduction, which matters only above roughly $30M. Attorney review is required for both the Illinois and the portability arithmetic."
   },
   {
     "area": "Survivor and household-change workflows (death, filing status, spousal rollover, divorce)",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "financial_planner",
-    "evidence": [],
+    "evidence": [
+      "src/projection_stages/deaths_and_spousal_rollover.py:85-104 — apply_deaths_and_filing_status — MFJ in the year of death, then survivor filing, with an optional two-year QSS",
+      "src/engine_kernels.py:412-478 — basis step-up fractions by property regime and titling (JTWROS 0.5, community 1.0)",
+      "src/projection_stages/roth_conversion_and_agi_tax.py:855-864 — the age-65 add-on and senior bonus count only living members",
+      "src/core.py:908-925 — survivor IRMAA assessed on the joint lookback return",
+      "src/projection_stages/appreciation_divorce_qlac.py:116-134 — divorce split (FIN-009)"
+    ],
     "github_items": [
       "PR #416"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "PR #416",
+        "expert": "financial_planner",
+        "disposition": "contextual_only",
+        "note": "Not opened in this run. Survivor Monte Carlo buckets not assessed."
+      }
+    ],
+    "finding_ids": [
+      "FIN-009",
+      "FIN-002"
+    ],
+    "residual_uncertainty": "apply_death_transition's account-movement body, HSA transfer at the first death, remarriage, and the per-path survivor buckets in Monte Carlo (PR #416) were not inspected. During QSS years the engine passes 'MFJ', so the senior-deduction threshold is $150k where the reviewer reads the statute as $75k (not a joint return). Professional review is needed."
   },
   {
     "area": "Data integrity (missing, duplicate, stale, ownership, units)",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "quality",
-    "evidence": [],
+    "evidence": [
+      "src/parsing/client_sections.py:458,520,547,553,668,1278,1292 — parser defaults — household-specific dollar fallbacks",
+      "src/data_io.py:267-271,320-329 — _v/_n — a blank value turns into the code default",
+      "src/blank_plan.py:69-81 — blank_plan_rows — new plans blank rows rather than deleting them",
+      "src/data_io.py:858,885 — JSON config path — different defaults (home 0, roth 0.24)",
+      "git ls-files tests/fixtures/csv_exchange/sample_plan_frozen vs input/demo — only README.md and client_hsa_schedule.csv differ; input/demo/client_hsa_schedule.csv is header-only (1 line)",
+      "src/core.py:979-1012 — state errors cite a reference_data/ path that does not exist"
+    ],
     "github_items": [
       "R-TDC-03",
       "R-TDC-05"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "R-TDC-03",
+        "expert": "quality",
+        "disposition": "resolved",
+        "note": "The demo client_hsa_schedule.csv is header-only, so leaving it out of the frozen fixture loses no data; HSA schedule has 16 dedicated test files"
+      },
+      {
+        "ref": "R-TDC-05",
+        "expert": "quality",
+        "disposition": "confirmed",
+        "note": "QA-005"
+      }
+    ],
+    "finding_ids": [
+      "QA-001",
+      "QA-005"
+    ],
+    "residual_uncertainty": "Only the main money/home/mortgage/income defaults were traced end to end; the other 15 or so large literals in client_sections.py were counted but not traced. Ownership/household-relationship integrity, de-duplication of imports and unit consistency across Monarch/broker imports were not inspected."
   },
   {
     "area": "Input validation (server field errors, client validation)",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "quality",
-    "evidence": [],
+    "evidence": [
+      "src/schema_registry.py:16-89 — validate_value/validate_rows — type set leaves out 'dollars'/'decimal'; required check runs on the whole plan",
+      "src/server_services/config_service.py:518-545 — grid save validates all rows, returns 422 with errors and field_errors",
+      "src/server_services/config_service.py:60-76 — structure_validation_errors — shape of the field errors",
+      "src/server_services/plan_forms_service.py:43-104 — forms write path has no validation",
+      "src/server_services/build_service.py:166-208 — preflight missing_required is advisory only; /api/build/start (workbook_routes.py:196-240) does not check it",
+      "tests/test_plan_date_parsing_unit.py:98-103 — test types differ from the schema's types"
+    ],
     "github_items": [],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [],
+    "finding_ids": [
+      "QA-002",
+      "QA-003"
+    ],
+    "residual_uncertainty": "Client-side WI-020 field validation (dashboard_decomp_row_model.js formatting kinds at 2645-2700) was only partly read, so whether the client rejects text in dollars fields is not confirmed. QA-002 is a static inference and was not run."
   },
   {
     "area": "Numeric precision and rounding (float engine vs Decimal boundaries, footing)",
-    "status": "not_inspected",
+    "status": "partially_inspected",
     "expert": "quality",
-    "evidence": [],
+    "evidence": [
+      "src/money.py:1-97 — parse_strict_number/strict_float — Decimal grammar at the boundary, float copy for the engine; rejects nan/inf/1e999",
+      "src/data_io.py:320-329 — _n — boundary parse goes through strict_float",
+      "src/results_model.py:30-34,286-299 — chart series rounded to whole dollars per component; display only"
+    ],
     "github_items": [
       "ENG-08"
     ],
+    "github_dispositions": [
+      {
+        "ref": "ENG-08",
+        "expert": "quality",
+        "disposition": "contextual_only",
+        "note": "Float engine behind a Decimal boundary confirmed in money.py; footing not inspected"
+      }
+    ],
     "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "residual_uncertainty": "Footing between workbook totals and rounded components, rounding in the engine year loop, and cents storage at DB boundaries were not checked. No material finding, but this is not a clean bill of health."
   },
   {
     "area": "Dates, tax-year boundaries and frozen-today seams",
-    "status": "not_inspected",
+    "status": "partially_inspected",
     "expert": "quality",
-    "evidence": [],
+    "evidence": [
+      "src/platform_runtime.py:28-55 — today() — RETIREMENT_SYSTEM_FROZEN_TODAY seam",
+      "tests/test_frozen_today_seam_regression.py:1-60 — allowlist guard on bare date.today() in src, with exact counts and reasons",
+      "src/taxes.py:26 — TAX_REFERENCE_YEAR comes from the wall clock unless an env override is set, separate from the frozen-today seam",
+      "tests/conftest.py:20-29,112-123 — tests pin TAX_REFERENCE_YEAR=2026 and FROZEN_TODAY=2026-08-04",
+      "src/tax_law.py:64-112 — as_engine_tables/indexed_value — later years use the latest dated row plus inflation",
+      "tests/e2e/fixtures.js, helpers.js, playwright.config.js — grep found no FROZEN_TODAY or TAX_REFERENCE_YEAR, so e2e runs on the real date"
+    ],
     "github_items": [],
+    "github_dispositions": [],
     "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "residual_uncertainty": "The tax year and plan 'today' are two separate seams. They agree in production but can disagree if only FROZEN_TODAY is set. No test runs the 1 Jan 2027 rollover (TAX_REFERENCE_YEAR 2027 with brackets dated 2025-2026). Year-keyed labels (client_sections.py:387,668; note_receivable.py:63) have non-year fallbacks, so rollover risk there looks contained, but it was not exercised."
   },
   {
     "area": "Error handling and failure behaviour (API error shapes, silent degradation)",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "quality",
-    "evidence": [],
+    "evidence": [
+      "frontend/js/api_client.js:22-56 — no err.status; text() throws the raw body",
+      "frontend/js/dashboard_decomp_row_model.js:4949-4993 — two error shapes",
+      "frontend/js/dashboard_decomp_build_lifecycle.js:247-270 — 404 fallback that never runs",
+      "src/report_compute.py:283-338 — failures after the projection are logged and turned into config_contract_warnings; a limitation_notices failure becomes [] with no user warning",
+      "src/data_io.py:326-329 — unreadable number is logged and the default used"
+    ],
     "github_items": [
       "UIR-01",
       "UIR-02",
       "ENG-03"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "UIR-01",
+        "expert": "quality",
+        "disposition": "confirmed",
+        "note": "QA-004"
+      },
+      {
+        "ref": "UIR-02",
+        "expert": "quality",
+        "disposition": "contextual_only",
+        "note": "Error shapes differ (folded into QA-004); one RetirementApiClient.text caller found (ytd_and_plan_folder_io.js:900), raw-body exposure not traced further"
+      },
+      {
+        "ref": "ENG-03",
+        "expert": "quality",
+        "disposition": "contextual_only",
+        "note": "report_compute turns step failures into warnings; limitation_notices failure gives an empty list with no warning"
+      }
+    ],
+    "finding_ids": [
+      "QA-004",
+      "QA-001"
+    ],
+    "residual_uncertainty": "Direct fetch() calls that bypass the client (about 23 sites across 9 files, per recon) were not inspected one by one. The except-Exception counts in market_data/optimization were not reviewed."
   },
   {
     "area": "Testing strategy, golden masters and regression baselines",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "quality",
-    "evidence": [],
+    "evidence": [
+      "git show --stat 11f6e809 — golden regen (phase goldens, pins, changelog) now committed and merged via #420; working tree clean",
+      "documentation/reference/GOLDEN_MASTER_CHANGELOG.md:1-20 — top entry records old and new pins and a hand-checked AGI delta (-31,575)",
+      "grep '^## ' GOLDEN_MASTER_CHANGELOG.md — 114 entries, many regenerations in Oct-Nov 2026",
+      "tests/test_frontend_size_ratchet.py:695 plus git log -p — ceiling raised in 100 of 106 changes",
+      "tests/e2e/new-plan-creation.spec.js:20-73 — /api/plan/blank mocked, so blank-then-save is untested",
+      "tests/test_blank_plan_rows_functional.py:28-86 — blank-plan tests cover clearing rules and the forms path only"
+    ],
     "github_items": [
       "R-TDC-01",
       "R-TDC-02",
       "R-TDC-08",
       "R-TDC-09"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "R-TDC-01",
+        "expert": "quality",
+        "disposition": "resolved",
+        "note": "The uncommitted golden regen is now committed in 11f6e809 and merged via #420 (3c7bb121); git status is clean"
+      },
+      {
+        "ref": "R-TDC-02",
+        "expert": "quality",
+        "disposition": "contextual_only",
+        "note": "Regeneration is frequent, but the top entry has a recorded hand check; no wrong pin found"
+      },
+      {
+        "ref": "R-TDC-08",
+        "expert": "quality",
+        "disposition": "contextual_only",
+        "note": "E2E runs one desktop viewport and is not date-frozen; usability test bodies not opened"
+      },
+      {
+        "ref": "R-TDC-09",
+        "expert": "quality",
+        "disposition": "contextual_only",
+        "note": "Unsuffixed-file ratchet at ceiling; not material by itself"
+      }
+    ],
+    "finding_ids": [
+      "QA-006",
+      "QA-002",
+      "QA-001",
+      "ARC-005"
+    ],
+    "residual_uncertainty": "Golden masters come from the engine itself and use fully populated fixtures, so default/blank paths are not covered. Whether the IRS-style example fixtures act as independent oracles was not checked. No tests were run; test existence says nothing about outcomes. QA-006 is a cross-expert duplicate of ARC-005 (conflict C-01)."
   },
   {
     "area": "GitHub work context and author-stated pending items",
-    "status": "not_inspected",
+    "status": "partially_inspected",
     "expert": "quality",
-    "evidence": [],
+    "evidence": [
+      "manifest.json review_run.github_context — zero issues, zero open PRs; flagged items come from PR descriptions",
+      "git log --oneline — 9d4dc360 'Year-end transition Phase 3 ... (#380)' covers PR #366's pending Phase 3",
+      "git log -p tests/test_frontend_size_ratchet.py — 425fd97a raised 43,298 to 43,620, matching PR #390's stated deviation",
+      "git ls-files tests | grep wash — 8 wash-sale test files exist; the CPA confirmation of W1 cannot be checked in code"
+    ],
     "github_items": [
       "PR #418",
       "PR #390",
       "PR #366",
-      "PR #233"
+      "PR #233",
+      "PR #388",
+      "PR #420"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "PR #418",
+        "expert": "quality",
+        "disposition": "insufficient_evidence",
+        "note": "Pending CPA confirmation of wash-sale W1 cannot be checked from code; wash tests exist"
+      },
+      {
+        "ref": "PR #390",
+        "expert": "quality",
+        "disposition": "confirmed",
+        "note": "Ceiling raise 43,298 to 43,620 confirmed in 425fd97a; part of QA-006 (duplicate of ARC-005)"
+      },
+      {
+        "ref": "PR #366",
+        "expert": "quality",
+        "disposition": "resolved",
+        "note": "Phase 3 shipped later as #380 (9d4dc360)"
+      },
+      {
+        "ref": "PR #233",
+        "expert": "quality",
+        "disposition": "insufficient_evidence",
+        "note": "Requests for N7 heading prose and a screen-reader pass not checked"
+      },
+      {
+        "ref": "PR #388",
+        "expert": "quality",
+        "disposition": "insufficient_evidence",
+        "note": "Follow-ups may be moot after the #418 redesign; not checked"
+      },
+      {
+        "ref": "PR #420",
+        "expert": "quality",
+        "disposition": "contextual_only",
+        "note": "Merged engine change plus golden re-pin; the changelog records a hand check"
+      }
+    ],
+    "finding_ids": [
+      "QA-006",
+      "ARC-005"
+    ],
+    "residual_uncertainty": "GitHub MCP was not called in this stage; I relied on the manifest's GitHub context plus local git. The PR #388 data-loss follow-ups and the PR #233 screen-reader request were not checked against code. QA-006 is a cross-expert duplicate of ARC-005 (conflict C-01)."
   },
   {
     "area": "User interface and interaction design (client dashboard)",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "usability_accessibility",
-    "evidence": [],
+    "evidence": [
+      "frontend/js/dashboard.js:6123-6157 — moveToNextEntry — Enter-to-next acts only on focusableEntries() (navigation.js:462-464), not on search or dialog inputs, so lead UIR-05 is mitigated",
+      "frontend/js/dashboard_decomp_row_model.js:120-131 — suggestedNext — Maintain mode falls back to the Set up chain (left-nav follow-up workstream A landed)",
+      "frontend/js/dashboard_decomp_plan_features.js:444-463 — offFeatureItemHtml — Turn on buttons landed (workstream D)",
+      "frontend/js/dashboard_decomp_build_history.js:399-470 — impactCardHtml/buildImpactCardsHtml — see UX-004",
+      "frontend/js/dashboard.js:2876-2878 — renderStrategyTabs — see UX-005"
+    ],
     "github_items": [
       "UIR-05",
       "UIR-08"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "UIR-05",
+        "expert": "usability_accessibility",
+        "disposition": "resolved",
+        "note": "Enter-to-next is scoped to focusableEntries() field and table inputs (navigation.js:462-464). Nav search, dialogs and width fields are excluded (dashboard.js:6123-6145)."
+      },
+      {
+        "ref": "UIR-08",
+        "expert": "usability_accessibility",
+        "disposition": "confirmed",
+        "note": "Folded into UX-003."
+      }
+    ],
+    "finding_ids": [
+      "UX-004",
+      "UX-005",
+      "UX-006"
+    ],
+    "residual_uncertainty": "Static read only; no rendering, layout or interaction was observed. Large analysis panels (housing and allocation optimizer, Roth guardrails, Planning Workbench) were not read."
   },
   {
     "area": "Information architecture, navigation and wayfinding",
-    "status": "not_inspected",
+    "status": "inspected_no_material_finding",
     "expert": "usability_accessibility",
-    "evidence": [],
+    "evidence": [
+      "frontend/js/dashboard.js:14-189 (via recon map; lines 186-189 opened) — STEPS desc from RPHelp.summary — nav one-liners come from the help registry",
+      "frontend/js/dashboard_decomp_row_model.js:120-131 — suggestedNext — Maintain fallback and gated-target guard",
+      "documentation/future/superpowers/plans/2026-11-04-left-nav-redesign-followups.md:3,22-55 — Status: planned — workstreams A, B (ALWAYS_ON_SECTIONS no longer present in nav_features.js) and D appear landed in code, so the plan's status line looks stale (a documentation issue, passed to the docs expert)",
+      "frontend/js/dashboard_decomp_year_end.js:7-16 — yeHtml — Year-End checklist links each step to its page"
+    ],
     "github_items": [
       "UIR-07",
       "PR #390",
       "PR #387",
       "PR #385"
     ],
+    "github_dispositions": [
+      {
+        "ref": "UIR-07",
+        "expert": "usability_accessibility",
+        "disposition": "contextual_only",
+        "note": "Left-nav follow-up workstreams A, B and D appear landed in code, so the plan's Status: planned looks stale (docs expert). The flows PR #418 states were not exercised were not run (static review)."
+      },
+      {
+        "ref": "PR #390",
+        "expert": "usability_accessibility",
+        "disposition": "contextual_only",
+        "note": "Left nav redesign. Follow-ups checked in code."
+      },
+      {
+        "ref": "PR #387",
+        "expert": "usability_accessibility",
+        "disposition": "contextual_only",
+        "note": "IA churn context only."
+      },
+      {
+        "ref": "PR #385",
+        "expert": "usability_accessibility",
+        "disposition": "contextual_only",
+        "note": "Nav search context only."
+      }
+    ],
     "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "residual_uncertainty": "IA churn (PRs #385-#390, #418) affects returning-user learnability, but that cannot be measured statically. I did not check workstreams C and E, the NAV_FEATURE_MAP doc, or the wi015 baseline JSON. 'No finding' does not mean the IA is healthy."
   },
   {
     "area": "Usability science: cognitive load, progressive disclosure, learnability, consistency",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "usability_accessibility",
-    "evidence": [],
+    "evidence": [
+      "frontend/js/dashboard.js:214-224 — TERM_NOTES — the Monte Carlo success gloss is dense ('conditional on the modelled spending cuts ... non-fixed-real spending policy'), and 'terminal net worth' is glossed as 'projected final portfolio value', which conflates net worth with portfolio",
+      "frontend/js/dashboard_decomp_sales_ledger_ui.js:51-56,100-109 versus four other tab bars — see UX-005",
+      "Three feedback conventions — see UX-003",
+      "Mixed native and in-app confirmations — see UX-002"
+    ],
     "github_items": [
       "UIR-04",
       "UIR-07"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "UIR-04",
+        "expert": "usability_accessibility",
+        "disposition": "confirmed",
+        "note": "Became UX-005."
+      },
+      {
+        "ref": "UIR-07",
+        "expert": "usability_accessibility",
+        "disposition": "contextual_only",
+        "note": "Left-nav follow-up workstreams A, B and D appear landed in code, so the plan's Status: planned looks stale (docs expert). The flows PR #418 states were not exercised were not run (static review)."
+      }
+    ],
+    "finding_ids": [
+      "UX-002",
+      "UX-003",
+      "UX-005"
+    ],
+    "residual_uncertainty": "No task-level or comprehension testing evidence exists (R-TDC-08). The TERM_NOTES wording issues are noted but not raised as a separate finding; the planner and docs experts should check the net-worth gloss."
   },
   {
     "area": "Error prevention and recovery in irreversible financial-record actions",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "usability_accessibility",
-    "evidence": [],
+    "evidence": [
+      "frontend/js/dashboard_decomp_sales_ledger.js:255-261 and src/sales_service.py:215-232 — slVoid/_set_voided — the void message promises a Restore that is refused for log-linked sales (UX-001)",
+      "frontend/js/dashboard_decomp_cash_accounts.js:59-66 and src/cash_accounts.py:98-113 — caDelete/delete_account — hard delete including Monarch mappings behind a one-line native confirm (UX-002)",
+      "frontend/js/dashboard_decomp_transactions_log.js:183 — tlConfirmed — a missing confirm counts as consent",
+      "frontend/js/dashboard_decomp_local_backups.js:31-36 — backups off by default",
+      "frontend/js/dashboard_decomp_row_model.js:3385-3410,4490-4498 — openStaticDialog/showInAppConfirm — an accessible alternative already exists"
+    ],
     "github_items": [
       "UIR-03"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "UIR-03",
+        "expert": "usability_accessibility",
+        "disposition": "confirmed",
+        "note": "Became UX-002. No confirm shim in pywebview_bridge.js (grep for confirm or alert returned nothing). The extra void/Restore defect became UX-001."
+      }
+    ],
+    "finding_ids": [
+      "UX-001",
+      "UX-002"
+    ],
+    "residual_uncertainty": "Server-side void and close-year paths for the transaction log (transactions.py:229 void) and 1099-B supersede were not traced end to end. How native confirm() behaves under pywebview/WebView2 was not observed."
   },
   {
     "area": "Risk communication and comprehension of financial results",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "usability_accessibility",
-    "evidence": [],
+    "evidence": [
+      "frontend/js/dashboard_decomp_build_history.js:436-470 — buildImpactCardsHtml — the headline cards use LCV, EFTR and 'Worst-Case' (5th percentile), with definitions in hover-only tooltips (UX-004)",
+      "src/limitation_notices.py:71-124 — NOTICES — plain-language limitation notices exist; N7 is a terse 'Reference data status by family' line (wording passed to planner and docs)",
+      "frontend/js/reports_ui.js:773-777,1319-1324 — chart SVGs have role=img with aria-label and aria-describedby summaries"
+    ],
     "github_items": [
       "PR #233"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "PR #233",
+        "expert": "usability_accessibility",
+        "disposition": "contextual_only",
+        "note": "Limitation notices and the Admin a11y request. src/limitation_notices.py was opened. The N7 wording is terse; passed to the planner and docs experts."
+      }
+    ],
+    "finding_ids": [
+      "UX-004"
+    ],
+    "residual_uncertainty": "I did not read how probability of success is worded on Plan Status or in the workbook. dashboard.js:4748 gives the guidance 'Aim for an 80-90% success rate', which is passed to the financial planner for appropriateness."
   },
   {
     "area": "Accessibility (keyboard, focus, semantics, screen reader, contrast, text size)",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "usability_accessibility",
-    "evidence": [],
+    "evidence": [
+      "frontend/js/dashboard_decomp_row_model.js:195-241 — showMessage — role swap on a single slot, and a later message overwrites an earlier one (UX-003)",
+      "Panel role=status injections — cash_accounts.js:18, sales_ledger.js:90, sales_1099b.js:105, transactions_log.js:26 (UX-003)",
+      "Tablists — dashboard.js:2877, holdings_tabs.js:29, monarch_reconciliation.js:248, rental_properties.js:391 (UX-005)",
+      "frontend/css/dashboard.css:3 :root — contrast computed: --muted #68645b on #fbfaf7 is 5.65:1, on #f6f5f0 is 5.4:1; --warn on white is 7.09:1 (passes AA)",
+      "frontend/js/text_size.js:5-17 — 130% cap via CSS zoom (UX-006)"
+    ],
     "github_items": [
       "UIR-04",
       "UIR-06",
       "UIR-08",
       "UIR-09"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "UIR-04",
+        "expert": "usability_accessibility",
+        "disposition": "confirmed",
+        "note": "Became UX-005."
+      },
+      {
+        "ref": "UIR-06",
+        "expert": "usability_accessibility",
+        "disposition": "confirmed",
+        "note": "Became UX-006 (readability). Token contrast passes AA by computation."
+      },
+      {
+        "ref": "UIR-08",
+        "expert": "usability_accessibility",
+        "disposition": "confirmed",
+        "note": "Folded into UX-003."
+      },
+      {
+        "ref": "UIR-09",
+        "expert": "usability_accessibility",
+        "disposition": "insufficient_evidence",
+        "note": "The Admin shell lacks a skip link and aria-pressed on scope toggles. Labels appear present. No screen-reader pass was possible."
+      }
+    ],
+    "finding_ids": [
+      "UX-003",
+      "UX-005",
+      "UX-006"
+    ],
+    "residual_uncertainty": "No assistive-technology, keyboard or zoom run was done. Contrast was checked for tokens only, not for every hard-coded colour in the minified CSS. Forced-colors and high-contrast mode are unsupported according to the recon grep, which I did not re-verify."
   },
   {
     "area": "Secondary UI surfaces (Admin Control Center, Financial Trends reporter, Excel workbook)",
-    "status": "not_inspected",
+    "status": "partially_inspected",
     "expert": "usability_accessibility",
-    "evidence": [],
+    "evidence": [
+      "frontend/admin.html:1-7 — shell — has a lang attribute and a polite live #msg. It has no skip link, and the search-scope toggle buttons carry their state only in the 'primary' class (no aria-pressed). Minor; not raised as a finding",
+      "frontend/js/admin.js:786-792,1338-1340,1849 — settings and grid inputs have ids or aria-labels (prior UX-006 remediation appears to hold)",
+      "financial_trends_reporter/frontend/signin.html:17-38 — labelled inputs with autocomplete, an error div with role=alert, and a network-error message",
+      "financial_trends_reporter/frontend/charts.js:263,422-428,648,934 — charts have a visually-hidden data table, role=img with aria-label, and focusable points"
+    ],
     "github_items": [
       "UIR-09",
       "UIR-10"
     ],
+    "github_dispositions": [
+      {
+        "ref": "UIR-09",
+        "expert": "usability_accessibility",
+        "disposition": "insufficient_evidence",
+        "note": "The Admin shell lacks a skip link and aria-pressed on scope toggles. Labels appear present. No screen-reader pass was possible."
+      },
+      {
+        "ref": "UIR-10",
+        "expert": "usability_accessibility",
+        "disposition": "contextual_only",
+        "note": "The Trends sign-in and charts show deliberate accessibility work. I did not read change_password.html or access.js."
+      }
+    ],
     "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "residual_uncertainty": "I did not read change_password.html, access.js, the Trends index.html body, or the Excel workbook's sheets and formatting for readability. The Admin screen-reader pass requested in PR #233 has no recorded outcome."
   },
   {
     "area": "Terminology and inclusive language in UI and data",
-    "status": "not_inspected",
+    "status": "inspected_no_material_finding",
     "expert": "usability_accessibility",
-    "evidence": [],
+    "evidence": [
+      "frontend/js/dashboard_decomp_row_model.js:669-679 — display rewrite — Husband/Wife/Member tokens are replaced with personDisplayName() on screen",
+      "frontend/js/dashboard.js:1455-1465 — PERSON_VALUE_TOKEN_RE — choice values mapped to person names",
+      "src/reporting/sheets_wealth.py:45 and sheets_stress.py:1306-1310 — the workbook maps husband/member_1 to nicknames",
+      "reference_src/generated_schema_coverage.csv:2 — the developer reference still lists Husband_IRA | Wife_IRA as raw choices"
+    ],
     "github_items": [
       "R-TDC-07"
     ],
+    "github_dispositions": [
+      {
+        "ref": "R-TDC-07",
+        "expert": "usability_accessibility",
+        "disposition": "contextual_only",
+        "note": "Gendered keys exist internally, but the UI and workbook map them to display names. No material on-screen finding."
+      }
+    ],
     "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "residual_uncertainty": "Internal keys are gendered (h_/w_, Husband_IRA), and display mapping hides this in the main UI and workbook. I did not verify whether the Admin Control Center shows raw choice values (admin.js:786 renders choices with esc(c) and has no personDisplay mapping). If it does, it would show Husband_IRA to an admin user."
   },
   {
     "area": "Contextual help, glossary and end-user documentation",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "documentation",
-    "evidence": [],
+    "evidence": [
+      "frontend/js/help_registry.js:1-5 — header — plain-English, high-school-reader target",
+      "frontend/js/help_registry.js:140-147,248-255 — HELP_PAGES.spending_core / strategy_optimize — concatenated multi-page text, undefined TNW/KPIs/sleeve",
+      "frontend/js/help_registry.js:6-102 — GLOSSARY — 91 terms, no terminal net worth / probability of success",
+      "documentation/reference/readme/README.md:6-12,38-42 — end-user README — stale 'Welcome' and 'under Reports & Review'",
+      "frontend/js/dashboard_decomp_checklist_closeout.js:285,289 — Plan Status pane and Concepts Guide card — retired page names; guide pointer is plain path text",
+      "frontend/js/dashboard.js:14-185 — STEPS — current titles and groups",
+      "documentation/reference/Retirement_Planner_Concepts_Guide.docx — word/document.xml — retired screen names; new pages absent",
+      "documentation/future/page_help_review.md:1-14 — merge method — fact-preserving merge"
+    ],
     "github_items": [
       "PR #259",
       "PR #267",
       "PR #268",
       "PR #235"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "PR #259",
+        "expert": "documentation",
+        "disposition": "contextual_only",
+        "note": "Help registry and follow-focus panel. Establishes help_registry.js as the source; no defect taken from it directly."
+      },
+      {
+        "ref": "PR #267",
+        "expert": "documentation",
+        "disposition": "insufficient_evidence",
+        "note": "Author-flagged judgement calls (restyled 'Why it matters', removed hover titles) were not individually inspected."
+      },
+      {
+        "ref": "PR #268",
+        "expert": "documentation",
+        "disposition": "confirmed",
+        "note": "The content pass claimed retired page names were replaced, but 'Spending Categories' (7 uses) and 'Income & Expense Transactions' (3 uses) remain in help_registry.js, and long stitched records remain. Supports DOC-001."
+      },
+      {
+        "ref": "PR #235",
+        "expert": "documentation",
+        "disposition": "confirmed",
+        "note": "The author said the Concepts Guide 'Find it' labels were not walked against the app. Retired screen names were confirmed in the docx (DOC-003); the README location drift is in DOC-002."
+      }
+    ],
+    "finding_ids": [
+      "DOC-001",
+      "DOC-002",
+      "DOC-003"
+    ],
+    "residual_uncertainty": "Help text was read statically. It was not rendered in the app, so panel truncation and visual length were not observed. HELP_SECTIONS (lines 395-914) and HELP_FIELDS were sampled only. Whether the packaged build or release zip includes documentation/ (and so the Concepts Guide) was not established."
   },
   {
     "area": "Design and implementation document status and eligibility",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "documentation",
-    "evidence": [],
-    "github_items": [
-      "X-02"
+    "evidence": [
+      "documentation/DOCUMENTATION_INDEX.md:3-8,26-32 — layout rule — future/ = planned not built",
+      "documentation/future/superpowers/plans/2026-10-26-trends-time-scope-design.md:3 — Status — 'not yet merged' vs merged #276",
+      "documentation/future/superpowers/plans/2026-10-27-trends-drilldown-reconciliation-design.md:4 — Status — 'draft PRs' vs merged #288",
+      "documentation/future/superpowers/plans/2026-11-04-left-nav-redesign-followups.md:3 — Status planned vs #391 merged",
+      "documentation/future/page_help_review.md:1 — Status draft vs plan implemented",
+      "First-20-line Status scan of all documentation/future/**/*.md (this run)"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_items": [
+      "X-02",
+      "PR #391"
+    ],
+    "github_dispositions": [
+      {
+        "ref": "X-02",
+        "expert": "documentation",
+        "disposition": "confirmed",
+        "note": "future/ holds implemented documents, and several Status lines are stale against merge history (DOC-004). The unindexed reference/ docs are confirmed in DOC-007."
+      },
+      {
+        "ref": "PR #391",
+        "expert": "documentation",
+        "disposition": "contextual_only",
+        "note": "Merged nav follow-ups A, B and E while the follow-up plan still says 'planned' (DOC-004)."
+      }
+    ],
+    "finding_ids": [
+      "DOC-004",
+      "DOC-007"
+    ],
+    "residual_uncertainty": "Status was compared with git merge history for about 6 documents only. The other future/ and archive/ documents marked status-uncertain by the inventory were not individually reconciled. Archive exclusions from the inventory stage were accepted as recorded, not re-verified."
   },
   {
     "area": "Developer and agent guidance documentation (CLAUDE.md, runbooks, backlog)",
-    "status": "not_inspected",
+    "status": "finding_identified",
     "expert": "documentation",
-    "evidence": [],
+    "evidence": [
+      ".claude/claude.md:15-30 — Reading Large Files — stale counts, moved path",
+      "wc -l this run — measured sizes for all listed files",
+      ".claude/hooks/large_file_guard.py:11,21-27 — GUARDED — stale counts, module_catalog unguarded",
+      "documentation/reference/CLAUDE.md:42 — project location — wrong folder name",
+      "conftest.py:1-6 — docstring — refers to untracked output xlsx",
+      "documentation/reference/BACKLOG.md:3-26 — tracker — 8 items, last change 2026-10-20",
+      "documentation/future/superpowers/plans/2026-11-04-left-nav-redesign-followups.md:11,57-58 — backlog item not added"
+    ],
     "github_items": [
       "ENG-09",
       "UIR-11",
@@ -415,7 +1236,42 @@
       "R-TDC-10",
       "R-TDC-11"
     ],
-    "finding_ids": [],
-    "residual_uncertainty": "not yet reviewed"
+    "github_dispositions": [
+      {
+        "ref": "ENG-09",
+        "expert": "documentation",
+        "disposition": "confirmed",
+        "note": "Large-file table and reference CLAUDE.md location are stale (DOC-005)."
+      },
+      {
+        "ref": "UIR-11",
+        "expert": "documentation",
+        "disposition": "duplicate",
+        "note": "Same as ENG-09 / R-TDC-04; folded into DOC-005."
+      },
+      {
+        "ref": "R-TDC-04",
+        "expert": "documentation",
+        "disposition": "duplicate",
+        "note": "Same as ENG-09; folded into DOC-005."
+      },
+      {
+        "ref": "R-TDC-10",
+        "expert": "documentation",
+        "disposition": "confirmed",
+        "note": "The conftest docstring refers to an untracked output file, and the two guidance files overlap; folded into DOC-005."
+      },
+      {
+        "ref": "R-TDC-11",
+        "expert": "documentation",
+        "disposition": "confirmed",
+        "note": "BACKLOG.md is the sole tracker and is not receiving deferred items (DOC-006)."
+      }
+    ],
+    "finding_ids": [
+      "DOC-005",
+      "DOC-006"
+    ],
+    "residual_uncertainty": "The runbooks (ANNUAL_MAINTENANCE, GOLDEN_MASTER_RECOVERY, CONVERSION_*, TRENDS_REMOTE_ACCESS) were checked for presence and index listing only; their step accuracy was not validated against tools. Commands in reference/CLAUDE.md were checked for file existence only and were not run."
   }
 ]
