@@ -5087,84 +5087,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rowIsRetirementWellness",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rowIsRetirementWellness",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "moduleGates",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "optionalModuleState",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "baseHomeSaleYearRow",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "stressHomeSaleYearRow",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "assetActionForSubsection",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "assetActionForSubsection",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "inactiveEditReveals",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -6967,6 +6889,84 @@
     {
       "name": "appReady",
       "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_row_routing.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowIsRetirementWellness",
+      "file": "frontend/js/dashboard_decomp_row_routing.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowIsRetirementWellness",
+      "file": "frontend/js/dashboard_decomp_row_routing.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleGates",
+      "file": "frontend/js/dashboard_decomp_row_routing.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "optionalModuleState",
+      "file": "frontend/js/dashboard_decomp_row_routing.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "baseHomeSaleYearRow",
+      "file": "frontend/js/dashboard_decomp_row_routing.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "stressHomeSaleYearRow",
+      "file": "frontend/js/dashboard_decomp_row_routing.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_row_routing.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "assetActionForSubsection",
+      "file": "frontend/js/dashboard_decomp_row_routing.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "assetActionForSubsection",
+      "file": "frontend/js/dashboard_decomp_row_routing.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_row_routing.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_row_routing.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_row_routing.js",
       "kind": "read",
       "scope": "inside-function"
     },

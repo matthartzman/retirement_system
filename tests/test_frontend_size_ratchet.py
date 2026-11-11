@@ -771,7 +771,7 @@ PER_FILE_CAPS = {
     "dashboard_decomp_checklist_closeout.js": 1_399,
     "dashboard_decomp_housing_optimizer.js": 2_832,
     "dashboard_decomp_housing_scenarios.js": 1_466,
-    "dashboard_decomp_row_model.js": 3_653,
+    "dashboard_decomp_row_model.js": 2_936,
     "dashboard_decomp_ytd_and_plan_folder_io.js": 1_184,
     "help_registry.js": 1_124,
     "reports_ui.js": 1_550,
@@ -797,6 +797,7 @@ PER_FILE_CAP_LOG = [
     ("2026-11-11", "dashboard_decomp_row_model.js", 4_562, 4_160, "lowered: planning levers/build-impact extracted to dashboard_decomp_planning_levers.js (W4-06)"),
     ("2026-11-11", "dashboard_decomp_row_model.js", 4_160, 3_869, "lowered: build runner extracted to dashboard_decomp_build_runner.js (W4-06)"),
     ("2026-11-11", "dashboard_decomp_row_model.js", 3_869, 3_653, "lowered: save-error mapping extracted to dashboard_decomp_save_errors.js (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 3_653, 2_936, "lowered: row routing extracted to dashboard_decomp_row_routing.js (W4-06)"),
 ]
 
 
