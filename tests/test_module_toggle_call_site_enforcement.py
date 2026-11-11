@@ -235,6 +235,15 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
         "Adds the owner's projected business interest to the taxable estate, "
         "changing computed estate tax and not merely sheet 34's existence.",
     ),
+    ("src/projection_stages/life_insurance_proceeds.py",
+     "life_insurance_enabled", RAW_OPT): (
+        ENGINE, None, ("existing_life_insurance",),
+        "W4-04 (FIN-005): pays in-force death benefits into the survivor or "
+        "estate in the projection and stops premiums, so the toggle moves "
+        "balances and estate tax, not only sheet 31. Read raw (absent means "
+        "off) and ANDed with a non-empty c['life_policies'], so a plan with no "
+        "policies is unchanged.",
+    ),
     ("src/projection_stages/rental_property.py", "rental_book_for",
      "rental_property_income"): (
         ENGINE, None, (),

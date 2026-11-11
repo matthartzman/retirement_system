@@ -917,6 +917,9 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, sheet="31. Existing Life Insurance", tab="4E. Existing Life Insurance",
         requires_inputs=(_in("insurance_estate", "life_policies"),),
         requires_outputs=("survivor_stress_test",),
+        # W4-04: with the toggle on, in-force death benefits are paid into the
+        # survivor or estate in the projection, so it changes projection output.
+        engine_participation=True,
         # Pre-existing dashboard.js behavior (ROW_MODULE_GATES), preserved as-is:
         # ALL "Insurance In Force" rows are gated by this module's toggle alone,
         # even a row whose own policy_type is Disability/LTC/Umbrella. Not
