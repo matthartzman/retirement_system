@@ -1,7 +1,7 @@
 # Financial Insight: Remote Access Runbook
 
 How the Financial Insight app is reached from outside the home network, and how to run it.
-Design: `documentation/future/superpowers/plans/2026-10-27-trends-remote-access-design.md`.
+Design: `documentation/archive/superpowers/plans/2026-10-27-trends-remote-access-design.md`.
 
 ## How it works
 

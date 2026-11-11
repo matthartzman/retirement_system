@@ -2874,8 +2874,9 @@ window.setPlanReportSection = function (id) {
   renderMain();
 };
 function renderStrategyTabs(step, tabs, active) {
-  return `<div class="workspace-tabs" role="tablist">${tabs.map((t) => `<button class="workspace-tab ${t === active ? "active" : ""}" type="button" role="tab" aria-selected="${t === active ? "true" : "false"}" onclick="setStrategyTab('${escJs(step)}','${escJs(t)}')">${esc(t === "This year" ? String(selectedSpendingYear()) : t)}</button>`).join("")}</div>`;
+  return tabBarHtml(step, tabs.map((t) => [tabSlug(t), esc(t === "This year" ? String(selectedSpendingYear()) : t)]), tabSlug(active), "selectStrategyTab", "Workspace sections");
 }
+window.selectStrategyTab = (slug, step) => setStrategyTab(step, (STRATEGY_TABS[step] || []).find((t) => tabSlug(t) === slug));
 // Generic tab registry for "workspace" steps that tab-switch between what
 // used to be several separate nav steps -- keyed by the merged step's own
 // id, reused by getStrategyTab/setStrategyTab/goToStrategyTab/renderStrategyTabs
@@ -4745,7 +4746,7 @@ const FIELD_GUIDANCE_OVERRIDES = {
   market_luck_stress_test: {
     purpose: "A Monte Carlo stress test runs hundreds of simulations with different random stock and bond returns to see how often your retirement plan stays on track even in unlucky market years. This setting adds that analysis.",
     impact: "When enabled, the plan shows what percent of scenarios result in your money lasting through retirement, helping you understand the risk that you might run short if markets perform poorly early in retirement.",
-    consider: "Aim for an 80-90% success rate in typical models; higher rates require larger savings or lower spending, lower rates accept more risk of shortfall.",
+    consider: "An 80-90% success rate is a common planning convention, not a recommendation for your household. The right level depends on how flexible your spending is, your other income and how much shortfall risk you can accept; discuss it with your advisor. Higher rates require larger savings or lower spending, and lower rates accept more risk of shortfall.",
   },
   methodology_rerun: {
     purpose: "This sheet explains how the plan was built, what assumptions it uses, and how to recalculate the plan if you change inputs. This setting shows or hides that reference sheet.",
@@ -5851,13 +5852,6 @@ function fieldLikelyImpact(row, g) {
       "Changing this value can affect cash flow, terminal net worth, lifetime taxes, interim liquidity, risk metrics, recommendations, or workbook narratives depending on how the field is used.";
   return [base, directional, consider].filter(Boolean).join(" ");
 }
-// #250: the help pane is closed by default at every width (item 2.18, U2).
-// showFieldHelp only wrote into #helpPanel's innerHTML, so clicking a field
-// -- or the "i" tooltip icon whose title text literally promises "Click for
-// the full explanation" -- silently updated hidden content: nothing visibly
-// happened. Every writer of #helpPanel must reveal it, not just fill it.
-
-
 async function fetchWithTimeout(url, opts = {}, timeoutMs = 1200) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);

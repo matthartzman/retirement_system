@@ -1,6 +1,7 @@
 // Sales Ledger follow-ups (2026-11-04): carryforward draft, All years, countless-alert signature, strip items, landing fallbacks.
 import { test, describe, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { installInAppConfirm, resetInAppConfirm, confirmState } from "./inapp_confirm_stub.mjs";
 
 let ui, tax, tr, ye, tl;
 const calls = [];
@@ -24,6 +25,7 @@ before(async () => {
   globalThis.localStorage = store();
   globalThis.document = { getElementById: (id) => els[id] || null };
   globalThis.api = defaultApi;
+  await installInAppConfirm();
   ui = await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
   tax = await import("../../frontend/js/dashboard_decomp_sales_tax.js");
   ye = await import("../../frontend/js/dashboard_decomp_year_end.js");

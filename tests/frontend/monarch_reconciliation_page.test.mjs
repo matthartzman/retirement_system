@@ -1,6 +1,7 @@
 // R4 of the reconciliation page: the pure HTML helpers of dashboard_decomp_monarch_reconciliation.js
 // and the nav/step wiring that makes the page reachable under Reports & Review.
 import { test, describe, before } from "node:test";
+import { installInAppConfirm } from "./inapp_confirm_stub.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -15,6 +16,7 @@ before(async () => {
   // The module uses the page's bare globals and registers its helpers on window.
   globalThis.esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   globalThis.window = globalThis;
+  await installInAppConfirm();
   globalThis.document = { getElementById: () => null };
   globalThis.api = async () => ({});
   m = await import("../../frontend/js/dashboard_decomp_monarch_reconciliation.js");

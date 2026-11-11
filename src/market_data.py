@@ -295,7 +295,7 @@ class MarketDataProvider:
                         self.alpha_vantage_api_key = _clean_secret(get_secret("alpha_vantage_api_key"))
                 except Exception as exc:  # SecretStoreUnavailable: treat as "no key", but say so
                     self.secret_store_warning = f"Stored API keys unavailable: {exc}"
-                    logging.getLogger(__name__).warning(self.secret_store_warning)
+                    logging.getLogger("retirement_system.market_data").warning(self.secret_store_warning)
 
     def api_key_sources(self) -> Dict[str, object]:
         def _source(kind: str) -> str:

@@ -91,10 +91,11 @@ def _run_server() -> int:
     host = cfg.dashboard_host or "127.0.0.1"
     port = int(cfg.dashboard_port or 5050)
     url = f"http://{host}:{port}"
+    from src.version import release_label as _release_label
 
     print(f"""
 ======================================================
-  RETIREMENT PLAN SYSTEM v11  [server mode]
+  {_release_label()}  [server mode]
 ======================================================
   Dashboard:  {url}
   Runtime:    stdlib local HTTP

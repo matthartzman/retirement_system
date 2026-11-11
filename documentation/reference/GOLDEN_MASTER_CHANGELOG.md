@@ -1,3 +1,45 @@
+## 2026-11-11 — Full-row engine snapshot regenerated for the Wave 3 deduction-block changes
+
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=d14fb17e1d17b2d07627a9a623531e4004ea3b8e625e2141946a315a5cf14b9d -->
+
+**Reason.** W3-01 to W3-04 and the HSA/charitable closed-form fixes change per-year rows of the synthetic scenarios the same way they change the frozen plan: Illinois S-corp replacement tax (scorp_replacement_tax, distribution, business expenses), SALT from the computed state tax, SEHI premiums out of itemized medical, HSA catch-up per eligible spouse, and Section 199A limits. The frozen-plan 2026 deltas were hand-verified in the W3-01, W3-03 and W3-04 entries above.
+
+## 2026-11-11 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5218638.39 lifetime_tax=1235710.81 -->
+
+**Old pins.** terminal_nw=5,221,062.27, lifetime_tax=1,235,269.49
+
+**New pins.** terminal_nw=5,218,638.39, lifetime_tax=1,235,710.81
+
+**Reason.**
+
+W3-04 (FIN-006): premiums already deducted above the line as self-employed health insurance (IRC 162(l)) no longer also count as Sec. 213 itemized medical expense (apply_agi_and_tax, medical_expense_after_sehi). Hand check, frozen plan 2026: SEHI deduction 10,000 removes 10,000 of premiums from medical expense, so the medical deduction above the 7.5% AGI floor (31,525 on AGI 420,334) falls from 2,315.05 to 0; federal tax rose 555.6 (60,342 to 60,898), which is 24% of 2,315.05. Frozen pins moved terminal_nw -2,423.88 and lifetime_tax +441.32; later years move through the Roth strategy optimizer re-ranking candidates (no premiums deducted as SEHI after 2026). The premium-tax-credit cap on the SEHI source (second half of FIN-006) is not implemented: it needs a cross-stage fixed point (flagged in the Wave 3 status note).
+
+## 2026-11-11 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5221062.27 lifetime_tax=1235269.49 -->
+
+**Old pins.** terminal_nw=5,230,028.13, lifetime_tax=1,233,767.93
+
+**New pins.** terminal_nw=5,221,062.27, lifetime_tax=1,235,269.49
+
+**Reason.**
+
+W3-03 (FIN-003) plus W3-02 (FIN-001) and two closed-form deduction-block fixes, re-pinned together because W3-02 and the fixes move no frozen-plan pin value. Frozen pins moved only by W3-03: the SALT state-income-tax component is now the engine's computed state tax instead of AGI x flat rate. Hand check, frozen plan 2026 (first year, no path dependence): old SALT = 0.0495 x AGI 420,333.76 = 20,806.5 + property tax 18,000 = 38,806.5; new = computed Illinois state tax 14,488.7 + 18,000 = 32,488.7; taxable income rose 6,317.8 (309,996.6 to 316,314.4) and federal tax rose 1,515.8, which is 24% of 6,317.8. Later years also move because the Roth strategy optimizer now selects no voluntary conversions (terminal NW -8,965.86, lifetime tax +1,501.56); this is flagged for the user. W3-02 adds the Section 199A limits (src/qbi.py, Rev. Proc. 2025-32 rows); the frozen plan is below the 403,500 threshold (2026 taxable income before QBI 352,528) so 20% x 212,654.55 = 42,530.91 is unchanged and the overall cap 70,505 does not bind. HSA catch-up now fixed 1,000 per eligible spouse and the charitable 0.5%-of-AGI floor starts in 2026: neither moves the frozen plan; the demo plan's second spouse adds one 1,000 catch-up.
+
+## 2026-11-11 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5230028.13 lifetime_tax=1233767.93 -->
+
+**Old pins.** terminal_nw=5,241,080.84, lifetime_tax=1,235,134.66
+
+**New pins.** terminal_nw=5,230,028.13, lifetime_tax=1,233,767.93
+
+**Reason.**
+
+W3-01 (FIN-008): the Illinois 1.5% S-corp Personal Property Replacement Income Tax is now modeled in src/projection_stages/income.py. Base = S-corp net income after salary and employer FICA, less a $1,000 exemption; it reduces the distribution (and QBI base and federal taxable income) and is paid from cash as a business expense. Hand check, frozen plan 2026: earned 309,620 - biz 15,000 - home office 4,000 - salary 60,000 - employer FICA 4,590 = distribution 226,030; (226,030 - 1,000) x 1.5% = 3,375.45 = engine scorp_replacement_tax. Lifetime tax moved -1,366.73 (about 40.5% of 3,375.45: the 35% federal marginal plus 4.95% Illinois on the lower distribution) and terminal NW moved -11,052.71 (about -2,009 net cash in 2026 compounded over the horizon). CPA gate still open on the base and PTE election.
+
 ## 2026-11-10 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5241080.84 lifetime_tax=1235134.66 -->

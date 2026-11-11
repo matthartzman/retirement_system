@@ -174,8 +174,12 @@ only a workbook/report orchestration layer and delegates projection work here.
 """
 
 
-from .core import *  # noqa: F401,F403  # consolidated from engine_core
-# Wave 5 item W5-2 (finding N5): the wildcard import above shadows this
+from typing import Any
+from .core import (  # W1-02: explicit names (replaces a wildcard import); re-exported to callers/tests
+    FEDERAL_BRACKETS_MFJ,
+    illinois_estate_tax,
+)
+# Wave 5 item W5-2 (finding N5): a wildcard import once shadowed this
 # module's own `rmd_divisor` (defined earlier as `_rmd_divisor_with_table_
 # override`) with core.rmd_divisor's narrower signature (no `table`
 # override param) -- restore the fuller binding every external caller of

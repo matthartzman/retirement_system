@@ -109,7 +109,8 @@ export const sqHistoryRecord = (i) => sqHistoryPost("record", i, "Sale recorded 
 export const sqHistoryDismiss = (i) => sqHistoryPost("dismiss", i, "Hidden. Show hidden brings it back.");
 export const sqHistoryUnhide = (i) => sqHistoryPost("undismiss", i, "Back in the list.");
 function sqBodyHtml() {
-  const msg = sqMessage ? `<p class="${sqMessage.error ? "field-error" : "muted"}" role="status">${esc(sqMessage.text)}` +
+  panelAnnounce("sq", sqMessage);
+  const msg = sqMessage ? `<p class="${sqMessage.error ? "field-error" : "muted"}">${esc(sqMessage.text)}` +
     `${sqMessage.undoId ? ` <button class="btn" type="button" onclick="sqUndo(${Number(sqMessage.undoId)})">Undo</button>` : ""}</p>` : "";
   const waiting = sqList ? sqList.counts.unmatched : 0;
   return `<h3>Sales waiting for lots${sqList ? ` (${waiting})` : ""}</h3>${msg}` +

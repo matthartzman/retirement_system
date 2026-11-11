@@ -2,7 +2,7 @@
 
 2026-10-29. Approved by the user in chat ("build this recommendation").
 
-Status: implemented (PR #328).
+Status: implemented (merged to main as PR #328 on 2026-10-30).
 
 ## Why
 

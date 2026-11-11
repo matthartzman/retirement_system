@@ -1,6 +1,7 @@
 // Plan step 1.4: the pure HTML helpers and the fetch calls of dashboard_decomp_sales_ledger.js.
 import { test, describe, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { installInAppConfirm, resetInAppConfirm, confirmState } from "./inapp_confirm_stub.mjs";
 
 let m;
 const calls = [];
@@ -19,12 +20,13 @@ before(async () => {
     if (url === "/api/sales/import/preview") return { success: true, received: 1, will_write: [{ symbol: "VXUS" }], duplicates: [], errors: [] };
     return { success: true };
   };
+  await installInAppConfirm();
   await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
   await import("../../frontend/js/dashboard_decomp_sales_group.js");
   await import("../../frontend/js/dashboard_decomp_sales_entry.js");
   m = await import("../../frontend/js/dashboard_decomp_sales_ledger.js");
 });
-beforeEach(() => { calls.length = 0; });
+beforeEach(() => { calls.length = 0; resetInAppConfirm(); });
 
 const SALE = (o) => ({ sale_id: 7, sale_date: "2026-06-10", account: "Trust", symbol: "VTI", shares: 10, proceeds: 2000, fees: 5, basis: 1500,
   gain: 495, holding_period: "long", tax_class: "taxable", status: "confirmed", source: "manual", ...o });
@@ -415,7 +417,7 @@ describe("summary change repaints only strip and tab bar roots (Task 6)", () => 
     for (const id of ["slStripRoot", "slTabsRoot", "slHeadRoot", "slFormRoot", "slCsvRoot", "slListRoot"]) mk(id);
     globalThis.document = { getElementById: (id) => globalThis.__roots[id] || null };
     const html = m.renderSalesLedger();
-    assert.ok(html.indexOf('id="slLive"') > -1 && html.indexOf('id="slStripRoot"') < html.indexOf('role="tablist"'));
+    assert.ok(!html.includes('id="slLive"') && html.indexOf('id="slStripRoot"') < html.indexOf('role="tablist"')); // live regions are persistent now
     window.slPublish("queue", { count: 2, tone: "bad", text: "2 waiting" });
     const r = globalThis.__roots;
     assert.ok(r.slStripRoot.writes >= 1 && r.slStripRoot.innerHTML.includes("2 waiting"));
@@ -465,20 +467,40 @@ describe("ledger tab (Task 12)", () => {
 
   test("void asks first: cancel posts nothing, confirm posts once and names the gain and year", withApi(loadWith(), async () => {
     await m.loadSalesLedger();
-    const real = globalThis.confirm;
-    const msgs = [];
+    confirmState.answer = false;
+    calls.length = 0;
+    await m.slVoid(7);
+    assert.equal(calls.filter((c) => c[1] === "POST").length, 0);
+    confirmState.answer = true;
+    await m.slVoid(7);
+    assert.equal(calls.filter((c) => c[1] === "POST").length, 1);
+    const [first, second] = confirmState.asked;
+    assert.match(first.message, /\+\$495\.00/);
+    assert.match(first.message, /2026 totals/);
+    assert.equal(first.opts.confirmLabel, "Void sale");
+    assert.equal(first.opts.variant, "warn");
+    await m.slVoid(8);
+    assert.match(confirmState.asked[2].message, /this sale/);
+    assert.ok(second);
+  }));
+
+  test("a log-linked sale void says Restore will not be available; no dialog means no void", withApi(async (url) => {
+    if (url.startsWith("/api/sales?")) {
+      const linked = SALE({ sale_id: 21, lot_key: JSON.stringify({ log_sell: 12 }) });
+      return { success: true, sales: [linked], totals: { count: 1, short_gain: 0, long_gain: 495 } };
+    }
+  }, async () => {
+    await m.loadSalesLedger();
+    calls.length = 0;
+    await m.slVoid(21);
+    assert.match(confirmState.asked.at(-1).message, /Restore will not be available/);
+    assert.equal(calls.filter((c) => c[1] === "POST").length, 1);
+    delete globalThis.showInAppConfirm;
+    calls.length = 0;
     try {
-      globalThis.confirm = (t) => { msgs.push(t); return false; };
-      calls.length = 0;
-      await m.slVoid(7);
-      assert.equal(calls.filter((c) => c[1] === "POST").length, 0);
-      globalThis.confirm = (t) => { msgs.push(t); return true; };
-      await m.slVoid(7);
-      assert.equal(calls.filter((c) => c[1] === "POST").length, 1);
-      assert.equal(msgs[1], "Remove +$495.00 from 2026 totals?");
-      await m.slVoid(8);
-      assert.equal(msgs[2], "Remove this sale from 2026 totals?");
-    } finally { if (real === undefined) delete globalThis.confirm; else globalThis.confirm = real; }
+      await m.slVoid(21);
+      assert.equal(calls.filter((c) => c[1] === "POST").length, 0, "fails closed when no dialog exists");
+    } finally { await installInAppConfirm(); }
   }));
 
   test("hidden voided count comes from one extra fetch; absent on failure", withApi(loadWith(), async () => {

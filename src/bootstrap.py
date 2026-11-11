@@ -137,4 +137,19 @@ def run_startup_bootstrap(*, run_migration: bool = True) -> dict:
         return {"migrated": [], "total_changed": 0, "already_ran": _BOOTSTRAPPED}
     _BOOTSTRAPPED = True
     from src.plan_data_migration import run_startup_plan_data_migration  # noqa: PLC0415
-    return run_startup_plan_data_migration()
+    logger = logging.getLogger(LOG_LOGGER_NAME + ".bootstrap")
+    try:
+        result = run_startup_plan_data_migration()
+    except Exception:
+        # ARC-003: a migration failure must be on record on every launch path, and must
+        # never stop the app from starting.
+        logger.exception("startup plan-data migration raised; continuing without it")
+        return {"migrated": {}, "total_changed": 0, "skipped": True, "error": "migration raised"}
+    if result.get("error"):
+        logger.error("startup plan-data migration failed: %s", result["error"])
+    else:
+        logger.info(
+            "startup plan-data migration finished: total_changed=%s skipped=%s",
+            result.get("total_changed", 0), result.get("skipped", False),
+        )
+    return result

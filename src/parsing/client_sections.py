@@ -453,9 +453,9 @@ def parse_members_and_economics(data, c, _w_dob_error):
 
 def parse_cashflow_and_retirement(data, c):
     """Earned income, cash-flow inputs, RMD start ages, QCDs and the mortgage amortization schedule."""
-    from ..data_io import _b, _n, _v, _y, statutory_rmd_start_age
+    from ..data_io import _b, _n, _nd, _v, _y, statutory_rmd_start_age
     # Cashflow / income
-    c['earned']     = _n(_v(data,'Cashflow','Earned Income','annual_earned_income','290000'), 290000)
+    c['earned']     = _nd(data,'Cashflow','Earned Income','annual_earned_income')  # blank = schema default (0)
     c['earn_start'] = _y(_v(data,'Cashflow','Earned Income','earned_income_start_year', str(c['plan_start'])), c['plan_start'])
     # Earned income runs from the Work Income start year through the retirement
     # year from Retirement Timing. There is intentionally no separate earned-
@@ -475,6 +475,10 @@ def parse_cashflow_and_retirement(data, c):
     c['sehi']       = 0.0
     c['sehi_derived_from_wellness'] = True
     c['qbi_elig']   = _b(_v(data,'Cashflow','Self-Employment','qbi_eligible','TRUE'))
+    # Section 199A limit inputs (FIN-001). Optional rows: absent means a non-SSTB business with no
+    # qualified property. The household's SSTB status needs CPA confirmation (W3-02 gate).
+    c['qbi_sstb']   = _b(_v(data,'Cashflow','Self-Employment','qbi_sstb','FALSE'))
+    c['qbi_ubia']   = _n(_v(data,'Cashflow','Self-Employment','qbi_ubia','0'), 0.0)
 
     c['k401_mo']   = _n(_v(data,'Cashflow','Retirement Contributions','monthly_401k_contribution','2000'), 2000)
     c['k401_lim']  = _n(_v(data,'Cashflow','Retirement Contributions','annual_401k_limit_base_year','32500'), 32500)
@@ -517,7 +521,7 @@ def parse_cashflow_and_retirement(data, c):
         })
     c['real_dollar_reporting_enabled'] = _b(_v(data,'Reporting','Output','real_dollar_reporting_enabled','TRUE'))
 
-    c['spend_base']= _n(_v(data,'Cashflow','Spending','annual_spending_base_year','225000'), 225000)
+    c['spend_base']= _nd(data,'Cashflow','Spending','annual_spending_base_year')  # blank = schema default (0)
     _spend_growth_mode = str(_v(data,'Cashflow','Spending','core_spending_growth_mode','cpi') or 'cpi').strip().lower().replace(' ', '_')
     if _spend_growth_mode not in ('cpi','manual_override'):
         _spend_growth_mode = 'cpi'
@@ -544,15 +548,15 @@ def parse_cashflow_and_retirement(data, c):
     c['ytd_blend_enabled'] = _b(_v(data,'Cashflow','Spending','ytd_blend_enabled','TRUE') or 'TRUE')
     c['travel_end_year'] = _y(_v(data,'Cashflow','Spending','travel_end_year',''), 0)
 
-    c['mort_pmt']  = _n(_v(data,'Cashflow','Mortgage','monthly_payment','3000'), 3000)*12
+    c['mort_pmt']  = _nd(data,'Cashflow','Mortgage','monthly_payment')*12  # blank = no mortgage
     c['real_estate_tax_base'] = _n(_v(data,'Cashflow','Mortgage','annual_real_estate_taxes','0'), 0)
     c['real_estate_tax_growth_rate'] = _n(
         _v(data,'Cashflow','Mortgage','real_estate_tax_annual_adjustment_pct', str(c.get('inf', 0.025))),
         c.get('inf', 0.025),
     )
-    c['mort_bal']  = _n(_v(data,'Cashflow','Mortgage','balance_as_of_plan_start','293284'), 293284)
-    c['mort_rate'] = _n(_v(data,'Cashflow','Mortgage','interest_rate','0.0199'), 0.0199)
-    c['mort_end']  = _y(_v(data,'Cashflow','Mortgage','last_payment_year','2034'), 2034)
+    c['mort_bal']  = _nd(data,'Cashflow','Mortgage','balance_as_of_plan_start')
+    c['mort_rate'] = _nd(data,'Cashflow','Mortgage','interest_rate')
+    c['mort_end']  = _y(_v(data,'Cashflow','Mortgage','last_payment_year',''), 0)  # 0 = no payoff year (spending_and_rmd treats it as unconfigured)
     # Build a proper amortization schedule: balance at the START of each year.
     # Each year: interest = balance*rate; principal = min(payment-interest, balance).
     # This replaces the previous (incorrect) use of the note's principal to amortize.
@@ -590,7 +594,7 @@ def parse_cashflow_and_retirement(data, c):
 
 def parse_spending_and_home_sale(data, c):
     """Large-discretionary and spending-budget rows, other assets and the home-sale parameters."""
-    from ..data_io import TAX_BASE_YEAR, _insurance_policy_premium_sum, _n, _v, _y
+    from ..data_io import TAX_BASE_YEAR, _insurance_policy_premium_sum, _n, _nd, _v, _y
     c['recurring_extras'] = []
     c['ld_import_notices'] = []
     # #335 Spending Adjustments (Cashflow / Spending Adjustments adj_N_* rows),
@@ -665,7 +669,7 @@ def parse_spending_and_home_sale(data, c):
         pass
 
     # Other Assets
-    c['home_val']    = _n(_v(data,'Other Assets','Home','value_as_of_plan_start', _v(data,'Other Assets','Home',f'value_4_1_{TAX_BASE_YEAR}','1313000')), 1313000)
+    c['home_val']    = _n(_v(data,'Other Assets','Home','value_as_of_plan_start', _v(data,'Other Assets','Home',f'value_4_1_{TAX_BASE_YEAR}','')), 0.0)  # blank = no home (schema default is blank)
     c['home_appr']   = _n(_v(data,'Other Assets','Home','appreciation_rate','0.03'), 0.03)
     c['sec121']      = _n(_v(data,'Other Assets','Home','section_121_exclusion_mfj','500000'), 500000)
     # Home sale parameters (0 = no planned sale)
@@ -1272,10 +1276,10 @@ def parse_model_constants(data, c):
 
 def parse_ltc_and_holdings(data, c):
     """Hybrid LTC parameters, asset allocation, tax lots and the liabilities load."""
-    from ..data_io import _b, _log, _n, _strict_float, _tcsv, _v, _y
+    from ..data_io import _b, _log, _n, _nd, _strict_float, _tcsv, _v, _y
     # Hybrid Life/LTC parameters
     c['ltc_enabled']      = _b(_v(data,'Hybrid LTC','Settings','enabled','FALSE'))
-    c['ltc_face']         = _n(_v(data,'Hybrid LTC','Settings','face_value','250000'), 250000)
+    c['ltc_face']         = _nd(data,'Hybrid LTC','Settings','face_value')
     c['ltc_annual_prem']  = _n(_v(data,'Hybrid LTC','Settings','annual_premium','0'), 0)
     c['ltc_start_year']   = _y(_v(data,'Hybrid LTC','Settings','start_year','2027'), 2027)
     c['ltc_insured']      = _v(data,'Hybrid LTC','Settings','insured','Member 1')
@@ -1289,7 +1293,7 @@ def parse_ltc_and_holdings(data, c):
     c['heloc_repayment_years'] = int(float(_n(_v(data, 'HELOC', 'Setup', 'heloc_repayment_years', '10'), 10) or 10))
 
     # S-Corp parameters
-    c['scorp_salary']     = _n(_v(data,'Cashflow','S-Corp','reasonable_salary_annual','80000'), 80000)
+    c['scorp_salary']     = _nd(data,'Cashflow','S-Corp','reasonable_salary_annual')  # schema default (60000)
     c['scorp_sehi_on_w2'] = _b(_v(data,'Cashflow','S-Corp','sehi_added_to_w2','TRUE'))
     c['scorp_state_rate'] = _n(_v(data,'Cashflow','S-Corp','state_corporate_surcharge_rate','0.015'), 0.015)
     c['scorp_qbi_phaseout']= _b(_v(data,'Cashflow','S-Corp','qbi_phaseout_applies','FALSE'))

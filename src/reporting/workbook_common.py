@@ -13,7 +13,27 @@ from .. import taxes as _td  # consolidated from tax_data
 from .. import core as _ar  # consolidated from account_registry
 from .. import core as _aa  # consolidated from account_access
 from .. import optimization as _ao  # consolidated from allocation_optimizer
-from ..core import *  # shared projection/tax/annuity primitives  # consolidated from engine_core
+from ..core import (  # W1-02: explicit names (replaces a wildcard import); sheet modules import these from here
+    ASSET_CLASS_RETURNS,
+    FEDERAL_BRACKETS_BASE_YEAR,
+    IRMAA_TIERS_BASE_YEAR,
+    NIIT_THRESHOLD,
+    STATE_TAX_RULES,
+    TAX_BASE_YEAR,
+    annuity_cash_income,
+    col_factors,
+    deflate_to_present,
+    indexed_federal_estate_exemption,
+    inflate_brackets,
+    ltcg_tax_on_gain,
+    marginal_rate,
+    resolved_state_estate_exemption,
+    salt_cap,
+    standard_deduction,
+    state_estate_tax,
+    state_income_tax,
+    supported_states,
+)
 from ..market_data import PRICE_CACHE, fetch_price, price_source, pricing_diagnostics, pricing_source_summary, report_pricing_diagnostics  # consolidated from market_data_providers
 
 import openpyxl

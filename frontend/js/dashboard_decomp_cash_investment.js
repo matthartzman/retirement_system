@@ -60,7 +60,7 @@ export function ciHtml(view, ledger = ciLedger, sort = ciSort) {
       `<td>${esc(l.pair_status)}${l.partner_account ? " " + esc(accountDisplayLabel(l.partner_account)) : ""}</td><td>${esc(l.source)}</td><td>${ciRolloverButton(ledger.account, l)}</td></tr>`).join("") + `</tbody></table></div>` : `<p class="muted">No cash rows.</p>`) : "";
   const card = (t, body) => `<section class="ci-card"><h3>${t}</h3>${body || `<p class="muted">Nothing to show.</p>`}</section>`;
   const agreeHtml = !rows.length ? `<p class="muted">No broker imports yet.</p>` : (off.length ? tbl(off) : "") + (agree.length ? `<details><summary>${agree.length} of ${rows.length} match</summary>${tbl(agree)}</details>` : "");
-  return `${ciError ? `<p role="alert" class="error">${esc(ciError)}</p>` : ""}${card("Investment cash agrees with the broker", agreeHtml + led)}` +
+  return `${panelMsgHtml("ci", ciError && { text: ciError, error: true }, "error")}${card("Investment cash agrees with the broker", agreeHtml + led)}` +
     card("Withdrawals: actual vs plan", `${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${rep}${cmpHtml}${pastHtml}${stHtml}`) + card("One-time: verify accounts for the tax feed", floorHtml) +
     card("Closed years", closesHtml);
 }
@@ -80,12 +80,12 @@ export async function ciShowLedger(account) {
   ciPaint();
 }
 export async function ciCloseYear(year, straddles) {
-  const seen = straddles ? confirm(`${straddles} transfer(s) straddle the ${year} year-end and stay in the year of their own date. Close ${year}?`) : confirm(`Close ${year}? This freezes its reported withdrawals and plan figure.`);
-  if (!seen) return;
+  const note = straddles ? `${straddles} transfer(s) straddle the ${year} year-end and stay in the year of their own date. ` : "";
+  if (!(await confirmDestructive(`${note}This freezes its reported withdrawals and plan figure.`, { title: `Close ${year}?`, action: "Close year" }))) return;
   await ciYearAction({ year, action: "close", straddles_seen: !!straddles });
 }
 export async function ciReopenYear(year) {
-  if (confirm(`Reopen ${year}? Its frozen figures are discarded.`)) await ciYearAction({ year, action: "reopen" });
+  if (await confirmDestructive("Its frozen figures are discarded.", { title: `Reopen ${year}?`, action: "Reopen year" })) await ciYearAction({ year, action: "reopen" });
 }
 async function ciYearAction(body) {
   try { await api("/api/cash/year-close", { method: "POST", body: JSON.stringify(body) }); await ciLoad(); } catch (e) { ciError = e.message; ciPaint(); }
@@ -96,7 +96,7 @@ export function ciRolloverButton(account, l) {
   return ciMarkable(l) ? `<button class="btn" type="button" onclick="ciMarkRollover(${esc(JSON.stringify(account))}, ${esc(JSON.stringify(l.date))}, ${Number(l.amount)}, true)">Mark as rollover</button>` : "";
 }
 export async function ciMarkRollover(account, date, amount, marked) {
-  if (marked && !confirm(`Mark this ${ciMoney(Math.abs(amount))} outflow on ${date} as a rollover? It stops counting as a withdrawal, so it is not taxed by the cash floor.`)) return;
+  if (marked && !(await confirmDestructive("It stops counting as a withdrawal, so it is not taxed by the cash floor.", { title: `Mark this ${ciMoney(Math.abs(amount))} outflow on ${date} as a rollover?`, action: "Mark as rollover" }))) return;
   try { await api("/api/cash/rollover-mark", { method: "POST", body: JSON.stringify({ account, date, amount, marked }) }); await ciLoad(); await ciShowLedger(account); } catch (e) { ciError = e.message; ciPaint(); }
 }
 export async function ciVerify(account, verified) {

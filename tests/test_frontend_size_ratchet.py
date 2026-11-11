@@ -692,7 +692,9 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-09 Sales Ledger v3 phase 1 (ledger cut to three tabs, Record sales grid, Activity panel without modes/chips, Sales CSV and Density removed):
 # lowered 43,818 -> 43,777 to the measured total after the whole feature (wash cards, Holdings tabs, Record sales grid and the rest) was added
 # and the Sales Ledger / Holdings / Activity / Year-End modules lost their blank lines (237) to pay for it.
-TOTAL_JS_MAX_LINES = 43_777
+# 2026-11-11 W1-06: lowered 43,777 -> 43,741 to the measured total (inline api() fetch fallback removed, +2 lines for the
+# automatic-backup failure message in dashboard_decomp_local_backups.js).
+TOTAL_JS_MAX_LINES = 43_741
 
 
 
@@ -745,3 +747,83 @@ def test_ratchet_target_exists(name):
         f"frontend/js/{name} not found -- if it was renamed or split, update "
         "this ratchet to point at whatever now holds the bulk of the UI."
     )
+
+
+# ---------------------------------------------------------------------------
+# Per-file ceilings (system review 2026-11-10, W1-01 / ARC-005, QA-006).
+# The two totals above leave the large decomp modules unconstrained, so any one
+# of them could absorb growth. Every frontend/js file of PER_FILE_CAP_MIN_LINES
+# or more has its own ceiling, set at the measured size on 2026-11-11.
+#
+# Ratchet rules: lower a cap in the same commit as a real extraction. A cap may
+# only be RAISED by adding a row to PER_FILE_CAP_LOG whose last entry for that
+# file carries the new value and a non-empty reason; the test below fails when
+# the cap and the last log row disagree, or when an increase has no reason.
+# ---------------------------------------------------------------------------
+PER_FILE_CAP_MIN_LINES = 1_100
+
+PER_FILE_CAPS = {
+    "admin.js": 2_048,
+    "dashboard.js": 6_477,
+    "dashboard_decomp_allocation_optimizer.js": 1_456,
+    "dashboard_decomp_checklist_closeout.js": 1_399,
+    "dashboard_decomp_housing_optimizer.js": 2_832,
+    "dashboard_decomp_housing_scenarios.js": 1_466,
+    "dashboard_decomp_row_model.js": 5_935,
+    "dashboard_decomp_ytd_and_plan_folder_io.js": 1_184,
+    "help_registry.js": 1_124,
+    "reports_ui.js": 1_550,
+}
+
+# (date, file, old_cap, new_cap, reason). old_cap None = initial baseline.
+PER_FILE_CAP_LOG = [
+    ("2026-11-11", "admin.js", None, 2_048, "initial per-file baseline (W1-01)"),
+    ("2026-11-11", "dashboard.js", None, 6_477, "initial per-file baseline (W1-01)"),
+    ("2026-11-11", "dashboard_decomp_allocation_optimizer.js", None, 1_456, "initial per-file baseline (W1-01)"),
+    ("2026-11-11", "dashboard_decomp_checklist_closeout.js", None, 1_399, "initial per-file baseline (W1-01)"),
+    ("2026-11-11", "dashboard_decomp_housing_optimizer.js", None, 2_832, "initial per-file baseline (W1-01)"),
+    ("2026-11-11", "dashboard_decomp_housing_scenarios.js", None, 1_466, "initial per-file baseline (W1-01)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", None, 5_974, "initial per-file baseline (W1-01)"),
+    ("2026-11-11", "dashboard_decomp_ytd_and_plan_folder_io.js", None, 1_184, "initial per-file baseline (W1-01)"),
+    ("2026-11-11", "help_registry.js", None, 1_124, "initial per-file baseline (W1-01)"),
+    ("2026-11-11", "reports_ui.js", None, 1_550, "initial per-file baseline (W1-01)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 5_974, 5_935, "lowered: inline api() fetch fallback removed (W1-06)"),
+]
+
+
+def test_per_file_caps_hold():
+    over = []
+    for name, cap in PER_FILE_CAPS.items():
+        actual = _line_count(JS_DIR / name)
+        if actual > cap:
+            over.append(f"{name}: {actual:,} > cap {cap:,} (+{actual - cap:,})")
+    assert not over, (
+        "frontend/js file(s) over their per-file ceiling: " + "; ".join(over) +
+        ". Extract code into a new module or remove lines; do NOT raise the cap "
+        "to pass. A justified raise needs a PER_FILE_CAP_LOG row with a reason."
+    )
+
+
+def test_every_large_frontend_file_has_a_cap():
+    missing = [
+        p.name for p in JS_DIR.glob("*.js")
+        if _line_count(p) >= PER_FILE_CAP_MIN_LINES and p.name not in PER_FILE_CAPS
+    ]
+    assert not missing, (
+        f"frontend/js file(s) at {PER_FILE_CAP_MIN_LINES:,}+ lines have no entry in "
+        f"PER_FILE_CAPS: {missing}. Add one at the measured size."
+    )
+
+
+def test_per_file_cap_raises_need_a_recorded_reason():
+    last = {}
+    for date, name, old, new, reason in PER_FILE_CAP_LOG:
+        raised = old is not None and new > old
+        assert not raised or reason.strip(), f"{name}: cap raised {old}->{new} on {date} without a reason"
+        assert old is None or last.get(name) == old, f"{name}: log row {date} does not continue from {last.get(name)}"
+        last[name] = new
+    for name, cap in PER_FILE_CAPS.items():
+        assert last.get(name) == cap, (
+            f"{name}: PER_FILE_CAPS says {cap:,} but the last PER_FILE_CAP_LOG row says "
+            f"{last.get(name)}. A changed cap needs a log row with a reason."
+        )

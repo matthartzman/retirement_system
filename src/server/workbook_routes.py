@@ -206,6 +206,19 @@ def build_start():
             "error": "Direct CSV payloads are no longer accepted by the build endpoint. Edit the plan in the app, then build outputs from the saved plan.",
         }), 400
 
+    # QA-001: never start a build while preflight reports blockers (blank required values,
+    # schema validation issues); the build would otherwise run on parser fallbacks.
+    try:
+        _preflight_blockers = list(_build_preflight_payload().get("blockers") or [])
+    except Exception:
+        _preflight_blockers = []  # a preflight that cannot run must not itself stop a build
+    if _preflight_blockers:
+        return jsonify({
+            "success": False,
+            "error": "Build not started: " + " ".join(str(b) for b in _preflight_blockers),
+            "blockers": _preflight_blockers,
+        }), 409
+
     workspace_id = _workspace_id()
     client_id = _client_id()
     # Local-only package builds from the saved SQLite-backed working copy; input/ files are import/export adapters.
@@ -623,8 +636,8 @@ def get_holding_classes():
     denied = _require("read_config")
     if denied:
         return denied
-    from financial_trends_reporter.live_snapshot import classify_symbol
     from .. import portfolio_analytics
+    classify_symbol = portfolio_analytics.classify_symbol
     master = portfolio_analytics.read_security_master()
     text = holdings_service.read_holdings(base_dir=WORKSPACE_ROOT, workspace_id=_workspace_id(), client_id=_client_id(), db_path=_sqlite_db())
     if text.get("path"):

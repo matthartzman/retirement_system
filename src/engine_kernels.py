@@ -16,7 +16,38 @@ tests/test_engine_kernels_import_boundary_unit.py enforces that.
 
 import json
 import numpy as _np
-from .core import *  # noqa: F401,F403
+from .core import (  # W1-02: explicit names (replaces a wildcard import); incl. names re-exported to stage modules
+    EvDeath,
+    EvHomeSale,
+    EvIncome,
+    EvConversion,
+    EvGrowth,
+    EvRMD,
+    EvTax,
+    EvTransfer,
+    EvWarning,
+    EvWithdraw,
+    FEDERAL_BRACKETS_BASE_YEAR,
+    FEDERAL_BRACKETS_MFJ,
+    IRMAA_TIERS_BASE_YEAR,
+    LTCG_BRACKETS_BASE_YEAR,
+    NIIT_THRESHOLD,
+    STATE_TAX_RULES,
+    TAX_BASE_YEAR,
+    annuity_cash_income,
+    indexed_federal_estate_exemption,
+    irmaa_lookback_magi_and_filing,
+    marginal_rate,
+    niit_tax,
+    resolved_state_estate_exemption,
+    rmd_divisor,
+    salt_cap,
+    senior_bonus_deduction,
+    social_security_taxable_amount,
+    state_estate_tax,
+    state_for_year,
+    state_income_tax,
+)
 
 # ===== BEGIN growth_engine.py =====
 
@@ -742,9 +773,13 @@ _MORTALITY_TABLE_CACHE = None
 def _mortality_qx_table():
     """Load the reference mortality table (reference.db), cached for the process.
 
-    {age: (male_qx, female_qx)}, ages 18-119. See the table's notes column
-    for provenance: SSA Actuarial Study No. 124 anchors at 5-year ages,
-    log-linearly interpolated/extrapolated to single-year granularity.
+    {age: (male_qx, female_qx)}, ages 18-119. The rows are the SSA 2023 period
+    life table (exact single-year death probabilities); see the table's notes
+    column for provenance. The earlier Actuarial Study No. 124 interpolated
+    anchors were replaced by it (FIN-012: this docstring still named them).
+    The sampler picks the column by member position (member 1 -> male column,
+    member 2 -> female column); the engine has no sex field, so this is a
+    positional assumption, not a statement about either member.
     System review C4 (mortality-gaussian-not-life-table).
     """
     global _MORTALITY_TABLE_CACHE

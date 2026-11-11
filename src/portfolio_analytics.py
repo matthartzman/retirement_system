@@ -363,3 +363,55 @@ def analyze_drift(
             "message": "Some holdings are not mapped in the security master.",
         })
     return rows
+
+
+# ---- holding classification (moved from financial_trends_reporter.live_snapshot: ARC-002) ----
+# The planner (src) classified holdings by importing the Trends reporter; the pure rule lives here now and
+# live_snapshot re-exports it for one release.
+
+def _is_cash_symbol(symbol: str) -> bool:
+    """CASH and CASH (T-BILL)-style lots: valued at $1 a unit (a T-bill accretes to par)."""
+    return symbol.startswith("CASH")
+
+
+def _fixed_income_subclass(symbol: str, asset_class: str, style: str) -> str:
+    """Sub-class for anything bond-like: Treasury / T-Bills, TIPS, Municipal, Credit, else Core Bonds."""
+    text = f"{symbol} {asset_class} {style}".lower()
+    if "tips" in text or "inflation" in text:
+        return "TIPS"
+    if "muni" in text:
+        return "Municipal"
+    if "t-bill" in text or "treasur" in text or "short-term" in text:
+        return "Treasury / T-Bills"
+    if "credit" in text:
+        return "Credit"
+    return "Core Bonds"
+
+
+def classify_symbol(symbol: str, security_master: dict[str, dict]) -> tuple[str, str | None]:
+    """(asset class, sub-class or None) from the shipped security master.
+
+    Every bond-like holding (bonds, treasuries, T-bills, TIPS, munis, credit) is Fixed Income; a
+    ``CASH (T-BILL)`` lot is a Treasury bill, so Fixed Income too, though it is valued at $1 a unit."""
+    if symbol.upper().startswith("CASH (T-BILL"):
+        return "Fixed Income", "Treasury / T-Bills"
+    if _is_cash_symbol(symbol):
+        return "Cash", None
+    row = security_master.get(symbol) or {}
+    asset_class = str(row.get("asset_class") or "").upper()
+    style = str(row.get("style") or "").lower()
+    if "EQUITY" in asset_class:
+        if "small" in style and "value" in style:
+            return "Equity", "Small-Cap Value"
+        if "INTERNATIONAL" in asset_class or "EMERGING" in asset_class:
+            return "Equity", "International Equity"
+        if "mid" in style:
+            return "Equity", "Mid-Cap"
+        return "Equity", "US Total Equity"
+    if any(k in asset_class for k in ("BOND", "FIXED", "TREASUR", "TIPS", "MUNI", "CREDIT")):
+        return "Fixed Income", _fixed_income_subclass(symbol, asset_class, style)
+    if "COMMODIT" in asset_class:
+        return "Commodities", None
+    if asset_class == "CASH":
+        return "Cash", None
+    return "Other", None

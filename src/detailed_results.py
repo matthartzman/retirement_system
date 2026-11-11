@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from datetime import date, datetime, time
 from pathlib import Path
 import re
@@ -809,7 +810,27 @@ def _workbook_not_found(path: Path) -> dict[str, Any]:
     return {"success": False, "error": "No workbook found; build the workbook first.", "sheets": [], "categories": []}
 
 
+_EXCEL_INDEX_CACHE: dict[str, tuple[tuple[int, int], dict[str, Any]]] = {}
+
+
 def _excel_workbook_detailed_index(workbook_path: str | Path) -> dict[str, Any]:
+    """Cached wrapper: the index is rebuilt only when the workbook file's mtime or size changes (ARC-007)."""
+    path = Path(workbook_path)
+    try:
+        st = path.stat()
+    except OSError:
+        return _workbook_not_found(path)
+    key, sig = str(path.resolve()), (st.st_mtime_ns, st.st_size)
+    hit = _EXCEL_INDEX_CACHE.get(key)
+    if hit is None or hit[0] != sig:
+        out = _excel_workbook_detailed_index_uncached(path)
+        if not out.get("success"):
+            return out
+        hit = _EXCEL_INDEX_CACHE[key] = (sig, out)
+    return copy.deepcopy(hit[1])
+
+
+def _excel_workbook_detailed_index_uncached(workbook_path: str | Path) -> dict[str, Any]:
     """Return a lightweight workbook index for fast navigation.
 
     This intentionally does not scan every populated cell. The UI loads this

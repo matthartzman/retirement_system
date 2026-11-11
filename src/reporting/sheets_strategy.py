@@ -155,14 +155,21 @@ def build_sheet9(ws, c, rows):
     dist   = max(0, net_se - salary)   # S-Corp distribution (not subject to SE tax)
     se_tax_savings = dist * 0.153      # approx SE/payroll tax avoided on distribution
 
+    _il_pprt_rate = float(c.get('scorp_state_rate', 0.0) or 0.0)
+    _il_pprt_modeled = _resident_state.strip().lower() == 'illinois' and _il_pprt_rate > 0
+    _entity_tax_cell = (
+        f'Modeled: {_il_pprt_rate:.1%} replacement tax on net income after salary, employer payroll tax and a $1,000 exemption; '
+        'a pass-through-entity (PTE) tax election is not modeled'
+        if _il_pprt_modeled else 'Not modeled in the projection')
+
     comparison_rows = [
         ('Category',                   'S-Corporation (CURRENT)',                  'Sole-Prop / Single-Member LLC'),
         ('SE / Payroll Tax Base',       f'Salary only (${salary:,.0f}/yr)',         f'Full net income (~${net_se:,.0f}/yr)'),
         ('SE Tax Savings vs SMLLC',     f'~${se_tax_savings:,.0f}/yr',              'Baseline (max SE tax)'),
-        ('QBI Deduction',               '20% of W-2 wages + allocable basis',       '20% of net income (simpler)'),
+        ('QBI Deduction',               '20% of distribution less SEHI, limited by income, W-2 wages and taxable income',    '20% of net income (simpler)'),
         ('Reasonable Compensation',     f'Required (${salary:,.0f} set in CSV)',     'Not applicable'),
         ('Administrative Cost',         '$1,500–$3,000/yr (payroll, returns)',       '$200–$500/yr (simpler)'),
-        (f'{_resident_state or "State"} Corp Surcharge', f'{c.get("scorp_state_rate",0.015):.1%} on taxable income', 'None'),
+        (f'{_resident_state or "State"} entity-level tax',  _entity_tax_cell,                           'None'),
         ('SEHI Deduction',              'Added to W-2 box 1; deducted via Sch 1',   'Deducted directly on Sch 1'),
         ('Retirement Contributions',    'Up to $70K total (employer + employee)',    'Same cap'),
         ('Audit Risk',                  'Moderate (reasonable salary scrutiny)',     'Higher SE income triggers'),
@@ -192,7 +199,10 @@ def build_sheet9(ws, c, rows):
     note = (f'At ${gross:,.0f} gross income with ${salary:,.0f} reasonable salary, '
             f'the S-Corp saves approximately ${se_tax_savings:,.0f} in payroll taxes '
             f'less ~$2,500 in administrative overhead = net ${max(0,se_tax_savings-2500):,.0f}/yr benefit. '
-            f'{_resident_state or "The configured state"} {c.get("scorp_state_rate",0.015):.1%} corporate surcharge applies on distributable income. '
+            'The QBI deduction applies the income-threshold phase-in, the W-2 wage limit, the taxable-income cap and the 2026 minimum deduction; the business is treated as not a specified service business with no qualified property. '
+            + (f'The Illinois replacement tax ({_il_pprt_rate:.1%}) is deducted from the distribution in the projection; a pass-through-entity tax election is not modeled. '
+               if _il_pprt_modeled else
+               f'{_resident_state or "The configured state"} entity-level taxes on S-corp income are not modeled in the projection; enter any such tax as a business expense. ') +
             'Annuity PV/reserve figures elsewhere in the workbook are calibration-dependent and should be refreshed against current carrier illustrations before sale/replacement decisions.')
     write_cell(ws, r, 1, note, bg='F4F5F7', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
@@ -1706,7 +1716,7 @@ def build_sheet13(ws, c, rows):
                 f"modeled for: {', '.join(supported_states())}. The comparison and cost-of-"
                 f"living estimate below use Illinois as a stand-in baseline; they do NOT "
                 f"reflect {current_state}'s actual rates, retirement-income exemptions, or "
-                f"estate tax. Add a rule to reference_data/state_tax.csv to model "
+                f"estate tax. Ask for a state-tax rule to be added to model "
                 f"{current_state} directly before relying on this sheet.")
         write_cell(ws, r, 1, note, bg='FFF4E5', align='left')
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
@@ -1800,8 +1810,8 @@ def build_sheet13(ws, c, rows):
         f'cost-of-living factor table (STATE_COL_FACTORS) is itself Illinois-derived data; the '
         f'comparison above is computed as a ratio against it, not read from it directly, but the '
         f'source data has not yet been replaced with an independently sourced regional cost '
-        f'index. Override factors via reference_data/state_tax.csv (col_auto, col_home_ins, '
-        f'col_utilities, col_maintenance).', fg='888888')
+        f'index. The factors (auto, home insurance, utilities, maintenance) are part of the '
+        f'state tax reference data.', fg='888888')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14); r += 1
 
     hdrs = ['State', 'Income Rate', 'Income Tax', 'Property Tax', 'Sales Tax', 'Estate Tax',

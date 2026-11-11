@@ -1,6 +1,6 @@
 # Recent Projections Implementation Plan
 
-Status: implemented (2026-10-29, branch `recent-projections`)
+Status: implemented (2026-10-29, merged to main; commits a01f5ab0, e2dfaf82 and 16e3aa0c, with PR #324)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -10,7 +10,7 @@ Status: implemented (2026-10-29, branch `recent-projections`)
 
 **Tech Stack:** Python 3.12 / openpyxl / Flask (reporter); vanilla ES modules; pytest; `node --test`.
 
-**Spec:** `documentation/future/superpowers/plans/2026-10-29-trends-recent-projections-design.md`
+**Spec:** `documentation/archive/superpowers/plans/2026-10-29-trends-recent-projections-design.md`
 
 **Usage note:** each task lists a recommended model, an effort level and a relative usage estimate (against a 5-hour Pro session). Check `/usage` after each task against these estimates.
 

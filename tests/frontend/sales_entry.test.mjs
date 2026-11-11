@@ -1,11 +1,13 @@
 // Sales Ledger v3: the Record sales grid and lot chooser (pure helpers plus the rendered chooser and grid).
 import { test, describe, before } from "node:test";
+import { installInAppConfirm } from "./inapp_confirm_stub.mjs";
 import assert from "node:assert/strict";
 
 let m;
 before(async () => {
   globalThis.esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   globalThis.window = globalThis;
+  await installInAppConfirm();
   globalThis.accountDisplayLabel = (a) => String(a).replace(/^Matt_/, "Matt's ");
   globalThis.api = async (url) => {
     if (url.startsWith("/api/sales/open-lots")) return { success: true, lots: [], log_started: true, nearby_buys: [] };

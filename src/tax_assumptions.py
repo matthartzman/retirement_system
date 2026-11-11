@@ -70,7 +70,7 @@ def _state_rate_model(ctx: Mapping[str, Any]) -> tuple[float, str]:
     rate = float(rules.get("rate", 0.0) or 0.0)
     kind = str(rules.get("type", "flat") or "flat")
     note = "flat rate" if kind != "graduated" else "headline rate; bracketed schedule applies in Auto"
-    return rate, f"reference_data/state_tax.csv for {state} ({note})"
+    return rate, f"State tax reference data for {state} ({note})"
 
 
 LEVERS: tuple[TaxLever, ...] = (

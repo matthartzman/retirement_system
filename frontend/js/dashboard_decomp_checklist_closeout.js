@@ -282,7 +282,7 @@ export function renderWelcome() {
     if (_autoLoadPref === null)
       _autoLoad = localStorage.getItem("rpAutoLoad") === "1";
   } catch (_e) {}
-  return `<div class="pane-head"><div class="eyebrow">Welcome</div><h2>Retirement planning workspace</h2><p>Enter source facts first, then model strategy and stress tests, run preflight, build reports, and review the workbook results.</p>${demoModeActive ? '<div class="section-note" data-kind="warn" data-help-section="start.demo_plan" style="margin:6px 0">Viewing the demo plan (Alex &amp; Morgan); your plan is not changed. <b>Exit demo</b> switches back. ${window.RPHelp?.sectionButtonHtml("start.demo_plan") || ""}</div>' : ""}<div class="pane-actions"><button class="btn primary" data-requires-app="1" onclick="startNewPlan()">Start New Plan</button><button class="btn" data-requires-app="1" onclick="openCurrentPlan()">Open Current Plan</button><button class="btn" data-requires-app="1" onclick="openDemoPlan()">Open Demo Plan</button><button class="btn" onclick="resetDemoToDefaults()">Reset Demo to Defaults</button><button class="btn" onclick="savePlanAs()">Save Plan As</button><button class="btn" onclick="loadSavedPlan()">Load Saved Plan</button></div><div style="margin:8px 0 4px;font-size:13px"><label style="cursor:pointer;user-select:none"><input type="checkbox" id="autoLoadCheck"${_autoLoad ? " checked" : ""} onchange="setAutoLoad(this.checked)"> Auto-load plan on next start</label></div></div>${nbaPanelHtml()}${taxFreshnessBannerHtml()}${planKpiMetricsHtml()}${firstRunChecklistHtml(false)}<div class="feature-grid"><div class="feature-card"><h3>Your plan</h3><ul><li><b>The saved plan</b> is the active source for all projections.</li><li><b>Plan Data files</b> can be exported for backup, sharing, or recovery.</li><li><b>Reports</b> are generated snapshots — edit the plan, then rebuild to update them.</li></ul></div><div class="feature-card"><h3>Save and build</h3><ul><li><b>Save Changes</b> stores ordinary fields, tables, category budgets, transaction edits, holdings, liabilities, and strategy-table edits.</li><li><b>Build Reports</b> and <b>Download Workbook</b> save first, run preflight, then rebuild reports.</li><li>Use page-level reload buttons only when discarding unsaved page edits.</li></ul></div><div class="feature-card"><h3>Spending flow</h3><ul><li>Spending Categories defines the Tracking Type, Group, and Category model.</li><li>Housing, Wellness, and Travel are authoritative detail pages.</li><li>Income &amp; Expense Transactions feeds Spending Analysis and actual-vs-model review.</li></ul></div><div class="feature-card"><h3>Final review</h3><ol><li>Open Reports &amp; Review.</li><li>Check the Preflight tab for missing fields.</li><li>Resolve blockers, then build.</li><li>Review Impact and Results, then download the workbook.</li></ol></div></div>${closeoutChecklistHtml()}`;
+  return `<div class="pane-head"><div class="eyebrow">Welcome</div><h2>Retirement planning workspace</h2><p>Enter source facts first, then model strategy and stress tests, run preflight, build reports, and review the workbook results.</p>${demoModeActive ? '<div class="section-note" data-kind="warn" data-help-section="start.demo_plan" style="margin:6px 0">Viewing the demo plan (Alex &amp; Morgan); your plan is not changed. <b>Exit demo</b> switches back. ${window.RPHelp?.sectionButtonHtml("start.demo_plan") || ""}</div>' : ""}<div class="pane-actions"><button class="btn primary" data-requires-app="1" onclick="startNewPlan()">Start New Plan</button><button class="btn" data-requires-app="1" onclick="openCurrentPlan()">Open Current Plan</button><button class="btn" data-requires-app="1" onclick="openDemoPlan()">Open Demo Plan</button><button class="btn" onclick="resetDemoToDefaults()">Reset Demo to Defaults</button><button class="btn" onclick="savePlanAs()">Save Plan As</button><button class="btn" onclick="loadSavedPlan()">Load Saved Plan</button></div><div style="margin:8px 0 4px;font-size:13px"><label style="cursor:pointer;user-select:none"><input type="checkbox" id="autoLoadCheck"${_autoLoad ? " checked" : ""} onchange="setAutoLoad(this.checked)"> Auto-load plan on next start</label></div></div>${nbaPanelHtml()}${taxFreshnessBannerHtml()}${planKpiMetricsHtml()}${firstRunChecklistHtml(false)}<div class="feature-grid"><div class="feature-card"><h3>Your plan</h3><ul><li><b>The saved plan</b> is the active source for all projections.</li><li><b>Plan Data files</b> can be exported for backup, sharing, or recovery.</li><li><b>Reports</b> are generated snapshots — edit the plan, then rebuild to update them.</li></ul></div><div class="feature-card"><h3>Save and build</h3><ul><li><b>Save Changes</b> stores ordinary fields, tables, category budgets, transaction edits, holdings, liabilities, and strategy-table edits.</li><li><b>Build Reports</b> and <b>Download Workbook</b> save first, run preflight, then rebuild reports.</li><li>Use page-level reload buttons only when discarding unsaved page edits.</li></ul></div><div class="feature-card"><h3>Spending flow</h3><ul><li>Spending Model defines the Tracking Type, Group, and Category model, and holds the Housing, Wellness, and Travel detail.</li><li>Track &amp; Reconcile &gt; Actual Spending feeds spending analysis and actual-vs-model review.</li></ul></div><div class="feature-card"><h3>Final review</h3><ol><li>Open Analyze &gt; Build &amp; Results.</li><li>Check the readiness list for missing fields.</li><li>Resolve blockers, then build.</li><li>Review Impact and Results, then download the workbook.</li></ol></div></div>${closeoutChecklistHtml()}`;
 }
 
 export function renderSystemConfiguration() {
@@ -451,23 +451,16 @@ export function firstRunChecklistHtml(compact = false) {
     },
     {
       title: "Spending and actuals",
-      desc: "Categories, housing, Wellness, travel, large discretionary items, and current-year transactions.",
-      steps: [
-        "spending_core",
-        "retirement_wellness",
-        "spending_mortgage_events",
-        "spending_travel",
-        "spending_travel_extras",
-        "ytd_transactions",
-        "spending_dashboard",
-      ],
+      desc: "Spending Model (categories, housing, wellness, travel, large discretionary items); current-year transactions are under Track & Reconcile > Actual Spending.",
+      steps: ["spending_core", "actual_spending"],
       next: "spending_core",
     },
     {
       title: "Assets and protection",
-      desc: "Holdings, cash reserves, annuity death benefits, life insurance, other assets, liabilities, and estate inputs.",
+      desc: "Investment Holdings, Checking & Savings, Cash Reserves, Insurance, Other Assets & Debts, and Estate Inputs.",
       steps: [
         "holdings",
+        "cash_accounts",
         "assets_home_cash",
         "annuity_death_benefits",
         "assets_special",
@@ -477,29 +470,21 @@ export function firstRunChecklistHtml(compact = false) {
     },
     {
       title: "Strategy",
-      desc: "Distribution strategy, investment strategy, state residency analysis, and optional advanced strategies.",
+      desc: "Taxes > Roth Conversion, Account Tax Basis and Charitable Giving; Analyze > Optimize for allocation and withdrawal strategy; and the optional Home Equity Line.",
       steps: [
-        "planning_levers",
         "roth_conversion",
-        "allocation_assets",
-        "allocation_policy",
-        "withdrawal_strategy",
-        "state_residency",
-        "heloc_strategy",
+        "account_tax_basis",
         "entity_charitable",
+        "strategy_optimize",
+        "heloc_strategy",
       ],
-      next: "distribution_strategy",
+      next: "roth_conversion",
     },
     {
       title: "Stress tests",
-      desc: "Monte Carlo, survivor, long-term care, and optional divorce/QDRO stress.",
-      steps: [
-        "monte_carlo_options",
-        "survivor_stress",
-        "ltc_stress",
-        "divorce_options",
-      ],
-      next: "monte_carlo_options",
+      desc: "Analyze > Stress Test: Monte Carlo, survivor, long-term care, and optional divorce/QDRO stress.",
+      steps: ["strategy_stress"],
+      next: "strategy_stress",
     },
     {
       title: "Review and build",
@@ -514,7 +499,7 @@ export function firstRunChecklistHtml(compact = false) {
       // rendered on the same tab (tests/e2e/helpers.js's
       // triggerBuildAndWaitForOverlay).
       desc: "Check readiness, run the build, review impact and results, and download the final workbook.",
-      steps: ["review", "build_impact", "detailed_results", "plan_data_report"],
+      steps: ["reports_and_review", "detailed_results"],
       next: "reports_and_review",
     },
   ];

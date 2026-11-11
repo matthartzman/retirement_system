@@ -20,7 +20,7 @@ from dataclasses import replace
 from typing import Any
 
 from ..module_catalog import feature_enabled
-from ..server_services.strategy_asset_service import HOME_APPR_DEFAULT
+from .pricing import HOME_APPR_DEFAULT
 from .models import (
     AREA_TYPES,
     DISPOSITIONS,

@@ -85,7 +85,7 @@ function stBodyHtml() {
   if (window.slCurrentYear && window.slCurrentYear() === "") return `<h3>Tax year</h3><p class="muted">Pick a year above: tax is worked out one year at a time, so there is no all-years total.</p>`;
   if (stError) return `<h3>Realized gains this year</h3><p class="field-error">${esc(stError)}</p>`;
   if (!stData) return `<h3>Realized gains this year</h3><p class="muted">Loading…</p>`;
-  const msg = stMessage ? `<p class="${stMessage.error ? "field-error" : "muted"}" role="status">${esc(stMessage.text)}</p>` : "";
+  const msg = panelMsgHtml("st", stMessage);
   const b = window.slSummaries && window.slSummaries().b1099;
   const ye = stYearEnd ? stYearEndLinkHtml(stYearEnd.open, stYearEnd.total, stYearEnd.year) : "";
   return `<h3>Tax year ${esc(String(stData.year))} · sales dated 1/1–12/31</h3>${msg}${stTilesHtml(stData)}${st1099bStatusRowHtml(b)}${ye}` +

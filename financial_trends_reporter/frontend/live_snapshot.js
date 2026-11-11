@@ -1,4 +1,4 @@
-// Current Snapshot view (design: documentation/future/superpowers/plans/2026-10-27-live-snapshot-design.md).
+// Current Snapshot view (design: documentation/archive/superpowers/plans/2026-10-27-live-snapshot-design.md).
 // Pure render/poll helpers are exported for tests; initLiveView() wires the toggle, the 60 s poll
 // and the Refresh button in the browser. It runs as its own module so the Trends script is untouched:
 // the toggle only switches body.live-mode, and CSS hides the trend cards. The Time scope is shared: its

@@ -38,7 +38,7 @@ def test_unsupported_state_raises_readable_preflight_error():
     for state in SUPPORTED:
         assert state in message
     # ...and points at the extension path instead of leaving the user stuck.
-    assert 'reference_data/state_tax.csv' in message
+    assert 'reference_data' not in message and 'state_tax.csv' not in message  # QA-005: no dead path
 
 
 def test_unsupported_state_error_is_a_plain_valueerror():
@@ -107,7 +107,7 @@ def test_state_residency_sheet_caveats_unmodeled_client_state():
     caveat = ws.cell(row=3, column=1).value
     assert 'Minnesota' in caveat
     assert 'no modeled state-tax rules' in caveat
-    assert 'reference_data/state_tax.csv' in caveat
+    assert 'reference_data' not in caveat and 'state_tax.csv' not in caveat  # QA-005: no dead path
     # Naming every supported state in the caveat lets the reader see the
     # comparison table below is real, just not for their own state.
     for state in SUPPORTED:

@@ -1,6 +1,6 @@
 # Financial Trends: One Time Scope, Update on Open, Spending by Window
 
-Status: implemented (branch `trends-time-scope`, phases 1-6 built; not yet merged)
+Status: implemented (merged to main as PR #276 on 2026-10-26; the shared time scope was extended in PR #296)
 
 Date: 2026-10-26 · Area: `financial_trends_reporter/`
 

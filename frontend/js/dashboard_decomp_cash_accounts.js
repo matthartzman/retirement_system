@@ -15,7 +15,7 @@ export function caMoney(v) {
 export function caHtml(data, draft = caDraft, message = caMessage) {
   const accts = (data && data.accounts) || [];
   const imports = (data && data.import_accounts) || [];
-  const msg = message ? `<p class="${message.error ? "field-error" : "muted"}" role="status">${esc(message.text)}</p>` : "";
+  const msg = panelMsgHtml("ca", message);
   const rows = accts.map((a) => `<tr><td>${esc(a.name)}</td><td class="rc-num">${caMoney(a.balance)}</td><td>${esc(a.as_of || "—")}</td>` +
     `<td>${a.import_account ? `Account import: ${esc(a.import_account)}` : "Entered by hand"}</td>` +
     `<td><button class="btn" type="button" aria-label="Delete ${esc(a.name)}" onclick="caDelete('${esc(a.account)}')">Delete</button></td></tr>`).join("");
@@ -57,7 +57,7 @@ export async function caAdd() {
 }
 
 export async function caDelete(account) {
-  if (!window.confirm(`Delete ${accountDisplayLabel(account)}? Its balance is removed from the plan.`)) return;
+  if (!(await confirmDestructive("Its balance is removed from the plan.", { title: `Delete ${accountDisplayLabel(account)}?`, action: "Delete account" }))) return;
   try {
     await api("/api/cash-accounts/delete", { method: "POST", body: JSON.stringify({ account }) });
     caMessage = { text: `Deleted ${accountDisplayLabel(account)}.`, error: false };

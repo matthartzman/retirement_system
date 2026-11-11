@@ -257,6 +257,14 @@ class PlanStore(_SqliteStore):
     KIND = "plan"
     APPLICATION_ID = PLAN_APPLICATION_ID
     MIGRATIONS = PLAN_MIGRATIONS
+    PRE_UPGRADE_BACKUP = True
+
+    @classmethod
+    def _pre_upgrade_dir(cls, target: str) -> Path:
+        """``plan_paths(<plan id>).backups_dir``: the plan's id here is its file stem, made
+        safe as a directory name (the registry id of a registered plan is that stem too)."""
+        stem = re.sub(r"[^A-Za-z0-9_-]", "_", Path(target).stem).lstrip("_-") or "plan"
+        return plan_paths(validate_plan_id(stem[:64] if stem.upper() not in _WINDOWS_RESERVED else f"plan_{stem}")).backups_dir
 
     # ------------------------------------------------------------- flat datasets (WP6.1)
     @property

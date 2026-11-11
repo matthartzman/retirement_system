@@ -6357,7 +6357,7 @@
     "default": "$32500",
     "min": "0",
     "max": "",
-    "description": "Annual 401(k) contribution limit including catch-up assumption."
+    "description": "Annual 401(k) contribution limit including catch-up assumption. Simplified model: one household limit with no age-based catch-up or 60-63 super catch-up; every deferral is treated as pre-tax so the Roth catch-up rule for high earners is not applied; employer contributions are not modeled. Enter the limit that fits your situation."
    }
   ],
   [

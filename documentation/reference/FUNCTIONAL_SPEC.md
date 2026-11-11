@@ -372,6 +372,58 @@ lever by its estimated effect on terminal net worth and success rate, each
 with a jump-to-source link back to the real input page. This workspace
 holds its own state locally and never mutates the saved plan on its own.
 
+### 4.14 Investment Sales Ledger
+A running record of realized investment sales, one row per lot sold: sale date, account,
+symbol, shares, proceeds, fees, cost basis and purchase date. The page works out each gain and
+whether it is short or long term (long term only after the first anniversary of the purchase),
+and has three tabs: To fix (sales waiting for lots, wash-sale reviews, the transaction log),
+Sales (the sales themselves) and Tax year (the year's net gain or loss, the capital-loss
+carryforward and possible wash sales). Sales come from a broker import, a CSV, or are entered by
+hand; a voided sale drops out of the totals and can be restored. Only taxable accounts carry a
+gain; pre-tax, Roth and HSA accounts show none. The ledger feeds the realized-gain tax line;
+it does not change the household's projection on its own. Broker files are imported from the
+Holdings page (Import tab).
+
+### 4.15 1099-B import
+On the Sales Ledger, the household chooses the Planner account and the broker (E*Trade 1099-B,
+E*Trade Gains & Losses CSV or Vanguard), supplies the statement as text or a PDF, and gets a
+difference report before anything is written: lines that match the ledger, change it, are not
+yet entered, or have no 1099-B line, with the totals and the wash-sale loss disallowed in box 1g.
+The household must tick that the report was reviewed before Apply is allowed, and the Planner
+account is always the household's own choice, never read from the statement. The parsing and
+the comparison run on the server; the page only displays and posts the choice.
+
+### 4.16 Wash sales
+Sales Ledger, To fix, Wash sales: each loss sale with a purchase of the same security inside the
+30-day window gets a card showing the loss, each replacement purchase and how much of the loss
+is disallowed and how much stays deductible. The household records one of three reviews (wash
+sale, broker already reported it, not a wash sale with a stated reason), each reversible. A
+warning lists loss sales still inside their window. The rules are applied on the server
+(`src/wash_sales.py`); whether a given case is a wash sale is a tax-advisor question.
+
+### 4.17 Year-End Transition
+An ordered new-year checklist: clear overdue reference-constant items, start the new year's
+account tracking, update the personal numbers that changed, and close last year's cash
+reconciliation. Each step shows Done, Open or Not applicable from the plan's data and links to
+the page that does it. Starting tracking copies each account's current value into the prior
+year-end balance dated 12/31; closing the cash year freezes that year's reported withdrawals and
+shows "Changed since close" if a late broker file arrives, with Reopen. Nothing closes a year
+automatically, and the page does not change the projection.
+
+### 4.18 Account Tax Basis
+The inputs the optional Cash Pair Status Tax needs: Roth own contributions and the first
+contribution year, the HSA expense bank, and the on/off switch (off by default). Pre-tax accounts
+need nothing and taxable accounts are taxed through the Sales Ledger. When the switch is on it
+affects only the first plan year: cash reported withdrawn from the account becomes a forced draw
+taxed as ordinary income. The 10% early-withdrawal penalty on Roth earnings and the pre-65 HSA
+penalty are not modeled.
+
+### 4.19 Checking & Savings
+Each checking or savings account with a balance and a last-updated date; the household can add,
+delete or link an account to the account import. An imported balance is not edited here but
+through Account Reconciliation. Balances count as cash in the plan and feed net worth, the
+spending reserve and the next build's starting values.
+
 ## 5. Outputs and their audiences
 
 Every build produces four artifacts from one projection run, so they cannot

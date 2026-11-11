@@ -14,7 +14,10 @@ import json
 from pathlib import Path
 import shutil
 import sqlite3
+import logging
 from typing import Any
+
+_LOG = logging.getLogger("retirement_system.local_backup")
 
 SCHEMA = "local_backup_scheduler_v1"
 POLICY_SETTING = "backup_scheduler.policy"
@@ -148,16 +151,46 @@ def sha256_file(path: str | Path) -> str:
     return h.hexdigest()
 
 
-def checkpoint_sqlite(db_path: str | Path) -> None:
+def checkpoint_sqlite(db_path: str | Path) -> tuple[int, int, int] | None:
+    """``PRAGMA wal_checkpoint(FULL)`` as ``(busy, log_frames, checkpointed_frames)``, or None
+    when it could not run (a plain file or a locked WAL). ``busy`` is 1 when another connection
+    kept the checkpoint from finishing; the backup itself no longer depends on it (ARC-004: it
+    uses the SQLite backup API), so a busy result is logged, not an error."""
     try:
         conn = sqlite3.connect(str(db_path))
         try:
-            conn.execute("PRAGMA wal_checkpoint(FULL)")
+            row = conn.execute("PRAGMA wal_checkpoint(FULL)").fetchone()
         finally:
             conn.close()
     except Exception:
-        # Backups should still proceed for plain database files or locked WALs.
+        return None
+    if row and int(row[0]) != 0:
+        _LOG.warning("WAL checkpoint of %s was busy; backing up through the SQLite backup API", db_path)
+    return (int(row[0]), int(row[1]), int(row[2])) if row else None
+
+
+def _is_sqlite_file(path: Path) -> bool:
+    try:
+        with path.open("rb") as fh:
+            return fh.read(16) == b"SQLite format 3\x00"
+    except OSError:
+        return False
+
+
+def _copy_database(src: Path, target: Path) -> None:
+    """A consistent snapshot of ``src`` at ``target``: the SQLite backup API for a database
+    (a file copy of a live WAL database misses frames still in the -wal file and can tear
+    while a writer is active); a plain copy only for a file that is not a SQLite database."""
+    if not _is_sqlite_file(src):
+        shutil.copy2(str(src), str(target))
         return
+    from .plan_db_replace import _backup_with_api
+
+    try:
+        _backup_with_api(src, target)
+    except Exception:
+        target.unlink(missing_ok=True)  # never leave a half-written backup behind
+        raise
 
 
 def _read_manifest(path: Path) -> dict[str, Any] | None:
@@ -327,7 +360,7 @@ def run_backup(
 
     bdir = resolve_backup_dir(base_dir, policy)
     bdir.mkdir(parents=True, exist_ok=True)
-    checkpoint_sqlite(src)
+    checkpoint = checkpoint_sqlite(src)
     stamp = utc_stamp(now)
     filename = _backup_filename(src, stamp)
     target = bdir / filename
@@ -337,7 +370,7 @@ def run_backup(
         filename = _backup_filename(src, f"{stamp}_{suffix}")
         target = bdir / filename
         suffix += 1
-    shutil.copy2(str(src), str(target))
+    _copy_database(src, target)
     digest = sha256_file(target)
     manifest = {
         "schema": SCHEMA,

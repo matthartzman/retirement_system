@@ -23,7 +23,7 @@ test("text_size module applies zoom and persists via /api/prefs", async () => {
     return Promise.resolve({ json: () => Promise.resolve({ prefs: {} }) });
   };
   const m = await import("../../frontend/js/text_size.js");
-  assert.deepEqual(m.TEXT_SIZE_OPTIONS, [100, 115, 130]);
+  assert.deepEqual(m.TEXT_SIZE_OPTIONS, [100, 115, 130, 150, 200]);
   assert.equal(m.normalizeTextSize("999"), 100);
   assert.equal(m.setTextSize("130"), 130);
   assert.equal(style.zoom, "1.3");
@@ -31,6 +31,10 @@ test("text_size module applies zoom and persists via /api/prefs", async () => {
   const post = calls.find((c) => c[1] && c[1].method === "POST");
   assert.equal(post[0], "/api/prefs");
   assert.equal(JSON.parse(post[1].body).rpTextSize, 130);
+  assert.equal(m.setTextSize("200"), 200);
+  assert.equal(style.zoom, "2");
+  assert.equal(m.setTextSize("150"), 150);
+  assert.equal(style.zoom, "1.5");
   m.applyTextSize(100);
   assert.equal(style.zoom, "");
 });

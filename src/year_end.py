@@ -15,7 +15,7 @@ from typing import Any, Callable, Mapping, Sequence
 from . import cash_view, cash_year_close
 from .platform_runtime import today
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("retirement_system.year_end")
 CONFIRMABLE = ("personal_numbers", "tie_1099b")
 _EPS = 0.005
 
@@ -107,11 +107,12 @@ def _year_of(value: Any) -> int:
 def build(year: int, *, store: Any, ledgers: Mapping[str, list[Mapping[str, Any]]], snapshots: Sequence[Mapping[str, Any]],
           imports: Sequence[Mapping[str, Any]], setup_rows: Sequence[Mapping[str, Any]],
           cash_differences: Sequence[tuple[str, float | None]], reference_stale: int,
-          tax_filing: Mapping[str, Any] | None = None) -> dict[str, Any]:
+          tax_filing: Mapping[str, Any] | None = None, reference_missing: Sequence[str] = ()) -> dict[str, Any]:
     """The checklist for closing ``year``. Inputs are plain data so the whole thing is testable without a plan file.
     ``tax_filing`` (``queue_waiting``, ``drift_accounts``, ``wash_state`` clean|flagged|stale|never, ``untied_1099b``,
     ``carryforward_saved``, optional ``log_in_use``) drives the Sales Ledger tax-filing steps; None leaves them not
-    applicable. A count of None means unknown and shows the step open; ``log_in_use`` False makes the drift step ``na``."""
+    applicable. ``reference_missing`` names the reference families with no dated rows for the new first plan year
+    (FIN-011): the step shows open with a currency warning instead of silently carrying last year's figures forward. A count of None means unknown and shows the step open; ``log_in_use`` False makes the drift step ``na``."""
     closed = cash_year_close.is_year_closed(store, year)
     st = cash_year_close.close_status(store, year, ledgers=ledgers, snapshots=snapshots)
     out = []
@@ -162,10 +163,14 @@ def build(year: int, *, store: Any, ledgers: Mapping[str, list[Mapping[str, Any]
     out.append(_step("personal_numbers", "Update personal numbers", "household_people", "done" if ok else "open",
                      "Confirmed." if ok else "Salary, contribution elections, benefit letters and COLAs. Confirm when you have reviewed them."))
 
+    missing_note = (f"No dated {year + 1} reference rows for: {', '.join(reference_missing)}. {year + 1} projections use the "
+                    f"latest earlier figures carried forward until the {year + 1} IRS and Medicare (CMS) figures are added and checked "
+                    "against the published source.") if reference_missing else ""
     out.append(_step(
-        "reference_data", "Reference data", "start", "open" if reference_stale else "done",
-        f"{reference_stale} reference constant(s) are overdue for review (maintainer-level, informational)." if reference_stale
-        else "No reference constants are overdue."))
+        "reference_data", "Reference data", "start", "open" if reference_stale or reference_missing else "done",
+        " ".join(p for p in (
+            f"{reference_stale} reference constant(s) are overdue for review (maintainer-level, informational)." if reference_stale else "",
+            missing_note) if p) or "No reference constants are overdue."))
     return {"year": year, "closed": closed, "in_season": in_season(), "steps": out}
 
 
@@ -175,6 +180,17 @@ def _reference_stale() -> int:
         return sum(1 for r in governance.tax_law_dashboard() if r.get("blocking"))
     except Exception:
         return 0
+
+
+def reference_rows_missing(year: int) -> list[str]:
+    """Reference families with no row dated ``year`` itself (FIN-011): federal tax brackets, the standard deduction and
+    the Medicare (IRMAA) thresholds. A row that merely stays in force from an earlier year does not count as dated."""
+    from .stores.ref_getters.tax_law import tax_law_dataset
+    ds = tax_law_dataset()
+    checks = (("federal tax brackets", any(b.effective_year == year for b in ds.brackets)),
+              ("the standard deduction", any(v.name == "standard_deduction" and v.effective_year == year for v in ds.values)),
+              ("Medicare (IRMAA) thresholds", any(v.name == "irmaa_tier1_threshold" and v.effective_year == year for v in ds.values)))
+    return [label for label, present in checks if not present]
 
 
 def _safe(name: str, fn: Callable[[], Any], default: Any) -> Any:
@@ -230,4 +246,5 @@ def service(input_dir: Any, year: int | None = None, *, confirm: tuple[str, bool
                      imports=[i for i in store.broker.list_imports() if i["status"] == "applied"],
                      setup_rows=store.dataset("ytd_account_setup").rows(),
                      cash_differences=[(a["account"], a["difference"]) for a in view["accounts"]], reference_stale=_reference_stale(),
-                     tax_filing=_tax_filing(store, year))
+                     tax_filing=_tax_filing(store, year),
+                     reference_missing=_safe("the reference-year coverage", lambda: reference_rows_missing(year + 1), []))

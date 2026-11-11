@@ -768,8 +768,9 @@ def build_sheet16(ws, c, rows):
 
         (f'Divorce/QDRO Asset Split ({c["scen_divorce_split_pct"]*100:.0f}%, {int(c["scen_divorce_yr"])})',
          f'One-time, tax-free division of all investment accounts in '
-         f'{int(c["scen_divorce_yr"])} — asset split only, does not model '
-         f'ongoing spousal support',
+         f'{int(c["scen_divorce_yr"])} — asset split only. Filing status (joint), household '
+         f'spending, both Social Security records and Medicare premiums are unchanged, '
+         f'and ongoing spousal support is not modeled; this is not a post-divorce household analysis',
          nw_divorce, tax_divorce, nw_divorce > 0, nw_divorce - base_nw),
 
         ('COMBINED Stress Test',

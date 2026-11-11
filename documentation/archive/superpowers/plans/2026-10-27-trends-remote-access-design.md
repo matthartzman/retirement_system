@@ -2,7 +2,7 @@
 
 Date: 2026-10-27
 
-Status: implemented (see the runbook); the LAN bind from commit 93616310 is retired
+Status: implemented (merged to main as PR #285 on 2026-10-27; see the runbook); the LAN bind from commit 93616310 is retired
 
 ## Intent
 

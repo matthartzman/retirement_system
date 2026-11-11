@@ -102,7 +102,7 @@ export function bbPreviewHtml(p) {
 }
 function bbBodyHtml() {
   const accounts = bbAccounts || [];
-  const msg = bbMessage ? `<p class="${bbMessage.error ? "field-error" : "muted"}" role="status">${esc(bbMessage.text)}</p>` : "";
+  const msg = panelMsgHtml("bb", bbMessage);
   return `<h3>Import a broker 1099-B</h3><p class="muted">Choose the statement file (text or PDF with a text layer). Preview never changes the ledger; ` +
     `applying writes the broker's official numbers and keeps the earlier values in an audit trail.</p>` +
     `<div class="field-grid"><label>Broker<select aria-label="1099-B broker" onchange="bbSetBroker(this.value)">${BB_BROKERS.map(([v, l]) => `<option value="${v}" ${v === bbBroker ? "selected" : ""}>${l}</option>`).join("")}</select></label>` +
@@ -177,7 +177,7 @@ export async function bbApply() {
   if (!bbCanApply(bbPreview, bbViewed)) return;
   if (JSON.stringify(bbBody()) !== bbPreviewKey) { bbMessage = { text: "The inputs changed after this preview — preview again.", error: true }; return bbPaint(); }
   const replace = !!bbPreview.supersedes, year = bbPreview.tax_year;
-  if (replace && !(window.confirm && window.confirm("An earlier statement for this account and year was imported. Replace it with this one?"))) return;
+  if (replace && !(await confirmDestructive("An earlier statement for this account and year was imported. Its ledger changes are replaced by this one.", { title: "Replace the earlier statement?", action: "Replace statement" }))) return;
   bbBusy = true; bbPaint();
   try {
     const out = await api("/api/sales/1099b/apply", { method: "POST", body: JSON.stringify({ ...bbBody(), replace }) });

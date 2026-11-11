@@ -2,7 +2,7 @@
 
 Date: 2026-11-03.
 
-Status: implemented, default OFF; mechanism approved by the owner 2026-11-03, turn-on not approved. Synthetic frozen sample plan only (the golden-master fixture); no real data.
+Status: implemented (merged to main as PRs #379, #383 and #386 on 2026-11-03), default OFF; mechanism approved by the owner 2026-11-03, turn-on not approved. Synthetic frozen sample plan only (the golden-master fixture); no real data.
 
 ## What was built (behind `Cashflow / Cash Tracking / cash_pair_status_tax`, default FALSE)
 

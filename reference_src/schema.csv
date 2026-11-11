@@ -316,7 +316,7 @@ Wellness,Medicare,part_g_base_premium_monthly,dollars,FALSE,$0,0,,Monthly Medica
 Wellness,Out-of-Pocket,annual_oop_estimate_today,dollars,FALSE,$10000,0,,"Annual household medical OOP cap; this is a cap/reference, not a standalone expense."
 Payroll Tax,Social Security,ss_wage_base_base_year,currency,FALSE,$184500,0,,Annual Social Security wage base used for payroll tax calculations.
 Social Security,Policy,survivor_pct_of_higher_benefit,number,FALSE,100,0,100,Percent of the higher Social Security benefit preserved for the survivor; enter 100 for full continuation.
-Cashflow,Retirement Contributions,annual_401k_limit_base_year,currency,FALSE,$32500,0,,Annual 401(k) contribution limit including catch-up assumption.
+Cashflow,Retirement Contributions,annual_401k_limit_base_year,currency,FALSE,$32500,0,,Annual 401(k) contribution limit including catch-up assumption. Simplified model: one household limit with no age-based catch-up or 60-63 super catch-up; every deferral is treated as pre-tax so the Roth catch-up rule for high earners is not applied; employer contributions are not modeled. Enter the limit that fits your situation.
 HSA Policy,Window,withdrawal_window,text,FALSE,2031-2040,,,Year range used to spread HSA withdrawals; format YYYY-YYYY.
 HSA Policy,Contributions,family_annual_limit_base_year,currency,FALSE,$8750,0,,Base-year family HSA contribution limit before indexing.
 HSA Policy,Contributions,self_only_annual_limit_base_year,currency,FALSE,$4400,0,,Base-year self-only HSA contribution limit before indexing.

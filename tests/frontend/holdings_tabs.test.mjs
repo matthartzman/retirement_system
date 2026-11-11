@@ -7,6 +7,7 @@ before(async () => {
   globalThis.window = globalThis;
   globalThis.esc = (t) => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   globalThis.renderMain = () => {};
+  await import("../../frontend/js/dashboard_shared_helpers.js");
   globalThis.setTimeout = () => 0;
   Object.assign(globalThis, { holdingLotCurrentValue: (r) => ({ value: Number(r.shares) * 100, isEstimate: false }), isCash: (s) => s === "CASH", isTBill: () => false });
   m = await import("../../frontend/js/dashboard_decomp_holdings_tabs.js");

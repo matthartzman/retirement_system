@@ -1,4 +1,4 @@
-Status: implemented (closed out in Phase 4, 2026-10-22). Phase 0 measurements below are historical; see "Phase 4 closeout" for the final counts.
+Status: implemented (merged to main as PR #255 and closed out in PR #267; closed out in Phase 4, 2026-10-22). Phase 0 measurements below are historical; see "Phase 4 closeout" for the final counts.
 
 # UI prose inventory: Phase 0 summary
 

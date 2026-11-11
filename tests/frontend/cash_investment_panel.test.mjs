@@ -1,6 +1,7 @@
 // Cash in investment accounts panel: rows, unanchored label, sortable headings, income by tax class, ledger.
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
+import { installInAppConfirm, resetInAppConfirm, confirmState } from "./inapp_confirm_stub.mjs";
 
 let m;
 before(async () => {
@@ -9,6 +10,7 @@ before(async () => {
   globalThis.accountDisplayLabel = (a) => a.replace(/_/g, " ");
   globalThis.setTimeout = () => 0;
   globalThis.api = async () => ({});
+  await installInAppConfirm();
   m = await import("../../frontend/js/dashboard_decomp_cash_investment.js");
 });
 

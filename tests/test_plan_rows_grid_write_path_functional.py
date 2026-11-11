@@ -192,14 +192,16 @@ def test_roth_controls_are_stored_canonical_whichever_endpoint_wrote_them(ws):
 
 def test_a_blanked_retirement_date_is_kept_by_every_writer(ws):
     """A save that blanks a protected retirement date keeps the stored one (the rule every plan
-    write follows): the grid refuses the blank outright (the field is required), the forms
-    endpoint stores the other values and keeps the date."""
+    write follows): the grid no longer refuses the blank as 'required' (QA-002: that is the
+    build preflight's check), but the plan keeps the stored date and reports the update as
+    skipped; the forms endpoint stores the other values and keeps the date."""
     client = app.test_client()
     grid = _grid(client)
     protected, home = _row(grid, RETIRE), _row(grid, HOME)
     assert protected["value"]
     status, out = _save(client, [{"row_index": protected["row_index"], "value": ""}])
-    assert status == 422 and _plan_value(RETIRE) == protected["value"]
+    assert status == 200 and out["updated"] == 0 and out["skipped"]
+    assert _plan_value(RETIRE) == protected["value"]
     resp = client.post("/api/plan/forms", headers=HEADERS, json={"sections": {
         "Household": {"": {"member_2_retirement_date": ""}}, "Other Assets": {"Home": {"value_as_of_plan_start": "$1,500,001"}}}})
     assert resp.status_code == 200

@@ -23,7 +23,7 @@ const tlAccounts = (log) => [...new Set([...(log.rows || []).map((r) => r.accoun
 const tlSelect = (id, opts, cur, fn) => `<select id="${id}" onchange="${fn}(this.value)">${opts.map(([v, t]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
 const tlLink = (account, symbol) => (window.hsActivityLink ? window.hsActivityLink({ account, symbol, back: "sales" })
   : `#holdings/activity?account=${encodeURIComponent(account)}&symbol=${encodeURIComponent(symbol)}&back=sales`);
-const tlMsgHtml = () => tlMessage ? `<p role="status" class="${tlMessage.error ? "error" : "muted"}">${esc(tlMessage.text)}</p>` : "";
+const tlMsgHtml = () => panelMsgHtml("tl", tlMessage, "error", "muted");
 const tlNotStartedHtml = (msg) => `<h3>Activity</h3>${msg}<p class="muted">The log is not started. Starting builds it from your broker imports and holdings; the holdings are not changed.</p>` +
   `<button type="button" class="btn" id="tlStartBtn" onclick="tlStart()">Start the transaction log</button>`;
 export function tlHealthHtml(log) {
@@ -180,9 +180,9 @@ async function tlPost(url, body, done) {
 }
 export const tlReloadAll = () => tlLoad();
 // Proceeds when no dialog is available, by design (tests, embedded views).
-const tlConfirmed = (msg) => !(typeof window !== "undefined" && typeof window.confirm === "function") || window.confirm(msg);
-export const tlStart = () => !tlConfirmed("Starting the log means holdings will now be written by the log.") ? Promise.resolve(false) : tlPost("/api/transactions/backfill", {}, "The transaction log was started.");
-export const tlCleanBank = () => (!tlBank.length || !tlConfirmed(`Void the opening rows of ${tlBank.length} bank account(s)? They are cash accounts, not investments; their cash balances stay as they are.`)) ? Promise.resolve(false) :
+const tlConfirmed = (title, action, consequence) => confirmDestructive(consequence, { title, action }); // fails closed: no dialog, no action
+export const tlStart = async () => !(await tlConfirmed("Start the transaction log?", "Start the log", "Starting the log means holdings will now be written by the log.")) ? false : tlPost("/api/transactions/backfill", {}, "The transaction log was started.");
+export const tlCleanBank = async () => (!tlBank.length || !(await tlConfirmed(`Void the opening rows of ${tlBank.length} bank account(s)?`, "Void bank rows", "They are cash accounts, not investments; their cash balances stay as they are."))) ? false :
   tlPost("/api/transactions/bank-cleanup", { accounts: tlBank }, "Bank-account rows were voided.");
 export function tlSetForm(k, v) { tlForm = { ...tlForm, [k]: v }; }
 export function tlSetFormAccount(v) { tlSetForm("account", v); }
@@ -212,7 +212,7 @@ if (typeof document !== "undefined" && document.addEventListener) {
   document.addEventListener("keydown", tlOnKeydown);
 }
 export async function tlVoid(id) {
-  if (!tlConfirmed("Void this transaction? It stays in the history as voided.")) return false;
+  if (!(await tlConfirmed("Void this transaction?", "Void transaction", "It stays in the history as voided."))) return false;
   const ok = await tlPost(`/api/transactions/${Number(id)}/void`, {}, "Transaction voided.");
   if (ok && tlEdit === Number(id)) tlCancel();
   return ok;

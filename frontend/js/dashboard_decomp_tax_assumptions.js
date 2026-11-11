@@ -149,7 +149,7 @@ export function taxAssumptionsCardHtml(p, drafts, err, loading) {
     h += taxLeverRow(lv, (drafts || {})[lv.key]);
   });
   h += `</tbody></table></div>`;
-  if (err) h += `<div class="missing-list" role="alert">${esc(err)}</div>`;
+  h += panelMsgHtml("ta", err && { text: err, error: true }, "missing-list", "", "div");
   h += `<div class="table-actions"><button class="btn primary" type="button" onclick="taxAssumptionsSave()">Save</button>`;
   h += `<button class="btn" type="button" onclick="taxAssumptionsResetAll()">Reset all</button></div>`;
   return h + taxNoticesHtml(p.limitation_notices) + taxLawHtml(p.law_table, p.residency_periods) + `</div>`;

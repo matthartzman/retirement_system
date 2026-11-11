@@ -25,6 +25,8 @@ from ..active_plan import active_plan_store
 from ..csv_exchange.plan_csv import Key
 from ..plan_label_rules import canonical_label, dropped_at_load
 from ..roth_ui_build_guard import normalize_roth_csv_value
+from ..schema_registry import load_schema, validate_value
+from .config_service import structure_validation_errors
 
 SCHEMA = "plan_forms_v1"
 BACKEND = "sqlite"
@@ -42,6 +44,24 @@ def _key(section: Any, subsection: Any, label: Any) -> Key | None:
 
 def _value(key: Key, value: Any) -> str:
     return normalize_roth_csv_value(*key, "" if value is None else value).strip()
+
+
+def _format_errors(values: dict[Key, str]) -> list[str]:
+    """Format/range errors of the posted values (QA-003): the grid's validator, so the forms
+    writer cannot store money text the grid, the parser and the build would reject. Fields
+    the schema does not know pass; 'required' is the build preflight's check (QA-002)."""
+    schema = load_schema()
+    errors: list[str] = []
+    for key, value in values.items():
+        spec = schema.get(key)
+        if spec:
+            errors += [f"{key}: {msg}; got {value!r}" for msg in validate_value(value, spec, check_required=False)]
+    return errors
+
+
+def _rejected(errors: list[str]) -> tuple[dict[str, Any], int]:
+    return {"success": False, "error": "Plan Data validation failed", "errors": errors[:50],
+            "field_errors": structure_validation_errors(errors[:50])}, 422
 
 
 def get_forms_payload() -> dict[str, Any]:
@@ -67,6 +87,9 @@ def save_forms_payload(sections: Any, *, edit_plan: EditPlan, replace: bool = Fa
                     skipped.append({"section": str(section), "subsection": str(subsection), "label": str(label)})
                 else:
                     wanted[key] = _value(key, value)
+    errors = _format_errors(wanted)
+    if errors:
+        return _rejected(errors)
     with edit_plan() as edit:
         store, kept = edit.store, set()
         replaced_sections = {key[0] for key in wanted} if replace else set()
@@ -96,13 +119,19 @@ def patch_forms_payload(section_path: str, values: Any, *, edit_plan: EditPlan) 
         return {"success": False, "error": "values must be an object"}, 400
     section, subsection = parts[0].strip(), parts[1].strip()
     skipped: list[str] = []
+    wanted: dict[Key, str] = {}
+    for label, value in values.items():
+        key = _key(section, subsection, label)
+        if key is None:
+            skipped.append(str(label))
+        else:
+            wanted[key] = _value(key, value)
+    errors = _format_errors(wanted)
+    if errors:
+        return _rejected(errors)
     with edit_plan() as edit:
-        for label, value in values.items():
-            key = _key(section, subsection, label)
-            if key is None:
-                skipped.append(str(label))
-            else:
-                edit.store.set_value(*key, _value(key, value))
+        for key, value in wanted.items():
+            edit.store.set_value(*key, value)
     with active_plan_store() as store:
         current = store.sectioned_data().get(section, {}).get(subsection, {})
     return {"success": True, "backend": BACKEND, "revision": edit.revision, "section": section,

@@ -211,12 +211,10 @@ export function showMessage(msg, kind = "info", opts) {
       techDetail = techDetail ? split.detail + "\n" + techDetail : split.detail;
     }
   }
-  // Announce: errors as an alert, everything else politely (WCAG 4.1.3).
-  if (el.setAttribute) {
-    el.setAttribute("role", isError ? "alert" : "status");
-    el.setAttribute("aria-live", isError ? "assertive" : "polite");
-    el.setAttribute("aria-atomic", "true");
-  }
+  // Announce through the persistent regions (UX-003): errors assertively, everything else politely.
+  announce(msg, { error: isError });
+  // An unread error stays on screen until dismissed: a later info message is announced but does not replace it.
+  if (!isError && el.classList.contains("bad") && el.classList.contains("persistent") && !el.classList.contains("hidden")) return;
   const actionHtml =
     opts && opts.action
       ? `<button class="msg-action" onclick="${escJs(opts.action.fn)}">${esc(opts.action.label)}</button>`
@@ -4955,49 +4953,10 @@ export async function api(path, opts = {}) {
   opts = Object.assign({}, opts || {});
   window.__retirementCsrfToken = csrfToken || "";
   window.__retirementApiBase = apiBase || "";
-  if (window.RetirementApiClient) {
-    window.RetirementApiClient.setBase(apiBase || "");
-    return await window.RetirementApiClient.request(path, opts);
-  }
-  const timeoutMs = Number(opts.timeoutMs) || 0;
-  delete opts.timeoutMs;
-  opts.headers = Object.assign(
-    { "Content-Type": "application/json" },
-    opts.headers || {},
-  );
-  if (csrfToken && String(opts.method || "GET").toUpperCase() !== "GET")
-    opts.headers["X-CSRF-Token"] = csrfToken;
-  let timer = null;
-  if (timeoutMs > 0) {
-    const controller = new AbortController();
-    opts.signal = controller.signal;
-    timer = setTimeout(() => controller.abort(), timeoutMs);
-  }
-  try {
-    const res = await fetch(apiUrl(path), opts);
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = text;
-    }
-    if (!res.ok) {
-      const err = new Error((data && data.error) || text || res.statusText);
-      if (data && Array.isArray(data.errors)) err.errors = data.errors;
-      err.status = res.status; // ARC-004: real status, not message-text matching
-      throw err;
-    }
-    return data;
-  } catch (e) {
-    if (e && e.name === "AbortError")
-      throw new Error(
-        `Request timed out after ${Math.round(timeoutMs / 1000)} seconds.`,
-      );
-    throw e;
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
+  // One request path (W1-06): RetirementApiClient owns timeouts and the error shape
+  // {message, status, errors, fieldErrors}; there is no inline fetch fallback.
+  window.RetirementApiClient.setBase(apiBase || "");
+  return await window.RetirementApiClient.request(path, opts);
 }
 
 export async function loadAll(opts = {}) {

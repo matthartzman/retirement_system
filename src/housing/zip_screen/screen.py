@@ -11,7 +11,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Any
 
-from ...server_services.strategy_asset_service import HOME_APPR_DEFAULT
+from ..pricing import HOME_APPR_DEFAULT
 from .geo import haversine_miles, zips_within
 from .quality import score_zip
 from .resolve import city_type_for_density

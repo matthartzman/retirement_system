@@ -1,7 +1,7 @@
 # Financial Trends — reconciliation by account, holdings drill-down, and spending transactions (design)
 
 Date: 2026-10-27
-Status: approved (user, 2026-10-27); implementation in draft PRs #286 and #288 and a third for (e)
+Status: approved (user, 2026-10-27); PRs #286 and #288 merged to main on 2026-10-27; part (e) not checked against merge history (W3-08) - owner to confirm
 
 Five requests on the Financial Trends reporter (`financial_trends_reporter/`), one design:
 

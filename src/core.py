@@ -982,7 +982,7 @@ def require_residence_state_for_build(state):
             "figures cannot be computed without it. Set it on the State Residency "
             "page (Plan Data field: residence_state), then rebuild. Supported "
             f"states: {', '.join(supported_states())}. To model another state, "
-            "add a row to reference_data/state_tax.csv."
+            "ask for a rule for it to be added to the state tax reference data."
         )
     _require_supported_state(state)
 
@@ -1008,7 +1008,7 @@ def _require_supported_state(state):
         raise ValueError(
             f"Unsupported residence_state {state!r}. State tax is modeled for: "
             f"{', '.join(supported_states())}. Change the state or add a rule "
-            f"to reference_data/state_tax.csv."
+            f"for it to the state tax reference data."
         )
 
 
@@ -1597,3 +1597,106 @@ def annuity_pv(stream, start_year, end_year, discount_rate):
                for yr in range(start_year + 1, end_year + 1))
 
 # ===== END engine_core.py =====
+
+
+# W1-02 (system review 2026-11-10, ARC-001): explicit public surface. Wildcard imports of this
+# module were removed; consumers import the names they use. Add new public names here.
+__all__ = [
+    "ACCOUNT_TYPES",
+    "AMT_BASE_YEAR",
+    "AMT_RATE_HIGH",
+    "AMT_RATE_LOW",
+    "ASSET_CLASS_RETURNS",
+    "CA_BHST_RATE",
+    "CA_BHST_THRESHOLD",
+    "EvConversion",
+    "EvDeath",
+    "EvGrowth",
+    "EvHomeSale",
+    "EvIncome",
+    "EvRMD",
+    "EvScenario",
+    "EvSpend",
+    "EvTax",
+    "EvTransfer",
+    "EvWarning",
+    "EvWithdraw",
+    "FEDERAL_BRACKETS_BASE_YEAR",
+    "FEDERAL_BRACKETS_MFJ",
+    "FEDERAL_BRACKETS_SINGLE",
+    "INVARIANTS",
+    "IRMAA_TIERS_BASE_YEAR",
+    "IRMAA_TIERS_MFJ",
+    "Invariant",
+    "LTCG_BRACKETS_BASE_YEAR",
+    "LotEngine",
+    "NIIT_THRESHOLD",
+    "QLAC_LATEST_INCOME_START_AGE",
+    "RMD_DIVISORS",
+    "RMD_JOINT_LIFE_DIVISORS",
+    "RMD_UNIFORM_TABLE_MAX_AGE",
+    "STATE_TAX_RULES",
+    "TAX_BASE_YEAR",
+    "TaxLot",
+    "accounts",
+    "all_ids",
+    "all_investment_ids",
+    "amt_tax",
+    "annuity_cash_income",
+    "annuity_purchase_rate",
+    "annuity_pv",
+    "build_registry_from_balances",
+    "build_registry_from_json",
+    "col_factors",
+    "compute_fed_tax",
+    "deflate_to_present",
+    "deposit",
+    "draw_order",
+    "first_account",
+    "first_hsa",
+    "first_pretax",
+    "first_taxable",
+    "hsa_ids",
+    "ids_by_owner",
+    "ids_by_owner_and_tax",
+    "ids_by_tax",
+    "ids_by_type",
+    "illinois_estate_tax",
+    "indexed_federal_estate_exemption",
+    "inflate_brackets",
+    "irmaa_lookback_magi",
+    "irmaa_lookback_magi_and_filing",
+    "irmaa_surcharge",
+    "irmaa_tier",
+    "joint_life_divisor",
+    "ltcg_tax_on_gain",
+    "marginal_rate",
+    "new_york_estate_tax",
+    "niit_tax",
+    "qcd_annual_limit",
+    "qcd_eligible_from_year",
+    "qlac_excluded_rmd_balance",
+    "qlac_income_start_year_cap",
+    "qlac_premium_limit",
+    "registry",
+    "require_residence_state_for_build",
+    "resolved_state_estate_exemption",
+    "rmd_divisor",
+    "rmd_ids_by_owner",
+    "roth_target_for_owner",
+    "salt_cap",
+    "senior_bonus_deduction",
+    "social_security_taxable_amount",
+    "standard_deduction",
+    "state_death_tax_credit",
+    "state_estate_tax",
+    "state_for_year",
+    "state_income_tax",
+    "state_retirement_exclusion_count",
+    "statutory_rmd_start_age",
+    "sum_bal",
+    "supported_states",
+    "taxable_ids",
+    "tentative_minimum_tax",
+    "validate_projection",
+]

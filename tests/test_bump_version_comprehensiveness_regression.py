@@ -52,12 +52,16 @@ def test_apply_admin_html_version_updates_title_and_heading():
     assert '<h1>Retirement System v12</h1>' in updated
 
 
-def test_apply_admin_html_version_leaves_cache_buster_query_strings_alone():
-    """The ?v=v11-<fix-name> cache buster names a specific past fix, not the
-    app version -- it must survive a bump untouched."""
-    html = '<script src="js/admin.js?v=v11-pricing-symbol-tester-msg-fix-1"></script>'
+def test_apply_admin_html_version_moves_the_cache_busters_to_the_new_version():
+    """W1-05 (ARC-006): the admin.css / admin.js ?v= cache busters track the app version."""
+    html = (
+        '<link rel="stylesheet" href="css/admin.css?v=11"></head>\n'
+        '<script src="js/admin.js?v=v11-pricing-symbol-tester-msg-fix-1"></script>\n'
+        '<script type="module" src="js/pywebview_bridge.js?v=2"></script>'
+    )
     updated = bv.apply_admin_html_version(html, '11', '12')
-    assert updated == html
+    assert 'admin.css?v=12"' in updated and 'admin.js?v=12"' in updated
+    assert 'pywebview_bridge.js?v=2"' in updated  # an unrelated asset's buster is not touched
 
 
 def test_apply_admin_html_version_is_a_no_op_when_phrase_absent():

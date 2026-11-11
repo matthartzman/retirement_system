@@ -1,5 +1,6 @@
 // Sales Ledger v3: the wash-sale cards in To fix.
 import { test, describe, before } from "node:test";
+import { installInAppConfirm } from "./inapp_confirm_stub.mjs";
 import assert from "node:assert/strict";
 
 let w;
@@ -10,6 +11,7 @@ const CARD = { sale_key: "Matt_Trust|MUB|2026-04-01", account: "Matt Trust", sym
 before(async () => {
   globalThis.esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   globalThis.window = globalThis;
+  await installInAppConfirm();
   globalThis.slMoney = (v) => (v < 0 ? "-$" : "$") + Math.abs(v).toFixed(2);
   globalThis.setTimeout = () => 0;
   globalThis.slCurrentYear = () => "2026";

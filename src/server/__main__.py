@@ -6,6 +6,7 @@ import webbrowser
 from . import BASE_DIR, create_app, _runtime_config
 from ..http_runtime.server import run_local_server
 from .. import platform_runtime
+from ..version import release_label
 
 
 def main() -> int:
@@ -13,7 +14,7 @@ def main() -> int:
     url = f"http://{cfg.dashboard_host}:{cfg.dashboard_port}"
     print(f"""
 ======================================================
-  RETIREMENT PLAN SYSTEM v11
+  {release_label()}
 ======================================================
   Dashboard:  {url}
   Runtime:    stdlib local HTTP

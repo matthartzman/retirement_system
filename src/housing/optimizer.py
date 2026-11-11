@@ -21,7 +21,7 @@ from dataclasses import replace
 from typing import Any, Literal
 
 from .. import planning_engines as _pe
-from ..server_services.strategy_asset_service import (
+from .pricing import (
     HOME_APPR_DEFAULT,
     INFLATION_GENERAL_DEFAULT,
 )

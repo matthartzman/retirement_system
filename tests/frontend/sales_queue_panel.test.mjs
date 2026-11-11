@@ -1,5 +1,6 @@
 // Plan step 2.2: the sale-queue panel (dashboard_decomp_sales_queue.js) in the plain Node sandbox.
 import { test, describe, before, beforeEach } from "node:test";
+import { installInAppConfirm } from "./inapp_confirm_stub.mjs";
 import assert from "node:assert/strict";
 
 let m;
@@ -15,6 +16,7 @@ const PANEL = {
 before(async () => {
   globalThis.esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   globalThis.window = globalThis;
+  await installInAppConfirm();
   globalThis.accountDisplayLabel = (a) => String(a).replace(/^Member_1_/, "Matt's ");
   const els = { sqRoot: { innerHTML: "" } };
   globalThis.document = { getElementById: (id) => els[id] || null };

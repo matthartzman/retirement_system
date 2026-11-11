@@ -1,7 +1,7 @@
 # Financial Trends — Live Snapshot view (design + implementation plan)
 
 Date: 2026-10-27
-Status: implemented (branch `live-snapshot`, steps 1-5 and 7 built; not yet merged)
+Status: implemented (merged to main as PR #280 on 2026-10-27; reconciliation and drill-down in PR #288)
 
 ## 1. Intent
 

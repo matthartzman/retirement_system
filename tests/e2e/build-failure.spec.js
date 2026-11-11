@@ -67,7 +67,9 @@ test('a failed build surfaces "Build failed" and the real error message, not a s
   // (role=alert) and stays until dismissed instead of vanishing after the
   // old 10 s auto-hide. The raw "ValueError: ..." text now sits in the
   // toast's Technical details disclosure (still part of its text, above).
-  await expect(toast).toHaveAttribute('role', 'alert');
+  // W2-05: announced through the persistent assertive region; the toast itself carries no live role.
+  await expect(page.locator('#rpAlert')).not.toBeEmpty();
+  await expect(toast).not.toHaveAttribute('role', /./);
   await page.waitForTimeout(11_000);
   await expect(toast).toBeVisible();
 });

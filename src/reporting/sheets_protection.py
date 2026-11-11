@@ -58,6 +58,14 @@ def build_existing_life(ws, c, rows):
     policies = c.get('life_policies', []) or []
 
     r = 3
+    write_cell(ws, r, 1,
+               'INVENTORY ONLY: these policies do not feed the projection. A death in the projection pays no '
+               'death benefit to the survivor, and policy proceeds are not added to the estate tax calculation. '
+               'Whether proceeds are part of a taxable estate depends on who owns and controls the policy; '
+               'this plan does not decide that.',
+               bg='FFF4E5', align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
+    r += 2
     if not policies:
         write_cell(ws, r, 1,
                    'No in-force life-insurance policies on file. Add them under Insurance In Force in '

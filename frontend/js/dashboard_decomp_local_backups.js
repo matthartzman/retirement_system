@@ -130,7 +130,9 @@ async function maybeRunLocalBackup(trigger) {
       if (activeStep === "system_configuration") renderMain();
       return true;
     }
-  } catch (_e) {}
+  } catch (e) {
+    showMessage("Automatic local backup failed: " + (e && e.message ? e.message : e), "error");
+  }
   return false;
 }
 // Bare-global bridge (see this file's header comment): onclick handlers in

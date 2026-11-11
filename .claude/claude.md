@@ -13,21 +13,32 @@
 - Give relative estimates, not fabricated token count. Include a note to check /usage against these estimates as the plan executes.
 
 ## Reading Large Files — never open these linearly
-Verified line counts. Reading one of these whole can cost more context than the
-entire task warrants. Locate first with Grep, then Read with `offset`/`limit`.
+Sizes below are **bands**, not counts, so they do not go stale. A PreToolUse hook
+(`.claude/hooks/large_file_guard.py`) measures the file at call time and refuses a
+Read with no `offset`/`limit` on any file of 1,500 lines or more; it does not rely on
+this table. Check a size with `wc -l` before opening anything unfamiliar. Locate first
+with Grep, then Read with `offset`/`limit`.
 
-| File | Lines | How to enter it |
+Bands: **huge** 5,000+ lines, **very large** 2,000-5,000, **large** 1,500-2,000,
+**medium** 500-1,500, **small** under 500.
+
+| File | Band | How to enter it |
 |---|---|---|
-| `frontend/js/dashboard.js` | 7,287 | Grep the function name. `renderOptionalFunctions()` is ~35 lines of it. |
-| `frontend/js/dashboard_decomp_row_model.js` | 5,188 | Grep only. Never read whole. |
-| `frontend/js/dashboard_decomp_housing_optimizer.js` | 1,984 | Grep the panel/render function. |
-| `frontend/js/dashboard_decomp_housing_scenarios.js` | 1,397 | Read only the `estimateHousingFromState` region. |
-| `src/reporting/workbook_builder.py` | 1,443 | Grep the builder or merge function. |
-| `src/reporting/workbook_common.py` | 1,161 | Grep the table/rename function. |
-| `src/module_catalog.py` | 916 | Readable whole when the task is catalog-wide; otherwise grep the module key. |
+| `frontend/js/dashboard_decomp_row_model.js` | huge | Grep only. Never read whole. |
+| `frontend/js/dashboard.js` | huge | Grep the function name. `renderOptionalFunctions()` is ~35 lines of it. |
+| `src/module_catalog.py` | very large | Grep the module key. Read whole only for a catalog-wide task, in `offset`/`limit` chunks. |
+| `frontend/js/dashboard_decomp_housing_optimizer.js` | very large | Grep the panel/render function. |
+| `frontend/js/admin.js` | very large | Grep the function name. |
+| `src/reporting/workbook_builder.py` | large | Grep the builder or merge function. |
+| `src/planning_engines.py`, `src/engine_kernels.py` | very large | Grep the function name. |
+| `frontend/js/reports_ui.js` | large | Grep the function name. |
+| `frontend/js/dashboard_decomp_housing_scenarios.js` | medium | Read only the `estimateHousingFromState` region. |
+| `src/reporting/workbook_common.py` | medium | Grep the table/rename function. |
 
-`src/housing/*` (`screen.py` 402, `api.py` 498, `plan_variant.py` 243) are small
-and readable whole.
+`src/housing/*` is small to medium (`api.py` is the largest, `zip_screen/screen.py` next); run `wc -l`
+and read whole only what is under about 500 lines.
+Plan, review and report documents under `documentation/` can run to hundreds of KB: Grep for the
+heading, then Read the section.
 
 ## Test Commands
 - Python fast loop: `pytest -m "not slow"` (repo root; `pythonpath` is configured)

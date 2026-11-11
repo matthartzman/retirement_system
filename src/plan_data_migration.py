@@ -499,5 +499,5 @@ def run_startup_plan_data_migration(input_dir=None, db_path=None) -> dict:
             from . import platform_runtime
             input_dir = platform_runtime.workspace_root() / "input"
         return migrate_plan_data_at_rest(input_dir, db_path=db_path)
-    except Exception:
-        return {"migrated": {}, "total_changed": 0, "skipped": True}
+    except Exception as exc:
+        return {"migrated": {}, "total_changed": 0, "skipped": True, "error": f"{type(exc).__name__}: {exc}"}

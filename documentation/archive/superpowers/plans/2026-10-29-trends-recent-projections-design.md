@@ -1,7 +1,7 @@
 # Financial Trends — Recent Projections view (design)
 
 Date: 2026-10-29
-Status: implemented 2026-10-29 (branch `recent-projections`); implementation plan: `2026-10-29-trends-recent-projections-plan.md`
+Status: implemented 2026-10-29 (merged to main; commits a01f5ab0, e2dfaf82 and 16e3aa0c, with PR #324); implementation plan: `2026-10-29-trends-recent-projections-plan.md`
 
 ## 1. Intent
 

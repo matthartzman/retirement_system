@@ -1,6 +1,6 @@
 # Trends: Reconciliation by Account, Holdings Drill-down, Spending Transactions — Implementation Plan
 
-Status: approved (user, 2026-10-27); being implemented in draft PRs
+Status: approved (user, 2026-10-27); PRs #286 and #288 merged to main on 2026-10-27; part (e) not checked against merge history (W3-08) - owner to confirm
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

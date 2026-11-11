@@ -1,6 +1,7 @@
 // Transaction log panel (dashboard_decomp_transactions_log.js): start, add/revise/void, transfer, drift banner.
 import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { installInAppConfirm, resetInAppConfirm, confirmState } from "./inapp_confirm_stub.mjs";
 
 let m;
 const calls = [];
@@ -17,15 +18,18 @@ before(async () => {
     if (url.startsWith("/api/transactions?")) return hist;
     return { success: true };
   };
+  await installInAppConfirm();
   await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
   await import("../../frontend/js/dashboard_decomp_sales_ledger.js");
   m = await import("../../frontend/js/dashboard_decomp_transactions_log.js");
 });
-// Swap window.confirm for one test and always put the original back (no leakage into later tests).
+// Swap the in-app confirm dialog for one test (fn(message) answers it; undefined = no dialog exists) and always put the
+// original back (no leakage into later tests).
 async function withConfirm(fn, body) {
-  const orig = globalThis.confirm;
-  globalThis.confirm = fn;
-  try { await body(); } finally { globalThis.confirm = orig; }
+  const orig = globalThis.showInAppConfirm;
+  if (fn === undefined) delete globalThis.showInAppConfirm;
+  else globalThis.showInAppConfirm = async (msg) => fn(msg);
+  try { await body(); } finally { globalThis.showInAppConfirm = orig; }
 }
 beforeEach(() => { calls.length = 0; });
 
@@ -331,12 +335,14 @@ test("start asks to confirm: cancel makes no call, OK posts once", async () => {
 
 // Task 10 review minor (a), deliberate update: cancel puts only the checkbox back; the log is not repainted, so the open
 // "Edit…" details does not snap shut.
-test("void uses the shared confirm: cancel posts nothing; no dialog available proceeds by design", async () => {
+test("void uses the in-app confirm: cancel posts nothing; no dialog available fails closed", async () => {
   await loadLog(LOG);
   calls.length = 0;
   await withConfirm(() => false, async () => assert.equal(await m.tlVoid(7), false));
   assert.equal(calls.length, 0);
-  await withConfirm(undefined, () => m.tlVoid(7));
+  await withConfirm(undefined, async () => assert.equal(await m.tlVoid(7), false));
+  assert.equal(calls.filter((c) => c[0] === "/api/transactions/7/void").length, 0);
+  await withConfirm(() => true, () => m.tlVoid(7));
   assert.equal(calls.filter((c) => c[0] === "/api/transactions/7/void").length, 1);
 });
 

@@ -1,10 +1,13 @@
 // Sales Ledger redesign Task 1: UI state store, tab model, hash parsing and the section alert rule (pure functions).
 import { test, describe, before } from "node:test";
+import { installInAppConfirm } from "./inapp_confirm_stub.mjs";
 import assert from "node:assert/strict";
 
 let m;
 before(async () => {
   globalThis.window = globalThis;
+  await installInAppConfirm();
+  await import("../../frontend/js/dashboard_shared_helpers.js"); // shared tab strip (UX-005)
   m = await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
 });
 
@@ -123,6 +126,7 @@ describe("ARIA tab bar and panels", () => {
       els[`sl-t-${id}`] = { attrs: {}, tabIndex: 0, setAttribute(k, v) { this.attrs[k] = v; }, focus() { this.focused = true; } };
       els[`sl-p-${id}`] = { hidden: false };
     }
+    els["sl-bar"] = { dataset: { tabs: m.SL_TABS.map((t) => t[0]).join(",") } };
     return { els, getElementById: (i) => els[i] || null };
   };
   test("slSetTab toggles hidden/aria/tabIndex without re-render", () => {
@@ -141,12 +145,13 @@ describe("ARIA tab bar and panels", () => {
     assert.equal(rerenders, 0);
     delete globalThis.document; delete globalThis.renderMain;
   });
-  test("slTabKeydown arrows wrap, Home/End", () => {
+  test("shared tabKeydown arrows wrap, Home/End", () => {
     const doc = stubDoc();
     globalThis.document = doc;
+    globalThis.slSetTab = m.slSetTab;
     const press = (key, from) => {
       let prevented = false;
-      m.slTabKeydown({ key, target: { id: `sl-t-${from}` }, preventDefault() { prevented = true; } });
+      globalThis.tabKeydown({ key, target: { id: `sl-t-${from}` }, preventDefault() { prevented = true; } }, "sl", "slSetTab");
       return prevented;
     };
     const active = () => m.SL_TABS.map((t) => t[0]).find((id) => doc.els[`sl-t-${id}`].tabIndex === 0);
@@ -247,8 +252,8 @@ describe("alert strip, markers, live region, slGo (Task 6)", () => {
   const liveDoc = (withLive = true) => {
     const els = {};
     if (withLive) {
-      els.slLive = { textContent: "" };
-      els.slAlert = { textContent: "" };
+      els.rpLive = { textContent: "" };
+      els.rpAlert = { textContent: "" };
     }
     for (const [id] of m.SL_TABS) {
       els[`sl-t-${id}`] = { attrs: {}, tabIndex: 0, setAttribute(k, v) { this.attrs[k] = v; } };
@@ -258,12 +263,11 @@ describe("alert strip, markers, live region, slGo (Task 6)", () => {
   };
   test("slAnnounce writes polite or assertive and is a no-op when absent", () => {
     const d = liveDoc(); globalThis.document = d;
-    m.slAnnounce("hello"); assert.equal(d.els.slLive.textContent, "hello"); assert.equal(d.els.slAlert.textContent, "");
-    m.slAnnounce("bad", true); assert.equal(d.els.slAlert.textContent, "bad");
+    m.slAnnounce("hello"); assert.equal(d.els.rpLive.textContent, "hello"); assert.equal(d.els.rpAlert.textContent, "");
+    m.slAnnounce("bad", true); assert.equal(d.els.rpAlert.textContent, "bad");
     globalThis.document = liveDoc(false);
     assert.doesNotThrow(() => m.slAnnounce("x"));
-    assert.match(m.slLiveHtml(), /id="slLive"[^>]*aria-live="polite"/);
-    assert.match(m.slLiveHtml(), /id="slAlert"[^>]*role="alert"/);
+    assert.equal(m.slLiveHtml(), "", "the page injects no live regions of its own (index.html carries them)");
     delete globalThis.document;
   });
   test("slGo switches tab, tolerates missing sections, opens and focuses a present one", () => {
@@ -288,7 +292,7 @@ describe("collapsible section shell (Task 7)", () => {
   const store = () => { let v = null; return { writes: 0, getItem: () => v, setItem(_k, x) { v = x; this.writes++; } }; };
   const setStore = (s) => Object.defineProperty(globalThis, "localStorage", { value: s, configurable: true, writable: true });
   const secDoc = (keys) => {
-    const els = { slLive: { textContent: "" }, slAlert: { textContent: "" } };
+    const els = { rpLive: { textContent: "" }, rpAlert: { textContent: "" } };
     for (const k of keys) {
       els[`sl-sec-${k}`] = { open: false };
       els[`sl-sec-badge-${k}`] = { textContent: "", className: "" };
@@ -330,7 +334,7 @@ describe("collapsible section shell (Task 7)", () => {
     assert.equal(d.els["sl-sec-queue"].open, false);
     m.slPublish("queue", { count: 3, tone: "warn", text: "3 waiting" });
     assert.equal(d.els["sl-sec-queue"].open, true);
-    assert.match(d.els.slLive.textContent, /3 waiting/);
+    assert.match(d.els.rpLive.textContent, /3 waiting/);
     assert.equal(d.els["sl-sec-badge-queue"].textContent, "3 waiting");
     assert.match(d.els["sl-sec-badge-queue"].className, /sl-tone-warn/);
     assert.equal(d.els.focusCalls, 0);
@@ -412,10 +416,10 @@ describe("collapsible section shell (Task 7)", () => {
     m.slSecAll("fix", false);
     assert.equal(d.els["sl-sec-health"].open, false);
     assert.equal(m.slUiLoad(s).sections.health.lastAlertCount, 0);
-    d.els.slLive.textContent = "";
+    d.els.rpLive.textContent = "";
     m.slPublish("health", { count: 13, tone: "", text: "13 rows" });
     assert.equal(d.els["sl-sec-health"].open, false);
-    assert.equal(d.els.slLive.textContent, "");
+    assert.equal(d.els.rpLive.textContent, "");
     delete globalThis.document;
   });
   test("a summary update never closes an open section (2 -> 3 -> 2 -> 0)", async () => {

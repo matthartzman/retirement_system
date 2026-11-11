@@ -1745,6 +1745,18 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_cash_investment.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_cash_investment.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "SYSTEM_CONFIG_FIELD_HELP",
       "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
       "kind": "read",
@@ -2471,14 +2483,38 @@
       "scope": "inside-function"
     },
     {
-      "name": "rows",
+      "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_holdings.js",
-      "kind": "read",
+      "kind": "call",
       "scope": "inside-function"
     },
     {
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings_tabs.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings_tabs.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings_tabs.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings_tabs.js",
       "kind": "call",
       "scope": "inside-function"
     },
@@ -3432,6 +3468,36 @@
     },
     {
       "name": "moduleStatus",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleStatus",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleStatus",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleStatus",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
       "file": "frontend/js/dashboard_decomp_plan_features.js",
       "kind": "read",
       "scope": "inside-function"
@@ -6491,18 +6557,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "csrfToken",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "csrfToken",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "checkAppStatus",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
@@ -7219,6 +7273,60 @@
     {
       "name": "rows",
       "file": "frontend/js/dashboard_decomp_sales_1099b.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_sales_entry.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_sales_entry.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_sales_entry.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_sales_entry.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_sales_entry.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_sales_entry.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_sales_entry.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_sales_group.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_sales_queue.js",
       "kind": "read",
       "scope": "inside-function"
     },
@@ -8472,18 +8580,6 @@
     },
     {
       "name": "rows",
-      "file": "frontend/js/dashboard_decomp_transactions.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_transactions.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
       "file": "frontend/js/dashboard_decomp_transactions_log.js",
       "kind": "read",
       "scope": "inside-function"
@@ -8504,6 +8600,18 @@
       "name": "rows",
       "file": "frontend/js/dashboard_decomp_transactions_log.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_transactions_log.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_transactions_log.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {

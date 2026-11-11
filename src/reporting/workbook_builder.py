@@ -592,7 +592,7 @@ def build_workbook_section_divider(ws, area):
 # (_disabled_final_sheets, _rename_final_sheets, _replace_text_refs) are the
 # single source of truth for turning legacy build-time sheet names into the
 # final numbered/lettered names users see. They live in workbook_common.py
-# (imported here via the `from .workbook_common import *` above) so every
+# (imported here via the explicit `from .workbook_common import (...)` above) so every
 # consumer — this module's apply_final_workbook_structure() below, and
 # dashboard.py's post-build sheet lookups — shares one definition instead of
 # each re-deriving or re-guessing the same rename.
@@ -659,7 +659,7 @@ def _hide_sheet_if_present(wb, name):
 
 
 # _replace_text_refs is defined once, in workbook_common.py, and imported here
-# via the `from .workbook_common import *` at the top of this module.
+# via the explicit `from .workbook_common import (...)` at the top of this module.
 
 
 def _ensure_plan_data_shell(wb):
@@ -832,7 +832,7 @@ def _merge_asset_location_into_allocation(wb):
 
 
 # _rename_final_sheets is defined once, in workbook_common.py, and imported
-# here via the `from .workbook_common import *` at the top of this module.
+# here via the explicit `from .workbook_common import (...)` at the top of this module.
 
 
 def apply_final_workbook_structure(wb, c):

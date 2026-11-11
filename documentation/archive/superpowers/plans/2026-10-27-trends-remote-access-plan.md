@@ -1,6 +1,6 @@
 # Trends Remote Access Implementation Plan
 
-Status: implemented
+Status: implemented (merged to main as PR #285 on 2026-10-27)
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let the owner, a family member and the advisor reach the Financial Trends app from anywhere through one HTTPS link and a personal password, with the server always on.
@@ -9,7 +9,7 @@ Status: implemented
 
 **Tech Stack:** Python stdlib only (`hashlib.scrypt`, `hmac`, `secrets`, `sqlite3`, `http.server` via `src/http_runtime`), vanilla JS in `frontend/`, PowerShell/Task Scheduler.
 
-**Spec:** `documentation/future/superpowers/plans/2026-10-27-trends-remote-access-design.md`
+**Spec:** `documentation/archive/superpowers/plans/2026-10-27-trends-remote-access-design.md`
 
 ## Global Constraints
 
@@ -160,7 +160,7 @@ Model/effort: Sonnet, low. Usage: **light**. Mostly documentation.
 
 ### Task 7: Runbook, final checks, draft PR
 
-**Files:** Create `documentation/reference/TRENDS_REMOTE_ACCESS_RUNBOOK.md` (Tailscale steps, phone checklist, how to stop/restart, how to add a person, how to confirm the Host/forwarded headers Funnel sends and record the finding); Modify `documentation/future/superpowers/plans/2026-10-27-trends-remote-access-design.md` (answers to open decisions; header note that the 93616310 LAN bind is retired).
+**Files:** Create `documentation/reference/TRENDS_REMOTE_ACCESS_RUNBOOK.md` (Tailscale steps, phone checklist, how to stop/restart, how to add a person, how to confirm the Host/forwarded headers Funnel sends and record the finding); Modify `documentation/archive/superpowers/plans/2026-10-27-trends-remote-access-design.md` (answers to open decisions; header note that the 93616310 LAN bind is retired).
 
 - [ ] **Step 1:** Write the runbook with the exact manual steps (admin console: enable HTTPS certificates, allow Funnel for the PC; PC: `tailscale funnel --bg 5058`, `tailscale funnel status`, confirm nothing serves 5057 with `tailscale serve status`; register the logon task; the `ts.net` link). Claude does **not** run any Tailscale or firewall command.
 - [ ] **Step 2:** Phone checklist (off Wi-Fi): link loads and shows sign-in; wrong password shows the generic error; correct sign-in; temporary password forces change; Live Snapshot works; walk away 10 minutes → signed out; Sign out works; second person unaffected; owner deletes the person → their phone is kicked next tap; `https://<link>/api/history` without cookie is 401; People/Activity not reachable on the phone; reboot-and-logon check.

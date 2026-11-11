@@ -7,16 +7,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..server_services.strategy_asset_service import (
+from .pricing import (
     HOME_APPR_DEFAULT,
     INFLATION_GENERAL_DEFAULT,
+    years_out_from,
 )
 from .models import RENTAL_DISPOSITIONS, Location, Move, ScoredCandidate
 from .plan_variant import (
     _effective_mortgage_rate,
     _estimate_for_location,
     _purchase_price_for_location,
-    _years_out,
     estimate_monthly_pi_payment,
 )
 
@@ -49,7 +49,7 @@ def _today_dollars(move_year_value: float, start_year: int, rate: float) -> floa
     price it, at the same rate. Secondary text only (§6.4 site 5); the
     move-year figure above it is what the objective was actually computed
     on."""
-    years_out = _years_out(start_year)
+    years_out = years_out_from(start_year)
     if not years_out:
         return move_year_value
     factor = (1.0 + float(rate)) ** years_out

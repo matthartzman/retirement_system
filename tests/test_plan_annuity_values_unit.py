@@ -1,6 +1,6 @@
 """Annuity/pension accounts valued from the plan's PV, not Monarch's hand-typed balance.
 
-Design: documentation/future/superpowers/plans/2026-10-29-annuity-plan-values-design.md
+Design: documentation/archive/superpowers/plans/2026-10-29-annuity-plan-values-design.md
 """
 from __future__ import annotations
 
