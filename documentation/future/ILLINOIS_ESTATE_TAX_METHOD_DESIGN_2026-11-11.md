@@ -1,4 +1,4 @@
-Status: implemented in commit 74b531e8 on claude/w4-01-illinois-estate-7b5d8d (not yet merged; method confirmed by estate attorney, tests hand-derived rather than AG-calculator matched)
+Status: implemented in commit 74b531e8 on claude/w4-01-illinois-estate-7b5d8d (method confirmed by estate attorney, tests hand-derived rather than AG-calculator matched)
 
 # Illinois estate tax method (W4-01 / FIN-004) - design, attorney signed off, implemented
 
