@@ -1304,6 +1304,8 @@ def parse_ltc_and_holdings(data, c):
     # Illinois pass-through-entity (PTE) tax election: entity pays the tax, owner takes a state credit.
     c['pte_election']     = _b(_v(data,'Cashflow','S-Corp','pte_election','FALSE'))
     c['pte_rate']         = _n(_v(data,'Cashflow','S-Corp','pte_tax_rate','4.95%'), 0.0495)
+    _pte_fy = str(_v(data,'Cashflow','S-Corp','pte_election_first_year','') or '').strip()
+    c['pte_first_year']   = int(_n(_pte_fy, 0)) if _pte_fy else None   # blank: plan start + 1 (see pte_first_year)
     # Salary for retire-later extension years (default = base scorp_salary)
     c['scen_retire_salary'] = _n(_v(data,'Scenarios','Retire Later',
                                      'salary_override', str(int(c['scorp_salary']))),

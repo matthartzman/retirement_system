@@ -686,7 +686,8 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     ),
     _BF.BackfillEntry(
         [["Cashflow", "S-Corp", "pte_election", "FALSE", "", "Illinois pass-through-entity tax election: the S-corp pays the entity tax (deductible by the entity) and you take a credit on your Illinois return. Illinois only; confirm eligibility with your tax professional."],
-         ["Cashflow", "S-Corp", "pte_tax_rate", "4.95%", "pct", "Illinois pass-through-entity tax rate used when the election is on."]],
+         ["Cashflow", "S-Corp", "pte_tax_rate", "4.95%", "pct", "Illinois pass-through-entity tax rate used when the election is on."],
+         ["Cashflow", "S-Corp", "pte_election_first_year", "", "", "First tax year the pass-through-entity election applies. Blank means the year after the plan starts. The election is made at the start of the year and was not made for 2026, so 2026 never carries the tax."]],
         _BF.after_last(_BF.subsection_is("S-Corp")),
     ),
     # Standard checking / credit-card balances for the forecast years (2026-11), blank on every older plan.

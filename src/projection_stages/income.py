@@ -104,9 +104,20 @@ def _scorp_replacement_tax(c, year, net_business_income):
     return max(0.0, net_business_income - IL_REPLACEMENT_TAX_EXEMPTION) * rate if rate > 0 else 0.0
 
 
+PTE_EARLIEST_YEAR = 2027  # the election is made at the start of the tax year and was not made for 2026
+
+
+def pte_first_year(c):
+    """First year the PTE tax applies: the plan input, else plan start + 1, never before PTE_EARLIEST_YEAR."""
+    first = c.get('pte_first_year')
+    if first is None:
+        first = int(c.get('plan_start', PTE_EARLIEST_YEAR - 1)) + 1
+    return max(int(first), PTE_EARLIEST_YEAR)
+
+
 def _scorp_pte_tax(c, year, net_business_income):
-    """Illinois pass-through-entity tax when the election is on and the resident state is Illinois."""
-    if not c.get('pte_election') or str(_aa.state_for_year(c, year) or '').strip().lower() != 'illinois':
+    """Illinois pass-through-entity tax when the election is on, the year is at or after the first election year, and the resident state is Illinois."""
+    if not c.get('pte_election') or year < pte_first_year(c) or str(_aa.state_for_year(c, year) or '').strip().lower() != 'illinois':
         return 0.0
     return max(0.0, net_business_income) * float(c.get('pte_rate', 0.0495) or 0.0)
 

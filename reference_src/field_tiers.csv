@@ -62,6 +62,7 @@ Cashflow,Earned Income,entity_type,expert
 Cashflow,S-Corp,reasonable_salary_annual,expert
 Cashflow,S-Corp,pte_election,expert
 Cashflow,S-Corp,pte_tax_rate,expert
+Cashflow,S-Corp,pte_election_first_year,expert
 Cashflow,Self-Employment,qbi_sstb,expert
 Cashflow,Self-Employment,qbi_ubia,expert
 Cashflow,Spending,annual_spending_base_year,simple

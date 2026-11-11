@@ -1264,6 +1264,26 @@
    {
     "$tuple": [
      "Cashflow",
+     "S-Corp",
+     "pte_election_first_year"
+    ]
+   },
+   {
+    "section": "Cashflow",
+    "subsection": "S-Corp",
+    "label": "pte_election_first_year",
+    "type": "integer",
+    "required": "FALSE",
+    "default": "",
+    "min": "2027",
+    "max": "2100",
+    "description": "First tax year the PTE election applies; blank means the year after the plan starts; never earlier than 2027"
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Cashflow",
      "Self-Employment",
      "qbi_sstb"
     ]

@@ -62,6 +62,7 @@ Cashflow,Earned Income,entity_type,choice,TRUE,s_corp,,,s_corp | sole_prop | W2
 Cashflow,S-Corp,reasonable_salary_annual,dollars,FALSE,60000,0,,W-2 salary for FICA
 Cashflow,S-Corp,pte_election,boolean,FALSE,FALSE,,,Illinois pass-through-entity tax election: the S-corp pays the entity tax and you take a credit on your Illinois return
 Cashflow,S-Corp,pte_tax_rate,percent,FALSE,4.95%,0,15,Illinois pass-through-entity tax rate used when the election is on
+Cashflow,S-Corp,pte_election_first_year,integer,FALSE,,2027,2100,First tax year the PTE election applies; blank means the year after the plan starts; never earlier than 2027
 Cashflow,Self-Employment,qbi_sstb,boolean,FALSE,FALSE,,,TRUE if the business is a specified service trade or business for the QBI deduction (health law accounting consulting and similar)
 Cashflow,Self-Employment,qbi_ubia,dollars,FALSE,0,0,,Unadjusted basis of qualified property held by the business for the QBI wage-and-property limit
 Cashflow,Spending,annual_spending_base_year,dollars,TRUE,,,Base annual spending,

@@ -866,7 +866,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/reporting/sheets_protection.py` | `reporting.workbook_common` | — |
 | `src/reporting/sheets_qc_reference.py` | `data_io`, `glossary`, `governance`, `person_labels`, `reporting.workbook_common` | — |
 | `src/reporting/sheets_rental.py` | `reporting.rental_report_data`, `reporting.workbook_common` | — |
-| `src/reporting/sheets_strategy.py` | `after_tax`, `core`, `housing_comparison`, `hsa_schedule`, `person_labels`, `planning_engines`, `reporting`, `reporting.sheets_strategy_pair_worker`, `reporting.workbook_common`, `withdrawal_strategy_comparison` | — |
+| `src/reporting/sheets_strategy.py` | `after_tax`, `core`, `housing_comparison`, `hsa_schedule`, `person_labels`, `planning_engines`, `projection_stages.income`, `reporting`, `reporting.sheets_strategy_pair_worker`, `reporting.workbook_common`, `withdrawal_strategy_comparison` | — |
 | `src/reporting/sheets_strategy_pair_worker.py` | `after_tax`, `planning_engines` | — |
 | `src/reporting/sheets_stress.py` | `after_tax`, `optimization`, `person_labels`, `planning_engines`, `reporting`, `reporting.workbook_common` | — |
 | `src/reporting/sheets_summary_builder.py` | `governance`, `planning_engines`, `reporting`, `reporting.sheets_allocation_helpers`, `reporting.workbook_common`, `result_contract` | — |

@@ -1,3 +1,7 @@
+## 2026-11-11 — Reference schema_fields golden regenerated for the PTE first-year input
+
+**Reason.** New Plan Data row Cashflow/S-Corp pte_election_first_year (blank: plan start + 1, never before 2027; the 2026 election was not made). Additive: one schema row. No pin moved (measure: terminal_nw 5,232,148.02, lifetime_tax 1,231,686.10 unchanged; the election is off by default). Hand check in tests/test_scorp_pte_election_functional.py (frozen plan 2027: base 231,803.82, tax 11,474.29).
+
 ## 2026-11-11 — Full-row engine snapshot regenerated for the PTE election row keys
 
 <!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=943468fa20cc29cf58e1d16fb4f94fdc270e49f45ce54165eab5ed91b5fc8425 -->

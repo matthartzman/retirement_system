@@ -34,6 +34,7 @@ from .workbook_common import (
 from ..person_labels import display_accounts_in_text as _display_accounts_in_text
 from .. import strategy_sweep
 from ..core import state_retirement_exclusion_count
+from ..projection_stages.income import pte_first_year as _pte_first_year
 from . import summary_figures
 from .sheets_strategy_pair_worker import evaluate_claim_age_pair
 from ..planning_engines import _SCENARIO_IRRELEVANT_KEYS, _roth_irmaa_target_threshold
@@ -160,8 +161,8 @@ def build_sheet9(ws, c, rows):
     _il_pprt_modeled = _resident_state.strip().lower() == 'illinois' and _il_pprt_rate > 0
     _entity_tax_cell = (
         f'Modeled: {_il_pprt_rate:.1%} replacement tax on net income after salary, employer payroll tax and a $1,000 exemption; '
-        + (f'the pass-through-entity (PTE) tax election is ON at {float(c.get("pte_rate", 0.0495) or 0.0):.2%}, with the Illinois credit' if c.get('pte_election')
-           else 'the pass-through-entity (PTE) tax election is off')
+        + (f'the pass-through-entity (PTE) tax election is ON at {float(c.get("pte_rate", 0.0495) or 0.0):.2%} from {_pte_first_year(c)}, with the Illinois credit; there is no election for 2026' if c.get('pte_election')
+           else 'the pass-through-entity (PTE) tax election is off (no election was made for 2026)')
         if _il_pprt_modeled else 'Not modeled in the projection')
 
     comparison_rows = [
@@ -202,7 +203,7 @@ def build_sheet9(ws, c, rows):
             f'the S-Corp saves approximately ${se_tax_savings:,.0f} in payroll taxes '
             f'less ~$2,500 in administrative overhead = net ${max(0,se_tax_savings-2500):,.0f}/yr benefit. '
             'The QBI deduction applies the income-threshold phase-in, the W-2 wage limit, the taxable-income cap and the 2026 minimum deduction; the specified-service status and qualified property are the Plan Data inputs (default: not a specified service business, no property). '
-            + (f'The Illinois replacement tax ({_il_pprt_rate:.1%}) is deducted from the distribution in the projection; the pass-through-entity tax election is ' + ('on, with the Illinois credit. ' if c.get('pte_election') else 'off (turn it on in Plan Data, Cashflow, S-Corp). ')
+            + (f'The Illinois replacement tax ({_il_pprt_rate:.1%}) is deducted from the distribution in the projection; the pass-through-entity tax election is ' + (f'on from {_pte_first_year(c)}, with the Illinois credit (the election is made at the start of the year and was not made for 2026). ' if c.get('pte_election') else 'off (turn it on in Plan Data, Cashflow, S-Corp; it cannot start before 2027). ')
                if _il_pprt_modeled else
                f'{_resident_state or "The configured state"} entity-level taxes on S-corp income are not modeled in the projection; enter any such tax as a business expense. ') +
             'Annuity PV/reserve figures elsewhere in the workbook are calibration-dependent and should be refreshed against current carrier illustrations before sale/replacement decisions.')
