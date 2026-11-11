@@ -900,6 +900,180 @@
     },
     {
       "name": "rows",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewFingerprint",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewLoading",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewKey",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewKey",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewError",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewKey",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewLoading",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewError",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewSeq",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewRowsForPost",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewSeq",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewLoading",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewError",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewError",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewSeq",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewLoading",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewError",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewSeq",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_allocation_policy.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
       "file": "frontend/js/dashboard_decomp_assets_other.js",
       "kind": "read",
       "scope": "inside-function"
@@ -3182,6 +3356,42 @@
       "name": "activeStep",
       "file": "frontend/js/dashboard_decomp_field_choice_help.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "FIELD_GUIDANCE_OVERRIDES",
+      "file": "frontend/js/dashboard_decomp_field_guidance.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "FIELD_GUIDANCE_OVERRIDES",
+      "file": "frontend/js/dashboard_decomp_field_guidance.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "fieldDefaultMeaning",
+      "file": "frontend/js/dashboard_decomp_field_guidance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_field_guidance.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "fieldConnection",
+      "file": "frontend/js/dashboard_decomp_field_guidance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "fieldLikelyImpact",
+      "file": "frontend/js/dashboard_decomp_field_guidance.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -5615,180 +5825,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "planLoaded",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewFingerprint",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewLoading",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewKey",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreview",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewKey",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewKey",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewLoading",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewSeq",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewRowsForPost",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewSeq",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewLoading",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreview",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreview",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewSeq",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewLoading",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreview",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPreviewSeq",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "searchText",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -6390,42 +6426,6 @@
     },
     {
       "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "FIELD_GUIDANCE_OVERRIDES",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "FIELD_GUIDANCE_OVERRIDES",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "fieldDefaultMeaning",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "fieldConnection",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "fieldLikelyImpact",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
       "scope": "inside-function"
