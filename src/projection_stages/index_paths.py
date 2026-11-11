@@ -29,3 +29,11 @@ def path_ratio(c, path_key, annual_rate, year, base_year):
         except (TypeError, ValueError, ZeroDivisionError) as _exc:
             _log_fallback("path_ratio", _exc, path_key=path_key, year=year)
     return (1 + float(annual_rate or 0.0)) ** (year - base_year)
+
+
+def infl_ratio(c, year, base_year):
+    return path_ratio(c, 'inflation_index_by_year', c['inf'], year, base_year)
+
+
+def ss_ratio(c, year, claim_year):
+    return path_ratio(c, 'ss_cola_index_by_year', c['ss_cola'], year, claim_year)
