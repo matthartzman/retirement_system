@@ -696,7 +696,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # automatic-backup failure message in dashboard_decomp_local_backups.js).
 # 2026-11-11 W4-06: lowered 43,741 -> 43,733 to the measured total (row_model extraction; compact window bridges).
 # 2026-11-11 W4-06: lowered 43,733 -> 43,719 to the measured total (budget/taxonomy helpers extracted to dashboard_decomp_budget_edit.js).
-TOTAL_JS_MAX_LINES = 43_719
+# 2026-11-11 W4-06: lowered 43,719 -> 43,710 to the measured total (field rendering extracted to dashboard_decomp_field_render.js).
+TOTAL_JS_MAX_LINES = 43_710
 
 
 
@@ -771,7 +772,7 @@ PER_FILE_CAPS = {
     "dashboard_decomp_checklist_closeout.js": 1_399,
     "dashboard_decomp_housing_optimizer.js": 2_832,
     "dashboard_decomp_housing_scenarios.js": 1_466,
-    "dashboard_decomp_row_model.js": 2_936,
+    "dashboard_decomp_row_model.js": 2_512,
     "dashboard_decomp_ytd_and_plan_folder_io.js": 1_184,
     "help_registry.js": 1_124,
     "reports_ui.js": 1_550,
@@ -798,6 +799,7 @@ PER_FILE_CAP_LOG = [
     ("2026-11-11", "dashboard_decomp_row_model.js", 4_160, 3_869, "lowered: build runner extracted to dashboard_decomp_build_runner.js (W4-06)"),
     ("2026-11-11", "dashboard_decomp_row_model.js", 3_869, 3_653, "lowered: save-error mapping extracted to dashboard_decomp_save_errors.js (W4-06)"),
     ("2026-11-11", "dashboard_decomp_row_model.js", 3_653, 2_936, "lowered: row routing extracted to dashboard_decomp_row_routing.js (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 2_936, 2_512, "lowered: field rendering extracted to dashboard_decomp_field_render.js (W4-06)"),
 ]
 
 

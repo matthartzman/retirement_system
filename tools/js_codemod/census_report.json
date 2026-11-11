@@ -3185,6 +3185,138 @@
       "scope": "inside-function"
     },
     {
+      "name": "taxBudgetChanged",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "percentRaw",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "PERSON_VALUE_TOKEN_RE",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "translatePersonValueLabel",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "percentDisplayDecimals",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "numberDisplayDecimals",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "numberDisplayDecimals",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "translatePersonValueLabel",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "inactiveEditReveals",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moneyNegativeClass",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dependencyRank",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "fieldSizeClass",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dependencyRank",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "fieldLabelNoteHtml",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "fieldTooltipHtml",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dependencyRank",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dependencyRank",
+      "file": "frontend/js/dashboard_decomp_field_render.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "parseCsvLine",
       "file": "frontend/js/dashboard_decomp_holdings.js",
       "kind": "read",
@@ -5472,138 +5604,6 @@
     },
     {
       "name": "renderDetailedResultsNav",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudgetChanged",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "percentRaw",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "PERSON_VALUE_TOKEN_RE",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "translatePersonValueLabel",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "percentDisplayDecimals",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "numberDisplayDecimals",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "numberDisplayDecimals",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "translatePersonValueLabel",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dirty",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "inactiveEditReveals",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "moneyNegativeClass",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dependencyRank",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "fieldSizeClass",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dependencyRank",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "fieldLabelNoteHtml",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "fieldTooltipHtml",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dependencyRank",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dependencyRank",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
       "scope": "inside-function"
