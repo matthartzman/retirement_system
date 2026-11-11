@@ -41,11 +41,12 @@ def test_income_comment_no_longer_says_the_il_surcharge_is_captured_via_agi():
     assert "Replacement Income Tax" in text
 
 
-def test_life_insurance_sheet_carries_the_inventory_only_banner():
+def test_life_insurance_sheet_banner_describes_the_death_benefit_routing():
+    # FIN-005 (W4-04): the sheet is only built with the module on, when death benefits ARE projected.
     text = _read("src/reporting/sheets_protection.py")
-    assert "INVENTORY ONLY" in text
-    assert "depends on who owns and controls the policy" in text
-    assert "every" not in text.split("INVENTORY ONLY", 1)[1][:400].lower()  # no 'every non-ILIT policy' claim
+    assert "INVENTORY ONLY" not in text
+    assert "DEATH BENEFITS ARE IN THE PROJECTION" in text
+    assert "ILIT" in text and "Beneficiary designations are not modelled" in text
 
 
 def test_divorce_scenario_label_says_what_stays_unchanged():

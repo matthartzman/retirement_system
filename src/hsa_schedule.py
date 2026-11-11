@@ -271,8 +271,9 @@ def _second_death_year_at_percentile(c: Mapping[str, Any], percentile: float,
 def _member_death_cdf(member: Mapping[str, Any], sex_idx: int,
                       plan_start: int) -> Optional[dict]:
     """{calendar year: P(this member has died by the end of it)}."""
-    from .planning_engines import _age_shift_for_member, _mortality_qx
+    from .planning_engines import _age_shift_for_member, _member_sex_idx, _mortality_qx
 
+    sex_idx = _member_sex_idx(member, sex_idx)  # caller passes the member position
     dob = member.get('dob_yr')
     if dob is None:
         return None

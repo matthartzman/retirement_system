@@ -17,6 +17,7 @@ from .workbook_common import (
     col_factors,
     get_column_letter,
     indexed_federal_estate_exemption,
+    estate_exemption_dsue_kwargs,
     marginal_rate,
     module_enabled,
     qc,
@@ -2051,6 +2052,7 @@ def build_sheet14(ws, c, rows):
     _second_death_year = int(yr_second.get('year', c.get('plan_end', c.get('plan_start', 0))) or 0)
     fed_exempt_gross = indexed_federal_estate_exemption(
         c['fed_exempt'], c.get('plan_start', _second_death_year), _second_death_year, c.get('brk_inf', 0.02),
+        **estate_exemption_dsue_kwargs(c),
     )
     fed_exempt = max(0.0, fed_exempt_gross - lifetime_exemption_used)
     est2 = yr_second['total_nw']

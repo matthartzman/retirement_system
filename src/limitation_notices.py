@@ -266,7 +266,10 @@ def _illinois_estate_above_exclusion(c: Mapping[str, Any], rows: Sequence[Mappin
 
 
 def _has_life_policies(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> bool:
-    return bool(c.get("life_policies"))
+    # FIN-005 (W4-04): with the Existing Life Insurance module on, the projection pays the policies, so
+    # the inventory-only notice no longer applies. It still describes policies the module leaves inert.
+    from .projection_stages.life_insurance_proceeds import life_insurance_enabled
+    return bool(c.get("life_policies")) and not life_insurance_enabled(c)
 
 
 CONDITIONS: dict[str, Callable[[Mapping[str, Any], Sequence[Mapping[str, Any]]], bool]] = {

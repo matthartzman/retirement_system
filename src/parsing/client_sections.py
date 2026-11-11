@@ -225,6 +225,8 @@ def parse_household_and_pricing(data, c, _sv):
     c['h_earned_last_year'] = _last_earned_income_year_from_retirement_date(_h_ret_raw, c['h_ret_yr'])
     c['h_mort_age']= _n(_v(data,'Household','','member_1_mortality_age','92'), 92)
     c['w_mort_age']= _n(_v(data,'Household','','member_2_mortality_age','95'), 95)
+    c['h_actuarial_sex'] = str(_v(data,'Household','','member_1_actuarial_sex','') or '').strip().lower()
+    c['w_actuarial_sex'] = str(_v(data,'Household','','member_2_actuarial_sex','') or '').strip().lower()
     c['h_death_yr']= int(c['h_dob_yr'] + c['h_mort_age'])
     c['w_death_yr']= int(c['w_dob_yr'] + c['w_mort_age'])
     c['state']     = _v(data,'Household','','residence_state','')
@@ -332,6 +334,7 @@ def parse_members_and_economics(data, c, _w_dob_error):
         'retire_yr':     c['h_ret_yr'],
         'mortality_age': c['h_mort_age'],
         'death_yr':      c['h_death_yr'],
+        'actuarial_sex': c.get('h_actuarial_sex', ''),
     }
     _has_member_2 = bool(c['w_name'] and c['w_name'].strip())
     if _has_member_2:
@@ -346,6 +349,7 @@ def parse_members_and_economics(data, c, _w_dob_error):
             'retire_yr':     c['w_ret_yr'],
             'mortality_age': c['w_mort_age'],
             'death_yr':      c['w_death_yr'],
+            'actuarial_sex': c.get('w_actuarial_sex', ''),
         }
         c['members'] = [_m1, _m2]
     else:

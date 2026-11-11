@@ -12,6 +12,7 @@ from typing import Any, Mapping, Dict, Tuple
 from .core import (
     ltcg_tax_on_gain, niit_tax, state_income_tax, illinois_estate_tax, state_estate_tax,
     indexed_federal_estate_exemption, resolved_state_estate_exemption, state_for_year,
+    estate_exemption_dsue_kwargs,
 )
 
 
@@ -750,6 +751,7 @@ def estimate_terminal_estate_tax(c: Mapping[str, Any], terminal: Mapping[str, An
     target_year = int(terminal.get("year", c.get("plan_end", c.get("plan_start", 0))) or 0)
     fed_exempt = indexed_federal_estate_exemption(
         c.get("fed_exempt"), c.get("plan_start", target_year), target_year, c.get("brk_inf", 0.02),
+        **estate_exemption_dsue_kwargs(c),
     )
     # Finding F7 (item 2.6): the Estate sheet already subtracts lifetime
     # gifts used against the federal exemption; this function -- the shared

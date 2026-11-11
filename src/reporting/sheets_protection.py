@@ -59,10 +59,13 @@ def build_existing_life(ws, c, rows):
 
     r = 3
     write_cell(ws, r, 1,
-               'INVENTORY ONLY: these policies do not feed the projection. A death in the projection pays no '
-               'death benefit to the survivor, and policy proceeds are not added to the estate tax calculation. '
-               'Whether proceeds are part of a taxable estate depends on who owns and controls the policy; '
-               'this plan does not decide that.',
+               'DEATH BENEFITS ARE IN THE PROJECTION: when an insured member dies in the projection, a policy '
+               'not owned by an ILIT pays its face amount into the surviving member taxable account (or the estate '
+               'account at the last death), so it counts in the estate tax base. A policy owned by an ILIT is '
+               'assumed to pay the trust, outside the survivor estate, and adds nothing. A term policy pays '
+               'only if the death is on or before its term end. Premiums are not part of the projected cash '
+               'flow. Beneficiary designations are not modelled: confirm the routing with a financial planner '
+               'and an estate attorney.',
                bg='FFF4E5', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
     r += 2

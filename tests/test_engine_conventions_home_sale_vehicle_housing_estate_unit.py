@@ -94,7 +94,8 @@ def test_x_estate_counts_the_bypass_trust_federally_and_the_business_once():
     terminal = {"year": c["plan_end"], "total_nw": 30_000_000.0, "cst_excluded_from_survivor_estate": 2_000_000.0}
     base = estimate_terminal_estate_tax(c, terminal)
     exempt = __import__("src.after_tax", fromlist=["indexed_federal_estate_exemption"]).indexed_federal_estate_exemption(
-        10_000_000.0, c["plan_start"], c["plan_end"], c.get("brk_inf", 0.02))
+        10_000_000.0, c["plan_start"], c["plan_end"], c.get("brk_inf", 0.02),
+        **__import__("src.core", fromlist=["x"]).estate_exemption_dsue_kwargs(c))   # FIN-007: DSUE frozen at first death
     assert base == pytest.approx(0.40 * (30_000_000.0 - exempt))      # FIN-009: the combined exemption already covers the CST
     c["federal_portability_enabled"] = False
     assert estimate_terminal_estate_tax(c, terminal) == pytest.approx(0.40 * (30_000_000.0 - exempt))

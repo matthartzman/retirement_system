@@ -402,10 +402,11 @@ def federal_estate_materiality(c, rows=None, margin=CST_MATERIALITY_MARGIN):
     estate, terminal = projected_second_death_estate(c, rows)
     if estate is None:
         return None, None, False
-    from ..core import indexed_federal_estate_exemption
+    from ..core import estate_exemption_dsue_kwargs, indexed_federal_estate_exemption
     target_year = int((terminal or {}).get('year', c.get('plan_end', c.get('plan_start', 0))) or 0)
     fed_exempt = indexed_federal_estate_exemption(
-        c.get('fed_exempt'), c.get('plan_start', target_year), target_year, c.get('brk_inf', 0.02))
+        c.get('fed_exempt'), c.get('plan_start', target_year), target_year, c.get('brk_inf', 0.02),
+        **estate_exemption_dsue_kwargs(c))
     lifetime_used = _f((terminal or {}).get('lifetime_exemption_used_cumulative')) or 0.0
     fed_exempt = max(0.0, fed_exempt - lifetime_used)
     if fed_exempt <= 0:

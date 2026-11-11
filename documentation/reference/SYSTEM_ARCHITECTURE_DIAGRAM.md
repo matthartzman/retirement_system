@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 327 Python files under `src/`, 72 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 335 Python files under `src/`, 72 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -27,7 +27,7 @@ flowchart TB
     subgraph L_Core_Engine___Domain["Core Engine & Domain (236 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
-    subgraph L_Projection_Stages["Projection Stages (27 modules)"]
+    subgraph L_Projection_Stages["Projection Stages (35 modules)"]
         L_Projection_Stages_d["Deterministic year-by-year projection engine internals"]
     end
     subgraph L_Reporting___Workbook["Reporting / Workbook (26 modules)"]
@@ -593,7 +593,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/engine_sections/__init__.py` | — | — |
 | `src/engine_sections/monte_carlo.py` | `after_tax`, `planning_engines` | — |
 | `src/engine_sections/monte_carlo_headline.py` | `after_tax`, `planning_engines`, `spending_budget_resolver` | — |
-| `src/engine_sections/roth_conversion.py` | `engine_kernels`, `planning_engines` | — |
+| `src/engine_sections/roth_conversion.py` | `core`, `engine_kernels`, `planning_engines` | — |
 | `src/equity_comp.py` | — | — |
 | `src/fallback_log.py` | — | — |
 | `src/feature_entry_counts.py` | — | — |
@@ -644,7 +644,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/legacy_conversion/steps/t8_tier_mapping.py` | `feature_entry_counts` | — |
 | `src/legacy_conversion/verify.py` | `active_plan`, `csv_exchange`, `data_io`, `engine_defaults`, `legacy_conversion`, `legacy_conversion.steps`, `legacy_conversion.steps.c3b_plan_overrides`, `legacy_conversion.steps.c6a_settings`, `plan_data_migration`, `plan_db_replace`, `plan_label_rules`, `plan_overrides`, `planning_engines`, `report_compute` | — |
 | `src/legacy_conversion/workspace.py` | `active_plan`, `app_state`, `legacy_conversion`, `legacy_conversion.result`, `legacy_conversion.steps`, `plan_db_replace` | — |
-| `src/limitation_notices.py` | `planning_engines`, `stores.ref_getters.tax_law`, `stores.ref_getters.tax_update_dashboard`, `tax_law` | — |
+| `src/limitation_notices.py` | `planning_engines`, `projection_stages.life_insurance_proceeds`, `stores.ref_getters.tax_law`, `stores.ref_getters.tax_update_dashboard`, `tax_law` | — |
 | `src/local_backup_scheduler.py` | `app_state`, `onedrive_guard`, `plan_db_replace` | — |
 | `src/local_store.py` | `app_state`, `sqlite_util` | — |
 | `src/market_data.py` | `app_state`, `platform_runtime`, `secrets_store`, `version` | `requests` |
@@ -783,18 +783,25 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/projection_stages/appreciation_divorce_qlac.py` | `core`, `projection_stages` | — |
 | `src/projection_stages/budget_rollups.py` | `fallback_log` | — |
 | `src/projection_stages/cashflow_breakdown.py` | — | — |
-| `src/projection_stages/deaths_and_spousal_rollover.py` | `engine_kernels` | — |
+| `src/projection_stages/deaths_and_spousal_rollover.py` | `engine_kernels`, `projection_stages.life_insurance_proceeds` | — |
 | `src/projection_stages/deterministic_engine.py` | `core`, `early_distribution`, `engine_kernels`, `equity_comp`, `fallback_log`, `module_catalog`, `projection_stages`, `projection_stages.amt_equity_comp_true_up`, `projection_stages.appreciation_divorce_qlac`, `projection_stages.budget_rollups`, `projection_stages.cashflow_breakdown`, `projection_stages.deaths_and_spousal_rollover`, `projection_stages.effective_marginal_rate`, `projection_stages.home_sale`, `projection_stages.income`, `projection_stages.portfolio_growth_and_net_worth`, `projection_stages.roth_conversion_and_agi_tax`, `projection_stages.spending_and_rmd`, `projection_stages.withdrawal_cascade_daf_makeup`, `projection_stages.withdrawal_cascade_final_draws`, `projection_stages.withdrawal_cascade_gap_assembly`, `projection_stages.withdrawal_cascade_hsa_priority_draws`, `projection_stages.withdrawal_cascade_hsa_reimbursement_correction`, `projection_stages.withdrawal_cascade_investment_tax`, `projection_stages.withdrawal_cascade_ira_true_up`, `projection_stages.withdrawal_cascade_taxable_trust`, `projection_stages.year_state`, `tax_assumptions`, `tax_law` | — |
 | `src/projection_stages/effective_marginal_rate.py` | `core`, `engine_kernels` | — |
+| `src/projection_stages/gain_stacking.py` | `core`, `engine_kernels`, `projection_stages` | — |
 | `src/projection_stages/home_sale.py` | `engine_kernels`, `rental_tax` | — |
+| `src/projection_stages/housing_next_steps.py` | — | — |
 | `src/projection_stages/income.py` | `engine_kernels`, `equity_comp`, `ss_earnings_test`, `tax_law` | — |
+| `src/projection_stages/index_paths.py` | `fallback_log` | — |
+| `src/projection_stages/life_insurance_proceeds.py` | — | — |
+| `src/projection_stages/medicare_premiums.py` | `projection_stages.index_paths` | — |
 | `src/projection_stages/note_installment_gain.py` | — | — |
 | `src/projection_stages/other_asset_sale_tax.py` | `core` | — |
 | `src/projection_stages/portfolio_growth_and_net_worth.py` | `engine_kernels`, `projection_stages` | — |
 | `src/projection_stages/rental_property.py` | `module_catalog`, `projection_stages.home_sale`, `rental_tax`, `tax_law` | — |
 | `src/projection_stages/roth_conversion_and_agi_tax.py` | `core`, `engine_kernels`, `projection_stages.home_sale`, `projection_stages.spending_tiers`, `qbi`, `tax_law` | — |
+| `src/projection_stages/social_security_factors.py` | — | — |
 | `src/projection_stages/spending_and_rmd.py` | `engine_kernels`, `projection_stages.budget_rollups`, `spending_adjustments` | — |
 | `src/projection_stages/spending_tiers.py` | — | — |
+| `src/projection_stages/tax_paths.py` | `core`, `engine_kernels`, `tax_assumptions` | — |
 | `src/projection_stages/withdrawal_cascade_daf_makeup.py` | — | — |
 | `src/projection_stages/withdrawal_cascade_final_draws.py` | `engine_kernels` | — |
 | `src/projection_stages/withdrawal_cascade_gap_assembly.py` | — | — |
@@ -804,6 +811,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/projection_stages/withdrawal_cascade_ira_true_up.py` | `engine_kernels` | — |
 | `src/projection_stages/withdrawal_cascade_taxable_trust.py` | `engine_kernels` | — |
 | `src/projection_stages/working_balance_transfer.py` | `projection_stages.appreciation_divorce_qlac` | — |
+| `src/projection_stages/year_factors.py` | `early_distribution`, `projection_stages.index_paths`, `tax_law` | — |
 | `src/projection_stages/year_state.py` | — | — |
 
 ### Reporting / Workbook
