@@ -26,6 +26,23 @@ Start both engagements now. Waves 2 and 3 run in parallel with the waiting time,
 | FIN-004 | Illinois estate tax applies the old state death tax credit table to the whole estate, with no $60,000 adjustment and no limit at the federal tax over a $4M exclusion. | Confirm the Illinois method: adjusted taxable estate = taxable estate - $60,000; credit = lesser of the table amount and the tentative federal tax with a $4M exclusion; and the interrelated deduction. A quicker first step is to run the Illinois Attorney General estate tax calculator at $4.05M, $4.5M, $5M and $10M and record the results as test points. |
 | FIN-007 | After the first death, the deceased spouse's unused federal exemption keeps inflating. | Confirm the portability treatment: freeze the DSUE at the first-death year's indexed amount, index only the survivor's own exclusion, assume a timely election, and say how IRC 2058 applies to the state-tax deduction. |
 
+## 3. Questions still open with the CPA (added 2026-11-11, after the first answers)
+
+Send the rule and the question only. The owner fills the bracketed facts; they are not stored in this file.
+
+**QBI: is the household business a specified service trade or business (SSTB)? (sets `qbi_sstb`)**
+
+> Our S-corporation [one-sentence description of what the business sells and who it sells to] is owned [percent] by [owner]. Under IRC 199A(d)(2) and Treas. Reg. 1.199A-5, is it an SSTB, taking into account the "reputation or skill" catch-all and the de minimis rule (10% of gross receipts when receipts are $25 million or less)?
+> If we are not an SSTB today, would anything we expect to change in 2027 or later (a new service line, a change in how clients are billed, a second entity) make us one?
+> For the 2026 plan year our projected taxable income before the QBI deduction is about [amount]. The 2026 threshold is $403,500 (joint) and the phase-in range ends at $553,500. Does SSTB status change our deduction at that income, or only above the threshold?
+> If W-2 wages are the limiting factor, are the wages paid to the owner-employee the only wages counted, and should the plan treat the owner's S-corporation salary as the full W-2 wage base?
+
+Why we ask: the engine only needs a yes or no (`qbi_sstb`) plus the wage and property inputs. Above the threshold a "yes" scales the deduction down to zero across the phase-in range; below it the answer changes nothing today, but the plan projects forward and income can cross the threshold in later years.
+
+**PTE election: timing for the plan year (see `pte_election`)**
+
+> The Illinois pass-through entity tax election was not made for 2026. (a) Confirm that it therefore cannot apply to 2026. (b) For 2027, when and how must the election be made (on a timely filed entity return, or earlier by estimated payment), and what is the deadline? (c) Is the election annual, or does it carry forward until revoked? (d) Confirm the rate and that the owner's Illinois credit equals the tax paid.
+
 ## Status
 
 - [ ] CPA engaged (date, firm): ____
