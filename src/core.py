@@ -1322,20 +1322,58 @@ def state_death_tax_credit(taxable_estate):
     return 0.0
 
 
-def illinois_estate_tax(gross_estate, exemption=4_000_000.0, iterations=30):
-    """Approximate Illinois estate tax cliff/interrelated calculation.
+# IRC section 2001(c) unified rate schedule: (lower, upper, base tax, marginal rate).
+# Permanent statute (unchanged since 2013), so it sits beside the 2011(b) and New York
+# tables as a module constant rather than in the dated reference store.
+FEDERAL_ESTATE_RATE_SCHEDULE = (
+    (0, 10_000, 0, 0.18), (10_000, 20_000, 1_800, 0.20), (20_000, 40_000, 3_800, 0.22),
+    (40_000, 60_000, 8_200, 0.24), (60_000, 80_000, 13_000, 0.26), (80_000, 100_000, 18_200, 0.28),
+    (100_000, 150_000, 23_800, 0.30), (150_000, 250_000, 38_800, 0.32),
+    (250_000, 500_000, 70_800, 0.34), (500_000, 750_000, 155_800, 0.37),
+    (750_000, 1_000_000, 248_300, 0.39), (1_000_000, float('inf'), 345_800, 0.40),
+)
 
-    Once the estate exceeds the exclusion, Illinois tax is based on the entire
-    taxable estate, not merely the excess.  The state tax itself is deductible
-    in the federal-style credit computation, so solve T = credit(gross - T).
+ILLINOIS_ESTATE_ADJUSTMENT = 60_000.0  # Illinois subtracts $60,000 before using the 2011(b) table
+
+
+def federal_tentative_tax(taxable_estate, exclusion=0.0):
+    """IRC 2001(c) tentative tax on ``taxable_estate`` less the same tax on ``exclusion``.
+
+    With ``exclusion`` = the Illinois $4,000,000 exclusion this is the "federal estate tax
+    computed with a $4,000,000 exclusion" that caps the Illinois credit.
+    """
+    def _tax(amount):
+        amount = max(0.0, float(amount or 0.0))
+        for lo, hi, base, rate in FEDERAL_ESTATE_RATE_SCHEDULE:
+            if amount <= hi:
+                return base + (amount - lo) * rate
+        return 0.0
+    return max(0.0, _tax(taxable_estate) - _tax(exclusion))
+
+
+def illinois_estate_tax(gross_estate, exemption=4_000_000.0, iterations=60):
+    """Illinois estate tax (attorney-confirmed method, W4-01 / FIN-004).
+
+    credit = min(2011(b) table on (taxable estate - $60,000),
+                 federal tentative tax computed with the Illinois exclusion).
+    Tax is zero at or below the exclusion and phases in steeply above it (about 40
+    cents per dollar before the interrelated deduction), so there is no cliff.  The
+    Illinois tax is itself deductible in computing the taxable estate, so solve
+    T = credit(gross - T) by fixed-point iteration.
     """
     gross = max(0.0, float(gross_estate or 0.0))
-    if gross <= max(0.0, float(exemption or 0.0)):
+    exclusion = max(0.0, float(exemption or 0.0))
+    if gross <= exclusion:
         return 0.0
-    tax = state_death_tax_credit(gross)
+
+    def credit(taxable):
+        return min(state_death_tax_credit(taxable - ILLINOIS_ESTATE_ADJUSTMENT),
+                   federal_tentative_tax(taxable, exclusion))
+
+    tax = credit(gross)
     for _ in range(max(1, int(iterations or 1))):
-        new_tax = state_death_tax_credit(max(0.0, gross - tax))
-        if abs(new_tax - tax) < 1.0:
+        new_tax = credit(max(0.0, gross - tax))
+        if abs(new_tax - tax) < 0.01:
             tax = new_tax
             break
         tax = new_tax
@@ -1434,7 +1472,7 @@ def state_estate_tax(state, taxable_estate, exemption=None, *, gift_addback=0.0)
       - ``'not_modeled'``  -- this state DOES levy an estate tax, but this
                               engine has no calculation for its mechanism yet
                               (a genuinely different computation from
-                              Illinois's pre-2005-federal-credit-table cliff
+                              Illinois's credit-table / federal-limit
                               method -- reusing ``illinois_estate_tax`` for a
                               different state's law would produce a wrong
                               dollar figure, not an approximate one). New York
@@ -1698,6 +1736,7 @@ __all__ = [
     "ids_by_tax",
     "ids_by_type",
     "illinois_estate_tax",
+    "federal_tentative_tax",
     "household_first_death_year",
     "estate_exemption_dsue_kwargs",
     "indexed_federal_estate_exemption",

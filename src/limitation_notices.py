@@ -135,15 +135,6 @@ NOTICES: tuple[Notice, ...] = (
         (RemovalTrigger("W3-02", "CPA confirms the household's specified-service status and the plan gains screens for it and for qualified property: remove this notice"),),
     ),
     Notice(
-        "N9", "FIN-004", SEVERITY_WARNING,
-        "The Illinois estate tax figure is an approximation that has not been verified against the Illinois "
-        "Attorney General's calculator. For estates just above the $4 million exclusion it may overstate the "
-        "tax. It feeds the Post-Tax Inheritance figure, the Estate sheet and the Roth conversion rationale. "
-        "Ask an estate attorney to confirm the figure before relying on it.",
-        "Resident state is Illinois and projected net worth exceeds the Illinois estate exclusion",
-        (RemovalTrigger("W4-01", "Estate attorney reviews the Illinois calculation and it is corrected: remove or update wording"),),
-    ),
-    Notice(
         "N10", "FIN-005", SEVERITY_INFO,
         "Life insurance policies entered in Plan Data are an inventory only. A death in the projection does "
         "not pay a death benefit to the survivor, and policy proceeds are not added to the estate tax "
@@ -253,18 +244,6 @@ def _qbi_on_with_business(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]
     return bool(c.get("qbi_elig")) and str(c.get("entity") or "none").strip().lower() not in {"", "none"}
 
 
-def _illinois_estate_above_exclusion(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> bool:
-    """N9 (FIN-004): an Illinois resident whose projected estate base is above the Illinois exclusion.
-
-    Shown whatever the estate objective mode: Post-Tax Inheritance and the Estate sheet use the
-    figure in every mode, and the Roth strategy rationale uses it unless the mode is OFF or
-    MONITOR_ONLY."""
-    if str(c.get("state") or "").strip().lower() != "illinois" or not c.get("model_state_est", True):
-        return False
-    exclusion = _f(c.get("il_exempt")) or 4_000_000.0
-    return any(_f(r.get("total_nw")) > exclusion for r in rows)
-
-
 def _has_life_policies(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> bool:
     # FIN-005 (W4-04): with the Existing Life Insurance module on, the projection pays the policies, so
     # the inventory-only notice no longer applies. It still describes policies the module leaves inert.
@@ -281,7 +260,6 @@ CONDITIONS: dict[str, Callable[[Mapping[str, Any], Sequence[Mapping[str, Any]]],
     "N6": _one_member_with_couple_exemption,
     "N7": lambda c, rows: True,
     "N8": _qbi_on_with_business,
-    "N9": _illinois_estate_above_exclusion,
     "N10": _has_life_policies,
 }
 
