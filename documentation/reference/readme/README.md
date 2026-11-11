@@ -8,10 +8,9 @@ you can review with an advisor.
   in the left-hand menu, which shows the Welcome message), then work down the
   menu. The **Open Demo Plan** button there shows a made-up household so you
   can look around safely.
-- **If a word is unfamiliar:** the plain-English **Concepts Guide**
-  (`documentation/reference/Retirement_Planner_Concepts_Guide.docx`, open it in
-  Word) explains each setting with everyday comparisons. It is also listed on
-  **Settings -> Data & Backups** in the app.
+- **If a word is unfamiliar:** the plain-English **Concepts Guide** opens from
+  **Settings -> Data & Backups** in the app (the **Help: Concepts Guide** card). It has a page for
+  every screen and a glossary, built from the same text as the help panel.
 - **Developers:** setup, commands and tests are in
   `documentation/reference/CONTRIBUTING.md`, not here.
 
