@@ -81,6 +81,7 @@ from . import housing_next_steps as _housing_next
 from . import index_paths as _index_paths
 from . import medicare_premiums as _medicare_premiums
 from . import social_security_factors as _ss_factors
+from . import tax_paths as _tax_paths
 from . import other_asset_sale_tax as _other_asset_sale
 from . import note_installment_gain as _note_installment
 from . import working_balance_transfer as _working_balance_transfer
@@ -281,85 +282,25 @@ def run_deterministic_projection_stage(c):
     _ss_spousal_excess_factor = _ss_factors.ss_spousal_excess_factor
     _ss_survivor_reduction_factor = _ss_factors.ss_survivor_reduction_factor
 
-    def _bracket_factor_for_year(year):
-        return _tk.bracket_factor_for_year(c, year)
-
-    def _inflate_brackets_path(brackets, inflator_unused, years_from_plan_start):
-        year_eff = int(c.get('plan_start', 0) or 0) + int(years_from_plan_start or 0)
-        factor = _bracket_factor_for_year(year_eff)
-        return [(lo * factor, hi * factor if hi != float('inf') else float('inf'), rate) for lo, hi, rate in brackets]
-
-    def _fed_brackets_path(year, filing):
-        brk = FEDERAL_BRACKETS_BASE_YEAR.get(filing, FEDERAL_BRACKETS_BASE_YEAR['Single'])
-        brk = _inflate_brackets_path(brk, None, int(year) - int(c.get('plan_start', year)))
-        # Tax-law stress (src/tax_assumptions.py): rates only, tax owed only.
-        return _ta_stressed_brackets(brk, year, c.get('law_scenario'))
-
-    def _ordinary_fed_tax_path(taxable, year, filing):
-        """Ordinary-schedule tax on ``taxable`` (no preferential income)."""
-        brk = _fed_brackets_path(year, filing)
-        tax = 0.0
-        taxable = max(0.0, float(taxable or 0.0))
-        for lo, hi, rate in brk:
-            if taxable <= lo:
-                break
-            tax += (min(taxable, hi) - lo) * rate
-        return max(0.0, tax)
-
     # WI-023 / FIN-003: the year's qualified dividends, registered by the year
     # loop as soon as the portfolio income split is known. Every stage that
     # prices a taxable-income level through ``_compute_fed_tax_path`` (stage 9,
     # Roth planner, IRA true-up, DAF/HSA corrections, effective marginal rate,
     # capital-loss offset value) then sees the same preferential stack.
     _qualified_dividends_by_year: dict[int, float] = {}
+    _qualified_dividends_by_year: dict[int, float] = {}
 
-    def _compute_fed_tax_path(taxable, year, filing, brk_inf_unused=None):
-        """Federal tax on ``taxable`` (qualified dividends included): the
-        ordinary schedule on the rest, plus 0/15/20% on the dividends stacked
-        on top of it. Realized gains are priced separately above this stack."""
-        return _tk.fed_tax_with_qualified(
-            c, lambda o: _ordinary_fed_tax_path(o, year, filing), taxable,
-            _qualified_dividends_by_year.get(year, 0.0), year, filing)
-
-    def _ira_elective_ordinary_tax_delta(fed_tax_base, state_tax_base, taxable_inc_base,
-                                          retirement_dist_base, ira_wd_cumulative, year, filing,
-                                          ss_taxable, earned_net, investment_inc, nonqual_ann,
-                                          roth_conv, h_over_65):
-        """Real incremental fed+state tax caused by `ira_wd_cumulative` of elective
-        IRA/401(k) income, vs. the flat marginal-rate estimate baked into
-        withdraw_pretax_elective's gross-up. `fed_tax_base`/`state_tax_base`/
-        `taxable_inc_base` should be the values as of the last time this income
-        was accounted for, so the return is the tax on just the newest increment.
-        """
-        if ira_wd_cumulative <= 1e-6:
-            return 0.0, fed_tax_base, state_tax_base
-        new_taxable_inc = taxable_inc_base + ira_wd_cumulative
-        new_fed_tax = _compute_fed_tax_path(new_taxable_inc, year, filing, c['brk_inf'])
-        new_state_tax = state_income_tax(
-            state_for_year(c, year), earned_net, retirement_dist_base + ira_wd_cumulative, ss_taxable,
-            investment_inc, nonqual_ann, roth_conv, year, h_over_65, filing=filing,
-            brk_inf=c['brk_inf'], rate_override=c.get('state_rate_override'),
-        )
-        delta = (new_fed_tax - fed_tax_base) + (new_state_tax - state_tax_base)
-        return delta, new_fed_tax, new_state_tax
-
-    def _standard_deduction_path(year, filing, brk_inf_unused=None, n_over_65=2):
-        td = getattr(_ar, '_td', None)
-        base = getattr(td, 'STANDARD_DEDUCTION_BASE_YEAR', {}).get(filing, 15750) if td else 15750
-        add_per = getattr(td, 'STANDARD_DEDUCTION_OVER65_BASE_YEAR', {}).get(filing, 1650) if td else 1650
-        return (base + add_per * n_over_65) * _bracket_factor_for_year(year)
-
-    def _irmaa_factor_for_year(year):
-        return _tk.irmaa_factor_for_year(c, year)
-
-    def _irmaa_surcharge_path(agi, year, n_people, filing):
-        return _tk.irmaa_surcharge(agi, year, n_people, filing, c)
-
-    def _irmaa_tier_path(agi, year, filing):
-        return _tk.irmaa_tier(agi, year, filing, c)
-
-    def _ltcg_tax_on_gain_path(gain, ordinary_income, year):
-        return _tk.ltcg_tax_on_gain(c, gain, ordinary_income, year)
+    _bracket_factor_for_year = functools.partial(_tax_paths.bracket_factor_for_year, c)
+    _inflate_brackets_path = functools.partial(_tax_paths.inflate_brackets_path, c)
+    _fed_brackets_path = functools.partial(_tax_paths.fed_brackets_path, c)
+    _ordinary_fed_tax_path = functools.partial(_tax_paths.ordinary_fed_tax_path, c)
+    _compute_fed_tax_path = functools.partial(_tax_paths.compute_fed_tax_path, c, _qualified_dividends_by_year)
+    _ira_elective_ordinary_tax_delta = functools.partial(_tax_paths.ira_elective_ordinary_tax_delta, c, _qualified_dividends_by_year)
+    _standard_deduction_path = functools.partial(_tax_paths.standard_deduction_path, c)
+    _irmaa_factor_for_year = functools.partial(_tax_paths.irmaa_factor_for_year, c)
+    _irmaa_surcharge_path = functools.partial(_tax_paths.irmaa_surcharge_path, c)
+    _irmaa_tier_path = functools.partial(_tax_paths.irmaa_tier_path, c)
+    _ltcg_tax_on_gain_path = functools.partial(_tax_paths.ltcg_tax_on_gain_path, c)
 
     def _basis_stepup_fraction(decedent_owned=True):
         regime = str(c.get('basis_step_up_property_regime', 'COMMON_LAW') or 'COMMON_LAW').upper()
