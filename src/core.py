@@ -869,6 +869,10 @@ def senior_bonus_deduction(year, filing, magi, n_over_65=0):
     """
     if year < 2025 or year > 2028 or n_over_65 <= 0:
         return 0.0
+    # CPA (2026-11): a qualifying surviving spouse uses the joint threshold and phase-out, and the
+    # thresholds are not split per person; the 6% reduction applies once to the combined amount.
+    if str(filing or '').strip().upper().startswith(('QSS', 'QW', 'WIDOW')):
+        filing = 'MFJ'
     filing = filing if filing in ('MFJ','Single','HOH','MFS') else 'Single'
     # FIN-003 (system review 2026-09-25): OBBBA's senior deduction (Sec.
     # 70103) requires a married couple to file jointly to claim it; a married
