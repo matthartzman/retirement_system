@@ -2225,6 +2225,252 @@
       "scope": "inside-function"
     },
     {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "validateAllocationTargetsOrMessage",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildPreflight",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildPreflight",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildPreflight",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildPreflight",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildPreflight",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "appReady",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "detailedResultsData",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "detailedResultSheets",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "detailedResultsError",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "detailedResultSheetError",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeDetailedSheet",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "summaryFromApiPayload",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rememberBuildCompare",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildPreflight",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionBaselineSummary",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "cloneSummary",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionBaselineCaptured",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionChanges",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionSpecialChanges",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "appReady",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_build_runner.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "rows",
       "file": "frontend/js/dashboard_decomp_cash_accounts.js",
       "kind": "read",
@@ -6714,252 +6960,6 @@
     },
     {
       "name": "planLoaded",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "validateAllocationTargetsOrMessage",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "buildPreflight",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "buildPreflight",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "buildPreflight",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "buildPreflight",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "buildPreflight",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildOk",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "appReady",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "detailedResultsData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "detailedResultSheets",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "detailedResultsError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "detailedResultSheetError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeDetailedSheet",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildOk",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildSummary",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "summaryFromApiPayload",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildSummary",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildSummary",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rememberBuildCompare",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildSummary",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildSummary",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "buildPreflight",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "sessionBaselineSummary",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "cloneSummary",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildSummary",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "sessionBaselineCaptured",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "sessionChanges",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "sessionSpecialChanges",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildOk",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "appReady",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildOk",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildOk",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildOk",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"

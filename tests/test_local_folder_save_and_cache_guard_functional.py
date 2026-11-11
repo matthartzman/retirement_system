@@ -5,7 +5,7 @@ from tests._decomp_dashboard import dashboard_js_text
 
 
 def _run_build_function(js: str) -> str:
-    # saveAll/runBuild both live in dashboard_decomp_row_model.js now (domain-
+    # saveAll lives in dashboard_decomp_row_model.js and runBuild in dashboard_decomp_build_runner.js now (domain-
     # module-split shared-core extraction); downloadWithBuild is the next
     # top-level declaration after runBuild in that file. "function
     # downloadFile" (a different, similarly-named function) stayed in
@@ -16,7 +16,7 @@ def _run_build_function(js: str) -> str:
 
 def _save_all_function(js: str) -> str:
     start = js.index("async function saveAll")
-    return js[start: js.index("async function runBuild", start)]
+    return js[start: js.index("async function shutdownAndClose", start)]
 
 
 def test_save_plan_data_does_not_reload_selected_folder_over_unsaved_ui_state():
@@ -28,7 +28,8 @@ def test_save_plan_data_does_not_reload_selected_folder_over_unsaved_ui_state():
 def test_build_never_silently_reloads_selected_folder_over_loaded_plan():
     row_model_js = (ROOT / "frontend/js/dashboard_decomp_row_model.js").read_text(encoding="utf-8")
     js = row_model_js + dashboard_js_text()
-    run_build = _run_build_function(row_model_js)
+    build_runner_js = (ROOT / "frontend/js/dashboard_decomp_build_runner.js").read_text(encoding="utf-8")
+    run_build = _run_build_function(build_runner_js)
     assert 'const hadUnsaved = hasUnsavedPlanChanges()' in run_build
     assert "loadLocalPlanDataFirst" not in run_build
     assert "selectedFolderDiffersFromLoadedPlan" not in js  # WP4.5: the folder IO had no caller and is gone
