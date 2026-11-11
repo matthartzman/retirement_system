@@ -3,7 +3,6 @@
 // money parsing/display, dirty-state, existing-value datalist and Accounts
 // panel helpers for the YTD pages. Bare-global bridge below, same convention as
 // every other dashboard_decomp_*.js leaf; callers run after all modules load.
-
 export function ytdRawMoney(v) {
   return String(v ?? "")
     .replace(/[$,]/g, "")
