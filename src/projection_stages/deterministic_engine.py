@@ -82,6 +82,7 @@ from . import index_paths as _index_paths
 from . import medicare_premiums as _medicare_premiums
 from . import social_security_factors as _ss_factors
 from . import tax_paths as _tax_paths
+from . import year_factors as _year_factors
 from . import other_asset_sale_tax as _other_asset_sale
 from . import note_installment_gain as _note_installment
 from . import working_balance_transfer as _working_balance_transfer
@@ -211,14 +212,7 @@ def run_deterministic_projection_stage(c):
     _wellness_premium_for_age = functools.partial(_medicare_premiums.wellness_premium_for_age, c)
     _sehi_deduction_source_amount = functools.partial(_medicare_premiums.sehi_deduction_source_amount, c)
     _medicare_month_fraction = _medicare_premiums.medicare_month_fraction
-    def _infl_factor(year):
-        return _path_factor('inflation_index_by_year', c['inf'], year)
-
-    def _spending_factor(year):
-        if c.get('core_spending_growth_mode') == 'manual_override':
-            return (1 + float(c.get('spend_inf', c.get('inf', 0.0)) or 0.0)) ** max(0, year - c['plan_start'])
-        return _infl_factor(year)
-
+    _infl_factor = functools.partial(_year_factors.infl_factor, c)
     # ── Survivor spending factor ────────────────────────────────────────────
     # A one-person household does not spend what a two-person household spends.
     # The factor applies to core spending and recurring extras (travel, large
@@ -262,16 +256,7 @@ def run_deterministic_projection_stage(c):
     _home_basis_adjusted = None        # original home's post-first-death basis
     _next_housing_basis_adjusted = {}  # id(step) -> post-first-death basis
 
-    def _survivor_factor(n_alive):
-        """1.0 unless exactly one member of a couple is still alive.
-
-        n_alive == 0 is deliberately left at 1.0 here: zeroing living
-        expenses after the second death is Task S2's job, and returning a
-        scale factor for it would be the wrong mechanism anyway.
-        """
-        if _household_is_couple and n_alive == 1:
-            return _survivor_spend_factor
-        return 1.0
+    _survivor_factor = functools.partial(_year_factors.survivor_factor, _household_is_couple, _survivor_spend_factor)
 
     _infl_ratio = functools.partial(_index_paths.infl_ratio, c)
     _ss_ratio = functools.partial(_index_paths.ss_ratio, c)
@@ -288,7 +273,6 @@ def run_deterministic_projection_stage(c):
     # Roth planner, IRA true-up, DAF/HSA corrections, effective marginal rate,
     # capital-loss offset value) then sees the same preferential stack.
     _qualified_dividends_by_year: dict[int, float] = {}
-    _qualified_dividends_by_year: dict[int, float] = {}
 
     _bracket_factor_for_year = functools.partial(_tax_paths.bracket_factor_for_year, c)
     _inflate_brackets_path = functools.partial(_tax_paths.inflate_brackets_path, c)
@@ -302,54 +286,11 @@ def run_deterministic_projection_stage(c):
     _irmaa_tier_path = functools.partial(_tax_paths.irmaa_tier_path, c)
     _ltcg_tax_on_gain_path = functools.partial(_tax_paths.ltcg_tax_on_gain_path, c)
 
-    def _basis_stepup_fraction(decedent_owned=True):
-        regime = str(c.get('basis_step_up_property_regime', 'COMMON_LAW') or 'COMMON_LAW').upper()
-        if regime in ('COMMUNITY_PROPERTY', 'FULL_STEP_UP'):
-            return 1.0
-        if regime == 'HALF_STEP_UP':
-            return 0.5
-        return 1.0 if decedent_owned else 0.5
-
-    def _taxable_portfolio_income_for_year():
-        # Dividends/interest are taxable in the year earned whether or not they
-        # are reinvested (an account holds every investment type, but only
-        # taxable/Trust accounts generate a current tax event; IRA/401k/Roth/
-        # HSA dividends aren't taxed until a separate withdrawal occurs).
-        # Whether the yield compounds into the holding or converts to
-        # account-internal cash is a growth-engine concern (see
-        # planning_engines.apply_end_of_year_growth) — either way the money
-        # never leaves the account, so this no longer funds spending directly.
-        ordinary = qualified = tax_exempt = 0.0
-        taxable_ids_set = set(c.get('taxable_ids', []))
-        for _acct, _info in (c.get('account_taxable_income_assumptions') or {}).items():
-            if _acct not in taxable_ids_set:
-                continue
-            _bal = max(0.0, float(bal.get(_acct, 0.0) or 0.0))
-            ordinary += _bal * float(_info.get('ordinary_yield', 0.0) or 0.0)
-            qualified += _bal * float(_info.get('qualified_yield', 0.0) or 0.0)
-            tax_exempt += _bal * float(_info.get('tax_exempt_yield', 0.0) or 0.0)
-        return ordinary, qualified, tax_exempt
-
-    def _early_dist_tax_fn_for_year(year):
-        """WI-039 / FIN-004: the 10% additional tax on early pre-tax distributions, as a function of the
-        cumulative pre-tax draws by account. None when no living owner is under 59 1/2 this year, so plans
-        without exposure run exactly as before."""
-        members = c.get('members') or []
-        if not members or not any(
-                _early_fraction(year, m['dob_yr'], m.get('dob_month') or 1) > 0.0 for m in members):
-            return None
-        rate = _tax_law_ds().lookup_or_earliest('early_distribution_additional_tax_rate', year).value
-        exceptions = c.get('early_dist_exceptions') or {}
-        registry = c.get('account_registry') or []
-        return lambda draws: _early_distribution_tax(rate, year, draws, registry, members, exceptions)[0]
-
-    def _ss_funding_factor(year):
-        try:
-            cut_year = int(c.get('ss_funding_discount_year', 2032) or 2032)
-            pct = max(0.0, min(1.0, float(c.get('ss_funding_discount_pct', 0.22) or 0.0)))
-        except Exception:
-            cut_year, pct = 2032, 0.22
-        return 1.0 - pct if int(year) >= cut_year and pct > 0 else 1.0
+    _spending_factor = functools.partial(_year_factors.spending_factor, c)
+    _basis_stepup_fraction = functools.partial(_year_factors.basis_stepup_fraction, c)
+    _taxable_portfolio_income_for_year = functools.partial(_year_factors.taxable_portfolio_income_for_year, c, bal)
+    _early_dist_tax_fn_for_year = functools.partial(_year_factors.early_dist_tax_fn_for_year, c)
+    _ss_funding_factor = functools.partial(_year_factors.ss_funding_factor, c)
 
     # Advanced planning modules (Phase 3 engine integration). Gated through
     # module_enabled() — the same question every other call site asks — so the

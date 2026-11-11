@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 333 Python files under `src/`, 72 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 334 Python files under `src/`, 72 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -27,7 +27,7 @@ flowchart TB
     subgraph L_Core_Engine___Domain["Core Engine & Domain (236 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
-    subgraph L_Projection_Stages["Projection Stages (33 modules)"]
+    subgraph L_Projection_Stages["Projection Stages (34 modules)"]
         L_Projection_Stages_d["Deterministic year-by-year projection engine internals"]
     end
     subgraph L_Reporting___Workbook["Reporting / Workbook (26 modules)"]
@@ -810,6 +810,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/projection_stages/withdrawal_cascade_ira_true_up.py` | `engine_kernels` | — |
 | `src/projection_stages/withdrawal_cascade_taxable_trust.py` | `engine_kernels` | — |
 | `src/projection_stages/working_balance_transfer.py` | `projection_stages.appreciation_divorce_qlac` | — |
+| `src/projection_stages/year_factors.py` | `early_distribution`, `projection_stages.index_paths`, `tax_law` | — |
 | `src/projection_stages/year_state.py` | — | — |
 
 ### Reporting / Workbook
