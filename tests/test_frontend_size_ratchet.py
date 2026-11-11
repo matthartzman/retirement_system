@@ -698,7 +698,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-11 W4-06: lowered 43,733 -> 43,719 to the measured total (budget/taxonomy helpers extracted to dashboard_decomp_budget_edit.js).
 # 2026-11-11 W4-06: lowered 43,719 -> 43,710 to the measured total (field rendering extracted to dashboard_decomp_field_render.js).
 # 2026-11-11 W4-06: lowered 43,710 -> 43,704 to the measured total (field guidance and allocation policy extracted).
-TOTAL_JS_MAX_LINES = 43_704
+# 2026-11-11 W4-06: lowered 43,704 -> 43,703 to the measured total (nav context and detailed results extracted).
+TOTAL_JS_MAX_LINES = 43_703
 
 
 
@@ -773,7 +774,7 @@ PER_FILE_CAPS = {
     "dashboard_decomp_checklist_closeout.js": 1_399,
     "dashboard_decomp_housing_optimizer.js": 2_832,
     "dashboard_decomp_housing_scenarios.js": 1_466,
-    "dashboard_decomp_row_model.js": 1_982,
+    "dashboard_decomp_row_model.js": 1_720,
     "dashboard_decomp_ytd_and_plan_folder_io.js": 1_184,
     "help_registry.js": 1_124,
     "reports_ui.js": 1_550,
@@ -802,6 +803,7 @@ PER_FILE_CAP_LOG = [
     ("2026-11-11", "dashboard_decomp_row_model.js", 3_653, 2_936, "lowered: row routing extracted to dashboard_decomp_row_routing.js (W4-06)"),
     ("2026-11-11", "dashboard_decomp_row_model.js", 2_936, 2_512, "lowered: field rendering extracted to dashboard_decomp_field_render.js (W4-06)"),
     ("2026-11-11", "dashboard_decomp_row_model.js", 2_512, 1_982, "lowered: field guidance and allocation policy extracted (W4-06)"),
+    ("2026-11-11", "dashboard_decomp_row_model.js", 1_982, 1_720, "lowered: nav context and detailed results extracted (W4-06)"),
 ]
 
 

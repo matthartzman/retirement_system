@@ -1221,262 +1221,7 @@ export function mcEngineModeValue() {
     : "advanced_exact_scalar";
 }
 
-export function _isViewingDetailedResults() {
-  return activeStep === "detailed_results";
-}
 
-export async function loadDetailedResultSheet(name, force = false) {
-  name = String(name || "");
-  if (!name) return Promise.resolve(null);
-  if (detailedResultSheets[name] && !force)
-    return Promise.resolve(detailedResultSheets[name]);
-  if (detailedResultSheetInFlight[name] && !force)
-    return detailedResultSheetInFlight[name];
-  const seq = ++detailedResultSheetSeq;
-  const isChartDashboardSheet = /chart/i.test(name) && /dashboard/i.test(name);
-  const isAssetAllocationSheet = /asset\s+allocation/i.test(name);
-  detailedResultSheetLoading = true;
-  detailedResultSheetLoadingName = name;
-  detailedResultSheetError = "";
-  startDetailedResultsProgress("sheet");
-  if (isChartDashboardSheet || isAssetAllocationSheet) {
-    detailedResultsProgress = {
-      active: true,
-      pct: 22,
-      phase: isChartDashboardSheet
-        ? "Loading Chart Dashboard"
-        : "Loading Asset Allocation",
-      detail: isChartDashboardSheet
-        ? "Building browser-friendly charts from workbook chart data. Data tables are not rendered here."
-        : "Loading a UI-bounded allocation result view so the browser does not freeze on dense workbook ranges.",
-      startedAt: detailedResultsProgress.startedAt,
-      mode: "sheet",
-    };
-    renderDetailedResultsProgressTick();
-  }
-  detailedResultSheetInFlight[name] = (async () => {
-    try {
-      const out = await api(
-        "/api/detailed-results?sheet=" + encodeURIComponent(name),
-        {
-          timeoutMs: isChartDashboardSheet
-            ? 20000
-            : isAssetAllocationSheet
-              ? 30000
-              : 60000,
-        },
-      );
-      if (seq !== detailedResultSheetSeq) return null;
-      detailedResultsProgress = {
-        active: true,
-        pct: 96,
-        phase: isChartDashboardSheet
-          ? "Rendering charts"
-          : "Rendering selected result",
-        detail: isChartDashboardSheet
-          ? "Preparing the chart-only dashboard view."
-          : "Preparing result sections for display.",
-        startedAt: detailedResultsProgress.startedAt,
-        mode: "sheet",
-      }; // Support both the Excel-parser format {success,sheet:{...}} and the
-      // semantic-model format where the page IS the response object.
-      const sheetData =
-        out && out.success
-          ? out.sheet || (out.kind || out.sections || out.charts ? out : null)
-          : null;
-      if (sheetData) {
-        detailedResultSheets[name] = sheetData;
-        mergeDetailedSheetMeta(sheetData);
-        return sheetData;
-      } else {
-        detailedResultSheetError =
-          (out && out.error) || "Selected result page is not available.";
-        return null;
-      }
-    } catch (e) {
-      if (seq !== detailedResultSheetSeq) return null;
-      const msg = e && e.message ? e.message : String(e);
-      const timed =
-        msg.toLowerCase().includes("timed out") || msg.includes("aborted");
-      detailedResultSheetError = timed
-        ? isChartDashboardSheet
-          ? "Chart Dashboard loading timed out while preparing browser-native charts. Try Refresh results, rebuild reports, or choose another result page."
-          : isAssetAllocationSheet
-            ? "Asset Allocation loading timed out while preparing a browser-friendly view. Use Download Workbook for the full Excel sheet, or retry this page."
-            : "Selected result page loading timed out. This page may be very large. Try Refresh results or choose another page."
-        : msg;
-      return null;
-    } finally {
-      delete detailedResultSheetInFlight[name];
-      if (seq !== detailedResultSheetSeq) return;
-      detailedResultSheetLoading = false;
-      detailedResultSheetLoadingName = "";
-      stopDetailedResultsProgress(detailedResultSheetError ? 0 : 100);
-      if (_isViewingDetailedResults()) renderMain();
-      else renderSteps();
-    }
-  })();
-  return detailedResultSheetInFlight[name];
-}
-
-export function _updateDetailGroupStatus(el) {
-  const wrap = el.closest(".detail-single-table-wrap");
-  if (!wrap) return;
-  const table = wrap.querySelector("table");
-  const status = wrap.querySelector(".detail-col-group-status");
-  if (!table || !status) return;
-  const groups = Array.from(table.querySelectorAll(".detail-col-group-th"));
-  const expanded = groups.filter(function (g) {
-    return !g.classList.contains("collapsed");
-  }).length;
-  const total = groups.length;
-  status.textContent =
-    total +
-    " group" +
-    (total !== 1 ? "s" : "") +
-    " · " +
-    (expanded === 0 ? "all collapsed" : expanded + " expanded");
-}
-
-export async function refreshPreflightForReview() {
-  try {
-    buildPreflight = await api("/api/build/preflight");
-    updatePlanStateBanner();
-    renderMain();
-    showMessage("Build preflight refreshed.");
-  } catch (e) {
-    showMessage("Preflight failed: " + e.message, "error");
-  }
-}
-
-export function strategyTabKey(step) {
-  return "strategy_tab_" + step;
-}
-
-// Jump to a strategy workspace tab from the left nav. Persists the tab first,
-// then routes through setStep so the plan-loaded navigation guard applies (the
-// strategy workspace requires a loaded plan, unlike the plan-independent
-// Reports workspace).
-//
-// Moved here from dashboard.js (ticket 290) to fit the size ratchet after
-// its overlay-ordering fix -- setStep and loadYtdStatus are both real
-// imports in this file already; showYtdLoadOverlay/hideYtdLoadOverlay,
-// STRATEGY_TABS, and renderMain reach through the window bridge dashboard.js
-// already exposes them on, same as every other cross-module onclick target.
-export async function goToStrategyTab(step, tab) {
-  const tabs = window.STRATEGY_TABS[step] || [];
-  const next = tabs.includes(tab) ? tab : tabs[0] || "";
-  try {
-    localStorage.setItem(strategyTabKey(step), next);
-  } catch (_e) {}
-  const goingToYtd = step === "actual_spending" && next === "This year";
-  // Ticket 290: setStep(step) below triggers a full synchronous renderMain()
-  // of the spending workspace, which measured ~1.5s even before any YTD data
-  // loads -- so EVERY tab into spending_core (not just YTD) pays this cost,
-  // matching the reported "Spending Model is also slow with no progress bar"
-  // symptom. Previously the overlay was shown only for the YTD tab, and only
-  // AFTER this render (inside loadYtdStatus), so the render always ran behind
-  // a locked, affordance-free screen. Show the overlay and yield one frame so
-  // the browser actually paints it BEFORE the blocking render begins --
-  // painting an overlay you never yield to is why it used to appear late.
-  const isSpendingWorkspace = step === "actual_spending";
-  // Final-review finding (2026-08-19): showYtdLoadOverlay() sets the
-  // no-cancel class, so a throw from setStep/loadYtdStatus/renderMain below
-  // used to leave the user stranded behind an undismissable overlay --
-  // exactly the locked-screen symptom this ticket exists to fix, just moved
-  // to a new trigger (an exception instead of a slow render). The overlay
-  // is guaranteed to hide on any exit path, not only the happy one.
-  try {
-    if (isSpendingWorkspace) {
-      window.showYtdLoadOverlay();
-      // Not requestAnimationFrame: browsers throttle or entirely suspend rAF
-      // callbacks for a document that has lost visibility/compositing (tab
-      // backgrounded, window minimized) -- exactly the case a user alt-tabbing
-      // away during a slow load would hit, which would hang this await
-      // indefinitely and leave the app looking permanently frozen. A
-      // macrotask yield (setTimeout 0) still fires while backgrounded and
-      // reliably lets the browser paint the overlay before the blocking
-      // render below begins.
-      await new Promise((r) => setTimeout(r, 0));
-    }
-    setStep(step);
-    if (goingToYtd) {
-      // silent=true: the overlay is already up from above; loadYtdStatus must
-      // not show/hide its own second copy on top of it (that would leave the
-      // depth-counted overlay stuck open after only one of the two hides).
-      await loadYtdStatus(true);
-      window.renderMain();
-    }
-  } finally {
-    if (isSpendingWorkspace) window.hideYtdLoadOverlay();
-  }
-}
-
-export function navigationContext() {
-  return {
-    getPlanLoaded: () => planLoaded,
-    getActiveStep: () => activeStep,
-    setActiveStep: (v) => {
-      activeStep = v;
-    },
-    getLastBuildCompare: () => lastBuildCompare,
-    getLastBuildOk: () => lastBuildOk,
-    getDetailedResultsData: () => detailedResultsData,
-    setSearchText: (v) => {
-      searchText = v;
-    },
-    getSearchText: () => searchText,
-    setNavSearchText: (v) => {
-      navSearchText = v;
-    },
-    getNavSearchText: () => navSearchText,
-    setSearchScope: (v) => {
-      searchScope = v;
-    },
-    getSearchScope: () => searchScope,
-    renderMain: renderMain,
-    renderSteps: renderSteps,
-    setAppControls: setAppControls,
-    showStepHelp: showStepHelp,
-    showMessage: showMessage,
-    loadDetailedResults: loadDetailedResults,
-    focusableEntries: focusableEntries,
-    saveYtdPending: saveYtdPending,
-    saveMappingRulesData: saveMappingRulesData,
-    saveTaxonomyBudgetData: saveTaxonomyBudgetData,
-    saveBudgetLines: saveBudgetLines,
-    getRulesChanged: () => rulesChanged,
-    getTaxBudgetChanged: () => taxBudgetChanged,
-    getBudgetLinesChanged: () => budgetLinesChanged,
-    hasUnsavedPlanChanges: hasUnsavedPlanChanges,
-    confirm: function (msg, opts) {
-      return showInAppConfirm(msg, opts);
-    },
-    saveWorkingCopy: saveWorkingCopy,
-    saveAll: saveAll,
-    confirmSaveDiscardStay: function (msg, opts) {
-      return showSaveDiscardStayModal(msg, opts);
-    },
-    jumpRecommendationSource: jumpRecommendationSource,
-    planningCaseCreate: planningCaseCreate,
-    planningCaseDelete: planningCaseDelete,
-    planningCaseArchive: planningCaseArchive,
-    planningCaseAdopt: planningCaseAdopt,
-    setPlanningCaseActive: setPlanningCaseActive,
-    setDetailedResultSheet: setDetailedResultSheet,
-    setDetailedResultsNavOpen: setDetailedResultsNavOpen,
-    loadDetailedResultSheet: loadDetailedResultSheet,
-    toggleDetailColumnGroup: toggleDetailColumnGroup,
-    setAllDetailColumnGroups: setAllDetailColumnGroups,
-    setDetailColGroupOpen: function (key, open) {
-      detailedColumnGroupsOpen[key] = !!open;
-      saveWorkbookViewState();
-      setTimeout(renderMain, 0);
-    },
-    visibleSteps: visibleSteps,
-    setStep: setStep,
-  };
-}
 
 export function setStep(id) {
   return window.RetirementNavigation.setStep(navigationContext(), id);
@@ -1891,8 +1636,6 @@ export async function shutdownAndClose() {
 }
 
 Object.assign(window, {
-  _isViewingDetailedResults,
-  _updateDetailGroupStatus,
   accountDisplayLabel,
   api,
   apiUrl,
@@ -1915,12 +1658,10 @@ Object.assign(window, {
   isRequired,
   loadAll,
   loadBuildHistory,
-  loadDetailedResultSheet,
   ltcLifePolicyModuleEnabled,
   markLiabilitiesDirty,
   matrixRows,
   mcEngineModeValue,
-  navigationContext,
   norm,
   noteReceivableRows,
   optionalFunctionEnabled,
@@ -1934,7 +1675,6 @@ Object.assign(window, {
   planModuleTaxonomy,
   recAdd,
   refreshBuildStatus,
-  refreshPreflightForReview,
   renderFields,
   renderSteps,
   reportsUiContext,
@@ -1966,11 +1706,9 @@ Object.assign(window, {
   sourceStepForRow,
   stepGatedByOptionalModule,
   stepStats,
-  goToStrategyTab,
   stepTitleById,
   spendingFlowFooterHtml,
   SPENDING_COMPLETION,
-  strategyTabKey,
   suggestedNext,
   SUGGESTED_NEXT,
   unsavedChangeCount,
