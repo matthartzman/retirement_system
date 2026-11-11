@@ -78,6 +78,7 @@ from .engine_kernels import (  # noqa: F401
     _account_titling,
     _accounts_by_owner,
     _age_shift_for_member,
+    _member_sex_idx,
     _apply_account_return_adjustments,
     _ar,
     _available_by_owner,
@@ -1979,6 +1980,7 @@ def _mc_vectorized_sample_death_ages(c: dict, np_rng, n_sims: int, m: Mapping, s
     independently-drawing sampler the original panel review missed; a fix
     applied only to sample_death_year would leave every number the vectorized
     MC path actually produces unchanged. See §2.5's re-assessment)."""
+    sex_idx = _member_sex_idx(m, sex_idx)  # caller passes the member position; the member's actuarial_sex wins
     shift = _age_shift_for_member(m, sex_idx)
     current_age = max(18, int(plan_start) - int(dob))
     death_age = _np.full(n_sims, 119, dtype=int)
