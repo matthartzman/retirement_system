@@ -78,6 +78,8 @@ from ..core import qlac_premium_limit
 from ..module_catalog import module_enabled
 from . import rental_property as _rental
 from . import housing_next_steps as _housing_next
+from . import index_paths as _index_paths
+from . import medicare_premiums as _medicare_premiums
 from . import other_asset_sale_tax as _other_asset_sale
 from . import note_installment_gain as _note_installment
 from . import working_balance_transfer as _working_balance_transfer
@@ -201,28 +203,12 @@ def run_deterministic_projection_stage(c):
     # -- using exemption during life is the "unified credit" being unified.
     lifetime_exemption_used = 0.0
 
-    def _path_factor(path_key, annual_rate, year):
-        path = c.get(path_key)
-        if isinstance(path, dict) and year in path:
-            try:
-                return float(path[year])
-            except (TypeError, ValueError) as _exc:
-                _log_fallback("path_factor", _exc, path_key=path_key, year=year)
-        return (1 + float(annual_rate or 0.0)) ** (year - c['plan_start'])
-
-    def _path_ratio(path_key, annual_rate, year, base_year):
-        if year <= base_year:
-            return (1 + float(annual_rate or 0.0)) ** max(0, year - base_year)
-        path = c.get(path_key)
-        if isinstance(path, dict) and year in path and base_year in path:
-            try:
-                denom = float(path[base_year])
-                if denom != 0:
-                    return float(path[year]) / denom
-            except (TypeError, ValueError, ZeroDivisionError) as _exc:
-                _log_fallback("path_ratio", _exc, path_key=path_key, year=year)
-        return (1 + float(annual_rate or 0.0)) ** (year - base_year)
-
+    # ARC-001: calculations live in index_paths / medicare_premiums; these are bindings to ``c`` only.
+    _path_factor = functools.partial(_index_paths.path_factor, c)
+    _path_ratio = functools.partial(_index_paths.path_ratio, c)
+    _wellness_premium_for_age = functools.partial(_medicare_premiums.wellness_premium_for_age, c)
+    _sehi_deduction_source_amount = functools.partial(_medicare_premiums.sehi_deduction_source_amount, c)
+    _medicare_month_fraction = _medicare_premiums.medicare_month_fraction
     def _infl_factor(year):
         return _path_factor('inflation_index_by_year', c['inf'], year)
 
@@ -284,67 +270,6 @@ def run_deterministic_projection_stage(c):
         if _household_is_couple and n_alive == 1:
             return _survivor_spend_factor
         return 1.0
-
-    def _medicare_month_fraction(dob_yr, dob_month, year):
-        """Fraction of `year` (0.0-1.0) a person is Medicare Part B/D enrolled.
-
-        Convention: Medicare eligibility begins the first of the calendar
-        month in which a person turns 65 (standard CMS enrollment rule). Age
-        follows the engine's existing integer convention (year - dob_yr), so
-        this only ever prorates the single transition year where that age
-        first equals 65 — 0.0 in all earlier years, 1.0 in all later years,
-        and (12 - (birth_month - 1)) / 12 in the turn-65 year itself.
-        """
-        try:
-            age = int(year) - int(dob_yr)
-        except Exception:
-            return 0.0
-        if age < 65:
-            return 0.0
-        if age > 65:
-            return 1.0
-        try:
-            m = int(dob_month) if dob_month else 1
-        except Exception:
-            m = 1
-        m = min(max(m, 1), 12)
-        return (12 - (m - 1)) / 12.0
-
-    def _wellness_premium_for_age(age, year, dob_month=1):
-        """Return the annual per-person premium used for SEHI in this year.
-
-        There is intentionally no standalone "health insurance premiums"
-        input.  Before age 65, use Pre-65 Healthcare Premium; at 65+ use
-        Medicare Part B + Part D + Part G costs. In the calendar year a
-        person turns 65, both are prorated by month via
-        `_medicare_month_fraction` (Medicare starts the 1st of the birth
-        month) instead of switching on a hard binary age gate.
-        """
-        try:
-            age = float(age)
-        except Exception:
-            age = 0.0
-        dob_yr = year - age
-        medicare_frac = _medicare_month_fraction(dob_yr, dob_month, year)
-        pre65_frac = 1.0 - medicare_frac
-        bridge = float(c.get('bridge_premium', 0.0) or 0.0) * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year) * pre65_frac
-        part_b = float(c.get('partb', 0.0) or 0.0) * 12 * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year) * medicare_frac
-        part_d = float(c.get('partd', 0.0) or 0.0) * 12 * _path_factor('partd_index_by_year', c.get('partd_inf', c.get('med_inf', c['inf'])), year) * medicare_frac
-        part_g = float(c.get('partg', 0.0) or 0.0) * 12 * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year) * medicare_frac
-        return bridge + part_b + part_d + part_g
-
-    def _sehi_deduction_source_amount(year, h_age, w_age, h_alive=True, w_alive=True):
-        _sehi_override = c.get('sehi_user_override')
-        if _sehi_override is not None:
-            return max(0.0, float(_sehi_override))
-        if c.get('sehi_derived_from_wellness', True):
-            total = 0.0
-            if h_alive:
-                total += _wellness_premium_for_age(h_age, year, c.get('h_dob_month'))
-            if w_alive:
-                total += _wellness_premium_for_age(w_age, year, c.get('w_dob_month'))
-            return max(0.0, total)
-        return max(0.0, float(c.get('sehi', 0.0) or 0.0))
 
     def _infl_ratio(year, base_year):
         return _path_ratio('inflation_index_by_year', c['inf'], year, base_year)
