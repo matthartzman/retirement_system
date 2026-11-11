@@ -179,7 +179,8 @@ class RecommendationCompletionTests(unittest.TestCase):
     def test_duplicate_frontend_compatibility_file_removed(self):
         canonical = ROOT / 'frontend' / 'index.html'
         self.assertTrue(canonical.exists())
-        self.assertEqual(len(list((ROOT / 'frontend').glob('*.html'))), 2)
+        # index.html, admin.html and the generated Concepts Guide (W3-10); no duplicate compatibility copy
+        self.assertEqual(sorted(p.name for p in (ROOT / 'frontend').glob('*.html')), ['admin.html', 'concepts.html', 'index.html'])
 
 
 if __name__ == '__main__':

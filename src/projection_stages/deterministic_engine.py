@@ -1251,6 +1251,7 @@ def run_deterministic_projection_stage(c):
         medical_expense_yr = _stage9.medical_expense_yr
         ded = _stage9.ded
         qbi_ded = _stage9.qbi_ded
+        sehi_ded = _stage9.sehi_ded
         char = _stage9.char
         daf_agi_limit_pct = _stage9.daf_agi_limit_pct
         daf_agi_limit = _stage9.daf_agi_limit

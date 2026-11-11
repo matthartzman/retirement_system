@@ -41,6 +41,29 @@ def medical_expense_after_sehi(premiums, sehi_deducted, other_medical):
     return max(0.0, premiums - max(0.0, sehi_deducted)) + other_medical
 
 
+def sehi_net_of_credit(sehi_ded, source, ptc_at_deduction):
+    """FIN-006: cap the self-employed health insurance deduction at premiums net of the premium tax credit.
+
+    ``ptc_at_deduction(s)`` is the credit when the deduction is ``s`` (a smaller deduction raises MAGI and
+    lowers the credit). Two passes of the Rev. Proc. 2014-41 iteration, which is close for the usual case.
+    """
+    s = sehi_ded
+    for _ in range(2):
+        s_new = min(sehi_ded, max(0.0, source - ptc_at_deduction(s)))
+        if abs(s_new - s) < 1e-6:
+            break
+        s = s_new
+    return s
+
+
+def nonitemizer_charitable_deduction(year, filing, cash_gifts):
+    """IRC 170(p) (OBBBA sec. 70424): min(cap, cash gifts to public charities), 2026 on; cap $1,000, $2,000 joint."""
+    if year < 2026 or cash_gifts <= 0:
+        return 0.0
+    key = 'MFJ' if str(filing or '').upper().startswith(('MFJ', 'MARRIED', 'Q')) else 'Single'
+    return min(float(default_tax_law_dataset().latest_value('nonitemizer_charitable_cap', filing_status=key).value), cash_gifts)
+
+
 def charitable_agi_floor(year, agi):
     """OBBBA: itemized charitable gifts count only above 0.5% of AGI from 2026 (no floor before)."""
     return 0.005 * agi if year >= 2026 else 0.0
@@ -548,6 +571,7 @@ class AgiTaxResult(NamedTuple):
     medical_expense_yr: float
     ded: float
     qbi_ded: float
+    sehi_ded: float
     char: float
     daf_agi_limit_pct: float
     daf_agi_limit: float
@@ -734,6 +758,23 @@ def apply_agi_and_tax(
     # withdrawal cascade and is also exposed to the Roth optimizer metrics.
     aca_magi_current = aca_magi(agi, portfolio_tax_exempt, ss_total, ss_taxable)
     aca_ptc_final = aca_premium_tax_credit(c, year=year, magi=aca_magi_current, bridge_people=bridge_people)
+    if sehi_ded > 0 and aca_ptc_final > 0:
+        # FIN-006: the self-employed health insurance deduction cannot exceed premiums net of the credit.
+        # A smaller deduction raises AGI (Social Security taxability is held fixed), which can lower the credit.
+        _sehi_in = sehi_ded
+        _ptc_at = lambda s: aca_premium_tax_credit(c, year=year, magi=aca_magi(agi + (_sehi_in - s), portfolio_tax_exempt, ss_total, ss_taxable), bridge_people=bridge_people)
+        _sehi_new = sehi_net_of_credit(_sehi_in, float(row.get('sehi_deduction_source', 0.0) or 0.0), _ptc_at)
+        if _sehi_in - _sehi_new > 1e-6:
+            _shift = _sehi_in - _sehi_new
+            sehi_ded = _sehi_new
+            agi += _shift
+            irmaa_magi_current = agi + portfolio_tax_exempt
+            row['agi'] = agi
+            row['irmaa_magi_current'] = irmaa_magi_current
+            row['sehi_credit_cap_shift'] = _shift
+            row['_qbi_income'] = float(row.get('_qbi_income', 0.0) or 0.0) + (_shift if row.get('_qbi_income') else 0.0)
+            aca_magi_current = aca_magi(agi, portfolio_tax_exempt, ss_total, ss_taxable)
+            aca_ptc_final = aca_premium_tax_credit(c, year=year, magi=aca_magi_current, bridge_people=bridge_people)
     # n_alive guard: the ACA recompute rebuilds wellness_base_yr and
     # total_spend_need from premium components, which would resurrect
     # spending the estate-mode block above just zeroed.
@@ -916,6 +957,12 @@ def apply_agi_and_tax(
     n65 = (1 if (h_alive and h_age >= 65) else 0) + (1 if (w_alive and w_age >= 65) else 0)
     senior_bonus = senior_bonus_deduction(year, filing, agi, n65)
     std_ded = standard_deduction_fn(year, filing, c['brk_inf'], n65) + senior_bonus
+    # OBBBA IRC 170(p), 2026 on: a household taking the standard deduction also deducts cash gifts to public
+    # charities up to a fixed cap. Donor-advised-fund gifts are excluded and the 0.5% floor does not apply.
+    # It rides on the standard side of the comparison, so itemizing wins only when it beats standard + this.
+    nonitemizer_charity = nonitemizer_charitable_deduction(year, filing, c['char_low'] - qcd_total_yr - daf_grant_yr)
+    std_ded += nonitemizer_charity
+    row['nonitemizer_charitable_deduction'] = nonitemizer_charity
     # Sec 213 medical expense deduction: Medicare/bridge premiums, wellness
     # detail spend (medical/dental/vision/Rx), LTC insurance premiums, and
     # any LTC cost shock are all qualifying medical expenses; only the
@@ -1013,6 +1060,7 @@ def apply_agi_and_tax(
         medical_expense_yr=medical_expense_yr,
         ded=ded,
         qbi_ded=qbi_ded,
+        sehi_ded=sehi_ded,
         char=char,
         daf_agi_limit_pct=daf_agi_limit_pct,
         daf_agi_limit=daf_agi_limit,

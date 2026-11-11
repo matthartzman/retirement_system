@@ -2772,6 +2772,26 @@
       "expires_year": null,
       "source": "IRC 199A(i) added by OBBBA sec. 70105; Rev. Proc. 2025-32 sec. 3 item 12 (indexed after 2026)",
       "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "nonitemizer_charitable_cap",
+      "value": 2000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRC 170(p) added by OBBBA sec. 70424: cash gifts to public charities (not donor-advised funds) by a taxpayer taking the standard deduction; fixed, not indexed; no carryforward (secondary sources; confirm against the statute)",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "nonitemizer_charitable_cap",
+      "value": 1000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRC 170(p) added by OBBBA sec. 70424: cash gifts to public charities (not donor-advised funds) by a taxpayer taking the standard deduction; fixed, not indexed; no carryforward (secondary sources; confirm against the statute)",
+      "status": "legislated"
     }
   ],
   "brackets": [

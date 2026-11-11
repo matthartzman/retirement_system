@@ -15,3 +15,13 @@ def test_charitable_floor_starts_in_2026():
     from src.projection_stages.roth_conversion_and_agi_tax import charitable_agi_floor
     assert charitable_agi_floor(2025, 200_000.0) == 0.0
     assert charitable_agi_floor(2026, 200_000.0) == 1_000.0
+
+
+def test_nonitemizer_charitable_deduction_caps_and_start_year():
+    from src.projection_stages.roth_conversion_and_agi_tax import nonitemizer_charitable_deduction as f
+    assert f(2025, "MFJ", 5_000) == 0.0                      # starts in 2026
+    assert f(2026, "MFJ", 5_000) == 2_000                    # joint cap
+    assert f(2026, "MFJ", 1_500) == 1_500                    # limited by the gifts
+    assert f(2026, "Single", 5_000) == 1_000
+    assert f(2026, "QSS", 5_000) == 2_000                    # QSS uses the joint figure
+    assert f(2030, "Single", 0.0) == 0.0

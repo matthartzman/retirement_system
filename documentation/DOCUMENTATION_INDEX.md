@@ -50,7 +50,7 @@ code and commit history in WI-016 and none was found unshipped, so they are in
 Shipped on 2026-11-11 (W3-08): the Financial Trends designs for time scope, Live Snapshot, remote
 access, annuity plan values, financial-insight readability and recent projections moved from
 `future/superpowers/plans/` to `archive/superpowers/plans/`, each with a merge reference in its
-`Status:` line. The drill-down design and plan stay in `future/` until part (e) is checked.
+`Status:` line. The Trends drill-down design and plan moved too (parts d, a to c and e merged as PRs #286, #288, #289).
 
 ## archive/
 

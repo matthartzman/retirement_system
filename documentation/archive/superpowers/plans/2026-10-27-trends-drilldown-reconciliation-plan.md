@@ -1,6 +1,6 @@
 # Trends: Reconciliation by Account, Holdings Drill-down, Spending Transactions — Implementation Plan
 
-Status: approved (user, 2026-10-27); PRs #286 and #288 merged to main on 2026-10-27; part (e) not checked against merge history (W3-08) - owner to confirm
+Status: implemented (merged to main 2026-10-27: (d) PR #286, (a) to (c) PR #288, (e) PR #289, follow-up PR #290)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -16,7 +16,7 @@ that takes `doc`/`win`. Three PRs: PR 1 = Task 1; PR 2 = Tasks 2–5; PR 3 = Tas
 
 **Tech Stack:** Python 3.12, Flask, pytest; vanilla ES modules, `node --test`.
 
-**Spec:** `documentation/future/superpowers/plans/2026-10-27-trends-drilldown-reconciliation-design.md`
+**Spec:** `documentation/archive/superpowers/plans/2026-10-27-trends-drilldown-reconciliation-design.md`
 
 ## Global Constraints
 

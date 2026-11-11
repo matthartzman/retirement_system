@@ -1,3 +1,21 @@
+## 2026-11-11 — Full-row engine snapshot regenerated for the non-itemizer charitable deduction
+
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=72377d13d9c55ea3bacd752382f96b33d4994a2b0ce2c58145b4f4edcb977e49 -->
+
+**Reason.** The IRC 170(p) deduction (2026 on) and the SEHI premium-credit cap change per-year rows of synthetic scenarios that take the standard deduction with cash giving. Frozen-plan 2032 hand check: 2,000 x 24% = 480 against a 490.60 tax change.
+
+## 2026-11-11 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5232148.02 lifetime_tax=1231686.10 -->
+
+**Old pins.** terminal_nw=5,218,638.39, lifetime_tax=1,235,710.81
+
+**New pins.** terminal_nw=5,232,148.02, lifetime_tax=1,231,686.10
+
+**Reason.**
+
+Non-itemizer charitable deduction (IRC 170(p), OBBBA sec. 70424, 2026 on): a household taking the standard deduction also deducts cash gifts to public charities up to a fixed cap ($1,000, $2,000 joint; dated rows nonitemizer_charitable_cap), compared as standard plus this against itemized. Donor-advised-fund gifts and QCDs are excluded and the 0.5% floor does not apply. Frozen plan: 2026 itemizes so no change; in 2032 the household takes the standard deduction with cash giving of 3,000, deduction 2,000 and total tax fell 490.60 (24% federal bracket x 2,000 = 480, plus 10.60 knock-on); the same 2,000 yields about 560 a year in the 2033-2037 band. Pins moved terminal NW +13,509.63 and lifetime tax -4,024.71. The SEHI premium-credit cap (sehi_net_of_credit, one-pass) moves nothing in the frozen plan (no credit year with SEHI); covered by closed-form unit tests. Correction to the earlier W3-03 note: the Roth strategy did not flip; conversions are 125,000 in 2026 and 0 after, with either SALT source, in this pin path.
+
 ## 2026-11-11 — Full-row engine snapshot regenerated for the Wave 3 deduction-block changes
 
 <!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=d14fb17e1d17b2d07627a9a623531e4004ea3b8e625e2141946a315a5cf14b9d -->
