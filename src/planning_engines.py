@@ -606,7 +606,7 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     else:
         estate_tax_penalty = 0.0
     # Retained as a reported risk indicator only (NOT optimized against): the
-    # Illinois estate-tax cliff with no portability makes the worst single-year
+    # Illinois estate-tax steep phase-in above the exclusion, with no portability, makes the worst single-year
     # exposure worth surfacing even though it should not drive conversions.
     peak_estate_tax_exposure = max((_estate_tax_for_row(c, fed_exempt_base, r) for r in rows), default=0.0)
 

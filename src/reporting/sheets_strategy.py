@@ -1943,7 +1943,7 @@ def build_sheet13(ws, c, rows):
     if any(sr['est_tax_not_modeled'] for sr in state_rows):
         write_cell(ws, r, 1,
             '* This state levies a state estate tax that this engine does not yet model (its '
-            'mechanism differs from the Illinois cliff/interrelated-credit calculation this '
+            'mechanism differs from the Illinois credit-table/federal-limit interrelated calculation this '
             'workbook computes). Its estate tax is NOT included in Total Tax or either delta '
             'column above -- both are understated for that row.', fg='C00000')
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14); r += 1
