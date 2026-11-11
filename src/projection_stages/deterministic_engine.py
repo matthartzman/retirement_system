@@ -62,10 +62,7 @@ from ..engine_kernels import (
     TAX_BASE_YEAR,
     ensure_engine_config,
     liquidity_buffer_years_for_year,
-    aca_magi as _aca_magi,
-    aca_premium_tax_credit as _aca_ptc,
     marginal_rate,
-    social_security_taxable_amount as _ss_taxable_amount,
     state_income_tax,
 )
 from .. import engine_kernels as _legacy_pe
@@ -83,6 +80,7 @@ from . import medicare_premiums as _medicare_premiums
 from . import social_security_factors as _ss_factors
 from . import tax_paths as _tax_paths
 from . import year_factors as _year_factors
+from . import gain_stacking as _gain_stacking
 from . import other_asset_sale_tax as _other_asset_sale
 from . import note_installment_gain as _note_installment
 from . import working_balance_transfer as _working_balance_transfer
@@ -856,9 +854,7 @@ def run_deterministic_projection_stage(c):
 
         def _state_tax_at(investment_inc, _earned=earned_net, _ret=retirement_dist, _ss=ss_taxable,
                           _nq=nonqual_ann, _conv=roth_conv, _over65=h_over_65):
-            return state_income_tax(
-                state_for_year(c, year), _earned, _ret, _ss, investment_inc, _nq, _conv, year, _over65,
-                filing=filing, brk_inf=c['brk_inf'], rate_override=c.get('state_rate_override'))
+            return _gain_stacking.state_tax_at(c, year, filing, investment_inc, _earned, _ret, _ss, _nq, _conv, _over65)
 
         _rental_state_taxed_gain = 0.0
         if _rental_year is not None:
@@ -907,13 +903,10 @@ def run_deterministic_projection_stage(c):
             row['sale_cap_gain_in_agi'] = sale_gain_in_agi
         def _oa_stacked_tax(_taxable, _agi, _g=_stack_gains, _sg=sale_gain_in_agi,
                             _sb=_state_investment_inc + _rental_state_taxed_gain):
-            # Stacked on the year's ordinary taxable income; re-run after Priority 4b at the converged one.
-            return _other_asset_sale.stacked_gain_tax(
-                _g, taxable_inc=_taxable, fed_tax_fn=lambda t: _compute_fed_tax_path(t, year, filing),
-                state_tax_fn=lambda g: _state_tax_at(_sb + g) - _state_tax_at(_sb),
-                base_nii=(note_int_yr + portfolio_ordinary + portfolio_qualified + row.get('_niit_ws_taxable', 0)
-                          + row.get('_niit_hs_taxable', 0) + _sg),
-                magi=_agi + _sg, filing=filing, model_niit=bool(c.get('model_niit')))
+            return _gain_stacking.other_asset_stacked_tax(
+                c, year, filing, _compute_fed_tax_path, _state_tax_at, _taxable, _agi, _g, _sg, _sb,
+                note_int_yr + portfolio_ordinary + portfolio_qualified,
+                row.get('_niit_ws_taxable', 0), row.get('_niit_hs_taxable', 0))
 
         _stack_tax_total = 0.0  # federal + state + NIIT on the stacked (collectible / short-term) gains
         if _oa_gains.items or _note_gains.st > 0:
@@ -1072,15 +1065,11 @@ def run_deterministic_projection_stage(c):
         # docstring, and cap_loss_carryforward's threading note on
         # WithdrawalCascadeInvestmentTaxResult specifically.)
         def _aca_ptc_with_gain(extra_magi, _agi=agi + sale_gain_in_agi):
-            return _aca_ptc(c, year=year, magi=_aca_magi(_agi + extra_magi, portfolio_tax_exempt,
-                                                         ss_total, ss_taxable),
-                            bridge_people=bridge_people)
+            return _gain_stacking.aca_ptc_with_gain(c, year, extra_magi, _agi, portfolio_tax_exempt, ss_total,
+                                                    ss_taxable, bridge_people)
 
         def _ss_extra_from_gain(extra_gain, _non_ss=agi - ss_taxable + sale_gain_in_agi):
-            # Marginal effect of the gain only (same base income on both sides): elective
-            # IRA draws already in ``agi`` do not retroactively re-tax the benefit here.
-            return (_ss_taxable_amount(ss_total, _non_ss + extra_gain + portfolio_tax_exempt, filing)
-                    - _ss_taxable_amount(ss_total, _non_ss + portfolio_tax_exempt, filing))
+            return _gain_stacking.ss_extra_from_gain(ss_total, _non_ss, extra_gain, portfolio_tax_exempt, filing)
 
         _inv_tax = _apply_investment_tax_cascade(
             c, bal, bal_basis_free, row,
