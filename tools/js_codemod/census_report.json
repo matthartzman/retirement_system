@@ -1067,6 +1067,540 @@
       "scope": "inside-function"
     },
     {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyLoading",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyFlat",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyError",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyError",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyError",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyLoading",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelData",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelData",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelLoading",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showSpendingModelLoadOverlay",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelData",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelError",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelData",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelError",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelError",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelData",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelError",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelError",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelLoading",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "hideSpendingModelLoadOverlay",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelData",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelError",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyFlat",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyError",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetLoaded",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLinesLoaded",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rulesChanged",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLinesLoaded",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetSectionMode",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "categoryBudgetMode",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLinesLoaded",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLinesChanged",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetLoaded",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetLoaded",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetChanged",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "restoreGroupBudgetModes",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLinesChanged",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLinesChanged",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetChanged",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "groupModelData",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "catEffectiveBudget",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "groupBudgetMode",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetChanged",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLinesChanged",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetChanged",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetChanged",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelData",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLinesLoaded",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetLoaded",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLinesChanged",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetChanged",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_budget_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "BUILD_HISTORY_LS_KEY",
       "file": "frontend/js/dashboard_decomp_build_history.js",
       "kind": "read",
@@ -5414,540 +5948,6 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyLoading",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyFlat",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyLoading",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelLoading",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "showSpendingModelLoadOverlay",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelLoading",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "hideSpendingModelLoadOverlay",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyFlat",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyError",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudgetLoaded",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLinesLoaded",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "mappingRules",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rulesChanged",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLinesLoaded",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLines",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLines",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLines",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetSectionMode",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "categoryBudgetMode",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLinesLoaded",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLinesChanged",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudgetLoaded",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudgetLoaded",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudgetChanged",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "restoreGroupBudgetModes",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLines",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLinesChanged",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLinesChanged",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudgetChanged",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLines",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "groupModelData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "catEffectiveBudget",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "groupBudgetMode",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudgetChanged",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLines",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLines",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLines",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLines",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLinesChanged",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudgetChanged",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudgetChanged",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "spendingModelData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLinesLoaded",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudgetLoaded",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLinesChanged",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudgetChanged",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyData",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
       "scope": "inside-function"
     },
     {
