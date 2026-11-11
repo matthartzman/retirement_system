@@ -108,6 +108,7 @@ def _avg_pretax(row_list) -> float:
 
 
 def _estate_tax_for_row(c, fed_exempt_base, row: Mapping) -> float:
+    from ..core import estate_exemption_dsue_kwargs
     from ..engine_kernels import (
         indexed_federal_estate_exemption,
         resolved_state_estate_exemption,
@@ -117,7 +118,8 @@ def _estate_tax_for_row(c, fed_exempt_base, row: Mapping) -> float:
     row_total = max(0.0, float(row.get('total_nw', 0.0) or 0.0))
     row_cst = max(0.0, float(row.get('cst_excluded_from_survivor_estate', 0.0) or 0.0))
     row_year = int(row.get('year', c.get('plan_start', 0)) or 0)
-    fed_exempt = indexed_federal_estate_exemption(fed_exempt_base, c.get('plan_start', row_year), row_year, c.get('brk_inf', 0.02))
+    fed_exempt = indexed_federal_estate_exemption(fed_exempt_base, c.get('plan_start', row_year), row_year, c.get('brk_inf', 0.02),
+                                                **estate_exemption_dsue_kwargs(c))
     # FIN-009: no CST subtraction federally; the exemption is already the combined amount (see after_tax).
     federal_taxable = max(0.0, row_total)
     state_taxable = max(0.0, row_total - row_cst)

@@ -593,7 +593,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/engine_sections/__init__.py` | — | — |
 | `src/engine_sections/monte_carlo.py` | `after_tax`, `planning_engines` | — |
 | `src/engine_sections/monte_carlo_headline.py` | `after_tax`, `planning_engines`, `spending_budget_resolver` | — |
-| `src/engine_sections/roth_conversion.py` | `engine_kernels`, `planning_engines` | — |
+| `src/engine_sections/roth_conversion.py` | `core`, `engine_kernels`, `planning_engines` | — |
 | `src/equity_comp.py` | — | — |
 | `src/fallback_log.py` | — | — |
 | `src/feature_entry_counts.py` | — | — |

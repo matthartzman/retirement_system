@@ -1468,7 +1468,27 @@ def state_estate_tax(state, taxable_estate, exemption=None, *, gift_addback=0.0)
     return 0.0, 'none'
 
 
-def indexed_federal_estate_exemption(fed_exempt_base, plan_start, target_year, brk_inf):
+def household_first_death_year(c):
+    """Earliest member death year for a two-member household, else None.
+
+    Used to fix the deceased spouse's unused exclusion (DSUE) at the first
+    death (FIN-007). Single-member households have no ported amount.
+    """
+    members = (c or {}).get('members') or []
+    if len(members) < 2:
+        return None
+    years = [int(m['death_yr']) for m in members if m.get('death_yr')]
+    return min(years) if len(years) >= 2 else None
+
+
+def estate_exemption_dsue_kwargs(c):
+    """Keyword arguments that make indexed_federal_estate_exemption freeze the DSUE."""
+    return {'first_death_year': household_first_death_year(c),
+            'members': len((c or {}).get('members') or [])}
+
+
+def indexed_federal_estate_exemption(fed_exempt_base, plan_start, target_year, brk_inf,
+                                     first_death_year=None, members=1):
     """Grow the federal estate exemption to the year it is actually applied.
 
     The exemption is a statutory dollar figure indexed for inflation each
@@ -1477,8 +1497,20 @@ def indexed_federal_estate_exemption(fed_exempt_base, plan_start, target_year, b
     out understates the real future exemption and overstates federal estate
     tax on long-horizon plans. Uses the same bracket inflator (brk_inf) as
     the income-tax brackets, since both are indexed the same way in statute.
+
+    FIN-007: for a couple (members >= 2) with a first_death_year before the
+    target year, the base is split per person. The survivor's own half keeps
+    indexing to the target year, but the deceased spouse's unused exclusion
+    (DSUE) is fixed at its first-death-year amount (IRC 2010(c)(4)). A timely
+    portability election is assumed. Without first_death_year the whole base
+    is indexed as before.
     """
     years = max(0, int(target_year) - int(plan_start))
+    if first_death_year is not None and int(members or 1) >= 2 and int(first_death_year) < int(target_year):
+        per_person = max(0.0, float(fed_exempt_base or 0.0)) / int(members)
+        rate = 1.0 + float(brk_inf or 0.0)
+        frozen_years = min(years, max(0, int(first_death_year) - int(plan_start)))
+        return per_person * (rate ** years) + per_person * (rate ** frozen_years) * (int(members) - 1)
     return max(0.0, float(fed_exempt_base or 0.0)) * ((1.0 + float(brk_inf or 0.0)) ** years)
 
 
@@ -1666,6 +1698,8 @@ __all__ = [
     "ids_by_tax",
     "ids_by_type",
     "illinois_estate_tax",
+    "household_first_death_year",
+    "estate_exemption_dsue_kwargs",
     "indexed_federal_estate_exemption",
     "inflate_brackets",
     "irmaa_lookback_magi",
