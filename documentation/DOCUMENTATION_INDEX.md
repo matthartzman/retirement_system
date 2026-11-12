@@ -35,6 +35,7 @@ plan in `future/` and in `archive/superpowers/` dated 2026-09-16 or later carrie
 | `reference/FRONTEND_HOOK_REGISTRY.md` | The `RPHooks` render-hook registry that replaced the monkey-patch chain |
 | `reference/TRENDS_REMOTE_ACCESS_RUNBOOK.md` | How Financial Insight is reached from outside the home network |
 | `reference/NOTICE_WORDING_2026-11_WAVE2.md`, `reference/PROFESSIONAL_REVIEW_ENGAGEMENT_NOTES_2026-11.md` | Limitation-notice wording and the CPA and attorney engagement notes from the 2026-11-10 system review |
+| `reference/EXPERT_DECISIONS_AND_ASSUMPTIONS_REGISTER_2026-11-11.md` | Register of every expert decision and built-in assumption, with approver, date, frequency and impact |
 | `reference/MC_PARITY_MEASUREMENT_WI009.md`, `reference/MC_PARITY_MEASUREMENT_WI036.md`, `reference/WP11_REACHABILITY.md` | Measurements cited from code comments and tools (Monte Carlo parity; WP11 reachability output) |
 | `reference/readme/CLEAN_PACKAGE_README.md` | Notes shipped with the clean package |
 | `reference/wp5_screens/`, `reference/wp12_screens/` | Owner-checkpoint screenshots and the rental-properties mockup (historical) |
