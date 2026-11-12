@@ -2,6 +2,9 @@
 - When a prompt is prefixed with `[SYSTEM DIRECTIVE: AUTOMATED TRIAGE ENFORCED]`, pass the evaluation task to `@triage-evaluator`.
 - Do not attempt direct file edits until the `triage-evaluator` summary has been output and confirmed.
 
+## Architecture and commands
+- Run commands, the architecture map, and the plan-file, server and frontend working rules are in `documentation/reference/CLAUDE.md`. Read it before changing `src/server/`, plan-file storage, the build subprocess or the frontend nav. The maintained design is `documentation/reference/CURRENT_SYSTEM_DESIGN_SPEC.md`.
+
 ## Design Specs & Implementation Plans
 - For each phase/step/task of an implementation plan:
     - Include recommended model and effort
