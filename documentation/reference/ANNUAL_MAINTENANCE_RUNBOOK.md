@@ -42,9 +42,10 @@ The **Year-End Transition** page (Track & Reconcile) lists these steps in order,
    decision there.
 6. **Business-income deduction (QBI) review.** If the household has self-employment
    income, confirm `qbi_sstb` (Cashflow > Self-Employment) is set correctly: TRUE
-   when the business is a specified service trade or business. The CPA confirmed
-   the business is one, but the field defaults to FALSE and must be set in the plan
-   itself (see `NOTICE_WORDING_2026-11_WAVE2.md`, notice N8). Also review
+   when the business is a specified service trade or business. The register
+   (row A1) records the CPA's answer that it is one, but the field defaults to
+   FALSE and must be set in the plan itself (see `NOTICE_WORDING_2026-11_WAVE2.md`,
+   notice N8). Also review
    `qbi_ubia` and the QBI thresholds after the new Revenue Procedure.
 
 ## Tax-year checklist (maintainer-level, ~30-60 minutes, do in mid-to-late January after the IRS Revenue Procedure for the new year is published)

@@ -11,6 +11,10 @@ Status: draft. Wording is proposed by the engine maintainer and still needs the 
 
 **N10.** Life insurance policies entered in Plan Data are an inventory only. A death in the projection does not pay a death benefit to the survivor, and policy proceeds are not added to the estate tax calculation. Whether proceeds are part of a taxable estate depends on who owns and controls the policy; this plan does not decide that.
 
+## Status of N8's removal condition (2026-11-12)
+
+N8's removal condition has two parts: the CPA confirms specified-service status, and the plan gains screens for it. The first part is met (register row A1, confirmed 2026-11-11: the household is a specified service business). The notice stays, because `qbi_sstb` is still unset in the live plan (the default is FALSE), so the engine still treats the business as not specified-service. Setting the field is step 4 of the register's next steps (section F). Remove or reword N8 only after the field is set in the live plan; that was not checked here against the live file (real data), so confirm it when you set the field.
+
 ## Notes
 
 - N10 is worded so it does not imply that every policy outside an irrevocable life insurance trust is in the estate (inclusion follows ownership and control, IRC 2042).
