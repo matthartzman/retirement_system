@@ -1,6 +1,6 @@
 # Retirement Planning System — Current System Design Spec
 
-Generated: 2026-08-29, updated 2026-09-30 (§7.3 nav model, housing optimizer,
+Generated: 2026-08-29, updated 2026-11-12 (PDF claims removed; no PDF output exists), 2026-09-30 (§7.3 nav model, housing optimizer,
 Spending Adjustments; WI-703), and 2026-10-12 for WP11 (file-free storage: plan
 data in the plan file, per-install state in `app.db`, CSV only through
 `csv_exchange`). This describes the system as implemented in the
@@ -30,7 +30,7 @@ flowchart LR
     Runtime --> BuildProc["Build subprocess\n(tools/build_workbook.py)"]
     BuildProc --> Engine["Projection engine\n(src/projection_pipeline.py → src/projection_stages)"]
     Engine --> Reporting["Reporting layer (src/reporting/)"]
-    Reporting --> Outputs["output/plans/PLAN_ID/: xlsx, pdf, html dashboard\n(build results are rows of the plan file)"]
+    Reporting --> Outputs["output/plans/PLAN_ID/: xlsx, html dashboard\n(build results are rows of the plan file)"]
     Outputs --> UI
 ```
 
@@ -311,7 +311,6 @@ flowchart TD
     MC --> Sheets["Build workbook sheets"]
     Sheets --> Structure["Merge/rename/reorder final sheet layout"]
     Structure --> Save["Save .xlsx"]
-    Save --> PDF["Render PDF from saved workbook"]
     Save --> HTML["Build offline HTML dashboard"]
     Save --> JSON["Store Results Explorer model in build_results"]
     Save --> Summary["Store summary, snapshot and report package in build_results"]
@@ -319,7 +318,7 @@ flowchart TD
 
 Output files land in `output/plans/<plan_id>/` (per plan; the shared `output/`
 folder is read only as a fallback for pre-WP7 builds): `retirement_plan.xlsx`,
-`retirement_plan.pdf`, `retirement_dashboard.html` and
+`retirement_dashboard.html` and
 `plan_database_snapshot.rpx`. The build's JSON parts (KPI summary, Results
 Explorer model, report package, build snapshot, pricing diagnostics) are
 columns of the plan file's `build_results` row, not files. The last build,
@@ -474,7 +473,7 @@ alimony/support modeling), and a stackable Combined Stress Test.
 ### 7.1 Shell
 
 `frontend/index.html` — a single-page shell: header with global actions
-(Save, Download Workbook/PDF, Exit), a left guided-steps navigator
+(Save Changes, Download Workbook, Exit), a left guided-steps navigator
 (`#sideNav`), a center pane (`#mainPane`, replaced wholesale on every
 render), and a right contextual-help pane. `frontend/admin.html` is a
 structurally parallel, separately-rooted shell for the admin console, driven
@@ -575,8 +574,7 @@ workbook sheet function-by-function into an `openpyxl.Workbook` →
 `apply_final_workbook_structure()` (merge/rename/reorder legacy build-time
 sheet names into final numbered tabs) → layout/format passes (column-width
 overrides, numeric centering, template layout, row-height minimization) →
-save `.xlsx` → post-save XML patch (chart title fonts) → generate PDF from
-the same saved workbook object → generate the HTML dashboard from the
+save `.xlsx` → post-save XML patch (chart title fonts) → generate the HTML dashboard from the
 workbook → store the Results Explorer model, KPI summary, build snapshot and
 report package in the build's `build_results` row.
 
@@ -598,12 +596,10 @@ openpyxl dependency. `src/dashboard_ui/builder.py` copies
 `frontend/` into `output/` so a built workbook bundle can open the offline
 dashboard without a running server.
 
-### 8.2 Four artifacts, one source of truth
+### 8.2 Three artifacts, one source of truth
 
 See `documentation/reference/FUNCTIONAL_SPEC.md` §5 for the audience-facing summary.
-Architecturally: the Excel workbook is canonical; the PDF renders every
-visible sheet of the *already-built* workbook object directly (not a
-separately maintained subset) so it cannot drift from Excel; the HTML
+Architecturally: the Excel workbook is canonical (there is no PDF output); the HTML
 dashboard re-opens the saved `.xlsx` with `data_only=True` and reads a
 hidden `_Chart Dashboard Data` helper sheet (falling back to deriving series
 from projection rows if the Charts module is off); the Results Explorer JSON
@@ -613,7 +609,7 @@ into a renderer-neutral semantic model (`ReportSpec`/`ReportPage`/
 `src/report_spec.py`), capped for browser performance
 (`DETAILED_RESULTS_SAFE_MAX_ROWS=260`, `CHART_MAX_POINTS=45`).
 
-`src/report_package.py` ties the four together: per-artifact existence/
+`src/report_package.py` ties the artifacts together: per-artifact existence/
 size/sha256/mtime, contract/schema versions, required-vs-optional status,
 and renderer roles — a QC/integrity layer, not a user-facing document.
 
