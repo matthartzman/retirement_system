@@ -27,16 +27,16 @@ plan in `future/` and in `archive/superpowers/` dated 2026-09-16 or later carrie
 | `reference/CONVERSION_SAFEGUARD.md` | The conversion's verification and safeguard (WP10.3): what is checked, what blocks, the backup, what is never deleted, rollback |
 | `reference/release_notes/` | Plain-language record of changes that move results |
 | `reference/BACKLOG.md` | Deferred work tracker |
-| `reference/CI_SETUP.md`, `reference/TEST_RUN_GUIDE.md`, `reference/TESTING_REFACTOR_RECOMMENDATIONS.md`, `reference/HAPPY_PATH_E2E_TEST_PLAN.md` | CI and testing |
-| `reference/OPTIMIZATION_DOCS_INDEX.md`, `reference/OPTIMIZATION_REFACTOR_STATUS.md`, `reference/roth_conversion_modeling_guide.md` | Optimization documents |
+| `reference/CI_SETUP.md`, `reference/TEST_RUN_GUIDE.md`, `archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md`, `reference/HAPPY_PATH_E2E_TEST_PLAN.md` | CI and testing |
+| `archive/reference/OPTIMIZATION_DOCS_INDEX.md`, `archive/reference/OPTIMIZATION_REFACTOR_STATUS.md`, `reference/roth_conversion_modeling_guide.md` | Optimization documents |
 | `reference/NAV_FEATURE_MAP.md` | Left-nav inventory: gating, switches, current state, order |
-| `reference/CAPITAL_GAINS_IN_AGI.md`, `reference/H1_BEFORE_AFTER_FIXTURES.txt` | How sale gains enter AGI, MAGI and IRMAA MAGI, with the before and after fixture values |
+| `reference/CAPITAL_GAINS_IN_AGI.md`, `archive/reference/H1_BEFORE_AFTER_FIXTURES.txt` | How sale gains enter AGI, MAGI and IRMAA MAGI, with the before and after fixture values |
 | `reference/RENTAL_TAX_RULES.md` | Rental-property tax constants and the preparer's verification note |
 | `reference/FRONTEND_HOOK_REGISTRY.md` | The `RPHooks` render-hook registry that replaced the monkey-patch chain |
 | `reference/TRENDS_REMOTE_ACCESS_RUNBOOK.md` | How Financial Insight is reached from outside the home network |
 | `reference/NOTICE_WORDING_2026-11_WAVE2.md`, `reference/PROFESSIONAL_REVIEW_ENGAGEMENT_NOTES_2026-11.md` | Limitation-notice wording and the CPA and attorney engagement notes from the 2026-11-10 system review |
 | `reference/PLANNING_ASSUMPTIONS_AND_EXPERT_DECISIONS_REGISTER.md` | Living register: expert decisions, laws and rates with update schedules, and other assumptions needing review (maintenance rules inside) |
-| `reference/MC_PARITY_MEASUREMENT_WI009.md`, `reference/MC_PARITY_MEASUREMENT_WI036.md`, `reference/WP11_REACHABILITY.md` | Measurements cited from code comments and tools (Monte Carlo parity; WP11 reachability output) |
+| `archive/reference/MC_PARITY_MEASUREMENT_WI009.md`, `archive/reference/MC_PARITY_MEASUREMENT_WI036.md`, `archive/reference/WP11_REACHABILITY.md` | Measurements cited from code comments and tools (Monte Carlo parity; WP11 reachability output) |
 | `reference/readme/CLEAN_PACKAGE_README.md` | Notes shipped with the clean package |
 | `reference/wp5_screens/`, `reference/wp12_screens/` | Owner-checkpoint screenshots and the rental-properties mockup (historical) |
 

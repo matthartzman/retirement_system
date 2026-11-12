@@ -1,6 +1,6 @@
 # Phase 6 — Expanded Stress Scenarios — Spec
 
-Last item named in `documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md`'s "Not
+Last item named in `documentation/archive/reference/OPTIMIZATION_REFACTOR_STATUS.md`'s "Not
 done" list. Phase 3 (tax NPV/ELTR) and Phase 5 (adaptive guardrails) are
 now implemented; Phase 4 (LCV feasibility gate) has a spec but no
 implementation. This is the final phase in the sequence.

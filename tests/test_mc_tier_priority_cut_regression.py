@@ -1,5 +1,5 @@
 """Optimization-refactor Phase 2 follow-on ("Not done" item 1 in
-documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md): "Redirecting actual
+documentation/archive/reference/OPTIMIZATION_REFACTOR_STATUS.md): "Redirecting actual
 withdrawal amounts by tier priority inside the MC engines (today's uniform
 cut_mult would become tier-prioritized)."
 

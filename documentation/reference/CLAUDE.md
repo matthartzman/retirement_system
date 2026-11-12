@@ -90,7 +90,7 @@ pytest tests/ --tb=short -q   # no -n: serial fallback if a run looks flaky, or 
 CI (`.github/workflows/ci.yml`) runs a third exclusion PRs don't need to
 reason about locally in the common case: `-m "not slow and not nightly"`.
 `@pytest.mark.nightly` (2026-09-15 CI-time profiling, see
-`documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md`) marks a test
+`documentation/archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md`) marks a test
 whose failure mode is an engine-internals-only equivalence check (the scalar
 engine agrees with the vectorized one) or a sweep/optimizer breadth check —
 neither of which an ordinary UI/config-only PR change can trigger. These

@@ -3,7 +3,7 @@
 Next increment after the HSA expense-bank accumulation/enforcement work.
 **Spec/research only — no code in this document.**
 
-Named in `documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md`'s "Not done" list:
+Named in `documentation/archive/reference/OPTIMIZATION_REFACTOR_STATUS.md`'s "Not done" list:
 
 > **Reclassifying `ltc_prem_yr`** out of `contingent_liability` into
 > `essential` — it is a scheduled premium, not a shock, and is tiered as

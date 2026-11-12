@@ -2884,7 +2884,7 @@ MC_VECTORIZED_PARITY_TOLERANCE_PP = 6.0
 #: The '+/-tol' KPI label may only be shown for these; every other policy is
 #: labelled 'directional'. Mirrored in frontend/js/dashboard_decomp_home_panels.js
 #: (MC_TOLERANCE_DEMONSTRATED_POLICIES); a Python test keeps the two in step.
-#: See documentation/reference/MC_PARITY_MEASUREMENT_WI009.md.
+#: See documentation/archive/reference/MC_PARITY_MEASUREMENT_WI009.md.
 MC_PARITY_DEMONSTRATED_POLICIES = frozenset({'none', 'fill_to_bracket', 'optimize_terminal_tax'})
 
 

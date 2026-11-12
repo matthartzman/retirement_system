@@ -160,7 +160,7 @@ class VectorizedSpendByTierRealTests(unittest.TestCase):
 class ScalarSpendByTierRealTests(unittest.TestCase):
     # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
     # check identified in the 2026-09-15 CI-time profiling (see
-    # documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+    # documentation/archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
     # triggered by an ordinary UI/config change, so it moved off the PR fast
     # tier and runs in the nightly full-suite workflow instead.
     @pytest.mark.nightly

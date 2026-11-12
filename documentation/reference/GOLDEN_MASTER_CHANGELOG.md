@@ -731,7 +731,7 @@ the `Estate Planning / Legacy / legacy_floor` schema row (dollars, default
 reading it into `c['legacy_floor']`. The frozen golden-master fixture's new
 row is `$0` (inert, matching the schema default), so the pinned figures are
 unaffected. No `frontend/js/dashboard.js` changes were needed or made — see
-`documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md`'s matching entry for why.
+`documentation/archive/reference/OPTIMIZATION_REFACTOR_STATUS.md`'s matching entry for why.
 
 ## 2026-08-26 — Optimization-refactor Phase 2 addition: probability of meeting a user legacy floor
 
@@ -1002,7 +1002,7 @@ Verified end-to-end: a planted override survives exactly and resolves as
 **Cost.** Two full projections per round; a full-horizon `project()` measures
 ~20-60ms, so a first search is ~0.24s and a settled re-run ~0.06s. This is
 not the class of cost behind the 81x `monte_carlo()` CI timeouts recorded in
-`documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md`.
+`documentation/archive/reference/OPTIMIZATION_REFACTOR_STATUS.md`.
 
 **Blast radius.** Bit-identical for every household not in `optimize` mode --
 including the frozen fixture and the demo plan. For `optimize` households
