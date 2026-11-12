@@ -82,17 +82,16 @@ arrive over a real socket or an in-process test client.
 
 Routes are registered as decorator side effects at import time. `src/server/
 __init__.py` imports `base_routes`, `workbook_routes`, `plan_routes`,
-`admin_routes` — in that order, purely for their `@app.route(...)`
+`import_export_routes`, `admin_routes` — in that order, purely for their `@app.route(...)`
 registration side effects. Each of those files does `from .app_core import *`
 (plus `from .security_audit import *`, re-exported through `app_core`) to
 share the `app` object, helper functions, and constants — a single shared
 namespace, not separately-scoped modules.
 
-`src/server/route_manifest.py` and the stub files under `src/server/
-features/` are **not route modules** — every actual `@app.route` call lives
-in the four files above. `route_manifest.py` is a hand-maintained ownership
-manifest used for documentation/introspection tooling only; a reader should
-not infer route-level modularity from `features/`'s existence.
+`src/server/route_manifest.py` is **not a route module** — every actual
+`@app.route` call lives in the five route files above (`plan_routes.py` holds
+the large majority). `route_manifest.py` is a hand-maintained ownership
+manifest used for documentation/introspection tooling only.
 
 `src/server_services/*.py` hold the business logic behind most routes,
 deliberately HTTP-framework-agnostic: they take plain dicts/paths/callables
@@ -102,31 +101,21 @@ else. Current service modules: `base_service`, `admin_service`,
 `build_service`, `build_job_service`, `blank_plan_service`, `config_service`,
 `conversion_service`, `demo_plan_service`, `holdings_service`,
 `plan_file_service`, `plan_forms_service`, `plan_tier_service`,
-`portfolio_service`, `pricing_service`, `report_service`, `secret_service`,
+`portfolio_service`, `pricing_service`, `rental_service`, `report_service`, `secret_service`,
 `spending_service`, `strategy_asset_service`, `ytd_service`.
 
-### 3.4 Route → service map
+### 3.4 Route groups
 
-| Route group | Representative routes | Backing module |
-|---|---|---|
-| Build/results | `/api/build/start`, `/api/build/preflight`, `/api/build/status`, `/api/detailed-results`, `/api/report-package`, `/api/history`, `/api/xlsx`, `/files/<path>` | `workbook_routes.py` → `build_service.py`, `build_job_service.py`, `report_service.py` |
-| Blank plan and CSV import/export | `/api/plan/blank`, `/api/import/preview`, `/api/import/commit`, `/api/export/plan-set`, `/api/export/<dataset>` | `workbook_routes.py` → `blank_plan_service.py`; `import_export_routes.py` → `csv_exchange` |
-| Plan forms (plan file) | `/api/plan/forms`, `/api/plan/forms/<path>` | `base_routes.py`/`workbook_routes.py` → `plan_forms_service.py` → `active_plan.py` |
-| Plan file lifecycle | `/api/plan/save-as`, `/api/plan/load-file`, `/api/plan/exit-snapshot`, `/api/plan/snapshot/compare`, `/api/plan/snapshot/restore` | `plan_routes.py` → `plan_file_service.py` |
-| Config/rows | `/api/config/backends`, `/api/config/rows`, `/api/allocation-preview`, `/api/daf/recommendation` | `plan_routes.py` → `config_service.py` |
-| Pricing | `/api/prices/refresh`, `/api/prices/snapshots`, `/api/prices/freeze`, `/api/prices/test-symbol[/start\|/status]` | `plan_routes.py` → `pricing_service.py` + `portfolio_analytics.py` |
-| Spending | `/api/spending/dashboard`, `/api/spending/budget*`, `/api/spending/taxonomy*`, `/api/spending/rules*`, `/api/spending/alias*` | `plan_routes.py`/`workbook_routes.py` → `spending_service.py` |
-| YTD | `/api/ytd/status`, `/api/ytd/transactions*`, `/api/ytd/account-setup*` | `plan_routes.py` → `ytd_service.py` |
-| Strategy/assets/estate | `/api/holdings*`, `/api/liabilities`, `/api/large-discretionary-expenses`, `/api/forced-roth-conversions`, `/api/insurance-policy*`, `/api/trust-account/add`, `/api/housing/*`, `/api/capital-market/*` | `plan_routes.py`/`workbook_routes.py` → `strategy_asset_service.py`, `holdings_service.py` |
-| Portfolio | `/api/portfolio/drift` | `plan_routes.py` → `portfolio_service.py` → `portfolio_analytics.py` |
-| Secrets | `/api/secrets` (POST only) | `plan_routes.py` → `secret_service.py` → `secrets_store.py` |
-| Admin | `/admin`, `/api/admin/diagnostics`, `/api/admin/system-config`, `/api/admin/csv-backup` (plan-set CSV export zip), `/api/admin/server*` | `admin_routes.py` → `admin_service.py` |
-| Base/runtime | `/`, `/api/ping`, `/api/runtime`, `/api/prefs`, `/api/contracts`, `/api/glossary`, `/api/auth/*`, `/login` | `base_routes.py` |
-| Demo plan / plan registry | `/api/plan/demo-status`, `/api/plan/open-demo`, `/api/plan/exit-demo`, `/api/plan/reset-demo`, `/api/plans`, `/api/plans/switch`, `/api/plans/rename`, `/api/plans/forget` | `plan_routes.py` → `demo_plan_service.py`, `plan_registry.py` |
-
-`documentation/reference/API_CONTRACTS.md` documents a curated subset of "stable"
-contracts, not the full route inventory — treat this table and the route
-files as the source of truth for completeness.
+The route inventory is not repeated here, because a hand-kept table drifts.
+`src/server/route_manifest.py` (`ROUTE_MODULES`) lists every route by group
+(build/results, app shell, runtime, plan data, rental, plan config, pricing,
+spending, YTD, strategy/assets, portfolio, secrets, admin and so on), and
+`documentation/reference/API_CONTRACTS.md` documents the curated subset of
+stable contracts. Each group is served by one of the route files in section
+3.3 and delegates to the matching `src/server_services/*_service.py` module
+(for example the build routes to `build_service.py`, `build_job_service.py` and
+`report_service.py`; the plan-file lifecycle routes to `plan_file_service.py`;
+the rental routes to `rental_service.py`).
 
 ### 3.5 Workspace and paths
 
@@ -238,7 +227,7 @@ The compare and restore endpoints in §3.4 use both.
   coverage backfill) into a `(section, subsection, label) → spec`
   map, used for validation, UI type inference, and `/api/config/rows`
   metadata.
-- `src/plan_data_migration.py` — a versioned (`PLAN_DATA_SCHEMA_VERSION = 5`)
+- `src/plan_data_migration.py` — a versioned (`PLAN_DATA_SCHEMA_VERSION = 6`)
   idempotent at-rest **label-rename** migration (e.g. `husband_*` →
   `member_1_*`), applied to the plan file's rows (in place,
   one transaction with rollback on error), run once at startup by `main.py`.
@@ -676,7 +665,7 @@ as **present but inert**, not as enforced access control:
   to exact-scalar (§6.3); treat differences between the two as expected
   until a tolerance-bounded parity check exists.
 - `route_manifest.py` describes route *ownership* for tooling, not actual
-  route module boundaries (§3.3) — the four route files remain a single
+  route module boundaries (§3.3) — the five route files remain a single
   shared namespace.
 - Multi-tenant identifiers (`workspace_id`, `client_id`) persist throughout
   the codebase but are hardcoded to `"local"` everywhere they resolve
