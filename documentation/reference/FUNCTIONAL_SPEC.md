@@ -478,7 +478,7 @@ results in the plan file, which the UI reads for quick status).
   report's income chart, and the Stress sheet's pension line, which also
   gives the net when a withholding is entered. A **net** amount carries an
   explicit "(net)" label, as *Rental Cash (net)* already does. Example: the
-  Member 2 pension pays $397.73 gross and $282.58 net a month, a $115.15
+  pension pays $400.00 gross and $280.00 net a month, a $120.00
   withholding. Bank deposits from Monarch or YTD transactions are net, so
   compare them to the net field, not the gross one.
 
