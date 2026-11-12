@@ -1,4 +1,4 @@
-"""H6: "rent out, then sell in year X" (RENTAL_TAX_RULES.md section 13; WP12.8 doubt 1).
+"""H6: "rent out, then sell in year X" (documentation/archive/superpowers/specs/2026-10-13-rental-property-h2-h6-extensions-design.md section 13; WP12.8 doubt 1).
 
 The frozen sample plan, one move-1 location (2028), sale years 2029-2033: the home is rented
 from move 1's year and sold in the searched year, through the engine's converted-home sale
