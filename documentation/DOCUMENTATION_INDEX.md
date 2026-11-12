@@ -22,7 +22,7 @@ plan in `future/` and in `archive/superpowers/` dated 2026-09-16 or later carrie
 | `reference/GOLDEN_MASTER_CHANGELOG.md`, `reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md` | Golden-master pins and how to recover them |
 | `reference/ANNUAL_MAINTENANCE_RUNBOOK.md` | Yearly tax-table and data refresh |
 | `reference/REFERENCE_DB_SLICES.md` | How to move a reference dataset into the shipped `reference.db` (build tool, getters, golden fixtures) |
-| `reference/PLAN_ROWS_MODEL.md` | The `plan_rows` model in the plan file: keys, order, CSV import rules, switch and tier rows, old CSV file to sections |
+| `archive/reference/PLAN_ROWS_MODEL.md` | Work-package history of the plan rows model; the current model is in the design spec section 4.6 |
 | `reference/CONVERSION_REHEARSAL.md` | Owner steps (PowerShell) to rehearse the whole one-time conversion on a copy of a workspace with `tools/rehearse_conversion.py`; privacy-safe report |
 | `reference/CONVERSION_SAFEGUARD.md` | The conversion's verification and safeguard (WP10.3): what is checked, what blocks, the backup, what is never deleted, rollback |
 | `reference/release_notes/` | Plain-language record of changes that move results |

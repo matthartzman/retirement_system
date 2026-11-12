@@ -74,7 +74,7 @@ The server is assembled by importing from multiple route files, each doing `from
 
 ### Data storage and the canonical source hierarchy
 
-Plan data lives in the plan file, and per-install state in `app.db` (`documentation/reference/PLAN_ROWS_MODEL.md`; `documentation/reference/CURRENT_SYSTEM_DESIGN_SPEC.md` §4.1):
+Plan data lives in the plan file, and per-install state in `app.db` (`documentation/reference/CURRENT_SYSTEM_DESIGN_SPEC.md` §4.1 and §4.6):
 
 1. **`plan.rpx`** (the plan file, a SQLite `PlanStore`; `src/active_plan.py` finds it: `<workspace>/plan.rpx` or `RETIREMENT_SYSTEM_PLAN_DB`) — the **only store of the sectioned plan data** (household, income, spending, assets, policy, switches, tier ... as `plan_rows`). Readers use `active_plan_data()` / `load_active_config()`; every writer (grid, `/api/plan/forms`, the strategy endpoints) edits through `active_plan.edit_active_plan()` in one transaction. Nothing mirrors it into CSV, JSON or YAML files; CSV import/export is `src/csv_exchange` (WP9). The flat datasets are tables of the same file (`holdings_lots`, `liabilities`, `hsa_schedule`, `target_allocation`, `spending_*`, `ytd_*`), and `build_results` holds each build's JSON parts.
 2. **`local_state/app.db`** — per-install state: settings (runtime settings, preferences, policies), the plan registry (`plan_registry`, `active_plan`), audit events, backup manifests, the price cache and the last build. Secret values are in the OS credential store (`src/secrets_store.py`), never in a file or in `app.db`.

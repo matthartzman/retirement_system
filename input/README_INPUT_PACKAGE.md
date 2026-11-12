@@ -20,4 +20,4 @@ nothing until you confirm. **Export CSV backup** and **Export to folder** on the
 same card write your plan out in the same format. Editing a CSV file left in
 `input/` does not change your plan.
 
-How rows map to the plan file: `documentation/reference/PLAN_ROWS_MODEL.md`.
+How rows map to the plan file: `documentation/reference/CURRENT_SYSTEM_DESIGN_SPEC.md section 4.6`.

@@ -145,14 +145,20 @@ plan (`src/reference/demo_seed.rpx`) and the read-only reference database
    the only store of plan data. It holds the sectioned plan data (`plan_rows`:
    household, income, spending, assets, policy, switches and tier); the flat
    datasets as tables (`holdings_lots`, `liabilities`, `hsa_schedule`,
-   `target_allocation`, the `spending_*` tables and the `ytd_*` tables);
-   `build_results` (the KPI summary, Results Explorer model, report package,
-   build snapshot and pricing diagnostics of the last 5 builds); and
-   `plan_revisions`, `revision_rows` and `plan_meta`. The active plan is found
+   `target_allocation`, the `spending_*` tables and the `ytd_*` tables); the
+   typed tables of later features (`rental_*`, the broker, realized-sales,
+   wash-sale and tax-statement tables, `transactions` and its lot and account
+   tables, and the Monarch balance and reconciliation tables); `build_results`
+   (the KPI summary, Results Explorer model, report package, build snapshot and
+   pricing diagnostics of the last 5 builds); and `plan_revisions`,
+   `revision_rows`, `revision_datasets` and `plan_meta`. A saved `.rpx` is the
+   whole file, so it carries all of these, flat datasets included (the demo seed
+   `src/reference/demo_seed.rpx` has 41 tables at schema version 24;
+   `PLAN_SCHEMA_VERSION` in `src/stores/plan_store.py` is the migration count). The active plan is found
    by `src/active_plan.py` (`RETIREMENT_SYSTEM_PLAN_DB` or the plan registry).
    Readers use `active_plan_data()` / `load_active_config()`; every writer
    edits through `active_plan.edit_active_plan()` in one transaction. No CSV,
-   JSON or YAML file mirrors it. See `documentation/reference/PLAN_ROWS_MODEL.md`.
+   JSON or YAML file mirrors it. The row model is in section 4.6.
 1. **`<workspace>/local_state/app.db`** (`AppStore`, `src/app_state.py`;
    `RETIREMENT_SYSTEM_APP_DB` overrides the path) — per-install state that
    survives plan switches: `settings` (runtime settings, preferences, backup
@@ -246,6 +252,88 @@ The compare and restore endpoints in §3.4 use both.
 Most plan facts use a six-column logical row: `section`, `subsection`,
 `label`, `value`, `units`, `notes` — used by the `csv_exchange` text form, the schema
 registry, UI rendering, and reporting inputs.
+
+### 4.6 Plan row model
+
+This is the current-state summary of the model behind `plan_rows`; the
+work-package history that produced it (WP4.1 to WP4.5, the removed CSV bridge
+and mirrors, the per-endpoint conversions) is archived in
+`documentation/archive/reference/PLAN_ROWS_MODEL.md`.
+
+**Keys and order.** A field is addressed by `(section, subsection, label)`.
+The key is unique in a plan, and `row_id` is stable for the life of the file and
+never reused after a delete (it is the grid's `row_index`). Rows inside a
+section are ordered by `(sort_order, row_id)`, and sections by creation (lowest
+`row_id`). `PlanStore.sectioned_data()` is the engine view
+`{section: {subsection: {label: value}}}`. Writes go through
+`set_value(section, subsection, label, value)` (update the row or append one) or,
+for the grid, `get_row` / `set_row` / `insert_row` / `delete_row` by `row_id`,
+inside `transaction()`; `revision()` changes on every edit and marks the last
+build stale.
+
+**Writers.** Every row writer (the grid, `/api/plan/forms`, the strategy and
+policy endpoints, the UI-row backfill, a blank plan) edits through
+`active_plan.edit_active_plan()`: one transaction on the plan file under its
+write lock. `/api/plan/forms` upserts by key (a posted key keeps its row and id;
+`replace: true` removes the keys of a named section that the payload omits).
+Block-shaped rows (`extra_N_*`, `buffer_N_*`, forced conversions, the residency
+schedule, spending adjustments) are replaced by key, so an existing row keeps its
+id and notes. After every row edit `roth_ui_build_guard.canonicalize_roth_rows`
+makes the Roth and IRMAA control rows canonical.
+
+**CSV is an exchange format only.** `src/csv_exchange` reads the plan CSV set
+(`client_data.csv` plus part files) into an empty plan in one transaction. Columns
+are found by header name (any order; `unit`/`type` and `note` accepted), cells are
+stripped, year-stamped labels are stored under their canonical name, and a record
+with a section but no label (or the reverse) is skipped and listed in the report.
+A repeated key collapses to one row, which keeps the first occurrence's position
+and takes the last occurrence's value, units and notes. A `#` comment directly
+above a data row is appended to that row's notes; an opening comment block and
+`====` lines are dropped and counted. Rows do not record the old part file they
+came from; for export `csv_exchange.part_file_for_section()` gives a section's
+primary file. Conversion step C3 (`src/legacy_conversion/steps/c3_plan_rows.py`)
+does this import for an old workspace, then applies the `plan_data_migration`
+renames, drops retired labels and writes the marker
+`plan_meta['legacy_conversion.c3']` (see `LEGACY_CONVERSION.md`).
+
+**Settings, switches and tier are ordinary rows.**
+
+| What | Row `(section / subsection / label)` | Values | No row means |
+|---|---|---|---|
+| Module toggle | `Optional Functions / "" / <feature key>` | `TRUE`/`FALSE` (`YES`, `1` read as on) | the module's `default_on` |
+| Plan flag | its `gate_ref`, e.g. `HELOC / Setup / heloc_enabled` | `TRUE`/`FALSE` | off |
+| Plan tier | `Plan Settings / Profile / plan_tier` | `simple`, `standard`, `advanced`, `expert` | `expert` |
+| "(customized)" | not stored: derived when the stored switches differ from the tier preset | | |
+
+`module_catalog.feature_row_key(key)` names a feature's row; `set_feature()` and
+`feature_enabled()` read and write these rows when given an open `PlanStore`.
+`module_catalog.tier_preset(tier)` is the cumulative set of switchable features
+at or below a tier, and `apply_tier(store, tier)` writes the tier row plus every
+switch that differs from the preset in one transaction, never touching entered
+data. A plan with no tier row reads as Expert and nothing is written until a tier
+is picked. Override rows over the read-only reference data live in the sections
+`Custom Capital Market`, `Custom Correlations` and `Custom Real Loss Curves`
+(`src/plan_overrides.py`).
+
+**Which old CSV sections went where.** For orientation when reading old exports:
+`client_household` held Household, Economic Assumptions, Payroll Tax, Wellness,
+Social Security and State Comparison; `client_income` held Earned Income,
+Retirement Contributions, S-Corp, Self-Employment and Income Streams;
+`client_spending` held Spending, Mortgage, Post-House-Sale Rent, Large
+Discretionary Expenses and Housing; `client_assets` held Other Assets, Liquidity
+Buffer, HSA Policy, Education Funding, Note Receivable, DAF, Hybrid LTC and
+Positions; `client_policy` held Account Policy, HELOC, Asset Allocation Policy,
+Asset Class Assumptions, Model Constants, Withdrawal Policy, Forced Actions,
+Scenarios and Reporting; `client_insurance_estate` held Annuity Death Benefits,
+Estate Planning, Insurance In Force and Equity Compensation;
+`client_business` held Business Succession; `client_optional_functions` held
+Optional Functions. Sections split across files are merged in the plan rows.
+
+Tests: `tests/test_plan_rows_fixture_equivalence_regression.py` (the key
+invariant), `test_csv_exchange_plan_csv_unit.py`,
+`test_plan_rows_feature_storage_unit.py`, `test_legacy_conversion_c3_unit.py`,
+`test_stores_plan_store_unit.py`. `tests/plan_fixture.make_plan` builds a plan
+file for a test workspace.
 
 ## 5. Build pipeline
 
