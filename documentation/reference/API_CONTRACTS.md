@@ -1,6 +1,6 @@
 # API Contracts
 
-Generated: 2026-06-29 (partially updated 2026-09-30)
+Generated: 2026-06-29; edited piecemeal since, last content edit 2026-10-16, checked for stale claims 2026-11-12. Not a full route inventory (see the scope note).
 
 Scope note: this document covers the high-value contracts only. The authoritative list of every registered route is `src/server/route_manifest.py` (served at `/api/contracts`), which `tests/test_api_contracts_and_route_manifest_contract.py` keeps equal to the registered routes.
 
