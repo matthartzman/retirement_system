@@ -226,7 +226,7 @@ Reported `agi`, `irmaa_magi_current` and the NIIT MAGI now include the taxable g
 (new row fields `sale_cap_gain_in_agi`, `agi_ordinary`; only present in a sale year). None of the committed
 goldens (frozen sample, demo, full-row snapshot cases, synthetic cases) has a sale, so `tools/golden_compare.py compare`
 is unchanged and nothing was re-recorded. Moved numbers exist only in sale scenarios; listed in
-`H1_BEFORE_AFTER_FIXTURES.txt` and covered by `tests/test_capital_gains_in_agi_functional.py`.
+`documentation/archive/reference/H1_BEFORE_AFTER_FIXTURES.txt` and covered by `tests/test_capital_gains_in_agi_functional.py`.
 
 ## 2026-10-03 — Full-row snapshot regenerated: bracket entries in `conv_guardrail_caps` record their rate (no value change)
 
