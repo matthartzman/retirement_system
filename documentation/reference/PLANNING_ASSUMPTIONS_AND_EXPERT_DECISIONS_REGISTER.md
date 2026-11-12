@@ -203,13 +203,15 @@ Not law and not a single expert's decision: modeling shortcuts, defaults and dat
 | Economist / actuary | No named reviewer for C1, C5, C6, C14 |
 | Legal / security adviser | None engaged; D1, D3, D4, D5, D7 have owner decisions only |
 
+The question wording for the professionals, the original per-finding questions and the eleven numbered CPA answers (relayed 2026-11-11, not yet in writing) are kept in `PROFESSIONAL_REVIEW_ENGAGEMENT_NOTES_2026-11.md`. That file is not folded into this register because the register holds one row per decision and has no place for ready-to-send question text or the answer-to-question trail; fold it in once the CPA's written confirmation arrives and the questions are closed.
+
 ## F. Most useful next steps
 
 1. Ask the CPA in writing for W2 to W5, the 2026 re-check of the rental constants (A22) and the 2027 rows (A17).
 2. Ask the estate attorney to confirm B2, B3 and B5 in the same note as B1.
 3. Name an approver and a review date for C1, C2 and C5. These drive every projection and have no recorded sign-off.
 4. Set `qbi_sstb` in the live plan (A1) and run the redaction tool (D3).
-5. Fix two stale statements: the backlog still lists the Illinois estate method as awaiting the attorney (B1), and the owner's three "owner to decide" document rows (D9).
+5. Fix the stale statement on the owner's three "owner to decide" document rows (D9). (The backlog's Illinois estate row, B1, was corrected 2026-11-12.)
 
 ## Change log
 
