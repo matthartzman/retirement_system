@@ -59,7 +59,8 @@ export function statusText(data) {
   if (state === "closed") parts.push(`Market closed · last prices${at ? " at " + at : ""}`);
   else {
     const phase = state === "pre" ? "Pre-market" : state === "post" ? "After hours" : "Market open";
-    parts.push(`${phase} · Delayed ~${data?.delayed_minutes ?? 15} min${at ? " · as of " + at : ""}`);
+    // No "as of" here: the freshness line beside Refresh now already shows the data time.
+    parts.push(`${phase} · Delayed ~${data?.delayed_minutes ?? 15} min`);
   }
   const stale = data?.liquid?.stale_symbols || [];
   if (stale.length) parts.push(`Old prices for ${stale.join(", ")}`);
@@ -429,30 +430,124 @@ export function initLiveView(doc = document, win = window) {
     }
   }
 
+  // ---- Refresh-now feedback: button state, "last updated" stamp, closable progress dialog ----
+  const refreshBtn = doc.getElementById("liveRefresh");
+  const canUi = typeof doc.createElement === "function" && typeof refreshBtn.insertAdjacentElement === "function" && typeof body.appendChild === "function";
+  const noop = () => {};
+  const stub = () => ({ textContent: "", innerHTML: "", hidden: true, dataset: {}, setAttribute: noop, addEventListener: noop, querySelector: () => null });
+  const stamp = canUi ? doc.createElement("span") : stub();
+  const dlg = canUi ? doc.createElement("div") : stub();
+  if (canUi) {
+    stamp.className = "live-stamp muted";
+    stamp.setAttribute("aria-live", "polite");
+    refreshBtn.insertAdjacentElement("afterend", stamp);
+    dlg.className = "refresh-dlg";
+    dlg.hidden = true;
+    dlg.setAttribute("role", "dialog");
+    dlg.setAttribute("aria-label", "Refreshing prices");
+    dlg.innerHTML = `<div class="refresh-dlg-head"><b id="rdTitle">Refreshing prices…</b><button type="button" class="refresh-dlg-x" aria-label="Close">×</button></div>`
+      + `<div class="refresh-bar" id="rdBar"><i></i></div><div id="rdStep" class="refresh-step"></div><div id="rdFoot" class="refresh-foot"></div>`;
+    body.appendChild(dlg);
+  }
+  const dummy = { textContent: "", innerHTML: "", hidden: false };
+  const rd = (id) => dlg.querySelector("#" + id) || dummy;
+  const btnClass = (add, name) => { const c = refreshBtn.classList; if (c && c.add) c[add ? "add" : "remove"](name); };
+  const LOAD_TIMEOUT_MS = 60000;
+  let startedAt = 0, ticker = null, dlgTimer = null, manual = false;
+
+  const ago = () => {
+    if (!lastLoad) { stamp.textContent = ""; return; }
+    const s = Math.round((Date.now() - lastLoad) / 1000);
+    stamp.textContent = "Updated " + (s < 5 ? "just now" : s < 90 ? `${s}s ago` : `${Math.round(s / 60)} min ago`)
+      + (data && data.as_of ? ` (data as of ${clock(data.as_of)})` : "");
+  };
+  function stepText(sec) {
+    if (sec < 3) return "Contacting the quote provider…";
+    if (sec < 15) return "Fetching live prices for your holdings…";
+    if (sec < 30) return "Still waiting on the provider — this can take a while…";
+    return "The provider is slow to respond. It will give up at 60 s; you can close this and keep working.";
+  }
+  function showDlg(state, msg) {   // state: running | ok | err
+    clearTimeout(dlgTimer);
+    dlg.hidden = false;
+    dlg.dataset.state = state;
+    rd("rdTitle").textContent = state === "running" ? "Refreshing prices…" : state === "ok" ? "Prices updated" : "Refresh failed";
+    rd("rdBar").hidden = state !== "running";
+    rd("rdStep").textContent = state === "running" ? stepText((Date.now() - startedAt) / 1000) : msg;
+    rd("rdFoot").innerHTML = state === "running" ? `<span id="rdElapsed">0s elapsed</span>`
+      : state === "err" ? `<button type="button" class="refresh-retry">Retry</button>` : "";
+  }
+  function beginProgress() {
+    startedAt = Date.now();
+    btnClass(true, "is-busy");
+    refreshBtn.setAttribute("aria-busy", "true");
+    refreshBtn.textContent = "Refreshing…";
+    clearInterval(ticker);
+    ticker = win.setInterval(() => {
+      const sec = Math.floor((Date.now() - startedAt) / 1000);
+      rd("rdElapsed").textContent = `${sec}s elapsed`;
+      if (dlg.dataset.state === "running") rd("rdStep").textContent = stepText(sec);
+    }, 500);
+    if (manual) showDlg("running");
+  }
+  function endProgress(ok, msg) {
+    clearInterval(ticker);
+    btnClass(false, "is-busy");
+    refreshBtn.setAttribute("aria-busy", "false");
+    refreshBtn.textContent = "Refresh now";
+    if (!manual) return;
+    if (ok) {
+      showDlg("ok", msg);
+      dlgTimer = win.setTimeout(() => { dlg.hidden = true; }, 1800);   // success closes itself
+    } else showDlg("err", msg);
+    manual = false;
+  }
+  dlg.addEventListener("click", (e) => {
+    if (e.target.closest(".refresh-dlg-x")) { dlg.hidden = true; clearTimeout(dlgTimer); }
+    else if (e.target.closest(".refresh-retry")) { manual = true; load(true); }
+  });
+  dlg.addEventListener("keydown", (e) => { if (e.key === "Escape") dlg.hidden = true; });
+  win.setInterval(ago, 10000);
+
   async function load(force = false) {
-    if (busy) return;
+    if (busy) {   // a click while a load is running re-opens the progress dialog instead of doing nothing
+      if (force) { manual = true; showDlg("running"); }
+      return;
+    }
     busy = true;
+    if (force) manual = true;
+    beginProgress();
+    const ctl = typeof win.AbortController === "function" ? new win.AbortController() : null;
+    const timer = ctl ? win.setTimeout(() => ctl.abort(), LOAD_TIMEOUT_MS) : null;
+    let ok = false, msg = "";
     try {
       const params = new URLSearchParams();
       if (force) params.set("refresh", "1");
       const scopeFrom = body?.dataset?.scopeFrom;
       if (scopeFrom) params.set("from", scopeFrom);
       const query = params.toString();
-      const resp = await win.fetch("/api/live-snapshot" + (query ? "?" + query : ""));
+      const resp = await win.fetch("/api/live-snapshot" + (query ? "?" + query : ""), ctl ? { signal: ctl.signal } : undefined);
       const json = await resp.json();
       if (!resp.ok || json.success === false) throw new Error(json.error || `HTTP ${resp.status}`);
       data = json;
       lastLoad = Date.now();
       errorBox.textContent = "";
       render();
+      ok = true;
+      msg = `Quotes as of ${clock(data.as_of)}.`;
     } catch (err) {
-      const msg = err && err.message ? err.message : String(err);
+      msg = err && err.name === "AbortError" ? "The quote provider didn't respond within 60 seconds"
+        : err && err.message ? err.message : String(err);
       errorBox.textContent = data
         ? `Couldn't update prices (${msg}). Showing the values from ${clock(data.as_of)}.`
         : `Couldn't load the Current Snapshot (${msg}).`;
       if (!data) out.innerHTML = "";
+      msg = `Couldn't update prices: ${msg}. Showing the previous values${data ? ` from ${clock(data.as_of)}` : ""}.`;
     } finally {
+      if (timer) win.clearTimeout(timer);
       busy = false;
+      endProgress(ok, msg);
+      ago();
       if (reloadAfter) { reloadAfter = false; load(); }   // the scope changed mid-request
     }
   }
