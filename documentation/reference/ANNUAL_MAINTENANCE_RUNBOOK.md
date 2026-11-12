@@ -130,7 +130,9 @@ place mislabels its value year and silently mis-indexes every later year.
    comparison state under consideration) -- state legislative sessions run on
    their own schedule, not a fixed month, so re-check this row whenever state
    tax law changes, not just annually.
-8. Measure before you regenerate anything: run
+8. Update `documentation/reference/PLANNING_ASSUMPTIONS_AND_EXPERT_DECISIONS_REGISTER.md`: section L (laws, guidance and rates) gets
+   the new values, last-reviewed dates and next expected update; scan sections A to D and R for rows still marked TBA.
+9. Measure before you regenerate anything: run
    `python tools/regen_golden_master.py measure`, confirm the movement in
    terminal net worth and lifetime tax is in the direction and size the new
    values imply, then follow `GOLDEN_MASTER_RECOVERY_RUNBOOK.md` to re-pin and

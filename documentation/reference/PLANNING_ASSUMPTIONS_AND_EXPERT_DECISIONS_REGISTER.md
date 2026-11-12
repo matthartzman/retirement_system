@@ -1,6 +1,26 @@
-# Expert decisions and assumptions register (2026-11-11)
+# Planning assumptions and expert decisions register
 
-One list of every decision, direction and assumption in the system that a person with the right authority has made or still has to make: CPA, estate attorney, financial planner, economist or actuary, legal or security adviser, and the owner as software designer.
+Living document. First written 2026-11-11; the "Last updated" line below says when it was last touched.
+
+One list of every decision, direction and assumption in the system that a person with the right authority has made or still has to make: CPA, estate attorney, financial planner, economist or actuary, legal or security adviser, and the owner as software designer. It has three parts:
+
+- **Part 1, expert decisions (sections A to D):** who decided, who approved, when, how often.
+- **Part 2, laws, guidance and rates (section L):** each federal and state law, guidance document and rate the engine depends on, with its update frequency, the next expected update and where the update comes from.
+- **Part 3, other assumptions needing review (section R):** modeling shortcuts, defaults and data sets that are not law but still need a person to look at them on a schedule.
+
+**Last updated:** 2026-11-11 (first version).
+
+## Keeping this document current
+
+This file is only useful if it is maintained. The rules:
+
+1. **Owner of the file:** the plan owner. Claude or any maintainer may propose edits; the owner approves the "Approved by" and "Date" cells.
+2. **Update it in the same change** that adds, removes or re-decides any item above: a new reference-data row, a new default, a new limitation notice, a CPA or attorney answer, a changed shortcut in the engine. A decision that is not in this file is not recorded.
+3. **Annual pass:** each January, while doing the tax-year checklist in `ANNUAL_MAINTENANCE_RUNBOOK.md`, walk section L and update "Last reviewed", "Next expected update" and the value in "Used now". In the same sitting, scan sections A to D and R for rows marked TBA and either get the answer or re-date the question.
+4. **Event triggers:** a new IRS Revenue Procedure, a CMS or SSA announcement, a new state budget, or a new federal law means a review of the affected section L rows within 30 days.
+5. **Dates:** write ISO dates (YYYY-MM-DD). "Owner-reported" means the proof is outside the repository. Never invent an approval; use TBA.
+6. **Do not put account numbers, balances or other household facts here.** Defaults and rules only.
+7. Update the "Last updated" line above and add a one-line entry to the change log at the bottom.
 
 ## How to read this
 
@@ -111,6 +131,68 @@ Dates: 2026-11-11 CPA answers were relayed by the owner in chat; the CPA has not
 | D14 | Year-end close rules | Close warns (does not block) if broker files are old; a year with no plan figure can close | Owner | Open questions 1 and 2, "Claude's call" defaults | TBA (owner answer not recorded) | Annual | Low | Block the close | | Confirm these two defaults |
 | D15 | Annual maintenance cadence | January household checklist; mid-January tax-year update; September/October SSA and CMS update | Owner | `ANNUAL_MAINTENANCE_RUNBOOK.md` | Standing | Annual | High | Calendar reminders | A16, A20 | Nothing enforces it; the app only flags stale rows |
 
+## L. Laws, guidance and rates the system depends on (Part 2)
+
+"Next expected update" is the usual publication window for that kind of source, not a promise. Rows marked *verify* hold a value I recalled from general knowledge and did not find in the repository: confirm against the primary source before relying on them. "Used now" comes from the dashboard (`reference_src/tax_update_dashboard.csv`) and the reference data. Stored in `reference_src/tax_law_v10.json` unless stated; rebuild `src/reference/reference.db` with `python tools/build_reference_db.py` after any edit.
+
+| ID | Law, guidance or rate | Jurisdiction | Used now | Last reviewed | Frequency | Next expected update | Update source | Stored as / how to update | Impact if stale | Related |
+|---|---|---|---|---|---|---|---|---|---|---|
+| L1 | Ordinary income brackets and standard deduction (incl. 65+ and OBBBA amounts) | Federal | Rev. Proc. 2025-32 (tax year 2026) | 2026-09-29 | Annual | Oct to Nov 2026 (Rev. Proc. for 2027) | IRS Revenue Procedure | Dated rows, brackets array; never overwrite | High | A16, A17 |
+| L2 | Long-term capital gains 0% and 15% thresholds | Federal | Rev. Proc. 2025-32 sec. 4.03 | 2026-09-29 | Annual | Oct to Nov 2026 | IRS Revenue Procedure | Dated rows | High | A16 |
+| L3 | Net investment income tax (3.8%, $250,000 joint threshold) | Federal | Statutory, not indexed | Verified in the 2026 review; reconfirm yearly | Law change | Only if Congress changes it | IRC 1411 | `niit_threshold` rows | Medium | A15 |
+| L4 | Alternative minimum tax exemption, phase-out, rate break | Federal | Rev. Proc. 2025-32 sec. 4.10 | 2026-10-20 (owner-reported) | Annual | Oct to Nov 2026 | IRS Revenue Procedure | `amt_*` rows, one per filing status | Medium | A16 |
+| L5 | Medicare IRMAA tiers (2-year lookback) and Part B / Part D premiums | Federal | CMS 2026 fact sheet dated 2025-11-14; Part D national base premium $38.99 (CMS, 2025-07-28) | 2026-09-29 | Annual | Part D base: late July; Part B and IRMAA: Oct to Nov 2026 | CMS fact sheet | Dated rows for IRMAA; household premiums are Plan Data rows (not reference-backed) | Medium | A20 |
+| L6 | Social Security wage base, COLA, earnings-test limits and rates | Federal | SSA 2026 wage base $184,500; earnings test row for 2027 | 2026-10-20 / 2026-10-21 | Annual | Mid-October (COLA release) | SSA COLA fact sheet and wage-base page | Dated rows; household wage base is a separate Plan Data row | Medium | A14, A16 |
+| L7 | QLAC premium limit, QCD annual limit, student-loan interest phase-out | Federal | IRS Notice 2025-67 (QLAC $210,000, QCD $111,000); Rev. Proc. 2025-32 sec. 4.29 | 2026-10-20 | Annual | Oct to Nov 2026 (IRS cost-of-living notice) | IRS Notice and Rev. Proc. | Dated rows | Low to Medium | A16, C12 |
+| L8 | RMD Uniform Lifetime Table and start-age rules (SECURE 2.0 birth-year ages) | Federal | Pub. 590-B (2025) Table III, effective 2022; member RMD age override 75 | 2026-09-29 | Law change; confirm yearly | Only on a statutory or IRS table change | IRS Pub. 590-B, SECURE 2.0 | RMD divisor table; per-member age in Plan Data | Medium | C12 |
+| L9 | Federal estate and gift exclusion; portability; estate rate schedule 2001(c) | Federal | IRC 2010(c)(3) as amended by P.L. 119-21; Rev. Proc. 2025-32 sec. 2.14 | 2026-10-20 | Annual (indexed) | Oct to Nov 2026 | IRS Revenue Procedure; statute | `federal_estate_basic_exclusion` row; rate schedule in `src/core.py` | High at death | B2, B3 |
+| L10 | OBBBA senior deduction ($6,000 per person, phase-out) | Federal | CPA reading: joint threshold | 2026-11 | Law change | Scheduled to end after 2028 (*verify*) | P.L. 119-21; IRS guidance | Engine constants and Plan Data | Medium | A4 |
+| L11 | SALT cap and phase-down schedule | Federal | Cap schedule keyed to absolute years, 7 rows | 2026-10 | Law change | Next scheduled step each January; reverts under P.L. 119-21 around 2030 (*verify*) | P.L. 119-21; IRS | `salt_cap`, `salt_phasedown_*` rows | Medium | A5, A6 |
+| L12 | QBI deduction (IRC 199A): threshold, phase-in width, $400 minimum | Federal | Threshold $403,500 joint / $201,750 other for 2026; width $150,000 / $75,000 from 2026 | 2026-11-11 | Annual (threshold indexed) | Oct to Nov 2026 | IRS Revenue Procedure sec. 4.26; Treas. Reg. 1.199A | `qbi_*` rows | Medium | A1 to A3 |
+| L13 | Non-itemizer charitable deduction (IRC 170(p)) | Federal | $1,000 / $2,000 from 2026, fixed | 2026-11-11 | Law change; confirm yearly | None expected | P.L. 119-21; IRS | `nonitemizer_charitable_cap` rows | Low | A11 |
+| L14 | Itemized deduction limit (the "2/37" limit under P.L. 119-21) | Federal | Not modeled (deferred) | TBA | Law change | 2026 tax year onward (*verify*) | P.L. 119-21; CPA | Not stored | Medium for high earners | R17 |
+| L15 | ACA premium tax credit: applicable-percentage tables, enhanced-subsidy status, FPL | Federal | 2026 tables are "assumption" rows recalled, not verified; enhanced subsidies end after a year field | 2026-10-19 status check (owner-reported) | Annual; also on any Congressional action | Rev. Proc. for 2027 in Oct to Nov 2026; FPL each January | IRS Rev. Proc. (2025-25 for 2026); HHS poverty guidelines; Congress | `aca_*` rows; Plan Data FPL and benchmark premium | High for bridge-year households | A10 |
+| L16 | Early-distribution tax (10%, IRC 72(t)) and its exceptions | Federal | 10% rate; SEPP input | 2026-10 | Law change | None expected | IRC 72(t) | `early_distribution_additional_tax_rate` | Medium | A13 |
+| L17 | Rental rules: 27.5-year recovery, passive loss allowance and phase-out, 25% recapture, section 121 | Federal | Constants verified against 2025 rules | 2026-10-13 | Law change; re-check yearly | Re-check at the 2027 update | IRC; Pubs. 527, 925, 946, 523, Form 8582 | `passive_rental_*`, `section_121_*` rows; `RENTAL_TAX_RULES.md` | Medium | A22 |
+| L18 | Wash-sale statute (IRC 1091) and broker reporting | Federal | Rules W1 to W5 in the sales-ledger design | 2026-11-11 (W1 only) | Law change | None expected | IRC 1091; CPA | Code rules, design spec | Medium | A12 |
+| L19 | 401(k), IRA and HSA contribution limits | Federal | Per-household Plan Data fields with an index toggle; 401(k) default $32,500 includes a catch-up assumption | Per plan | Annual | HSA: May (Rev. Proc.); 401(k) and IRA: Oct to Nov | IRS Rev. Proc. and Notice | Plan Data, not reference data | Medium | R16 |
+| L20 | Social Security Trustees Report (depletion date, share payable) | Federal | 22% cut from 2032 default | TBA | Annual | Spring to summer 2027 | SSA Trustees Report | `ss_funding_discount_*` Plan Data | High | C5 |
+| L21 | SSA period life table | Federal | Table in `mortality_table.csv` | 2026-10-19 (owner-reported) | Periodic | When SSA publishes a new table | SSA Actuarial Life Table | Reference CSV | Medium | C6 |
+| L22 | Illinois individual income tax 4.95% flat, retirement income exempt | Illinois | 35 ILCS 5/203; reviewed in state table | 2026-10 | Each legislative session | Spring 2027 session; effective January | Illinois Department of Revenue; General Assembly | `state_tax.csv` | High (primary state) | A18 |
+| L23 | Illinois pass-through entity tax (4.95%) and replacement tax (1.5%, $1,000 exemption) | Illinois | PTE not elected 2026 or 2027; replacement tax modeled | 2026-11-11 | Annual (election); law change (rates) | Election due on the timely entity return, April 15 | CPA; IL DOR | Plan Data `pte_*`; engine constant | Medium | A7, A8 |
+| L24 | Illinois estate tax ($4M exclusion, $60,000 adjustment, 2011(b) credit table) | Illinois | Method signed off 2026-11-11 | 2026-11-11 | Law change | None scheduled | Illinois Attorney General calculator; statute | Code in `src/core.py` | High | B1 |
+| L25 | Other states' income tax (NC 3.99%, IN 2.95%, AZ 2.5%, CO 4.4%, CA 9.3% graduated, NY 6.85% graduated; FL, TX, TN, NV, SD, WY none) | State | 13 states in `state_tax.csv`; dashboard `REVIEW_REQUIRED_BY_STATE`, blocking | 2026-10-20 (partial: NC, IN, CA, NY) | Each legislative session | Jan 1 changes each year; check each state's revenue-department release in Dec to Jan | State departments of revenue | `state_tax.csv` | High if moving states | A18 |
+| L26 | State retirement-income and Social Security exemptions | State | Columns `exempt_retirement`, `exempt_ss`, `retirement_exempt_over_65` | 2026-10-20 | Each legislative session | With L25 | State departments of revenue | `state_tax.csv` | Medium | L25 |
+| L27 | State estate and inheritance taxes (IL, NY exclusion $7.35M; others) | State | `estate`, `estate_exempt`, `estate_calc` columns | 2026-10-20 | Law change | With L25 | State statutes; attorney | `state_tax.csv`; `src/core.py` | Medium | B6 |
+| L28 | State property and sales tax rates | State | `prop_rate`, `sales_rate` columns; housing data from ZIP metrics | TBA | Annual | Year start | State and local revenue departments; data vendor | `state_tax.csv`, `zip_metrics.csv.gz` | Low to Medium | R9 |
+| L29 | State HSA conformity (CA and NJ do not recognize HSAs) | State | `hsa_state_conformity` default TRUE | TBA | Law change | Rare | State statute | Plan Data | Low | B10 |
+
+## R. Other assumptions needing review (Part 3)
+
+Not law and not a single expert's decision: modeling shortcuts, defaults and data sets. Each needs a named reviewer on a schedule. "Reviewer" is the role that should look; nobody is named yet unless stated.
+
+| ID | Assumption | Where it lives | Why it matters | Reviewer | Last review | Frequency | Trigger for an earlier review | Impact | Related | Comment |
+|---|---|---|---|---|---|---|---|---|---|---|
+| R1 | Schema defaults that look like one household's figures: first-retire year 2029, rollover year 2030, spending freeze 2040, home-sale year 2045, post-sale rent $5,000, proceeds account name, HSA window 2031 to 2040, scenario salary $50,000 | `reference_src/schema.csv` | A blank plan projects numbers nobody entered (the W1-04 problem) | Owner | TBA | Per release | Any new plan section | Medium | D8 | W1-04 removed some; these remain. Decide: blank, or neutral defaults |
+| R2 | Roth conversion estimate is deliberately simplified: assumes no conversion when estimating Social Security, SALT uses a one-year approximation, gross income = AGI | `src/projection_stages/roth_conversion_and_agi_tax.py` | Drives conversion size | Planner; CPA | TBA | Annual | Any tax-law change in L1 to L13 | High | C10 | Comment in code calls it a "deliberate simplified estimate" |
+| R3 | Other-asset sale tax uses the stage-9 ordinary income as the federal stack base | `src/projection_stages/other_asset_sale_tax.py` | Sale-year tax | CPA | TBA | Annual | Large sales | Low to Medium | A15 | Approximations listed in the module docstring |
+| R4 | Business income base: net business income after salary and employer FICA | `src/projection_stages/income.py` | S-corp income tax and QBI | CPA | TBA | Annual | Business changes | Medium | A1, A2 | |
+| R5 | Social Security early-claim factors are linear between age 60 and full retirement age | `src/projection_stages/social_security_factors.py` | Early-claim benefit | Planner | TBA | Once; after SSA rule change | SSA change | Low | C5 | Code says the error is small |
+| R6 | QCD larger than the current year's RMD is capped (phase 1 scope) | `src/projection_stages/spending_and_rmd.py` | QCD planning | CPA | TBA | Annual | QCD law change | Low | L7 | |
+| R7 | Rental simplifications: owner split, change of use, MFS living-apart default | `src/projection_stages/rental_property.py`; `RENTAL_TAX_RULES.md` | Rental tax | Tax preparer | 2026-10-13 | Annual | New property | Low to Medium | A23 | |
+| R8 | Home sale: estate sale at market value; selling cost 6%; home appreciation | `src/projection_stages/home_sale.py`; schema | Estate and sale year | Planner; real estate adviser | TBA | Annual | Market change | Medium | C15 | |
+| R9 | ZIP metrics, top cities and housing optimizer data (no documented source or refresh date) | `reference_src/zip_metrics.csv.gz`, `top_cities.csv` | Housing optimizer outputs | Owner | TBA | Annual | Data vendor change | Low to Medium | L28 | Document the source and the refresh date |
+| R10 | Real-loss probability curves | `reference_src/real_loss_probability.csv` | Monte Carlo and optimizer | Planner or actuary | TBA | Annual | Methodology change | Medium | C3 | No source or approval recorded |
+| R11 | Per-asset distribution yield, qualified-dividend fraction and tax-exempt yield | `capital_market_assumptions.csv` | Taxable income from investments | Planner; CPA | 2026-06-09 | Annual | CMA refresh | Medium | C1 | Qualified dividends are taxed at ordinary rates today (N2) |
+| R12 | Annual earned-income increase 3%; real-estate tax growth 2.5%; core-spending growth with CPI | Plan Data defaults | Cash-flow path | Planner | TBA | Annual | Inflation regime change | High | C2, C7 | |
+| R13 | Monte Carlo tuning: 300 paths, parity tolerance between vectorized and exact engines, widened drift gate | schema; tests | Reliability of the success rate | Planner; owner | TBA | Per release | Engine change | High | C3 | Vectorized reads 14 to 18 points optimistic (BACKLOG) |
+| R14 | Price and balance feeds (Monarch import mapping, price cache) | `src/monarch_*`, `src/market_data.py` | Starting balances | Owner | TBA | Monthly spot check | Vendor change | Medium | D7 | Mapping redesign is on a separate branch |
+| R15 | Help text, Concepts Guide and glossary wording | `documentation/future/`, `.docx` guide | A reader acts on stale text | Owner; planner | TBA | Annual and per release | Any rule change in L | Medium | D1 | Concepts Guide to become in-app HTML |
+| R16 | 401(k) model: one earner, one limit, no age-based catch-up (FIN-010 option A) | `src/projection_stages/income.py`; `src/parsing/client_sections.py` | Contribution planning | Planner; owner | 2026-11-10 | When priorities change | Second earner added | Medium | D10, L19 | Option B deferred |
+| R17 | 2/37 itemized limit not modeled | Engine | High earners' tax | CPA | TBA | Annual | Itemizing households | Medium | L14 | Deferred in Wave 3 |
+| R18 | Estate-tax objective mode and heir assumptions inside the Roth optimizer | schema (`estate_tax_objective_mode`, `heir_*`) | Conversion size near estate-tax range | Planner; estate attorney | TBA | Annual | Estate near the exclusion | Medium | B9 | |
+| R19 | Frozen sample plan and frozen holdings prices used for golden tests | `tests/fixtures/` | A drift means engine change | Owner | Standing | Per release | Any engine output change | Medium | D8 | Do not point scripts at the live plan |
+
 ## E. Engagement status
 
 | Engagement | Status |
@@ -128,3 +210,7 @@ Dates: 2026-11-11 CPA answers were relayed by the owner in chat; the CPA has not
 3. Name an approver and a review date for C1, C2 and C5. These drive every projection and have no recorded sign-off.
 4. Set `qbi_sstb` in the live plan (A1) and run the redaction tool (D3).
 5. Fix two stale statements: the backlog still lists the Illinois estate method as awaiting the attorney (B1), and the owner's three "owner to decide" document rows (D9).
+
+## Change log
+
+- 2026-11-11: first version (sections A to F), then split into three parts and added sections L and R, the maintenance rules and this log.
