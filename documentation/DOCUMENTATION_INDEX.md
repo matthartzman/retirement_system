@@ -23,8 +23,7 @@ plan in `future/` and in `archive/superpowers/` dated 2026-09-16 or later carrie
 | `reference/ANNUAL_MAINTENANCE_RUNBOOK.md` | Yearly tax-table and data refresh |
 | `reference/REFERENCE_DB_SLICES.md` | How to move a reference dataset into the shipped `reference.db` (build tool, getters, golden fixtures) |
 | `archive/reference/PLAN_ROWS_MODEL.md` | Work-package history of the plan rows model; the current model is in the design spec section 4.6 |
-| `reference/CONVERSION_REHEARSAL.md` | Owner steps (PowerShell) to rehearse the whole one-time conversion on a copy of a workspace with `tools/rehearse_conversion.py`; privacy-safe report |
-| `reference/CONVERSION_SAFEGUARD.md` | The conversion's verification and safeguard (WP10.3): what is checked, what blocks, the backup, what is never deleted, rollback |
+| `reference/LEGACY_CONVERSION.md` | The one-time conversion: what is verified, what blocks, the backup and rollback, and the owner steps (PowerShell) to rehearse it on a copy of a workspace |
 | `reference/release_notes/` | Plain-language record of changes that move results |
 | `reference/BACKLOG.md` | Deferred work tracker |
 | `reference/TESTING_AND_CI.md`, `archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md`, `reference/HAPPY_PATH_E2E_TEST_PLAN.md` | CI and testing |
