@@ -86,9 +86,13 @@ def parse_hsa_policy(data, plan_start):
         _n(_v(data, 'HSA Policy', 'Contributions', 'family_annual_limit_base_year', '8750'), 8750) *
         _n(_v(data, 'HSA Policy', 'Contributions', 'coverage_base_year_family_months', '6'), 6) / 12 +
         _n(_v(data, 'HSA Policy', 'Contributions', 'self_only_annual_limit_base_year', '4400'), 4400) *
-        _n(_v(data, 'HSA Policy', 'Contributions', 'coverage_base_year_self_only_months', '6'), 6) / 12 +
-        _n(_v(data, 'HSA Policy', 'Contributions', 'catchup_amount', '1000'), 1000)
+        _n(_v(data, 'HSA Policy', 'Contributions', 'coverage_base_year_self_only_months', '6'), 6) / 12
     )
+    # The age-55+ catch-up is a fixed statutory $1,000 per eligible person (not indexed): it is kept
+    # apart from the indexed base and applied per living spouse aged 55-64 by the income stage.
+    hsa_catchup = _n(_v(data, 'HSA Policy', 'Contributions', 'catchup_amount', '1000'), 1000)
+    if not _b(_v(data, 'HSA Policy', 'Contributions', 'catchup_eligible', 'TRUE')):
+        hsa_catchup = 0.0
     hsa_last_contrib = _y(_v(data, 'HSA Policy', 'Contributions', 'contribution_last_year', str(plan_start)), plan_start)
 
     # ── HSA Policy: beneficiary / death-tax-treatment ────────────────────────
@@ -112,6 +116,7 @@ def parse_hsa_policy(data, plan_start):
         'hsa_win_start': hsa_win_start,
         'hsa_win_end': hsa_win_end,
         'hsa_contrib_base': hsa_contrib_base,
+        'hsa_catchup': hsa_catchup,
         'hsa_last_contrib': hsa_last_contrib,
         'hsa_beneficiary_type': hsa_beneficiary_type,
         'hsa_consume_by': hsa_consume_by,

@@ -1,5 +1,5 @@
 // The Cash Reserves page shows the four standard checking / credit-card balance fields
-// (design: documentation/future/superpowers/plans/2026-11-07-cash-balances-and-art-split-design-and-plan.md 3.1).
+// (design: documentation/archive/superpowers/plans/2026-11-07-cash-balances-and-art-split-design-and-plan.md 3.1).
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { loadDashboardSandbox } from "./load_dashboard.mjs";

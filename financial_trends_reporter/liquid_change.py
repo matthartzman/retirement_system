@@ -13,7 +13,7 @@ This module builds the per-account daily ledger the page sums: ``{account name: 
 "income": i}}}``, keyed by the imported (Monarch) account name the balances use. Income comes from the broker
 activity files where an account has one (their rows are the record of its dividends, interest and fees; the
 importer drops the Monarch copies), else from the Monarch transactions in the income and fee categories.
-Design: documentation/future/superpowers/plans/2026-11-06-alt-asset-gain-tax-and-change-breakdown-design-and-plan.md
+Design: documentation/archive/superpowers/plans/2026-11-06-alt-asset-gain-tax-and-change-breakdown-design-and-plan.md
 section 3.4.
 """
 from __future__ import annotations

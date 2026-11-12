@@ -396,6 +396,8 @@ export function buildChangeSummaryHtml(changes) {
   return html;
 }
 
+export const openImpactHelp = (b) => { document.getElementById("helpPanel").innerHTML = `<h3>${esc(b.dataset.helpTitle)}</h3><p>${esc(b.dataset.helpText)}</p>`; }; // the document click handler opens the panel
+
 export function impactCardHtml(
   title,
   delta,
@@ -405,6 +407,7 @@ export function impactCardHtml(
   help,
   deltaFormatter = fmtDelta,
   invert = false,
+  qualifier = "",
 ) {
   const headline = Number.isFinite(Number(delta))
     ? deltaFormatter(delta)
@@ -429,9 +432,9 @@ export function impactCardHtml(
     headlineColorClass = isGood ? "positive-money" : "negative-money";
   }
   const infoIcon = help
-    ? ` <button type="button" class="field-info-i" title="${esc(help)}" aria-label="More info: ${esc(help)}">i</button>`
+    ? ` <button type="button" class="field-info-i" title="${esc(help)}" aria-controls="helpPanel" aria-label="More info: ${esc(help)}" data-help-title="${esc(title)}" data-help-text="${esc(help)}" onclick="openImpactHelp(this)">i</button>`
     : "";
-  return `<div class="impact-card"><span>${esc(title)}${infoIcon}</span><b class="${headlineColorClass}">${headline}</b><div class="impact-headline-label">${headlineLabel}</div><div class="impact-row"><span>Before</span><strong class="${bNeg ? "negative-money" : ""}">${valueFormatter(beforeVal)}</strong></div><div class="impact-row"><span>After</span><strong class="${aNeg ? "negative-money" : ""}">${valueFormatter(afterVal)}</strong></div></div>`;
+  return `<div class="impact-card"><span>${esc(title)}${infoIcon}</span><b class="${headlineColorClass}">${headline}</b><div class="impact-headline-label">${headlineLabel}</div>${qualifier ? `<div class="small" data-kind="state">${esc(qualifier)}</div>` : ""}<div class="impact-row"><span>Before</span><strong class="${bNeg ? "negative-money" : ""}">${valueFormatter(beforeVal)}</strong></div><div class="impact-row"><span>After</span><strong class="${aNeg ? "negative-money" : ""}">${valueFormatter(afterVal)}</strong></div></div>`;
 }
 
 // #293: the three headline cards report Expected After-Tax Lifetime
@@ -465,7 +468,7 @@ export function buildImpactCardsHtml(before, after) {
           after.terminal_nw_mc_p5,
           fmtMoney,
           "The 5th-percentile ending net worth across Monte Carlo simulation paths -- what the plan leaves even in a bad-market scenario, without collapsing risk into a single pass/fail probability.",
-          fmtDelta,
+          fmtDelta, false, "5th percentile of simulated outcomes",
         )
       : `<div class="impact-card"><span>Worst-Case Ending Wealth</span><b>Not available</b><div class="small" data-kind="state">Monte Carlo results were not available for this comparison.</div></div>`;
   // #225: Post-Tax Inheritance was shown as its own headline card here AND
@@ -906,6 +909,7 @@ Object.assign(window, {
   buildSourceJumpHtml,
   buildChangeSummaryHtml,
   impactCardHtml,
+  openImpactHelp,
   buildImpactCardsHtml,
   impactDirectionWord,
   buildImpactNarrativeHtml,

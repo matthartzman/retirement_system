@@ -2,7 +2,8 @@
 // Import reads the *.csv files of a chosen folder and posts their texts to /api/import/preview,
 // then /api/import/commit once the user confirms. Export reads /api/export/plan-set?format=files
 // and writes each file into a chosen folder. No file name is known to the client.
-import { api, showMessage, showInAppConfirm, loadAll, hasUnsavedPlanChanges } from "./dashboard_decomp_row_model.js";
+import { api, showMessage, loadAll, hasUnsavedPlanChanges } from "./dashboard_decomp_row_model.js";
+import { showInAppConfirm } from "./dashboard_decomp_inapp_modals.js";
 
 const pickFolder = (mode) =>
   typeof window.showDirectoryPicker === "function"

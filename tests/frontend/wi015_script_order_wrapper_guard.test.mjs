@@ -39,6 +39,23 @@ const FROZEN_SCRIPT_ORDER = [
   "js/dashboard_decomp_local_backups.js",
   "js/dashboard_decomp_monarch_autoupdate.js",
   "js/dashboard_decomp_row_model.js",
+  "js/dashboard_decomp_ytd_edit.js",
+  "js/dashboard_decomp_inapp_modals.js",
+  "js/dashboard_decomp_labels.js",
+  "js/dashboard_decomp_budget_edit.js",
+  "js/dashboard_decomp_planning_levers.js",
+  "js/dashboard_decomp_build_runner.js",
+  "js/dashboard_decomp_save_errors.js",
+  "js/dashboard_decomp_row_routing.js",
+  "js/dashboard_decomp_field_render.js",
+  "js/dashboard_decomp_field_guidance.js",
+  "js/dashboard_decomp_allocation_policy.js",
+  "js/dashboard_decomp_nav_context.js",
+  "js/dashboard_decomp_detailed_results.js",
+  "js/dashboard_decomp_row_helpers.js",
+  "js/dashboard_decomp_step_stats.js",
+  "js/dashboard_decomp_kpi_history.js",
+  "js/dashboard_decomp_step_gating.js",
   "js/dashboard_decomp_assets_other.js",
   "js/dashboard_decomp_spending_taxonomy.js",
   "js/dashboard_decomp_spending_sources.js",
@@ -135,8 +152,8 @@ function definesOrWraps(src, sym) {
   return assign.test(stripped) || define.test(stripped);
 }
 
-test("index.html script list and order are frozen (70 module scripts)", () => {
-  assert.equal(scriptSrcs().length, 70);
+test("index.html script list and order are frozen (87 module scripts)", () => {
+  assert.equal(scriptSrcs().length, 87);
   assert.deepEqual(scriptSrcs(), FROZEN_SCRIPT_ORDER);
 });
 

@@ -9,6 +9,8 @@ stage module.  Additional fine-grained stage files can replace pieces behind
 this same contract without changing callers.
 """
 
+import functools
+
 from ..fallback_log import log_fallback as _log_fallback
 from ..early_distribution import early_distribution_tax as _early_distribution_tax, early_fraction as _early_fraction
 from ..tax_law import default_tax_law_dataset as _tax_law_ds
@@ -60,10 +62,7 @@ from ..engine_kernels import (
     TAX_BASE_YEAR,
     ensure_engine_config,
     liquidity_buffer_years_for_year,
-    aca_magi as _aca_magi,
-    aca_premium_tax_credit as _aca_ptc,
     marginal_rate,
-    social_security_taxable_amount as _ss_taxable_amount,
     state_income_tax,
 )
 from .. import engine_kernels as _legacy_pe
@@ -75,6 +74,13 @@ from ..core import state_for_year
 from ..core import qlac_premium_limit
 from ..module_catalog import module_enabled
 from . import rental_property as _rental
+from . import housing_next_steps as _housing_next
+from . import index_paths as _index_paths
+from . import medicare_premiums as _medicare_premiums
+from . import social_security_factors as _ss_factors
+from . import tax_paths as _tax_paths
+from . import year_factors as _year_factors
+from . import gain_stacking as _gain_stacking
 from . import other_asset_sale_tax as _other_asset_sale
 from . import note_installment_gain as _note_installment
 from . import working_balance_transfer as _working_balance_transfer
@@ -121,142 +127,6 @@ def run_deterministic_projection_stage(c):
         if acct and abs(amount) > 1e-9:
             sources = row.setdefault('_account_deposit_sources', {})
             sources.setdefault(acct, []).append({'source': source, 'amount': amount})
-
-    def _mortgage_payment_and_balance(principal, annual_rate, year_index, term_years=30):
-        """Return annual P&I payment and end-of-year balance for a fixed mortgage."""
-        principal = max(0.0, float(principal or 0.0))
-        if principal <= 0.0:
-            return 0.0, 0.0
-        term_years = max(1, int(term_years or 30))
-        total_pmts = term_years * 12
-        made_pmts = max(0, min(total_pmts, int(year_index) * 12))
-        remaining_pmts_start = max(0, total_pmts - made_pmts)
-        if remaining_pmts_start <= 0:
-            return 0.0, 0.0
-        monthly_rate = max(0.0, float(annual_rate or 0.0)) / 12.0
-        if monthly_rate > 1e-9:
-            monthly_pmt = principal * monthly_rate / (1 - (1 + monthly_rate) ** (-total_pmts))
-            bal_start = principal * ((1 + monthly_rate) ** total_pmts - (1 + monthly_rate) ** made_pmts) / ((1 + monthly_rate) ** total_pmts - 1)
-        else:
-            monthly_pmt = principal / total_pmts
-            bal_start = max(0.0, principal - monthly_pmt * made_pmts)
-        bal = bal_start
-        principal_paid = 0.0
-        for _ in range(min(12, remaining_pmts_start)):
-            interest = bal * monthly_rate
-            principal_component = max(0.0, min(bal, monthly_pmt - interest))
-            bal = max(0.0, bal - principal_component)
-            principal_paid += principal_component
-        return monthly_pmt * min(12, remaining_pmts_start), bal
-
-    def _next_housing_for_year(year):
-        """Compute cash-flow and net-worth impacts from Housing next-step rows.
-
-        Purchase down payments are not ordinary spending; they are exposed as
-        `other_cash_need` so the workbook cash bridge can reconcile them
-        separately from annual spending.  Rent and ongoing purchase operating
-        costs are Housing spending.
-        """
-        out = {
-            'rent': 0.0, 'mortgage_payment': 0.0, 'real_estate_tax': 0.0,
-            'insurance': 0.0, 'utilities': 0.0, 'maintenance': 0.0, 'hoa': 0.0,
-            'purchase_cash': 0.0, 'home_value': 0.0, 'mortgage_balance': 0.0,
-            'equity': 0.0, 'active_labels': [],
-        }
-        for step in c.get('next_housing_steps', []) or []:
-            try:
-                start = int(step.get('start_year') or 0)
-            except Exception:
-                start = 0
-            if not start or year < start:
-                continue
-            try:
-                end = int(step.get('end_year') or 0)
-            except Exception:
-                end = 0
-            if end and year > end:
-                continue
-            # A step marked for sale (see apply_next_housing_sale below) stops
-            # contributing ongoing cash flow/value from its sale year onward,
-            # same as if it had been sold -- regardless of whether its own
-            # `end_year` was also set to `sale_year - 1` (the well-formed
-            # case). This is a safety net, not the primary mechanism: a
-            # caller that sets `sale_year` without also setting `end_year`
-            # still gets correct behavior instead of double-counting a home
-            # that has already been sold.
-            try:
-                sale_yr = int(step.get('sale_year') or 0)
-            except Exception:
-                sale_yr = 0
-            if sale_yr and year >= sale_yr:
-                continue
-            typ = str(step.get('type') or 'purchase').strip().lower()
-            base = start
-            infl = _infl_ratio(year, base)
-            label = step.get('id') or 'next_housing'
-            out['active_labels'].append(str(label))
-            if typ == 'rent':
-                out['rent'] += float(step.get('monthly_rent', 0.0) or 0.0) * 12.0 * infl
-                # Rent steps use explicit renters-insurance and rental-utility
-                # inputs.  Current-home utilities/homeowners insurance do not
-                # carry over after sale.
-                out['insurance'] += float(step.get('insurance_annual', 0.0) or 0.0) * infl
-                out['utilities'] += float(step.get('utilities_annual', 0.0) or 0.0) * infl
-                continue
-            price = float(step.get('purchase_price', 0.0) or 0.0)
-            if price <= 0.0:
-                # Even without a purchase price, carry operating costs if present.
-                out['insurance'] += float(step.get('insurance_annual', 0.0) or 0.0) * infl
-                out['utilities'] += float(step.get('utilities_annual', 0.0) or 0.0) * infl
-                out['maintenance'] += float(step.get('maintenance_annual', 0.0) or 0.0) * infl
-                continue
-            down_pct = max(0.0, min(1.0, float(step.get('down_payment_pct', 0.20) or 0.20)))
-            loan = max(0.0, price * (1.0 - down_pct))
-            if year == start:
-                out['purchase_cash'] += price * down_pct
-            year_index = max(0, year - start)
-            pmt, bal_end = _mortgage_payment_and_balance(loan, float(step.get('mortgage_rate_pct', 0.0) or 0.0), year_index)
-            home_value = price * ((1.0 + float(c.get('home_appr', 0.0) or 0.0)) ** max(0, year - start + 1))
-            out['mortgage_payment'] += pmt
-            out['mortgage_balance'] += bal_end
-            out['home_value'] += home_value
-            out['equity'] += max(0.0, home_value - bal_end)
-            out['real_estate_tax'] += price * float(step.get('real_estate_tax_pct', 0.0) or 0.0) * infl
-            out['insurance'] += float(step.get('insurance_annual', 0.0) or 0.0) * infl
-            out['utilities'] += float(step.get('utilities_annual', 0.0) or 0.0) * infl
-            out['maintenance'] += float(step.get('maintenance_annual', 0.0) or 0.0) * infl
-            out['hoa'] += price * float(step.get('hoa_pct', 0.0) or 0.0) * infl
-        return out
-
-    def _next_housing_sale_inputs(step, sale_year):
-        """Gross value and mortgage payoff for selling a next_housing_steps
-        purchase step in `sale_year`, valued as of the end of the PRIOR
-        year -- the same convention apply_home_sale uses for the original
-        home (a sale year's gross proceeds come from last year's ending
-        value; the sale year itself doesn't add another year of
-        appreciation). Mirrors the per-step formula in
-        `_next_housing_for_year` above (kept as a small separate
-        computation, not a shared helper, so that function's already-tested
-        aggregate-across-steps behavior is untouched). Returns None for a
-        rent step or a purchase step with no positive price -- nothing to
-        sell.
-        """
-        if str(step.get('type') or 'purchase').strip().lower() != 'purchase':
-            return None
-        price = float(step.get('purchase_price', 0.0) or 0.0)
-        try:
-            start = int(step.get('start_year') or 0)
-        except Exception:
-            start = 0
-        if price <= 0.0 or not start:
-            return None
-        valuation_year = sale_year - 1
-        home_value = price * ((1.0 + float(c.get('home_appr', 0.0) or 0.0)) ** max(0, valuation_year - start + 1))
-        down_pct = max(0.0, min(1.0, float(step.get('down_payment_pct', 0.20) or 0.20)))
-        loan = max(0.0, price * (1.0 - down_pct))
-        year_index = max(0, valuation_year - start)
-        _pmt, mort_bal = _mortgage_payment_and_balance(loan, float(step.get('mortgage_rate_pct', 0.0) or 0.0), year_index)
-        return home_value, mort_bal
 
     # TCJA warning
     emit(EvWarning(0, 'TCJA_PERMANENT',
@@ -334,36 +204,13 @@ def run_deterministic_projection_stage(c):
     # -- using exemption during life is the "unified credit" being unified.
     lifetime_exemption_used = 0.0
 
-    def _path_factor(path_key, annual_rate, year):
-        path = c.get(path_key)
-        if isinstance(path, dict) and year in path:
-            try:
-                return float(path[year])
-            except (TypeError, ValueError) as _exc:
-                _log_fallback("path_factor", _exc, path_key=path_key, year=year)
-        return (1 + float(annual_rate or 0.0)) ** (year - c['plan_start'])
-
-    def _path_ratio(path_key, annual_rate, year, base_year):
-        if year <= base_year:
-            return (1 + float(annual_rate or 0.0)) ** max(0, year - base_year)
-        path = c.get(path_key)
-        if isinstance(path, dict) and year in path and base_year in path:
-            try:
-                denom = float(path[base_year])
-                if denom != 0:
-                    return float(path[year]) / denom
-            except (TypeError, ValueError, ZeroDivisionError) as _exc:
-                _log_fallback("path_ratio", _exc, path_key=path_key, year=year)
-        return (1 + float(annual_rate or 0.0)) ** (year - base_year)
-
-    def _infl_factor(year):
-        return _path_factor('inflation_index_by_year', c['inf'], year)
-
-    def _spending_factor(year):
-        if c.get('core_spending_growth_mode') == 'manual_override':
-            return (1 + float(c.get('spend_inf', c.get('inf', 0.0)) or 0.0)) ** max(0, year - c['plan_start'])
-        return _infl_factor(year)
-
+    # ARC-001: calculations live in index_paths / medicare_premiums; these are bindings to ``c`` only.
+    _path_factor = functools.partial(_index_paths.path_factor, c)
+    _path_ratio = functools.partial(_index_paths.path_ratio, c)
+    _wellness_premium_for_age = functools.partial(_medicare_premiums.wellness_premium_for_age, c)
+    _sehi_deduction_source_amount = functools.partial(_medicare_premiums.sehi_deduction_source_amount, c)
+    _medicare_month_fraction = _medicare_premiums.medicare_month_fraction
+    _infl_factor = functools.partial(_year_factors.infl_factor, c)
     # ── Survivor spending factor ────────────────────────────────────────────
     # A one-person household does not spend what a two-person household spends.
     # The factor applies to core spending and recurring extras (travel, large
@@ -407,133 +254,16 @@ def run_deterministic_projection_stage(c):
     _home_basis_adjusted = None        # original home's post-first-death basis
     _next_housing_basis_adjusted = {}  # id(step) -> post-first-death basis
 
-    def _survivor_factor(n_alive):
-        """1.0 unless exactly one member of a couple is still alive.
+    _survivor_factor = functools.partial(_year_factors.survivor_factor, _household_is_couple, _survivor_spend_factor)
 
-        n_alive == 0 is deliberately left at 1.0 here: zeroing living
-        expenses after the second death is Task S2's job, and returning a
-        scale factor for it would be the wrong mechanism anyway.
-        """
-        if _household_is_couple and n_alive == 1:
-            return _survivor_spend_factor
-        return 1.0
-
-    def _medicare_month_fraction(dob_yr, dob_month, year):
-        """Fraction of `year` (0.0-1.0) a person is Medicare Part B/D enrolled.
-
-        Convention: Medicare eligibility begins the first of the calendar
-        month in which a person turns 65 (standard CMS enrollment rule). Age
-        follows the engine's existing integer convention (year - dob_yr), so
-        this only ever prorates the single transition year where that age
-        first equals 65 — 0.0 in all earlier years, 1.0 in all later years,
-        and (12 - (birth_month - 1)) / 12 in the turn-65 year itself.
-        """
-        try:
-            age = int(year) - int(dob_yr)
-        except Exception:
-            return 0.0
-        if age < 65:
-            return 0.0
-        if age > 65:
-            return 1.0
-        try:
-            m = int(dob_month) if dob_month else 1
-        except Exception:
-            m = 1
-        m = min(max(m, 1), 12)
-        return (12 - (m - 1)) / 12.0
-
-    def _wellness_premium_for_age(age, year, dob_month=1):
-        """Return the annual per-person premium used for SEHI in this year.
-
-        There is intentionally no standalone "health insurance premiums"
-        input.  Before age 65, use Pre-65 Healthcare Premium; at 65+ use
-        Medicare Part B + Part D + Part G costs. In the calendar year a
-        person turns 65, both are prorated by month via
-        `_medicare_month_fraction` (Medicare starts the 1st of the birth
-        month) instead of switching on a hard binary age gate.
-        """
-        try:
-            age = float(age)
-        except Exception:
-            age = 0.0
-        dob_yr = year - age
-        medicare_frac = _medicare_month_fraction(dob_yr, dob_month, year)
-        pre65_frac = 1.0 - medicare_frac
-        bridge = float(c.get('bridge_premium', 0.0) or 0.0) * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year) * pre65_frac
-        part_b = float(c.get('partb', 0.0) or 0.0) * 12 * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year) * medicare_frac
-        part_d = float(c.get('partd', 0.0) or 0.0) * 12 * _path_factor('partd_index_by_year', c.get('partd_inf', c.get('med_inf', c['inf'])), year) * medicare_frac
-        part_g = float(c.get('partg', 0.0) or 0.0) * 12 * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year) * medicare_frac
-        return bridge + part_b + part_d + part_g
-
-    def _sehi_deduction_source_amount(year, h_age, w_age, h_alive=True, w_alive=True):
-        _sehi_override = c.get('sehi_user_override')
-        if _sehi_override is not None:
-            return max(0.0, float(_sehi_override))
-        if c.get('sehi_derived_from_wellness', True):
-            total = 0.0
-            if h_alive:
-                total += _wellness_premium_for_age(h_age, year, c.get('h_dob_month'))
-            if w_alive:
-                total += _wellness_premium_for_age(w_age, year, c.get('w_dob_month'))
-            return max(0.0, total)
-        return max(0.0, float(c.get('sehi', 0.0) or 0.0))
-
-    def _infl_ratio(year, base_year):
-        return _path_ratio('inflation_index_by_year', c['inf'], year, base_year)
-
-    def _ss_ratio(year, claim_year):
-        return _path_ratio('ss_cola_index_by_year', c['ss_cola'], year, claim_year)
-
-    def _ss_first_claim_year_month_fraction(year, claim_year, dob_month):
-        """Fraction of `year` (0.0-1.0) Social Security is actually payable.
-
-        Wave 5 item W5-3 (finding N3, 2026-09-08 explicit direction):
-        Social Security pays in ARREARS -- the check for a given month's
-        entitlement arrives the following month -- unlike Medicare coverage
-        (a genuine coverage-period concept correctly modeled as starting the
-        1st of the entitlement month by _medicare_month_fraction). Reusing
-        that same in-advance formula here was the root cause N3 identified:
-        an entitlement in month M pays (12-M) months that calendar year, not
-        (12-(M-1)) -- e.g. an August claim pays September-December (4
-        months), not August-December (5). A December claim pays zero SS
-        cash that calendar year (first check arrives the following January).
-        Only the claim YEAR itself is ever partial; every later year is a
-        full 12 months.
-        """
-        if year != claim_year:
-            return 1.0
-        try:
-            m = int(dob_month) if dob_month else 1
-        except Exception:
-            m = 1
-        m = min(max(m, 1), 12)
-        return (12 - m) / 12.0
-
-    def _bracket_factor_for_year(year):
-        return _tk.bracket_factor_for_year(c, year)
-
-    def _inflate_brackets_path(brackets, inflator_unused, years_from_plan_start):
-        year_eff = int(c.get('plan_start', 0) or 0) + int(years_from_plan_start or 0)
-        factor = _bracket_factor_for_year(year_eff)
-        return [(lo * factor, hi * factor if hi != float('inf') else float('inf'), rate) for lo, hi, rate in brackets]
-
-    def _fed_brackets_path(year, filing):
-        brk = FEDERAL_BRACKETS_BASE_YEAR.get(filing, FEDERAL_BRACKETS_BASE_YEAR['Single'])
-        brk = _inflate_brackets_path(brk, None, int(year) - int(c.get('plan_start', year)))
-        # Tax-law stress (src/tax_assumptions.py): rates only, tax owed only.
-        return _ta_stressed_brackets(brk, year, c.get('law_scenario'))
-
-    def _ordinary_fed_tax_path(taxable, year, filing):
-        """Ordinary-schedule tax on ``taxable`` (no preferential income)."""
-        brk = _fed_brackets_path(year, filing)
-        tax = 0.0
-        taxable = max(0.0, float(taxable or 0.0))
-        for lo, hi, rate in brk:
-            if taxable <= lo:
-                break
-            tax += (min(taxable, hi) - lo) * rate
-        return max(0.0, tax)
+    _infl_ratio = functools.partial(_index_paths.infl_ratio, c)
+    _ss_ratio = functools.partial(_index_paths.ss_ratio, c)
+    _ss_first_claim_year_month_fraction = _ss_factors.ss_first_claim_year_month_fraction
+    _fra_for_birth_year = _ss_factors.fra_for_birth_year
+    _ss_claim_factor = _ss_factors.ss_claim_factor
+    _ss_benefit_from_age70 = _ss_factors.ss_benefit_from_age70
+    _ss_spousal_excess_factor = _ss_factors.ss_spousal_excess_factor
+    _ss_survivor_reduction_factor = _ss_factors.ss_survivor_reduction_factor
 
     # WI-023 / FIN-003: the year's qualified dividends, registered by the year
     # loop as soon as the portfolio income split is known. Every stage that
@@ -542,177 +272,23 @@ def run_deterministic_projection_stage(c):
     # capital-loss offset value) then sees the same preferential stack.
     _qualified_dividends_by_year: dict[int, float] = {}
 
-    def _compute_fed_tax_path(taxable, year, filing, brk_inf_unused=None):
-        """Federal tax on ``taxable`` (qualified dividends included): the
-        ordinary schedule on the rest, plus 0/15/20% on the dividends stacked
-        on top of it. Realized gains are priced separately above this stack."""
-        return _tk.fed_tax_with_qualified(
-            c, lambda o: _ordinary_fed_tax_path(o, year, filing), taxable,
-            _qualified_dividends_by_year.get(year, 0.0), year, filing)
+    _bracket_factor_for_year = functools.partial(_tax_paths.bracket_factor_for_year, c)
+    _inflate_brackets_path = functools.partial(_tax_paths.inflate_brackets_path, c)
+    _fed_brackets_path = functools.partial(_tax_paths.fed_brackets_path, c)
+    _ordinary_fed_tax_path = functools.partial(_tax_paths.ordinary_fed_tax_path, c)
+    _compute_fed_tax_path = functools.partial(_tax_paths.compute_fed_tax_path, c, _qualified_dividends_by_year)
+    _ira_elective_ordinary_tax_delta = functools.partial(_tax_paths.ira_elective_ordinary_tax_delta, c, _qualified_dividends_by_year)
+    _standard_deduction_path = functools.partial(_tax_paths.standard_deduction_path, c)
+    _irmaa_factor_for_year = functools.partial(_tax_paths.irmaa_factor_for_year, c)
+    _irmaa_surcharge_path = functools.partial(_tax_paths.irmaa_surcharge_path, c)
+    _irmaa_tier_path = functools.partial(_tax_paths.irmaa_tier_path, c)
+    _ltcg_tax_on_gain_path = functools.partial(_tax_paths.ltcg_tax_on_gain_path, c)
 
-    def _ira_elective_ordinary_tax_delta(fed_tax_base, state_tax_base, taxable_inc_base,
-                                          retirement_dist_base, ira_wd_cumulative, year, filing,
-                                          ss_taxable, earned_net, investment_inc, nonqual_ann,
-                                          roth_conv, h_over_65):
-        """Real incremental fed+state tax caused by `ira_wd_cumulative` of elective
-        IRA/401(k) income, vs. the flat marginal-rate estimate baked into
-        withdraw_pretax_elective's gross-up. `fed_tax_base`/`state_tax_base`/
-        `taxable_inc_base` should be the values as of the last time this income
-        was accounted for, so the return is the tax on just the newest increment.
-        """
-        if ira_wd_cumulative <= 1e-6:
-            return 0.0, fed_tax_base, state_tax_base
-        new_taxable_inc = taxable_inc_base + ira_wd_cumulative
-        new_fed_tax = _compute_fed_tax_path(new_taxable_inc, year, filing, c['brk_inf'])
-        new_state_tax = state_income_tax(
-            state_for_year(c, year), earned_net, retirement_dist_base + ira_wd_cumulative, ss_taxable,
-            investment_inc, nonqual_ann, roth_conv, year, h_over_65, filing=filing,
-            brk_inf=c['brk_inf'], rate_override=c.get('state_rate_override'),
-        )
-        delta = (new_fed_tax - fed_tax_base) + (new_state_tax - state_tax_base)
-        return delta, new_fed_tax, new_state_tax
-
-    def _standard_deduction_path(year, filing, brk_inf_unused=None, n_over_65=2):
-        td = getattr(_ar, '_td', None)
-        base = getattr(td, 'STANDARD_DEDUCTION_BASE_YEAR', {}).get(filing, 15750) if td else 15750
-        add_per = getattr(td, 'STANDARD_DEDUCTION_OVER65_BASE_YEAR', {}).get(filing, 1650) if td else 1650
-        return (base + add_per * n_over_65) * _bracket_factor_for_year(year)
-
-    def _irmaa_factor_for_year(year):
-        return _tk.irmaa_factor_for_year(c, year)
-
-    def _irmaa_surcharge_path(agi, year, n_people, filing):
-        return _tk.irmaa_surcharge(agi, year, n_people, filing, c)
-
-    def _irmaa_tier_path(agi, year, filing):
-        return _tk.irmaa_tier(agi, year, filing, c)
-
-    def _ltcg_tax_on_gain_path(gain, ordinary_income, year):
-        return _tk.ltcg_tax_on_gain(c, gain, ordinary_income, year)
-
-    def _fra_for_birth_year(dob_year, fra_override=None):
-        if fra_override and float(fra_override) > 0:
-            return float(fra_override)
-        dob_year = int(dob_year or 1960)
-        if dob_year >= 1960:
-            return 67.0
-        if dob_year <= 1937:
-            return 65.0
-        if dob_year <= 1942:
-            return 65.0 + (dob_year - 1937) * (2.0 / 12.0)
-        if dob_year <= 1954:
-            return 66.0
-        return 66.0 + (dob_year - 1954) * (2.0 / 12.0)
-
-    def _ss_claim_factor(claim_age, dob_year, fra_override=None):
-        # SSA reduction/credit factors relative to PIA at FRA.
-        fra = _fra_for_birth_year(dob_year, fra_override)
-        months = int(round((float(claim_age or fra) - fra) * 12))
-        if months >= 0:
-            return 1.0 + months * (0.08 / 12.0)
-        early = abs(months)
-        first36 = min(36, early) * (5.0 / 900.0)
-        extra = max(0, early - 36) * (5.0 / 1200.0)
-        return max(0.0, 1.0 - first36 - extra)
-
-    def _ss_benefit_from_age70(monthly_at_70, claim_age, dob_year, fra_override=None):
-        f70 = _ss_claim_factor(70, dob_year, fra_override) or 1.0
-        return float(monthly_at_70 or 0.0) * (_ss_claim_factor(claim_age, dob_year, fra_override) / f70)
-
-    def _ss_spousal_excess_factor(start_age, dob_year, fra_override=None):
-        # Reduction schedule for the EXCESS SPOUSAL benefit, which differs from a
-        # worker's own retirement reduction (_ss_claim_factor).  Per SSA the
-        # excess spousal amount is reduced 25/36 of 1% per month for the first 36
-        # months claimed before FRA, then 5/12 of 1% per month for any months
-        # beyond 36.  Delayed retirement credits do NOT apply to the spousal
-        # excess: claiming after FRA never grows it past the FRA-level amount, so
-        # the factor is capped at 1.0.  `start_age` is the claimant's age when the
-        # spousal benefit first becomes payable (the later of their own filing and
-        # the worker's filing), relative to the claimant's own FRA.
-        fra = _fra_for_birth_year(dob_year, fra_override)
-        months = int(round((float(start_age or fra) - fra) * 12))
-        if months >= 0:
-            return 1.0
-        early = abs(months)
-        first36 = min(36, early) * (25.0 / 3600.0)
-        extra = max(0, early - 36) * (5.0 / 1200.0)
-        return max(0.0, 1.0 - first36 - extra)
-
-    def _ss_survivor_reduction_factor(age_at_start, dob_year, fra_override=None):
-        """Survivor-benefit early-claim reduction, FIN-001 (system review
-        2026-09-25). Distinct from _ss_claim_factor (a worker's own
-        retirement reduction/delayed-credit schedule, which runs from age 62
-        to beyond FRA and grants delayed credits) and from
-        _ss_spousal_excess_factor (the excess-spousal top-up schedule): SSA
-        reduces a survivor benefit linearly from 71.5% of the full amount at
-        exactly age 60 up to 100% at the survivor's own FRA, and -- unlike a
-        worker's own benefit -- grants no delayed credit for waiting past
-        FRA to start it (capped at 1.0). The true SSA table is not perfectly
-        linear between 60 and FRA; this linear approximation is within a
-        fraction of a percent of the published table across that span and is
-        adopted here in the same spirit as _fra_for_birth_year's own
-        piecewise-linear FRA formula.
-        """
-        fra = _fra_for_birth_year(dob_year, fra_override)
-        age_at_start = float(age_at_start or fra)
-        if age_at_start >= fra:
-            return 1.0
-        if age_at_start <= 60.0:
-            return 0.715
-        span = fra - 60.0
-        if span <= 0:
-            return 1.0
-        frac_early = (fra - age_at_start) / span
-        return max(0.715, 1.0 - 0.285 * frac_early)
-
-    def _basis_stepup_fraction(decedent_owned=True):
-        regime = str(c.get('basis_step_up_property_regime', 'COMMON_LAW') or 'COMMON_LAW').upper()
-        if regime in ('COMMUNITY_PROPERTY', 'FULL_STEP_UP'):
-            return 1.0
-        if regime == 'HALF_STEP_UP':
-            return 0.5
-        return 1.0 if decedent_owned else 0.5
-
-    def _taxable_portfolio_income_for_year():
-        # Dividends/interest are taxable in the year earned whether or not they
-        # are reinvested (an account holds every investment type, but only
-        # taxable/Trust accounts generate a current tax event; IRA/401k/Roth/
-        # HSA dividends aren't taxed until a separate withdrawal occurs).
-        # Whether the yield compounds into the holding or converts to
-        # account-internal cash is a growth-engine concern (see
-        # planning_engines.apply_end_of_year_growth) — either way the money
-        # never leaves the account, so this no longer funds spending directly.
-        ordinary = qualified = tax_exempt = 0.0
-        taxable_ids_set = set(c.get('taxable_ids', []))
-        for _acct, _info in (c.get('account_taxable_income_assumptions') or {}).items():
-            if _acct not in taxable_ids_set:
-                continue
-            _bal = max(0.0, float(bal.get(_acct, 0.0) or 0.0))
-            ordinary += _bal * float(_info.get('ordinary_yield', 0.0) or 0.0)
-            qualified += _bal * float(_info.get('qualified_yield', 0.0) or 0.0)
-            tax_exempt += _bal * float(_info.get('tax_exempt_yield', 0.0) or 0.0)
-        return ordinary, qualified, tax_exempt
-
-    def _early_dist_tax_fn_for_year(year):
-        """WI-039 / FIN-004: the 10% additional tax on early pre-tax distributions, as a function of the
-        cumulative pre-tax draws by account. None when no living owner is under 59 1/2 this year, so plans
-        without exposure run exactly as before."""
-        members = c.get('members') or []
-        if not members or not any(
-                _early_fraction(year, m['dob_yr'], m.get('dob_month') or 1) > 0.0 for m in members):
-            return None
-        rate = _tax_law_ds().lookup_or_earliest('early_distribution_additional_tax_rate', year).value
-        exceptions = c.get('early_dist_exceptions') or {}
-        registry = c.get('account_registry') or []
-        return lambda draws: _early_distribution_tax(rate, year, draws, registry, members, exceptions)[0]
-
-    def _ss_funding_factor(year):
-        try:
-            cut_year = int(c.get('ss_funding_discount_year', 2032) or 2032)
-            pct = max(0.0, min(1.0, float(c.get('ss_funding_discount_pct', 0.22) or 0.0)))
-        except Exception:
-            cut_year, pct = 2032, 0.22
-        return 1.0 - pct if int(year) >= cut_year and pct > 0 else 1.0
+    _spending_factor = functools.partial(_year_factors.spending_factor, c)
+    _basis_stepup_fraction = functools.partial(_year_factors.basis_stepup_fraction, c)
+    _taxable_portfolio_income_for_year = functools.partial(_year_factors.taxable_portfolio_income_for_year, c, bal)
+    _early_dist_tax_fn_for_year = functools.partial(_year_factors.early_dist_tax_fn_for_year, c)
+    _ss_funding_factor = functools.partial(_year_factors.ss_funding_factor, c)
 
     # Advanced planning modules (Phase 3 engine integration). Gated through
     # module_enabled() — the same question every other call site asks — so the
@@ -922,7 +498,7 @@ def run_deterministic_projection_stage(c):
                 _nh_sale_year = 0
             if _nh_sale_year != year:
                 continue
-            _nh_inputs = _next_housing_sale_inputs(_nh_step, _nh_sale_year)
+            _nh_inputs = _housing_next.next_housing_sale_inputs(c, _nh_step, _nh_sale_year)
             if _nh_inputs is None:
                 continue
             _nh_gross, _nh_mort_payoff = _nh_inputs
@@ -1039,7 +615,7 @@ def run_deterministic_projection_stage(c):
             recent_gift_totals=_recent_gift_totals,
             spending_factor=_spending_factor, survivor_factor=_survivor_factor,
             infl_factor=_infl_factor, infl_ratio=_infl_ratio, path_factor=_path_factor,
-            next_housing_for_year=_next_housing_for_year,
+            next_housing_for_year=functools.partial(_housing_next.next_housing_for_year, c, _infl_ratio),
             medicare_month_fraction=_medicare_month_fraction,
             taxable_portfolio_income_for_year=_taxable_portfolio_income_for_year,
             emit=emit,
@@ -1250,6 +826,8 @@ def run_deterministic_projection_stage(c):
         medical_ded = _stage9.medical_ded
         medical_expense_yr = _stage9.medical_expense_yr
         ded = _stage9.ded
+        qbi_ded = _stage9.qbi_ded
+        sehi_ded = _stage9.sehi_ded
         char = _stage9.char
         daf_agi_limit_pct = _stage9.daf_agi_limit_pct
         daf_agi_limit = _stage9.daf_agi_limit
@@ -1276,9 +854,7 @@ def run_deterministic_projection_stage(c):
 
         def _state_tax_at(investment_inc, _earned=earned_net, _ret=retirement_dist, _ss=ss_taxable,
                           _nq=nonqual_ann, _conv=roth_conv, _over65=h_over_65):
-            return state_income_tax(
-                state_for_year(c, year), _earned, _ret, _ss, investment_inc, _nq, _conv, year, _over65,
-                filing=filing, brk_inf=c['brk_inf'], rate_override=c.get('state_rate_override'))
+            return _gain_stacking.state_tax_at(c, year, filing, investment_inc, _earned, _ret, _ss, _nq, _conv, _over65)
 
         _rental_state_taxed_gain = 0.0
         if _rental_year is not None:
@@ -1327,13 +903,10 @@ def run_deterministic_projection_stage(c):
             row['sale_cap_gain_in_agi'] = sale_gain_in_agi
         def _oa_stacked_tax(_taxable, _agi, _g=_stack_gains, _sg=sale_gain_in_agi,
                             _sb=_state_investment_inc + _rental_state_taxed_gain):
-            # Stacked on the year's ordinary taxable income; re-run after Priority 4b at the converged one.
-            return _other_asset_sale.stacked_gain_tax(
-                _g, taxable_inc=_taxable, fed_tax_fn=lambda t: _compute_fed_tax_path(t, year, filing),
-                state_tax_fn=lambda g: _state_tax_at(_sb + g) - _state_tax_at(_sb),
-                base_nii=(note_int_yr + portfolio_ordinary + portfolio_qualified + row.get('_niit_ws_taxable', 0)
-                          + row.get('_niit_hs_taxable', 0) + _sg),
-                magi=_agi + _sg, filing=filing, model_niit=bool(c.get('model_niit')))
+            return _gain_stacking.other_asset_stacked_tax(
+                c, year, filing, _compute_fed_tax_path, _state_tax_at, _taxable, _agi, _g, _sg, _sb,
+                note_int_yr + portfolio_ordinary + portfolio_qualified,
+                row.get('_niit_ws_taxable', 0), row.get('_niit_hs_taxable', 0))
 
         _stack_tax_total = 0.0  # federal + state + NIIT on the stacked (collectible / short-term) gains
         if _oa_gains.items or _note_gains.st > 0:
@@ -1492,15 +1065,11 @@ def run_deterministic_projection_stage(c):
         # docstring, and cap_loss_carryforward's threading note on
         # WithdrawalCascadeInvestmentTaxResult specifically.)
         def _aca_ptc_with_gain(extra_magi, _agi=agi + sale_gain_in_agi):
-            return _aca_ptc(c, year=year, magi=_aca_magi(_agi + extra_magi, portfolio_tax_exempt,
-                                                         ss_total, ss_taxable),
-                            bridge_people=bridge_people)
+            return _gain_stacking.aca_ptc_with_gain(c, year, extra_magi, _agi, portfolio_tax_exempt, ss_total,
+                                                    ss_taxable, bridge_people)
 
         def _ss_extra_from_gain(extra_gain, _non_ss=agi - ss_taxable + sale_gain_in_agi):
-            # Marginal effect of the gain only (same base income on both sides): elective
-            # IRA draws already in ``agi`` do not retroactively re-tax the benefit here.
-            return (_ss_taxable_amount(ss_total, _non_ss + extra_gain + portfolio_tax_exempt, filing)
-                    - _ss_taxable_amount(ss_total, _non_ss + portfolio_tax_exempt, filing))
+            return _gain_stacking.ss_extra_from_gain(ss_total, _non_ss, extra_gain, portfolio_tax_exempt, filing)
 
         _inv_tax = _apply_investment_tax_cascade(
             c, bal, bal_basis_free, row,

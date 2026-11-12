@@ -1,5 +1,5 @@
 // Left-nav redesign (2026-11-04): the Set up / Maintain switch and the per-heading "Features" popover.
-// Spec: documentation/future/superpowers/specs/2026-11-04-left-nav-redesign-design.md
+// Spec: documentation/archive/superpowers/specs/2026-11-04-left-nav-redesign-design.md
 //
 // Everything here is derived, never stored: a feature's on/off state is read through the same accessors the
 // Plan Features page uses (optionalFunctionEnabled / sectionFlagEnabled) and written through the same setter
@@ -449,7 +449,7 @@ export function closeFeatures(returnFocus = true) {
   }
 }
 
-function announce(text) {
+function announceNav(text) {
   const a = document.getElementById("navAnnouncer");
   if (a) a.textContent = text;
 }
@@ -467,10 +467,10 @@ async function toggleFeature(key, turnOn) {
     nfState.status = turnOn
       ? `Added to ${esc(where)}. ${home.hostStepId ? `<button type="button" class="nf-link" data-nf-open="${esc(home.hostStepId)}">Open</button>` : ""}`
       : `${esc(name)} hidden. Anything you entered is kept.`;
-    announce(turnOn ? `${name} added to ${where}` : `${name} hidden`);
+    announceNav(turnOn ? `${name} added to ${where}` : `${name} hidden`);
   } else {
     nfState.status = `Could not change ${esc(name)}.`;
-    announce(`Could not change ${name}`);
+    announceNav(`Could not change ${name}`);
   }
   paint();
 }

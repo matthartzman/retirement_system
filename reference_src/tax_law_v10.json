@@ -2652,6 +2652,146 @@
       "expires_year": null,
       "source": "SSA Office of the Chief Actuary, Exempt Amounts Under the Earnings Test (https://www.ssa.gov/oact/cola/rtea.html); 42 USC 403(b). Verified by the repository owner 2026-10-21.",
       "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "qbi_threshold",
+      "value": 394600,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Rev. Proc. 2024-40 sec. 3.27 (2025 figure; reviewed 2026-11-11)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "qbi_threshold",
+      "value": 403500,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Rev. Proc. 2025-32 sec. 4.26 (reviewed 2026-11-11)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "qbi_phasein_width",
+      "value": 100000,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRC 199A(b)(3)(B), (d)(3)(A): $100,000 joint / $50,000 other before 2026",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "qbi_phasein_width",
+      "value": 150000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRC 199A as amended by OBBBA sec. 70105; Rev. Proc. 2025-32 sec. 4.26 ($553,500-$403,500 joint, $276,750-$201,750 other)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "qbi_min_deduction",
+      "value": 400,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRC 199A(i) added by OBBBA sec. 70105; Rev. Proc. 2025-32 sec. 3 item 12 (indexed after 2026)",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "qbi_min_income",
+      "value": 1000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRC 199A(i) added by OBBBA sec. 70105; Rev. Proc. 2025-32 sec. 3 item 12 (indexed after 2026)",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "qbi_threshold",
+      "value": 197300,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Rev. Proc. 2024-40 sec. 3.27 (2025 figure; reviewed 2026-11-11)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "qbi_threshold",
+      "value": 201750,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Rev. Proc. 2025-32 sec. 4.26 (reviewed 2026-11-11)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "qbi_phasein_width",
+      "value": 50000,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRC 199A(b)(3)(B), (d)(3)(A): $100,000 joint / $50,000 other before 2026",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "qbi_phasein_width",
+      "value": 75000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRC 199A as amended by OBBBA sec. 70105; Rev. Proc. 2025-32 sec. 4.26 ($553,500-$403,500 joint, $276,750-$201,750 other)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "qbi_min_deduction",
+      "value": 400,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRC 199A(i) added by OBBBA sec. 70105; Rev. Proc. 2025-32 sec. 3 item 12 (indexed after 2026)",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "qbi_min_income",
+      "value": 1000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRC 199A(i) added by OBBBA sec. 70105; Rev. Proc. 2025-32 sec. 3 item 12 (indexed after 2026)",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "nonitemizer_charitable_cap",
+      "value": 2000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRC 170(p) added by OBBBA sec. 70424: cash gifts to public charities (not donor-advised funds) by a taxpayer taking the standard deduction; fixed, not indexed; no carryforward (secondary sources; confirm against the statute)",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "nonitemizer_charitable_cap",
+      "value": 1000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRC 170(p) added by OBBBA sec. 70424: cash gifts to public charities (not donor-advised funds) by a taxpayer taking the standard deduction; fixed, not indexed; no carryforward (secondary sources; confirm against the statute)",
+      "status": "legislated"
     }
   ],
   "brackets": [

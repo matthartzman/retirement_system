@@ -380,7 +380,6 @@ function rpTabBodyHtml(draft, data) {
 
 export function rentalDetailHtml(draft, data) {
   const isNew = !rpOrig;
-  const tabs = RP_TABS.map(([id, label]) => `<button class="rp-tab${rpTab === id ? " on" : ""}" type="button" role="tab" aria-selected="${rpTab === id}" onclick="rpTabSet('${id}')">${label}</button>`).join("");
   const owner = (RP_OWNERS.find((o) => o[0] === draft.owner) || RP_OWNERS[0])[1].toLowerCase();
   const saved = !isNew ? `<button class="btn" type="button" onclick="rpDuplicate('${esc(escJs(rpOrig))}')">Duplicate</button><button class="btn danger" type="button" onclick="rpRemove('${esc(escJs(rpOrig))}')">Remove</button>` : "";
   return '<div class="rp-detail" data-help-section="rental_properties.detail"><div class="rp-crumb small">Investments &amp; Property &gt; Rental Properties &gt; ' + esc(draft.name || "New property") + "</div>" +
@@ -388,10 +387,10 @@ export function rentalDetailHtml(draft, data) {
     '<div class="table-actions"><button class="btn" type="button" onclick="rpBack()">&larr; Back to list</button>' +
     '<button class="btn primary" type="button" data-requires-app="1" onclick="rpSave()">Save property</button>' + saved +
     (rpDirty ? ' <span class="status unsaved" id="rpDirtyBadge">Unsaved changes</span>' : "") + "</div>" +
-    `<div class="rp-tabs" role="tablist">${tabs}</div>` +
+    window.tabBarHtml("rp", RP_TABS, rpTab, "rpTabSet", "Property sections", "rp-tabs", "rp-tab", "on") +
     '<div class="rp-advbar"><span class="small" data-kind="state">' + (rpAdvanced ? "Showing Standard + Expert fields." : "Showing Standard fields only.") + ' <span class="badge exp">Expert</span> = advanced field.</span>' +
     `<label><input type="checkbox" id="rpAdvanced"${rpAdvanced ? " checked" : ""} onchange="rpToggleAdvanced()"> <b>Show advanced</b></label></div>` +
-    '<div class="field-list rp-fields">' + rpTabBodyHtml(draft, data) + "</div></div>";
+    window.tabPanelHtml("rp", rpTab, rpTabBodyHtml(draft, data), "field-list rp-fields") + "</div>";
 }
 
 // ── page ─────────────────────────────────────────────────────────────────────────────────────
@@ -503,7 +502,7 @@ export async function rpSave() {
     await loadRentalProperties();
     rpEdit(out.property.name);
     renderMain();
-    showMessage("Saved " + out.property.name + ".");
+    dismissMessage(); showMessage("Saved " + out.property.name + "."); // a successful retry replaces the stale save error
   } catch (e) {
     showMessage("Could not save the property: " + e.message, "error");
   }

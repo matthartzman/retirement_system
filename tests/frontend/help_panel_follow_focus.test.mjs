@@ -166,7 +166,7 @@ test("dashboard wiring: showStepHelp delegates to the registry, ? button, pilot 
   const allJs = fs.readdirSync("frontend/js").filter((f) => f.endsWith(".js") && f !== "help_registry.js")
     .map((f) => fs.readFileSync(`frontend/js/${f}`, "utf8")).join("\n");
   for (const key of Object.keys(reg.HELP_SECTIONS)) assert.ok(allJs.includes(`"${key}"`) || allJs.includes(`'${key}'`), key);
-  const rowModel = fs.readFileSync("frontend/js/dashboard_decomp_row_model.js", "utf8");
+  const rowModel = fs.readFileSync("frontend/js/dashboard_decomp_field_guidance.js", "utf8");
   assert.match(rowModel, /RPHelp\?\.fieldEntry\(row\.label\)/);
   assert.match(rowModel, /window\.RPHelp\.pinned\("field", idx\)/);
 });

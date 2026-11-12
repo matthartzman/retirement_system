@@ -50,7 +50,7 @@ from .planning_engines import (
     _roth_discount_rate,
     compute_baseline_lcv_and_eltr,
 )
-from .server_services.strategy_asset_service import (
+from .housing.pricing import (
     HOME_APPR_DEFAULT,
     INFLATION_GENERAL_DEFAULT,
     estimate_housing_cost,

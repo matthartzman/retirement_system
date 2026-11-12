@@ -1,7 +1,7 @@
 # Financial Trends: Live Snapshot, October 2026
 
 Companion Financial Trends reporter only. No projection or build result moves; the golden masters are
-unchanged. Design and plan: `documentation/future/superpowers/plans/2026-10-27-live-snapshot-design.md`.
+unchanged. Design and plan: `documentation/archive/superpowers/plans/2026-10-27-live-snapshot-design.md`.
 
 ## What you see
 

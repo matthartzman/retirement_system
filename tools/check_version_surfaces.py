@@ -176,6 +176,55 @@ def _check_tests_for_hardcoded_workspace_path(old_version: str, errors: list[str
                 )
 
 
+# W1-05 (ARC-006): a displayed "<product> v<N>" banner is checked against src/version.VERSION on every run,
+# not only when a bump passes --old-version. Case-insensitive, so "RETIREMENT PLAN SYSTEM v11" is caught.
+_BANNER = re.compile(r'system\s+v(\d+)\b', re.IGNORECASE)
+
+
+def find_stale_banners(text: str, current: str) -> list[tuple[int, str]]:
+    """Lines of ``text`` that show a 'SYSTEM v<digits>' banner for a version other than ``current``."""
+    hits = []
+    for i, line in enumerate(text.splitlines(), 1):
+        if allowed(line):
+            continue
+        for m in _BANNER.finditer(line):
+            if m.group(1) != current:
+                hits.append((i, line.strip()[:140]))
+    return hits
+
+
+def manifest_version_errors(current: str, root: Path = ROOT) -> list[str]:
+    """package.json and pyproject.toml must carry the app version as <N>.0.0."""
+    errors = []
+    pkg = root / 'package.json'
+    if pkg.exists():
+        m = re.search(r'"version"\s*:\s*"([^"]*)"', pkg.read_text(encoding='utf-8'))
+        if not m or not re.fullmatch(re.escape(current) + r'\.\d+\.\d+', m.group(1)):
+            errors.append(f'package.json: version {m.group(1) if m else None!r} does not track src/version.py VERSION {current!r}')
+    pyp = root / 'pyproject.toml'
+    if pyp.exists():
+        m = re.search(r'(?m)^version\s*=\s*"([^"]*)"', pyp.read_text(encoding='utf-8'))
+        if not m or not re.fullmatch(re.escape(current) + r'\.\d+\.\d+', m.group(1)):
+            errors.append(f'pyproject.toml: version {m.group(1) if m else None!r} does not track src/version.py VERSION {current!r}')
+    return errors
+
+
+def _check_current_banners(errors: list[str]) -> None:
+    for base in USER_SURFACES + [ROOT / 'main.py']:
+        paths = [base] if base.is_file() else list(base.rglob('*'))
+        for p in paths:
+            if p.resolve() == Path(__file__).resolve() or p.is_dir() or any(part in IGNORE_PARTS for part in p.parts):
+                continue
+            if p.suffix.lower() not in {'.py', '.js', '.html', '.css', '.md'}:
+                continue
+            try:
+                text = p.read_text(encoding='utf-8', errors='ignore')
+            except Exception:
+                continue
+            for lineno, line in find_stale_banners(text, VERSION):
+                errors.append(f'{p.relative_to(ROOT)}:{lineno}: banner does not match src/version.py v{VERSION}: {line}')
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -188,6 +237,8 @@ def main(argv: list[str] | None = None) -> int:
 
     errors: list[str] = []
     _check_user_surfaces(STALE, errors)
+    _check_current_banners(errors)
+    errors.extend(manifest_version_errors(VERSION))
 
     if args.old_version:
         dynamic = _dynamic_stale_patterns(args.old_version)

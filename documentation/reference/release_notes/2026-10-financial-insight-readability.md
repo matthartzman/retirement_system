@@ -1,7 +1,7 @@
 # Financial Insight: Readable Recent Projections and New Names, October 2026
 
 Companion reporter only. No projection or build result moves; the golden masters are unchanged.
-Design and plan: `documentation/future/superpowers/plans/2026-10-29-financial-insight-readability-design.md`.
+Design and plan: `documentation/archive/superpowers/plans/2026-10-29-financial-insight-readability-design.md`.
 
 ## What you see
 

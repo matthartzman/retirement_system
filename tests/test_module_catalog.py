@@ -275,7 +275,9 @@ def test_engine_participants_are_the_modules_the_engine_reads():
         # Design 2026-09-24 §6 [C]: off blanks the housing plan inputs.
         "housing_location_search",
         # WP12.2: the engine reads c['rental_properties'] only while on.
-        "rental_property_income"}
+        "rental_property_income",
+        # W4-04 (FIN-005): in-force death benefits are paid in the projection.
+        "existing_life_insurance"}
 
 
 def test_engine_participation_defaults_off():

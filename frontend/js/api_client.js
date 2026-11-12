@@ -39,6 +39,7 @@
         const err = new Error((data && data.error) || text || res.statusText);
         if(data && Array.isArray(data.errors)) err.errors = data.errors;
         if(data && Array.isArray(data.field_errors)) err.fieldErrors = data.field_errors;
+        err.status = res.status; // ARC-004: callers branch on the real HTTP status (build/start 404 fallback)
         throw err;
       }
       return data;

@@ -240,22 +240,21 @@ export function rcBodyHtml(state) {
   const dates = (data.dates || []).map((d) => `<option value="${esc(d)}"${d === data.as_of ? " selected" : ""}>${esc(d)}${d === data.latest ? " (latest)" : ""}</option>`).join("");
   const note = rcImportNote(data);
   const nSel = [...selected].filter((id) => data.rows.some((r) => r.id === id && r.updatable)).length;
-  const tabBtn = (id, label) => `<button class="btn${tab === id ? " good" : ""}" type="button" role="tab" aria-selected="${tab === id}" onclick="rcSetTab('${id}')">${label}</button>`;
   const controls = `<div class="rc-controls"><label>Compare as of <select id="rcAsOf" onchange="rcSetAsOf(this.value)">${dates}</select></label> ` +
     `<label>Count as matching within <select onchange="rcSetTolerance(this.value)">${[1, 10, 100].map((t) => `<option value="${t}"${t === tolerance ? " selected" : ""}>$${t}</option>`).join("")}</select></label></div>`;
-  const head = (message ? `<div class="section-note${message.error ? " rc-warn" : ""}" role="status">${esc(message.text)}</div>` : "") +
+  const head = panelMsgHtml("rc", message, "section-note rc-warn", "section-note", "div") +
     (note ? `<div class="section-note rc-warn" role="alert">${note}</div>` : "") + rcAutoBannerHtml(log) +
-    `<div class="rc-tabs" role="tablist">${tabBtn("inbox", `Needs a decision (${need})`)} ${tabBtn("all", "All mappings")}</div>` + controls +
-    rcPreviewHtml(preview);
-  if (tab === "inbox") return head + rcInboxHtml(data, dismissed);
-  return head +
+    window.tabBarHtml("rc", [["inbox", `Needs a decision (${need})`], ["all", "All mappings"]], tab, "rcSetTab", "Reconciliation sections", "rc-tabs", "btn", "good");
+  const panel = (html) => head + window.tabPanelHtml("rc", tab, controls + rcPreviewHtml(preview) + html);
+  if (tab === "inbox") return panel(rcInboxHtml(data, dismissed));
+  return panel(
     `<label><input type="checkbox" onchange="rcSetShowMatched(this.checked)"${showMatched ? " checked" : ""}> Show matching accounts (${s.match})</label>` +
     `<div class="rc-summary"><strong>${s.differs}</strong> differ · <strong>${s.match}</strong> match · <strong>${s.reportOnly}</strong> report only · ` +
     `<strong>${s.notInMonarch}</strong> not in the import · <strong>${s.notInApp}</strong> Imported accounts not in the app</div>` +
     `<div class="pane-actions"><button class="btn good" type="button" onclick="rcPreview()"${nSel ? "" : " disabled"}>Preview update from import (${nSel} selected)</button> ` +
     `<label class="btn">Import mapping CSV<input type="file" accept=".csv,text/csv" hidden onchange="rcImportCsv(this.files[0])"></label></div>` +
     rcGroupsHtml(data, selected, showMatched) + rcUnmatchedHtml(data) + rcParkedHtml(data) + rcClosedHtml(data) + rcIgnoredHtml(data) +
-    `<h3>Change log</h3>${rcLogHtml(log)}`;
+    `<h3>Change log</h3>${rcLogHtml(log)}`);
 }
 
 // ── page ─────────────────────────────────────────────────────────────────────────────────────

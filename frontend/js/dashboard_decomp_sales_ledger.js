@@ -87,7 +87,7 @@ export function slHeadHtml() {
     `<a href="#" class="sl-voided-link" id="slVoidedLink" aria-pressed="${slShowVoided}" onclick="slSetShowVoided(!${slShowVoided});return false">${slHiddenText()}</a>`;
 }
 function slListHtml() {
-  const msg = slMessage ? `<p class="${slMessage.error ? "field-error" : "muted"}" role="status">${esc(slMessage.text)}</p>` : "";
+  const msg = panelMsgHtml("sl", slMessage);
   const bar = `<div class="sl-toolbar">${slKpiHtml(slSum)}</div>`;
   return msg + bar + (slError ? `<p class="field-error">${esc(slError)}</p>` : slData ? slTableHtml(slData.sales) : `<p class="muted">Loading…</p>`);
 }
@@ -256,8 +256,11 @@ export async function slVoid(id) {
   const s = slData && slData.sales.find((x) => Number(x.sale_id) === Number(id));
   const gain = s && s.gain !== null && s.gain !== undefined ? (s.gain > 0 ? "+" : "") + slMoney(s.gain) : "this sale";
   const year = s && s.sale_date ? String(s.sale_date).slice(0, 4) : slYear || "all-years";
-  if (typeof window !== "undefined" && window.confirm && !window.confirm(`Remove ${gain} from ${year} totals?`)) return undefined;
-  return slPost(`/api/sales/${Number(id)}/void`, null, "Sale voided. Use Restore to bring it back.");
+  const logLinked = !!s && (s.lot_key || "").includes("log_sell"); // its log sale is removed with the void, so Restore is unavailable
+  const out = `It comes out of ${year} totals (${gain}). `;
+  const consequence = out + (logLinked ? "This also removes the linked transaction-log sale and returns its shares to the lot. Restore will not be available for this sale; to bring it back you would record the sale again." : "Restore brings it back.");
+  if (!(await confirmDestructive(consequence, { title: "Void this sale?", action: "Void sale" }))) return undefined;
+  return slPost(`/api/sales/${Number(id)}/void`, null, logLinked ? "Sale voided." : "Sale voided. Use Restore to bring it back.");
 }
 export const slUnvoid = (id) => slPost(`/api/sales/${Number(id)}/unvoid`, null, "Sale restored.");
 export function slSetYear(v) { slYear = String(v || "").trim(); slYearChosen = true; if (window.sqYearChanged) window.sqYearChanged(); return loadSalesLedger(); }

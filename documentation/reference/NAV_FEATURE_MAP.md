@@ -2,7 +2,7 @@
 
 Inventory of the dashboard's left navigation: what each item does, whether it can be switched on or off, its state in the demo plan, and where it appears when enabled.
 
-> **Structure update (2026-11-04):** the nav was regrouped from twelve headings to eight (Plan Status pinned, Household & Cash Flow, Accounts & Property, Protection & Legacy, Taxes, Analyze, Track & Reconcile, Settings), with a Set up / Maintain switch and a per-heading Features popover (`frontend/js/dashboard_decomp_nav_features.js`). The "Nav group" and item names in the tables below follow the new structure; the page rows are not re-verified one by one. Source of truth: `STEPS` in `frontend/js/dashboard.js` and the design in `documentation/future/superpowers/specs/2026-11-04-left-nav-redesign-design.md`.
+> **Structure update (2026-11-04):** the nav was regrouped from twelve headings to eight (Plan Status pinned, Household & Cash Flow, Accounts & Property, Protection & Legacy, Taxes, Analyze, Track & Reconcile, Settings), with a Set up / Maintain switch and a per-heading Features popover (`frontend/js/dashboard_decomp_nav_features.js`). The "Nav group" and item names in the tables below follow the new structure; the page rows are not re-verified one by one. Source of truth: `STEPS` in `frontend/js/dashboard.js` and the design in `documentation/archive/superpowers/specs/2026-11-04-left-nav-redesign-design.md`.
 
 ## How the left nav works
 

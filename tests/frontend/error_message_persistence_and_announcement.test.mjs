@@ -51,7 +51,7 @@ function makeMsgEl() {
 beforeEach(() => {
   msgEl = makeMsgEl();
   scheduled = [];
-  controlsById = {};
+  controlsById = { rpLive: { textContent: "" }, rpAlert: { textContent: "" } };
   sandbox.setTimeout = (fn, ms) => {
     scheduled.push({ fn, ms });
     return scheduled.length;
@@ -71,17 +71,29 @@ describe("showMessage(): errors persist and are announced", () => {
     assert.ok(!msgEl.classList.contains("hidden"));
   });
 
-  test("an error is exposed as role=alert", () => {
+  test("an error is announced once, assertively, through the persistent alert region", () => {
     sandbox.showMessage("Error building: failed", "error");
-    assert.equal(msgEl.attrs.role, "alert");
-    assert.equal(msgEl.attrs["aria-atomic"], "true");
+    assert.equal(controlsById.rpAlert.textContent, "Error building: failed");
+    assert.equal(controlsById.rpLive.textContent, "");
+    assert.equal(msgEl.attrs.role, undefined, "the toast itself carries no live role");
   });
 
-  test("an info message still auto-hides and is a polite status", () => {
+  test("an info message after an unread error leaves the error on screen and reachable", () => {
+    sandbox.showMessage("Error saving: disk full", "error");
+    sandbox.showMessage("Changes saved.");
+    assert.match(msgEl.innerHTML, /Error saving: disk full/);
+    assert.ok(!msgEl.classList.contains("hidden"));
+    assert.equal(controlsById.rpLive.textContent, "Changes saved.", "the info message is still announced politely");
+    msgEl.classList.add("hidden"); // dismissed
+    sandbox.showMessage("Changes saved.");
+    assert.match(msgEl.innerHTML, /Changes saved\./);
+  });
+
+  test("an info message still auto-hides and is announced politely", () => {
     sandbox.showMessage("Changes saved.");
     assert.equal(scheduled.filter((s) => s.ms === 10000).length, 1);
-    assert.equal(msgEl.attrs.role, "status");
-    assert.equal(msgEl.attrs["aria-live"], "polite");
+    assert.equal(controlsById.rpLive.textContent, "Changes saved.");
+    assert.equal(controlsById.rpAlert.textContent, "");
   });
 
   test("a caller can still opt an error out of persistence explicitly", () => {
@@ -89,8 +101,10 @@ describe("showMessage(): errors persist and are announced", () => {
     assert.equal(scheduled.filter((s) => s.ms === 10000).length, 1);
   });
 
-  test("#actionMessage is a live region in the static markup too", () => {
-    assert.match(INDEX_HTML, /id="actionMessage"[^>]*aria-live="polite"/);
+  test("the persistent polite and assertive regions exist in the static markup; the toast is not itself live", () => {
+    assert.match(INDEX_HTML, /id="rpLive"[^>]*aria-live="polite"/);
+    assert.match(INDEX_HTML, /id="rpAlert"[^>]*role="alert"/);
+    assert.doesNotMatch(INDEX_HTML, /id="actionMessage"[^>]*(aria-live|role=)/);
   });
 });
 

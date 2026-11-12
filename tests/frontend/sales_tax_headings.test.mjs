@@ -1,11 +1,13 @@
 // Sales Ledger v3: Tax year headings follow the Year control, and fund types are a table with one select per symbol.
 import { test, describe, before } from "node:test";
+import { installInAppConfirm } from "./inapp_confirm_stub.mjs";
 import assert from "node:assert/strict";
 
 let tax;
 before(async () => {
   globalThis.esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   globalThis.window = globalThis;
+  await installInAppConfirm();
   globalThis.accountDisplayLabel = (a) => String(a);
   globalThis.document = { getElementById: () => null };
   globalThis.api = async (url) => {

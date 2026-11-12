@@ -1,10 +1,10 @@
 // Plan step 5.2 UI: HTML helpers and fetch calls of dashboard_decomp_sales_1099b.js (1099-B import on the Sales Ledger page).
 import { test, describe, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { installInAppConfirm, resetInAppConfirm, confirmState } from "./inapp_confirm_stub.mjs";
 
 let m;
 const calls = [];
-let confirmAnswer = true;
 let downloads = [];
 const field = (o = {}) => ({ ledger: 100, official: 120, delta: 20, ...o });
 const REPORT = {
@@ -29,7 +29,7 @@ before(async () => {
   globalThis.esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   globalThis.window = globalThis;
   globalThis.document = { getElementById: () => null };
-  globalThis.confirm = () => confirmAnswer;
+  await installInAppConfirm();
   globalThis.downloadBlob = (name, text) => downloads.push([name, text]);
   globalThis.api = async (url, opts) => {
     calls.push([url, opts && opts.method, opts && opts.body ? JSON.parse(opts.body) : null]);
@@ -41,7 +41,7 @@ before(async () => {
   await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
   m = await import("../../frontend/js/dashboard_decomp_sales_1099b.js");
 });
-beforeEach(() => { calls.length = 0; downloads = []; confirmAnswer = true; });
+beforeEach(() => { calls.length = 0; downloads = []; resetInAppConfirm(); });
 
 describe("difference report", () => {
   test("shows ledger to official figures with the delta, the term change and the wash-sale column", () => {
@@ -130,11 +130,11 @@ describe("calls", () => {
     m.bbSetStatement("statement text");
     await m.bbPreviewStatement();
     m.bbMarkViewed(true);
-    confirmAnswer = false;
+    confirmState.answer = false;
     calls.length = 0;
     await m.bbApply();
     assert.equal(calls.length, 0);
-    confirmAnswer = true;
+    confirmState.answer = true;
     await m.bbApply();
     assert.equal(calls[0][2].replace, true);
   });
@@ -224,7 +224,7 @@ describe("apply gating (Task 15)", () => {
     await m.bbApply();
     assert.equal(calls.length, 0);
     m.bbMarkViewed(true);
-    confirmAnswer = false;
+    confirmState.answer = false;
     await m.bbApply();
     assert.equal(calls.length, 0);
   });

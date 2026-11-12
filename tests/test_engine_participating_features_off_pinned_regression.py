@@ -43,6 +43,9 @@ def test_every_engine_participant_is_pinned_here_or_named():
     # rental_property_income is pinned in tests/test_rental_property_engine_functional.py
     # (off with properties entered == a plan with none).
     pinned.add("rental_property_income")
+    # existing_life_insurance is pinned in tests/test_life_insurance_death_benefit_functional.py
+    # (test_module_off_leaves_projection_unchanged).
+    pinned.add("existing_life_insurance")
     assert set(mc.engine_participants()) == pinned
 
 

@@ -87,7 +87,7 @@ SERVICE_ROUTE_PAIRS = [
         "route_forbids": ["threading.Lock", "uuid.uuid4", "traceback.format_exc", "_PRICE_TEST_JOBS"],
     },
     {
-        "service": "src/server_services/strategy_asset_service.py",
+        "service": "src/housing/pricing.py",  # ARC-002: the pure estimate moved out of server_services
         "route": "src/server/plan_routes.py",
         "service_defines": ["def housing_state_estimate_payload", "STATE_ESTIMATES", "population_size", "city_multipliers"],
         "route_calls": ["housing_state_estimate_payload("],

@@ -1,7 +1,8 @@
 """Shared pytest fixtures for the retirement planning test suite.
 
 New tests should prefer these fixtures over redefining `ROOT`/`sample_config`
-locally or reading the git-tracked `output/retirement_plan.xlsx` directly.
+locally or reading a built workbook from `output/` directly (built workbooks are not
+tracked in git; the `built_workbook_dir` fixture builds one on demand).
 Existing test files are migrated incrementally; see
 documentation/archive/legacy/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md Phase 5.
 """

@@ -2874,8 +2874,9 @@ window.setPlanReportSection = function (id) {
   renderMain();
 };
 function renderStrategyTabs(step, tabs, active) {
-  return `<div class="workspace-tabs" role="tablist">${tabs.map((t) => `<button class="workspace-tab ${t === active ? "active" : ""}" type="button" role="tab" aria-selected="${t === active ? "true" : "false"}" onclick="setStrategyTab('${escJs(step)}','${escJs(t)}')">${esc(t === "This year" ? String(selectedSpendingYear()) : t)}</button>`).join("")}</div>`;
+  return tabBarHtml(step, tabs.map((t) => [tabSlug(t), esc(t === "This year" ? String(selectedSpendingYear()) : t)]), tabSlug(active), "selectStrategyTab", "Workspace sections");
 }
+window.selectStrategyTab = (slug, step) => setStrategyTab(step, (STRATEGY_TABS[step] || []).find((t) => tabSlug(t) === slug));
 // Generic tab registry for "workspace" steps that tab-switch between what
 // used to be several separate nav steps -- keyed by the merged step's own
 // id, reused by getStrategyTab/setStrategyTab/goToStrategyTab/renderStrategyTabs
@@ -3731,21 +3732,18 @@ const FIELD_GUIDANCE_OVERRIDES = {
     impact: "Raising this helps you save more for retirement with tax-deferred growth; the plan won't let you contribute beyond this legal limit, even if you want to.",
     consider: "The IRS sets this limit annually and increases it for inflation — check the IRS website each year for the current cap.",
   },
-  index_401k_limit: {
-    purpose: "This setting determines whether your 401(k) contribution limit automatically increases each year to keep up with inflation, or stays at the same dollar amount.",
-    impact: "If enabled, your future contribution room grows with inflation, letting you save more in later years; if disabled, the limit stays flat.",
-    consider: "The IRS already indexes the limit for most people, so leaving this enabled will match what the IRS allows.",
-  },
+  index_401k_limit: { purpose: "This setting determines whether your 401(k) contribution limit automatically increases each year to keep up with inflation, or stays at the same dollar amount.", impact: "If enabled, your future contribution room grows with inflation, letting you save more in later years; if disabled, the limit stays flat.", consider: "The IRS already indexes the limit for most people, so leaving this enabled will match what the IRS allows." },
   monthly_401k_contribution: {
     purpose: "This is the amount you contribute to your 401(k) plan each month while you're working, deducted from your paycheck before income tax.",
     impact: "A higher contribution reduces your taxable income and grows more for retirement; a lower contribution leaves more money in your paycheck but means less retirement savings.",
     consider: "Aim to contribute as much as your budget allows up to the legal limit — your contributions grow tax-free until retirement, making it one of the most powerful saving tools available.",
   },
-  qbi_phaseout_applies: {
-    purpose: "QBI stands for Qualified Business Income deduction — a tax break that lets business owners deduct up to 20% of their business profits. This setting indicates whether your income is high enough that the deduction becomes limited or disappears.",
-    impact: "If this applies to you, your QBI deduction is reduced or eliminated, increasing your taxable income even though your actual business income hasn't changed.",
-    consider: "This usually only matters for higher-income business owners; the IRS sets an exact income threshold each year (adjusted for inflation) above which the deduction starts shrinking. If your business income is comfortably below that threshold, this rarely applies.",
-  },
+  qbi_phaseout_applies: { purpose: "This setting is no longer used: the plan now works out the QBI income limits for you from your income, so there is nothing to switch on.", impact: "Changing it does not change the plan. To model a specified service business, use the specified-service-business setting instead.", consider: "The limits phase in above an income threshold set by the IRS each year, and depend on the QBI inputs under Self-Employment." },
+  qbi_sstb: { purpose: "Says whether your business is a specified service trade or business (health, law, accounting, consulting and similar) for the QBI deduction.", impact: "Above the income threshold the deduction for such a business phases out to zero; for other businesses it stays, limited by wages and property.", consider: "Ask your tax professional; the plan assumes FALSE until you say otherwise." },
+  qbi_ubia: { purpose: "The original cost of depreciable property the business holds, used in the QBI wage-and-property limit.", impact: "A higher amount can raise the QBI deduction above the income threshold when wages alone limit it; it has no effect below the threshold.", consider: "Leave at $0 if the business holds little equipment or property; ask your tax professional for the figure." },
+  pte_election: { purpose: "Turns on the Illinois pass-through-entity tax election for your S-corp: the company pays the state tax and you take a credit on your Illinois return.", impact: "The company deducts the tax federally outside the state-and-local deduction cap, which can lower federal tax; the plan applies it only while you live in Illinois.", consider: "Check with your tax professional that you are eligible and that the election is filed each year." },
+  pte_election_first_year: { purpose: "The first tax year the pass-through-entity election applies. Leave blank to start the year after the plan starts.", impact: "No entity tax is modeled before this year. The election is made at the start of a year and was not made for 2026, so 2026 never carries it.", consider: "Enter the first year your tax professional will file the election; the earliest the plan allows is 2027." },
+  pte_tax_rate: { purpose: "The Illinois pass-through-entity tax rate used when the election is on.", impact: "A higher rate means more entity tax paid and a larger Illinois credit; the federal deduction grows with it.", consider: "The current Illinois rate is 4.95%; change it only if the law changes." },
   reasonable_salary_annual: {
     purpose: "For an S-Corp business, this is the W-2 wage you (the owner) must pay yourself — the amount subject to payroll taxes like Social Security and Medicare. Any profit beyond this is distributed to you as business income, not wages.",
     impact: "A higher salary reduces business income distributions and increases your payroll tax; the IRS requires the salary to be reasonable for the work you do, so setting it too high can trigger audits.",
@@ -4745,7 +4743,7 @@ const FIELD_GUIDANCE_OVERRIDES = {
   market_luck_stress_test: {
     purpose: "A Monte Carlo stress test runs hundreds of simulations with different random stock and bond returns to see how often your retirement plan stays on track even in unlucky market years. This setting adds that analysis.",
     impact: "When enabled, the plan shows what percent of scenarios result in your money lasting through retirement, helping you understand the risk that you might run short if markets perform poorly early in retirement.",
-    consider: "Aim for an 80-90% success rate in typical models; higher rates require larger savings or lower spending, lower rates accept more risk of shortfall.",
+    consider: "An 80-90% success rate is a common planning convention, not a recommendation for your household. The right level depends on how flexible your spending is, your other income and how much shortfall risk you can accept; discuss it with your advisor. Higher rates require larger savings or lower spending, and lower rates accept more risk of shortfall.",
   },
   methodology_rerun: {
     purpose: "This sheet explains how the plan was built, what assumptions it uses, and how to recalculate the plan if you change inputs. This setting shows or hides that reference sheet.",
@@ -5851,13 +5849,6 @@ function fieldLikelyImpact(row, g) {
       "Changing this value can affect cash flow, terminal net worth, lifetime taxes, interim liquidity, risk metrics, recommendations, or workbook narratives depending on how the field is used.";
   return [base, directional, consider].filter(Boolean).join(" ");
 }
-// #250: the help pane is closed by default at every width (item 2.18, U2).
-// showFieldHelp only wrote into #helpPanel's innerHTML, so clicking a field
-// -- or the "i" tooltip icon whose title text literally promises "Click for
-// the full explanation" -- silently updated hidden content: nothing visibly
-// happened. Every writer of #helpPanel must reveal it, not just fill it.
-
-
 async function fetchWithTimeout(url, opts = {}, timeoutMs = 1200) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);

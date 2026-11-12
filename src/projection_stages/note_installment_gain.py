@@ -4,7 +4,7 @@ Each note item carries ``st_gain_per_principal`` / ``lt_gain_per_principal`` (pa
 ``src/note_installment_tax.py``). The engine passes the principal each note paid this year; the short-term gain
 is taxed as ordinary income (the Other Asset stacked path) and the long-term gain rides the LTCG line.
 
-Design: documentation/future/superpowers/plans/2026-11-06-note-installment-gain-tax-design-and-plan.md 4.2-4.3.
+Design: documentation/archive/superpowers/plans/2026-11-06-note-installment-gain-tax-design-and-plan.md 4.2-4.3.
 """
 from __future__ import annotations
 

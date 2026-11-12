@@ -74,6 +74,10 @@ place mislabels its value year and silently mis-indexes every later year.
      can stay unchanged from one year to the next)
    - `student_loan_interest_phaseout_start`, `student_loan_interest_phaseout_end` (MFJ and Single;
      Rev. Proc. sec. 4.29) and `student_loan_interest_max_deduction` (statutory $2,500)
+   - `nonitemizer_charitable_cap` (IRC 170(p), 2026 on: $1,000 / $2,000 joint, fixed; confirm no change each year)
+   - QBI (IRC 199A, W3-02): `qbi_threshold` (indexed; Rev. Proc. sec. 4.26, MFJ and Single), `qbi_phasein_width` (statutory
+     $100,000 / $50,000 before 2026, $150,000 / $75,000 from 2026), `qbi_min_deduction` and `qbi_min_income` ($400 and
+     $1,000 from 2026, indexed after 2026 by the Rev. Proc.)
    - Social Security earnings test (WI-040): `ss_earnings_test_annual_limit`,
      `ss_earnings_test_fra_year_limit`, `ss_earnings_test_rate`, `ss_earnings_test_fra_year_rate`
      (SSA COLA fact sheet each autumn; add a new dated row, never overwrite)

@@ -1,0 +1,13 @@
+{
+  "resolved": true,
+  "owner": "matthartzman",
+  "name": "retirement_system",
+  "default_branch": "main",
+  "reviewed_ref": "fix-401k-hsa-agi-and-cash",
+  "commit_sha": "e75d6ac159210dc5127e8c42f5a71b41689f8a1f",
+  "pull_request_number": null,
+  "working_tree_state": "dirty",
+  "authenticated_user": "matthartzman",
+  "scratch_outside_project": true,
+  "notes": "Branch fix-401k-hsa-agi-and-cash is UNPUSHED: GitHub get_commit on the ref returned 'No commit found' and list_branches shows only main (946aae9555e80c721953fc577ea6d393e0c74b55) and claude/cash-phase-3-pairing-f7cf32. commit_sha is therefore the local HEAD from git rev-parse, not GitHub-confirmed; it is one commit ahead of origin/main (parent 946aae95 = main tip). No open PR has this branch as head. Working tree dirty: modified documentation/reference/GOLDEN_MASTER_CHANGELOG.md and tests/test_frozen_sample_plan_golden_master_regression.py (uncommitted; review reads the working tree as-is). Repo confirmed via GitHub search (public, not archived). Scratch dir is outside repo toplevel C:/RetirementPlanning/Version 12 and writable. CI was intentionally excluded from this review."
+}

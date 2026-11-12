@@ -66,7 +66,8 @@ from . import taxes as _td  # consolidated from tax_data
 from .tax_law import default_tax_law_dataset as _default_tax_law_dataset
 from .money import decimal_from_user_value as _money_decimal, strict_float as _strict_float
 import logging as _logging
-_log = _logging.getLogger(__name__)
+import threading as _threading
+_log = _logging.getLogger("retirement_system.data_io")
 from .plan_config import ensure_engine_config
 from . import core as _ar  # consolidated from account_registry
 from . import optimization as _ao  # consolidated from allocation_optimizer
@@ -264,11 +265,26 @@ def load_csv(path):
                 data.setdefault(sec, {}).setdefault(sub, {})[lbl] = val
     return data
 
+_read_state = _threading.local()
+
+
 def _v(data, section, subsection, label, default=''):
+    _read_state.last = (section, subsection, label)  # lets _n name the field it could not read
     try:
         return data[section][subsection][label]
     except KeyError:
         return default
+
+
+def begin_unreadable_value_capture() -> None:
+    """Start collecting values ``_n`` could not read (W1-04). parse_client reports them."""
+    _read_state.unreadable = []
+
+
+def take_unreadable_values() -> list:
+    out = list(getattr(_read_state, "unreadable", None) or [])
+    _read_state.unreadable = None  # stop collecting outside parse_client
+    return out
 
 
 def reserve_checking_import_warning(legacy_value, balances):
@@ -326,7 +342,26 @@ def _n(v, default=0.0):
         return _strict_float(v, float(default if default is not None else 0.0))
     except (ValueError, TypeError, ArithmeticError):
         _log.warning("unparseable number %r; using default %r", v, default)
+        # QA-001: an unreadable value is a validation error, not a silent fallback.
+        # parse_client collects these into c['unreadable_values']; the schema check
+        # (schema_registry.validate_value) turns the same cell into a build blocker.
+        _sink = getattr(_read_state, "unreadable", None)
+        if _sink is not None:
+            _sec = getattr(_read_state, "last", ("", "", ""))
+            _sink.append({"section": _sec[0], "subsection": _sec[1], "label": _sec[2], "value": str(v)})
         return default
+
+def _nd(data, section, subsection, label, legacy_default=None):
+    """Number whose blank/missing value is the SCHEMA default (zero when that is blank).
+
+    W1-04: one default source for the parsers. ``legacy_default`` lets a caller supply a
+    fallback chain (an older label) for the stored-value lookup; it is never a literal figure.
+    """
+    from .plan_defaults import schema_default_text  # noqa: PLC0415
+    schema_text = schema_default_text(section, subsection, label)
+    fallback = _n(schema_text, 0.0)
+    stored = _v(data, section, subsection, label, '' if legacy_default is None else legacy_default)
+    return _n(stored, fallback)
 
 def _b(v):
     return str(v).strip().upper() in ('TRUE','YES','1')
@@ -606,6 +641,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     nothing downstream of that call used).
     """
     c = {}
+    begin_unreadable_value_capture()
     system_data = {}
     if load_system_config is not None:
         try:
@@ -650,6 +686,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c = ensure_engine_config(c, source='sectioned')
     _resolve_auto_horizon_and_reapply(c)
     _resolve_holding_period_floors_and_reapply(c)
+    c['unreadable_values'] = take_unreadable_values()
     return c
 
 
@@ -716,11 +753,13 @@ def build_plan_from_json(plan, url_template=''):
 
     c['members'] = [{'name': c['h_name'], 'nickname': c['h_nick'], 'role': 'member_1',
                      'dob_yr': c['h_dob_yr'], 'dob_month': c['h_dob_month'], 'retire_yr': c['h_ret_yr'],
-                     'mortality_age': c['h_mort_age'], 'death_yr': c['h_death_yr']}]
+                     'mortality_age': c['h_mort_age'], 'death_yr': c['h_death_yr'],
+                     'actuarial_sex': str(m1.get('actuarial_sex') or '').strip().lower()}]
     if c['w_name']:
         c['members'].append({'name': c['w_name'], 'nickname': c['w_nick'], 'role': 'member_2',
                              'dob_yr': c['w_dob_yr'], 'dob_month': c['w_dob_month'], 'retire_yr': c['w_ret_yr'],
-                             'mortality_age': c['w_mort_age'], 'death_yr': c['w_death_yr']})
+                             'mortality_age': c['w_mort_age'], 'death_yr': c['w_death_yr'],
+                             'actuarial_sex': str(members_in[1].get('actuarial_sex') or '').strip().lower()})
     c['household_size'] = len(c['members'])
 
     # ── Filing & State ────────────────────────────────────────────────────
@@ -839,7 +878,8 @@ def build_plan_from_json(plan, url_template=''):
 
     # ── Spending ──────────────────────────────────────────────────────────
     sp = plan.get('spending', {})
-    c['spend_base']         = sp.get('annual_base', 80000)
+    # QA-001: the same default source as the CSV path (schema default; blank -> 0), not a literal.
+    c['spend_base']         = sp.get('annual_base', _nd({}, 'Cashflow', 'Spending', 'annual_spending_base_year'))
     c['core_spending_growth_mode'] = sp.get('core_spending_growth_mode', 'cpi')
     c['core_spending_manual_growth_rate'] = sp.get('core_spending_manual_growth_rate', 0.0)
     c['spend_inf'] = c['core_spending_manual_growth_rate'] if c['core_spending_growth_mode'] == 'manual_override' else c.get('inf', 0.025)

@@ -1,5 +1,6 @@
 // Plan step 3a.3: the pure HTML helpers and fetch calls of dashboard_decomp_sales_tax.js (tax-year panel on the Sales Ledger page).
 import { test, describe, before, beforeEach } from "node:test";
+import { installInAppConfirm } from "./inapp_confirm_stub.mjs";
 import assert from "node:assert/strict";
 
 let m;
@@ -15,6 +16,7 @@ const SUMMARY = (o = {}) => ({
 before(async () => {
   globalThis.esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   globalThis.window = globalThis;
+  await installInAppConfirm();
   globalThis.document = { getElementById: (id) => (id in fields ? { value: fields[id], innerHTML: "" } : null) };
   globalThis.api = async (url, opts) => {
     calls.push([url, opts && opts.method, opts && opts.body ? JSON.parse(opts.body) : null]);

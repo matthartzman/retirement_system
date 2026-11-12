@@ -5,7 +5,7 @@ takes a *standard balance* for all checking accounts together and for all credit
 year after the current one, each with its own annual percent change (rows under Other Assets > Cash). The current
 year keeps today's balances. A blank standard balance holds today's balance; blank inputs change nothing.
 
-Design: documentation/future/superpowers/plans/2026-11-07-cash-balances-and-art-split-design-and-plan.md 3.1-3.3.
+Design: documentation/archive/superpowers/plans/2026-11-07-cash-balances-and-art-split-design-and-plan.md 3.1-3.3.
 """
 from __future__ import annotations
 

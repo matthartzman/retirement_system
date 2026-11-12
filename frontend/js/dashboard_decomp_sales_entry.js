@@ -91,7 +91,7 @@ function seRowHtml(r, i) {
 }
 function seBodyHtml() {
   const n = seRows.length, ok = seCanSave(seRows.map(seView));
-  const msg = seMsg ? `<p class="${seMsg.error ? "field-error" : "muted"}" role="status">${esc(seMsg.text)}</p>` : "";
+  const msg = panelMsgHtml("se", seMsg);
   return `${msg}<table class="rc-table se-grid"><thead><tr><th>Account</th><th>Symbol</th><th>Sale date</th><th class="rc-num">Shares</th><th class="rc-num">Proceeds</th><th class="rc-num">Fees</th><th>Lots</th><th class="rc-num">Gain</th><th></th></tr></thead><tbody>${seRows.map(seRowHtml).join("")}</tbody></table>` +
     `<button class="btn" type="button" onclick="seAddRow()">＋ Add row</button> <button class="btn primary" id="seSave" type="button" ${ok ? "" : "disabled"} onclick="seSave()">${seEditSale ? "Save changes" : `Save ${n} sale${n === 1 ? "" : "s"}`}</button> <button class="btn" type="button" onclick="seClose()">Cancel</button>` +
     `<p class="muted">One row per sale. Gain is proceeds − fees − basis; IRA, Roth and HSA sales are not taxable, so no gain is reported.</p>`;

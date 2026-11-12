@@ -200,6 +200,30 @@ function percentDisplay(value, decimals = 0) {
     }) + "%"
   );
 }
+// UX-003/UX-002: announce() -> persistent live regions (index.html); panelMsgHtml() -> panel message, announced once per change; confirmDestructive() -> in-app dialog, fails closed. UX-005: tabBarHtml/tabPanelHtml/tabSelect/tabKeydown are the one tab strip (tabs are [id, labelHtml]; `select` names a window function called as select(id, prefix)).
+const announce = (text, { error = false } = {}) => { const el = typeof document !== "undefined" && document.getElementById ? document.getElementById(error ? "rpAlert" : "rpLive") : null; if (el) { el.textContent = ""; el.textContent = String(text ?? ""); } };
+const _panelMsgSeen = {};
+function panelAnnounce(key, m) {
+  if (!m || !m.text) { delete _panelMsgSeen[key]; return false; }
+  if (_panelMsgSeen[key] !== m.text) { _panelMsgSeen[key] = m.text; announce(m.text, { error: !!m.error }); }
+  return true;
+}
+const tabBarHtml = (prefix, tabs, active, select, label, cls = "workspace-tabs", btn = "workspace-tab", on = "active") =>
+  `<div class="${cls}" id="${prefix}-bar" role="tablist" aria-label="${esc(label)}" data-tabs="${tabs.map((t) => t[0]).join(",")}">` + tabs.map(([id, html]) =>
+    `<button type="button" role="tab" id="${prefix}-t-${id}" class="${btn}${id === active ? " " + on : ""}" aria-selected="${id === active}" aria-controls="${prefix}-p-${id}" tabindex="${id === active ? 0 : -1}" onclick="tabSelect('${prefix}','${select}','${id}')" onkeydown="tabKeydown(event,'${prefix}','${select}')">${html}</button>`).join("") + "</div>";
+const tabSlug = (t) => String(t).toLowerCase().replace(/[^a-z0-9]+/g, "-"); // a tab id must be one IDREF token
+const tabPanelHtml = (prefix, id, html, cls = "", hidden = false) => `<div class="${cls}" role="tabpanel" id="${prefix}-p-${id}" aria-labelledby="${prefix}-t-${id}"${hidden ? " hidden" : ""}>${html}</div>`;
+function tabSelect(prefix, select, id) { window[select](id, prefix); const b = document.getElementById(`${prefix}-t-${id}`); if (b) b.focus(); } // focus survives a re-render
+function tabKeydown(event, prefix, select) {
+  const bar = document.getElementById(`${prefix}-bar`), ids = bar ? bar.dataset.tabs.split(",") : [], cur = ids.indexOf(String(event.target && event.target.id).replace(`${prefix}-t-`, ""));
+  const next = cur < 0 ? undefined : { ArrowRight: (cur + 1) % ids.length, ArrowLeft: (cur + ids.length - 1) % ids.length, Home: 0, End: ids.length - 1 }[event.key];
+  if (next !== undefined) { event.preventDefault(); tabSelect(prefix, select, ids[next]); }
+}
+const panelMsgHtml = (key, m, errCls = "field-error", okCls = "muted", tag = "p") => panelAnnounce(key, m) ? `<${tag} class="${m.error ? errCls : okCls}">${esc(m.text)}</${tag}>` : "";
+async function confirmDestructive(consequence, { title, action }) {
+  const ask = typeof showInAppConfirm === "function" ? showInAppConfirm : typeof window !== "undefined" ? window.showInAppConfirm : null;
+  return typeof ask === "function" && (await ask(consequence, { title: title || action, confirmLabel: action, variant: "warn" })) === true;
+}
 if (typeof window !== "undefined") {
   window.RPDashboardUtils = {
     decimalTrim,
@@ -229,5 +253,14 @@ if (typeof window !== "undefined") {
     currencyDisplay,
     percentDisplay,
     HOUSING_DWELLING_OPTIONS,
+    confirmDestructive,
+    announce,
+    panelAnnounce,
+    panelMsgHtml,
+    tabBarHtml,
+    tabSlug,
+    tabPanelHtml,
+    tabSelect,
+    tabKeydown,
   });
 }

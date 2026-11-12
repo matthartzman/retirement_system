@@ -678,6 +678,18 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     _BF.BackfillEntry(other_asset_tax.backfill_rows, from_plan=True),
     # Form 8949 installment-sale inputs on every note made before they existed (2026-11).
     _BF.BackfillEntry(note_installment_tax.backfill_rows, from_plan=True),
+    # QBI limit inputs and the Illinois PTE election (W3-02, W3-01 follow-up, 2026-11).
+    _BF.BackfillEntry(
+        [["Cashflow", "Self-Employment", "qbi_sstb", "FALSE", "", "TRUE if the business is a specified service trade or business (health, law, accounting, consulting and similar) for the QBI deduction. Ask your tax professional."],
+         ["Cashflow", "Self-Employment", "qbi_ubia", "$0", "USD", "Unadjusted basis of qualified property held by the business, for the QBI wage-and-property limit above the income threshold."]],
+        _BF.after_last(_BF.subsection_is("Self-Employment")),
+    ),
+    _BF.BackfillEntry(
+        [["Cashflow", "S-Corp", "pte_election", "FALSE", "", "Illinois pass-through-entity tax election: the S-corp pays the entity tax (deductible by the entity) and you take a credit on your Illinois return. Illinois only; confirm eligibility with your tax professional."],
+         ["Cashflow", "S-Corp", "pte_tax_rate", "4.95%", "pct", "Illinois pass-through-entity tax rate used when the election is on."],
+         ["Cashflow", "S-Corp", "pte_election_first_year", "", "", "First tax year the pass-through-entity election applies. Blank means the year after the plan starts. The election is made at the start of the year and was not made for 2026, so 2026 never carries the tax."]],
+        _BF.after_last(_BF.subsection_is("S-Corp")),
+    ),
     # Standard checking / credit-card balances for the forecast years (2026-11), blank on every older plan.
     _BF.BackfillEntry(working_balances.UI_PLAN_DATA_ROWS),
 ]

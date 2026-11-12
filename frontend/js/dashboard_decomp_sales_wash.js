@@ -25,7 +25,7 @@ export function swWindowsHtml(list = swWindows) {
 }
 export function swHtml(d = swData) {
   if (!d) return `<p class="muted">Loading…</p>`;
-  const msg = swMessage ? `<p class="${swMessage.error ? "field-error" : "muted"}" role="status">${esc(swMessage.text)}</p>` : "";
+  const msg = panelMsgHtml("sw", swMessage);
   const done = d.reviewed.length ? `<details><summary>Reviewed (${d.reviewed.length})</summary><ul>` + d.reviewed.map((r, i) =>
     `<li>${esc(r.label)}: ${esc((SW_OUTCOMES.find((o) => o[0] === r.outcome) || [0, r.outcome])[1])}${r.reason ? ` (${esc(r.reason)})` : ""} <button class="btn" type="button" onclick="swUndo(${i})">Undo</button></li>`).join("") + `</ul></details>` : "";
   return `${msg}${swWindowsHtml()}${d.cards.length ? d.cards.map(swCardHtml).join("") : `<p class="muted">No wash sales to review.</p>`}${done}` +

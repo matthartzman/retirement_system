@@ -1,5 +1,5 @@
 // Recent Projections: the column groups for the Net Worth and Cash Flow tables
-// (design: documentation/future/superpowers/plans/2026-10-29-trends-recent-projections-design.md §4).
+// (design: documentation/archive/superpowers/plans/2026-10-29-trends-recent-projections-design.md §4).
 // Keys are the workbook builders' semantic column keys (projection_tables.json), never owner names.
 // A collapsed group shows only its subtotal; an open one keeps its subtotal first and opens to the right.
 // Pure: no DOM.

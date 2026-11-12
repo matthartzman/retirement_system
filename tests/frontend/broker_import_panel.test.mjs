@@ -1,6 +1,7 @@
 // Brokerage activity import panel (dashboard_decomp_broker_import.js) and the ledger row actions it relies on.
 import { test, describe, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { installInAppConfirm, resetInAppConfirm, confirmState } from "./inapp_confirm_stub.mjs";
 
 let m;
 let sl;
@@ -17,6 +18,7 @@ before(async () => {
     return { success: true };
   };
   await import("../../frontend/js/dashboard_decomp_sales_group.js");
+  await installInAppConfirm();
   await import("../../frontend/js/dashboard_decomp_sales_ledger_ui.js");
   sl = await import("../../frontend/js/dashboard_decomp_sales_ledger.js");
   m = await import("../../frontend/js/dashboard_decomp_broker_import.js");

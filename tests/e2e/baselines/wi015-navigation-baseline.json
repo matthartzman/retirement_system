@@ -1,5 +1,5 @@
 {
-  "stepCount": 30,
+  "stepCount": 28,
   "steps": [
     {
       "stepId": "account_tax_basis",
@@ -40,12 +40,6 @@
     {
       "stepId": "cash_accounts",
       "heading": "Checking & Savings",
-      "hasContent": true,
-      "errors": 0
-    },
-    {
-      "stepId": "distribution_strategy",
-      "heading": "Optimize",
       "hasContent": true,
       "errors": 0
     },
@@ -94,12 +88,6 @@
     {
       "stepId": "monarch_reconciliation",
       "heading": "Account Reconciliation",
-      "hasContent": true,
-      "errors": 0
-    },
-    {
-      "stepId": "monte_carlo_options",
-      "heading": "Stress Test",
       "hasContent": true,
       "errors": 0
     },

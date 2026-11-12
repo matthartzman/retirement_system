@@ -1,0 +1,803 @@
+{
+  "repository": "matthartzman/retirement_system",
+  "reviewed_ref": "fix-401k-hsa-agi-and-cash",
+  "reviewed_sha": "e75d6ac159210dc5127e8c42f5a71b41689f8a1f",
+  "default_branch": "main",
+  "collected_on": "2026-11-10",
+  "source": "GitHub MCP read tools (list_issues, search_issues, list_pull_requests, search_pull_requests, pull_request_read get, list_commits, search_commits, list_tags, list_releases, get_latest_release) plus read-only local git log for the unpushed head commit",
+  "ci_statement": "CI was intentionally excluded from this review.",
+  "note": "GitHub metadata is context, not proof of product behavior. PR summaries below paraphrase PR descriptions written by the PR author; statements in them about test runs or checks were deliberately omitted and nothing here asserts any test or check outcome.",
+  "open_issues": [],
+  "open_issues_meta": {
+    "total_count": 0,
+    "tool": "list_issues state=OPEN perPage=100",
+    "has_next_page": false
+  },
+  "scope_related_issue_search": {
+    "query": "usability accessibility navigation user experience dashboard confusing",
+    "total_count": 0,
+    "items": []
+  },
+  "flagged_or_pending_issues": {
+    "github_issues": [],
+    "label_or_title_conventions_found": "None. The repository has zero issues (open or matching the scope search), so no labels or title conventions exist on GitHub issues. Work is tracked by in-repo conventions seen in PR and commit titles: 'WI-0NN' work items from documentation SYSTEM_REVIEW_2026-10-19, 'Item NNN' / 'item 378' roadmap items, 'Wave N', 'Phase N', 'WP12a', 'H3', 'M7'.",
+    "pending_items_stated_in_merged_pr_descriptions": [
+      {
+        "pr": 418,
+        "item": "Wash-sale rule W1 is stated as needing the owner's CPA to confirm before release.",
+        "area": "financial-planning / tax rules"
+      },
+      {
+        "pr": 418,
+        "item": "Stated as not exercised in the app: saving a Record sales entry, a wash-card review, a 1099-B apply.",
+        "area": "usability / unverified flows"
+      },
+      {
+        "pr": 390,
+        "item": "Deviations from the left-nav spec: Business Succession is a workbook-sheet row with no UI; rows with no own switch show 'Follows X' with no 'Needs X' dependency text; gated-off note on Optimize / Stress Test does not carry the switch; Maintain mode shows no suggested-next footer outside its chain; taxonomy cross-surface allowlist loosened and total JS size ceiling raised (43,298 to 43,620).",
+        "area": "usability / navigation"
+      },
+      {
+        "pr": 388,
+        "item": "Known follow-ups listed: carryforward inputs lose typed text on ledger reload; 'All years' does not reload the Tax tab; alerts without a count do not re-open a collapsed section; wash count is selected-year only; no strip items for 1099-B untied / carryforward unsaved / CSV errors; extra /api/year-end + wash-signature cost per ledger load; Cash panel keeps its own <details>. Manual pass with real data on each tab left unchecked. (Page was redesigned again by #418, so some of these may be moot; not verified here.)",
+        "area": "usability / data-loss-on-reload"
+      },
+      {
+        "pr": 366,
+        "item": "Year-end transition Phase 3 (snapshot-to-plan link) stated as not included.",
+        "area": "feature completeness"
+      },
+      {
+        "pr": 234,
+        "item": "'Needs a decision': real server-side build cancellation not attempted; Hide plus a 'still running' chip used instead. (PR #239 title later mentions 'WI-041 build cancel'; not read in this run.)",
+        "area": "usability / system status visibility"
+      },
+      {
+        "pr": 233,
+        "item": "N7 notice heading text has no approved prose and needs planner review; a screen-reader pass on the Admin page was requested before merging.",
+        "area": "accessibility / content"
+      },
+      {
+        "pr": 235,
+        "item": "Concepts Guide 'Find it' labels were ported from humanLabel, not walked against the running app; page numbers need a Word 'Update Field'.",
+        "area": "documentation accuracy"
+      },
+      {
+        "pr": 267,
+        "item": "Judgement calls flagged for review: recommendation card 'Why it matters' line restyled; Final review list lost 'small' class; renderEstateSection no longer prints its description; two People-table hover titles deleted.",
+        "area": "usability / help content"
+      }
+    ]
+  },
+  "open_pull_requests": [],
+  "open_pull_requests_meta": {
+    "total_count": 0,
+    "tool": "list_pull_requests state=open perPage=100",
+    "reviewed_ref_has_pr": false,
+    "note": "Reviewed branch is unpushed (see repo.json); no PR has it as head."
+  },
+  "scope_related_pr_search": {
+    "query": "usability OR accessibility OR navigation OR UX OR a11y OR dashboard (sorted by updated desc)",
+    "total_count": 108,
+    "returned": 30,
+    "truncated": true,
+    "items": [
+      {
+        "number": 390,
+        "title": "Left nav redesign: eight groups, Set up / Maintain switch, Features popover",
+        "state": "closed",
+        "closed_at": "2026-11-04T16:20:01Z"
+      },
+      {
+        "number": 387,
+        "title": "Nav: move Account Tax Basis to third tab under Taxes",
+        "state": "closed",
+        "closed_at": "2026-11-04T02:11:11Z"
+      },
+      {
+        "number": 386,
+        "title": "Account Tax Basis page: Roth basis, HSA expense bank, cash pair-status switch",
+        "state": "closed",
+        "closed_at": "2026-11-04T01:22:44Z"
+      },
+      {
+        "number": 385,
+        "title": "Nav search: keep typed text, compute step stats once per render",
+        "state": "closed",
+        "closed_at": "2026-11-04T01:03:29Z"
+      },
+      {
+        "number": 384,
+        "title": "Sales Ledger: remove the redundant Bulk review section",
+        "state": "closed",
+        "closed_at": "2026-11-04T01:02:55Z"
+      },
+      {
+        "number": 366,
+        "title": "Year-end transition Phase 2: guided Year-End Transition page",
+        "state": "closed",
+        "closed_at": "2026-11-03T16:40:40Z"
+      },
+      {
+        "number": 355,
+        "title": "Cash tracking Phase 5: Cash in investment accounts panel",
+        "state": "closed",
+        "closed_at": "2026-11-02T21:57:51Z"
+      },
+      {
+        "number": 318,
+        "title": "Sales ledger 3a.3: tax-year panel",
+        "state": "closed",
+        "closed_at": "2026-10-29T19:45:30Z"
+      },
+      {
+        "number": 307,
+        "title": "Sales ledger 2.2: confirm/undo/dismiss a queued sale against specific lots",
+        "state": "closed",
+        "closed_at": "2026-10-29T15:22:54Z"
+      },
+      {
+        "number": 283,
+        "title": "HSA drawdown: report the executed schedule; fix optimizer back-loading and balance model",
+        "state": "closed",
+        "closed_at": "2026-10-27T20:25:26Z"
+      },
+      {
+        "number": 281,
+        "title": "Income streams: capture gross and net, label income as gross",
+        "state": "closed",
+        "closed_at": "2026-10-27T19:18:33Z"
+      },
+      {
+        "number": 269,
+        "title": "Claude/pytest speed and env failures",
+        "state": "closed",
+        "closed_at": "2026-10-22T14:42:32Z"
+      },
+      {
+        "number": 267,
+        "title": "Contextual help panel Phase 4: prose guard, e2e panel checks, inventory closeout",
+        "state": "closed",
+        "closed_at": "2026-10-22T10:03:12Z"
+      },
+      {
+        "number": 265,
+        "title": "Contextual help panel Phase 3 batches 1-3: Income and Benefits, Spending, Investments and Property",
+        "state": "closed",
+        "closed_at": "2026-10-22T01:22:56Z"
+      },
+      {
+        "number": 266,
+        "title": "Contextual help panel Phase 3b: Insurance/Estate/Taxes, Strategy, Reports and Review, Settings",
+        "state": "closed",
+        "closed_at": "2026-10-22T01:16:47Z"
+      },
+      {
+        "number": 264,
+        "title": "Fix stale jscodeshift line-ending premise in codemod offsets test",
+        "state": "closed",
+        "closed_at": "2026-10-21T23:59:24Z"
+      },
+      {
+        "number": 263,
+        "title": "Contextual help panel Phase 2b: apply page-level help records",
+        "state": "closed",
+        "closed_at": "2026-10-21T23:57:51Z"
+      },
+      {
+        "number": 261,
+        "title": "Page help drafts: resolve three source conflicts",
+        "state": "closed",
+        "closed_at": "2026-10-21T22:57:19Z"
+      },
+      {
+        "number": 259,
+        "title": "Contextual help panel Phase 1: help registry and follow-focus panel",
+        "state": "closed",
+        "closed_at": "2026-10-21T21:55:42Z"
+      },
+      {
+        "number": 244,
+        "title": "Earnings test: mark the SSA limits verified and add the confirmed 2027 amounts",
+        "state": "closed",
+        "closed_at": "2026-10-21T21:02:44Z"
+      },
+      {
+        "number": 251,
+        "title": "WI-034 follow-up: split monte_carlo_exact_scalar and monte_carlo",
+        "state": "closed",
+        "closed_at": "2026-10-21T16:32:18Z"
+      },
+      {
+        "number": 250,
+        "title": "WI-034: mechanical extraction in parse_client and the engine core (ARC-005)",
+        "state": "closed",
+        "closed_at": "2026-10-21T15:47:42Z"
+      },
+      {
+        "number": 249,
+        "title": "WI-035: replace renderMain/showStepHelp decorator chain with hook registry",
+        "state": "closed",
+        "closed_at": "2026-10-21T14:34:15Z"
+      },
+      {
+        "number": 239,
+        "title": "Wave 3: WI-027 rule values, WI-039 early-distribution tax, WI-040 earnings test, WI-041 build cancel",
+        "state": "closed",
+        "closed_at": "2026-10-21T01:08:03Z"
+      },
+      {
+        "number": 238,
+        "title": "Fix main CI: test ratchets and narrow-viewport help drawer",
+        "state": "closed",
+        "closed_at": "2026-10-20T18:47:58Z"
+      },
+      {
+        "number": 235,
+        "title": "Wave 2 docs: WI-017 end-user documentation",
+        "state": "closed",
+        "closed_at": "2026-10-20T17:29:37Z"
+      },
+      {
+        "number": 234,
+        "title": "Wave 2 UI chain: WI-018 to WI-021 (save-before-change, honest build overlay, field errors, keyboard/nav a11y)",
+        "state": "closed",
+        "closed_at": "2026-10-20T17:29:09Z"
+      },
+      {
+        "number": 233,
+        "title": "Wave 1 (continued): WI-010/010a notices, WI-011 to WI-016",
+        "state": "closed",
+        "closed_at": "2026-10-20T13:22:48Z"
+      },
+      {
+        "number": 211,
+        "title": "Items 345 + 346: Rebuild activates after import; year pull-down for spending views",
+        "state": "closed",
+        "closed_at": "2026-10-14T21:19:26Z"
+      },
+      {
+        "number": 199,
+        "title": "WP12a: Rental Properties engine (tax core, integration, parse boundary)",
+        "state": "closed",
+        "closed_at": "2026-10-13T07:09:52Z"
+      }
+    ]
+  },
+  "relevant_merged_pull_requests": [
+    {
+      "number": 419,
+      "title": "fix: keep fill-to-bracket Roth conversions inside the target bracket",
+      "head": "roth-bracket-ira-draw-reserve",
+      "base": "main",
+      "merged_at": "2026-11-10T11:43:40Z",
+      "additions": 601,
+      "deletions": 149,
+      "changed_files": 12,
+      "relevance": "Parent of the reviewed commit (main tip). Engine change.",
+      "summary": "Caps fill-to-bracket conversion at room*(1-t)+surplus so the conversion plus the IRA draw it causes fits the bracket; counts the year's IRMAA surcharge as a cash need (shared helper irmaa_surcharge_for_year); workbook sheet 2E flags 'Over target bracket'; full-row snapshot and phase golden re-pinned with a changelog entry."
+    },
+    {
+      "number": 418,
+      "title": "Investment Sales Ledger v3: three tabs, Record sales grid, Holdings Activity/Import, wash-sale rules",
+      "head": "sales-ledger-v3",
+      "base": "main",
+      "merged_at": "2026-11-10T02:22:50Z",
+      "additions": 4744,
+      "deletions": 1975,
+      "changed_files": 84,
+      "relevance": "Large recent UI restructure; usability scope.",
+      "summary": "Ledger becomes three tabs (To fix, Sales, Tax year) with one Year and a Taxable-only switch; Record sales grid with lot chooser; transaction log and broker import move to Investment Holdings (Positions | Activity | Import); cash material moves to Year-End; Sales CSV removed; wash-sale rules W1-W3 with reviews (schema 23/24); bank accounts excluded from investment-account lists; demo seed rebuilt at schema v24. PR states rule W1 needs CPA confirmation and that several flows were not exercised in the app."
+    },
+    {
+      "number": 417,
+      "title": "Liquid investments: fold sold lots into a Sold positions row so totals foot",
+      "head": "liquid-table-sold-positions-row",
+      "base": "main",
+      "merged_at": "2026-11-09T03:22:21Z",
+      "additions": 42,
+      "deletions": 4,
+      "changed_files": 2,
+      "relevance": "Usability: table totals did not match visible rows.",
+      "summary": "Sold-only groups were hidden while counted in the Total row (about $1.65M apart); they now fold into a 'Sold positions' row at every grouping level."
+    },
+    {
+      "number": 390,
+      "title": "Left nav redesign: eight groups, Set up / Maintain switch, Features popover",
+      "head": "nav-redesign",
+      "base": "main",
+      "merged_at": "2026-11-04T16:20:01Z",
+      "additions": 1682,
+      "deletions": 391,
+      "changed_files": 46,
+      "relevance": "Core information-architecture change; usability scope.",
+      "summary": "Regroups left nav from 12 headings to 8 (Plan Status pinned), renames pages, updates the suggested-next chain; adds Set up | Maintain switch (remembered per browser); per-heading Features popover in dashboard_decomp_nav_features.js writing through setPlanFeatureSwitch. Spec: documentation/future/superpowers/specs/2026-11-04-left-nav-redesign-design.md. Lists five deviations from the spec (see flagged_or_pending_issues)."
+    },
+    {
+      "number": 388,
+      "title": "Sales Ledger redesign: four tabs, alert strip, collapsible sections",
+      "head": "sales-ledger-redesign",
+      "base": "main",
+      "merged_at": "2026-11-04T09:02:20Z",
+      "additions": 4067,
+      "deletions": 218,
+      "changed_files": 35,
+      "relevance": "Usability redesign, superseded six days later by #418 (four tabs to three).",
+      "summary": "Page was one ~5,400px column; redesigned into four ARIA tabs with a 'Needs attention' strip, collapsible sections, drafts so reloads no longer wipe a half-filled form, density toggle, phone-width fixes. Lists known follow-ups (see flagged_or_pending_issues)."
+    },
+    {
+      "number": 387,
+      "title": "Nav: move Account Tax Basis to third tab under Taxes",
+      "head": "nav-account-tax-basis-under-taxes",
+      "base": "main",
+      "merged_at": "2026-11-04T02:11:11Z",
+      "additions": 7,
+      "deletions": 7,
+      "changed_files": 2,
+      "relevance": "Navigation placement changed within hours of the page being added (#386).",
+      "summary": "Moves Account Tax Basis from Investments & Property to Taxes; navigation baseline re-recorded."
+    },
+    {
+      "number": 386,
+      "title": "Account Tax Basis page: Roth basis, HSA expense bank, cash pair-status switch",
+      "head": "account-tax-basis-page",
+      "base": "main",
+      "merged_at": "2026-11-04T01:22:44Z",
+      "additions": 74,
+      "deletions": 8,
+      "changed_files": 10,
+      "relevance": "Discoverability: inputs previously reachable only in Field Finder; HSA expense bank had no UI row.",
+      "summary": "New nav step holding Roth contribution basis, first-contribution year, the experimental Cash Pair Status Tax switch (default OFF) and an HSA expense bank row; help entry and glossary terms added; size ratchets raised."
+    },
+    {
+      "number": 385,
+      "title": "Nav search: keep typed text, compute step stats once per render",
+      "head": "fix-nav-search-typing",
+      "base": "main",
+      "merged_at": "2026-11-04T01:03:29Z",
+      "additions": 48,
+      "deletions": 4,
+      "changed_files": 4,
+      "relevance": "Usability defect: nav search erased each keystroke; render cost.",
+      "summary": "updateSearchToggle no longer overwrites the focused search box; renderSteps memoizes stepStats per render (PR states roughly 670 ms to 360 ms on the sample plan)."
+    },
+    {
+      "number": 366,
+      "title": "Year-end transition Phase 2: guided Year-End Transition page",
+      "head": "year-end-transition-phase2",
+      "base": "year-end phase 1 branch (stacked on #364)",
+      "merged_at": "2026-11-03T16:40:40Z",
+      "additions": 483,
+      "deletions": 31,
+      "changed_files": 16,
+      "relevance": "Guided workflow page; usability scope.",
+      "summary": "New Year-End Transition page with eight ordered steps whose state is derived from data; Plan Status banner 15 Dec to 31 Jan; src/year_end.py with GET /api/year-end and POST /api/year-end/confirm. Phase 3 not included."
+    },
+    {
+      "number": 268,
+      "title": "Contextual help Phase 5: content pass over the help registry",
+      "head": "claude/contextual-help-panel-p5",
+      "base": "main",
+      "merged_at": "2026-10-22T10:57:29Z",
+      "additions": 211,
+      "deletions": 154,
+      "changed_files": 7,
+      "relevance": "Help content / terminology consistency.",
+      "summary": "Plainer wording in frontend/js/help_registry.js, retired page names replaced by current ones, glossary confirmed against WI-033 draft; glossary terms are not clickable (recorded decision)."
+    },
+    {
+      "number": 267,
+      "title": "Contextual help panel Phase 4: prose guard, e2e panel checks, inventory closeout",
+      "head": "claude/contextual-help-panel-p4",
+      "base": "main",
+      "merged_at": "2026-10-22T10:03:12Z",
+      "additions": 989,
+      "deletions": 583,
+      "changed_files": 46,
+      "relevance": "On-screen prose policy; usability scope.",
+      "summary": "Adds tests/frontend/ui_prose_guard.test.mjs (static section-note/small text of 3+ words must be tagged state|warn and be at most 120 characters); about 100 prose nodes moved to the help registry or shortened; inventory closeout: 584 rows, 406 moved, 25 deleted, 153 kept."
+    },
+    {
+      "number": 259,
+      "title": "Contextual help panel Phase 1: help registry and follow-focus panel",
+      "head": "claude/contextual-help-panel-p1",
+      "base": "main",
+      "merged_at": "2026-10-21T21:55:42Z",
+      "additions": 502,
+      "deletions": 32,
+      "changed_files": 15,
+      "relevance": "Help-panel interaction model; usability scope.",
+      "summary": "help_glossary.js renamed to frontend/js/help_registry.js (HELP_PAGES, HELP_SECTIONS, HELP_FIELDS, GLOSSARY); panel opens by default only on 11 pre-build pages above 1180px, remembers a user close (retirementHelpOpen), follows field focus without moving focus or using aria-live; slide-over sheet below 1180px; STEP_HELP kept as fallback."
+    },
+    {
+      "number": 235,
+      "title": "Wave 2 docs: WI-017 end-user documentation",
+      "head": "claude/wave2-docs",
+      "base": "claude/wave2-base",
+      "merged_at": "2026-10-20T17:29:37Z",
+      "additions": 111,
+      "deletions": 41,
+      "changed_files": 9,
+      "relevance": "End-user documentation.",
+      "summary": "README rewritten with current on-screen names; Concepts Guide linked from README, docs index and a Help card; input READMEs rewritten as import/export format notes."
+    },
+    {
+      "number": 234,
+      "title": "Wave 2 UI chain: WI-018 to WI-021 (save-before-change, honest build overlay, field errors, keyboard/nav a11y)",
+      "head": "claude/wave2-ui",
+      "base": "claude/wave2-base",
+      "merged_at": "2026-10-20T17:29:09Z",
+      "additions": 1929,
+      "deletions": 178,
+      "changed_files": 48,
+      "relevance": "Prior usability/accessibility remediation wave.",
+      "summary": "saveBeforeStructuralChange() used by 9 add/delete/seed handlers; build overlay Cancel replaced by Hide plus a 'still running' chip; additive field_errors on 422 with aria-describedby messages and error summary; help badge as button, navigateTo guard, page title/live region/heading focus, persisted nav groups, per-chart summaries."
+    },
+    {
+      "number": 233,
+      "title": "Wave 1 (continued): WI-010/010a notices, WI-011 to WI-016",
+      "head": "claude/compassionate-ride-cx7k6j",
+      "base": "main",
+      "merged_at": "2026-10-20T13:22:48Z",
+      "additions": 2090,
+      "deletions": 338,
+      "changed_files": 119,
+      "relevance": "Implements the prior system review (SYSTEM_REVIEW_2026-10-19): notices, Admin accessibility, focus token, reflow, navigation baseline, docs layout.",
+      "summary": "Limitation/preflight notices N1-N7; Admin / Control Center accessibility (names, live region, in-app confirm); shared focus token and reflow fixes; frontend script-order guards and navigation baseline; docs/ moved to documentation/archive/superpowers/."
+    }
+  ],
+  "relevant_merged_pull_requests_meta": {
+    "read_with_pull_request_read_get": 15,
+    "limit_allowed": 30,
+    "selection": "Three most recent merges on main plus the PRs from the scope search most directly about navigation, help, accessibility, page redesigns and end-user docs."
+  },
+  "recent_commits": {
+    "ref_note": "Reviewed branch is unpushed, so GitHub list_commits cannot see it. Entry 1 is the local HEAD from read-only 'git log'; entries 2-31 are list_commits sha=main (30 most recent). Local parent of HEAD equals the main tip 946aae95.",
+    "items": [
+      {
+        "sha": "e75d6ac159210dc5127e8c42f5a71b41689f8a1f",
+        "date": "2026-11-10T10:24:40-06:00",
+        "subject": "fix: 401(k) deferrals and HSA contributions reduce AGI and come out of cash",
+        "source": "local git (unpushed)"
+      },
+      {
+        "sha": "946aae9555e80c721953fc577ea6d393e0c74b55",
+        "date": "2026-11-10T11:43:39Z",
+        "subject": "Merge pull request #419 from matthartzman/roth-bracket-ira-draw-reserve"
+      },
+      {
+        "sha": "844c838355e98be66f42278df7a4f2c8be4e4429",
+        "date": "2026-11-10T05:28:29Z",
+        "subject": "fix: keep fill-to-bracket Roth conversions inside the target bracket"
+      },
+      {
+        "sha": "66c2d422a20eb83218b11781fb613af9d1660717",
+        "date": "2026-11-10T02:22:49Z",
+        "subject": "Merge pull request #418 from matthartzman/sales-ledger-v3"
+      },
+      {
+        "sha": "4d5b6ff4f692e88c89b9c52d0ed8dd8da94e298c",
+        "date": "2026-11-10T01:41:11Z",
+        "subject": "fix: drop the removed CSV routes from the route manifest"
+      },
+      {
+        "sha": "dc587be0aa90c3789545b9d5cd64bb1f31ea0827",
+        "date": "2026-11-10T01:36:08Z",
+        "subject": "fix: CI failures (route manifest, frozen-today seam, migration test, tie key)"
+      },
+      {
+        "sha": "e50188647cd8db272bfb0b491c30ba7d546931f1",
+        "date": "2026-11-10T01:05:59Z",
+        "subject": "chore: rebuild the shipped demo seed plan at schema v24"
+      },
+      {
+        "sha": "496ded7e6bb06e4f93f83b11ea890e1523dbb538",
+        "date": "2026-11-09T21:42:11Z",
+        "subject": "fix: review findings for phases 3-5 (unmanaged drift, transfers keep add-back, broker amount, refreshable auto review)"
+      },
+      {
+        "sha": "2c293e62ca72477ae96e736cb3828d5b05384fad",
+        "date": "2026-11-09T21:39:24Z",
+        "subject": "chore: pay the frontend line ceiling (237 blank lines out of the touched modules) and lower it to 43,777"
+      },
+      {
+        "sha": "9469b358c763b5783747c5dcdffc7838e137bac4",
+        "date": "2026-11-09T21:38:14Z",
+        "subject": "feat: wash basis add-back, Positions marker, 1099-B wash tie, open-window warning; review fixes for phase 2"
+      },
+      {
+        "sha": "b426a76f62c2360e91556c648aa1ccb31aca4199",
+        "date": "2026-11-09T21:31:39Z",
+        "subject": "feat: wash rules W1-W3, wash cards in To fix, Tax year disallowed line"
+      },
+      {
+        "sha": "ec99eab002cf297f739bf89b4e9bd7d032344b7a",
+        "date": "2026-11-09T21:21:02Z",
+        "subject": "fix: review findings for phase 1 (restore of linked lots, Year follows history/queue, revised log sell, edit grid, voided count)"
+      },
+      {
+        "sha": "b8ff026d85fb8ed456a7d542c4cf6042d8b1c17b",
+        "date": "2026-11-09T21:20:07Z",
+        "subject": "feat: wash_reviews table and review routes (schema 23)"
+      },
+      {
+        "sha": "bdf678660d8adf37feed69309716ccf6d4621599",
+        "date": "2026-11-09T21:18:05Z",
+        "subject": "feat: history finds show Got it, hide, show hidden (n) and Unhide"
+      },
+      {
+        "sha": "0a04e408e837b301256e4a6239477dd32fe6972c",
+        "date": "2026-11-09T21:17:05Z",
+        "subject": "feat: Positions markers, History and Edit in Activity links, holding-period check"
+      },
+      {
+        "sha": "e0d0a0d8156e6ed363eca02b4c46a8e8921f68b8",
+        "date": "2026-11-09T21:14:52Z",
+        "subject": "feat: Holdings tabs host with Activity and Import; Activity panel without modes or managed chips"
+      },
+      {
+        "sha": "c8b9b166e6c90b42f23ad794233ffa4f53828051",
+        "date": "2026-11-09T21:14:51Z",
+        "subject": "feat: remove Sales CSV; cash material becomes four Year-End cards; reinvest default on Plan Features"
+      },
+      {
+        "sha": "f817fbb9be676fc679a59c122d025d78100cf662",
+        "date": "2026-11-09T20:59:13Z",
+        "subject": "feat: Tax year headings follow Year, fund types table, 1099-B card without paste or steps"
+      },
+      {
+        "sha": "eb8a7993d0eef783586fee573c18f35d98f9d24c",
+        "date": "2026-11-09T20:57:42Z",
+        "subject": "feat: Sales table is one row per sale with lot actions and a summary KPI strip"
+      },
+      {
+        "sha": "74251ff58bfea334118cef24d85cfb621273b9ba",
+        "date": "2026-11-09T20:56:18Z",
+        "subject": "feat: Record sales grid with lot chooser and atomic batch save"
+      },
+      {
+        "sha": "7c45d0a14fa454e7927cfd638cce500b3fb2856f",
+        "date": "2026-11-09T20:51:16Z",
+        "subject": "feat: ledger shell with three tabs, shared Year and Taxable-only header"
+      },
+      {
+        "sha": "eeae8bf54b437a7d21f1afbc478822400ecbb287",
+        "date": "2026-11-09T20:42:39Z",
+        "subject": "feat: sales summary equal to Tax year, sale grouping, year list"
+      },
+      {
+        "sha": "acbd803f63febfb7d48e69d345da3fd8ea87b7ef",
+        "date": "2026-11-09T20:40:51Z",
+        "subject": "feat: bank-account cleanup preview and confirmed apply"
+      },
+      {
+        "sha": "52c837baece249f50ee30130a958871e897d8b3a",
+        "date": "2026-11-09T20:40:17Z",
+        "subject": "fix: investment-account definition excludes bank accounts; backfill skips them"
+      },
+      {
+        "sha": "16bacb48e931eb3ef7538b13ab2600a320859cf1",
+        "date": "2026-11-09T20:38:44Z",
+        "subject": "fix: history Dismiss now hides Treasury rows; add Unhide"
+      },
+      {
+        "sha": "4915a441909793f66b6633369a99fde19e8bedd3",
+        "date": "2026-11-09T20:38:02Z",
+        "subject": "docs: Sales Ledger v3 spec, plan and mockup"
+      },
+      {
+        "sha": "1490fc279fcc23f8abf12899322ae16917a04842",
+        "date": "2026-11-09T03:22:21Z",
+        "subject": "Merge pull request #417 from matthartzman/liquid-table-sold-positions-row"
+      },
+      {
+        "sha": "cdb4dcb9f9a2939519336f18158873ae7d6be32a",
+        "date": "2026-11-09T03:13:17Z",
+        "subject": "Fold sold lots into a Sold positions child at every grouping level"
+      },
+      {
+        "sha": "b0e69e9c68cae7fe232c9b097f85624247e2d428",
+        "date": "2026-11-09T03:12:39Z",
+        "subject": "Fold fully-sold top-level groups into a Sold positions row so totals foot"
+      },
+      {
+        "sha": "f3681bfa7ef2145c8417c9f3c60616114d918f87",
+        "date": "2026-11-08T22:38:05Z",
+        "subject": "Merge pull request #416 from matthartzman/fix-nightly-survivor-recon-sims"
+      },
+      {
+        "sha": "69b6a108308556f6309ab627da07a73b90b5defd",
+        "date": "2026-11-08T22:09:46Z",
+        "subject": "Use 800 paths for survivor-economics reconciliation test"
+      }
+    ]
+  },
+  "scope_related_commits": {
+    "query": "repo:matthartzman/retirement_system usability (sort committer-date desc)",
+    "total_count": 321,
+    "returned": 30,
+    "truncated": true,
+    "default_branch_only": true,
+    "items": [
+      {
+        "sha": "f3681bfa7ef2145c8417c9f3c60616114d918f87",
+        "date": "2026-11-08T16:38:05-06:00",
+        "subject": "Merge pull request #416 from matthartzman/fix-nightly-survivor-recon-sims"
+      },
+      {
+        "sha": "69b6a108308556f6309ab627da07a73b90b5defd",
+        "date": "2026-11-08T16:09:46-06:00",
+        "subject": "Use 800 paths for survivor-economics reconciliation test"
+      },
+      {
+        "sha": "ce565d829a9dc5344a8853362043c49626c2389e",
+        "date": "2026-11-06T19:10:16-06:00",
+        "subject": "Sell each Other Asset on its own date and let a negative rate shrink it"
+      },
+      {
+        "sha": "7343e0d002a3d569dc3446a478f16de653a2422a",
+        "date": "2026-11-06T18:11:51-06:00",
+        "subject": "Tax the gain when the plan sells its Other Assets"
+      },
+      {
+        "sha": "fc83ecf0b7be63d0aafa7f08c6c8892bbcc95176",
+        "date": "2026-11-05T11:49:42-06:00",
+        "subject": "Realized tab: group by, sort by and collapsible headings; show account labels, not internal ids"
+      },
+      {
+        "sha": "61a9d7f2c4e9bf5ae26f71b08316894490c67c9d",
+        "date": "2026-11-04T03:02:20-06:00",
+        "subject": "Sales Ledger redesign: four tabs, alert strip, collapsible sections (#388)"
+      },
+      {
+        "sha": "93e970e910c1fc0edf81e12be8b794b6ff5c070e",
+        "date": "2026-11-03T10:12:00-06:00",
+        "subject": "Realized-sales ledger: fuzzy 1099-B suggestions, fuller realized-tax income, panel fixes (#371)"
+      },
+      {
+        "sha": "b1c9f0389ab880e7d35762ef02d22b027717caee",
+        "date": "2026-11-02T17:36:54-06:00",
+        "subject": "Parse split-limit P&C coverage (250/500) instead of defaulting to 0 (#358)"
+      },
+      {
+        "sha": "6937f2e75d8b194c065077ec473aea1583587543",
+        "date": "2026-11-02T08:26:02-06:00",
+        "subject": "Transaction log backfill: log a matched lot at the holdings lot's price (#346)"
+      },
+      {
+        "sha": "2899e8fb2f341c682b879971b211bfef2b8288af",
+        "date": "2026-10-31T13:58:18-05:00",
+        "subject": "fix(broker-import): show friendly account names in preview warnings and errors (#335)"
+      },
+      {
+        "sha": "335037a7a04e56c3368440a6cb2f99576507655e",
+        "date": "2026-10-30T02:57:13-05:00",
+        "subject": "feat(trends): value annuity and pension accounts from the plan, not Monarch (#328)"
+      },
+      {
+        "sha": "70d329e52937df917dfe8cc2d80c0c3ca48a0a77",
+        "date": "2026-10-29T18:16:28-05:00",
+        "subject": "Sales ledger 3b.2: use_realized_sales setting, year-1 workbook note, non-empty golden scenarios (#325)"
+      },
+      {
+        "sha": "6958374badcc5546d8b37b9abd78743cfd797cbf",
+        "date": "2026-10-29T17:04:32-05:00",
+        "subject": "Sales ledger 3b.1: seed the projection from the ledger; MFS capital-loss limit (#322)"
+      },
+      {
+        "sha": "73adad44170acead6ca3b19f16fad89e664d3da4",
+        "date": "2026-10-29T14:40:01-05:00",
+        "subject": "Merge pull request #319 from matthartzman/trends-plan-fallback-uses-monarch-figures"
+      },
+      {
+        "sha": "603a2282d67470770448890f232bdb1d45b27fc8",
+        "date": "2026-10-29T14:22:15-05:00",
+        "subject": "Trends: a day Monarch hasn't synced uses the entry's Monarch figures, not the plan totals"
+      },
+      {
+        "sha": "7eaca67c14d59893b41d2db4ead69c643c29c31d",
+        "date": "2026-10-27T15:48:47-05:00",
+        "subject": "Trends: remote access via Tailscale Funnel (#285)"
+      },
+      {
+        "sha": "17662271213d0a05bac798f9b861fc1141ba6602",
+        "date": "2026-10-27T14:33:59-05:00",
+        "subject": "Financial Trends: Live Snapshot view (live prices, returns net of new money, after-tax net worth) (#280)"
+      },
+      {
+        "sha": "d5e63eb3aa9612677e813d002529e1ef6a3bbc4b",
+        "date": "2026-10-26T14:12:13-05:00",
+        "subject": "Financial Trends: one time scope, update on open, Spending by window (#276)"
+      },
+      {
+        "sha": "4c0e53b42e6600b8535866a8d7289bf5aad40277",
+        "date": "2026-10-25T08:28:46-05:00",
+        "subject": "Tests: close SQLite handles leaked by zip fixture and revision reads (#275)"
+      },
+      {
+        "sha": "3926a4cec7569ee59c9b8d5ab1110cb875da46d3",
+        "date": "2026-10-22T05:57:29-05:00",
+        "subject": "Contextual help Phase 5: content pass over the help registry (#268)"
+      },
+      {
+        "sha": "40582aa0bd1b626ad758ca15d3b83d76e5d0d0f9",
+        "date": "2026-10-21T18:59:24-05:00",
+        "subject": "Fix stale jscodeshift line-ending premise in codemod offsets test (#264)"
+      },
+      {
+        "sha": "95413e151f6c29f43cf453d818ffe5b94480f21a",
+        "date": "2026-10-21T15:40:16-05:00",
+        "subject": "Contextual help panel: Phase 0 UI prose inventory (#255)"
+      },
+      {
+        "sha": "d8ca1bce974cb92ce2c8ba4ab8c6e74efd0d6627",
+        "date": "2026-10-21T13:44:28-05:00",
+        "subject": "WI-038: move KPI/result snapshots, price snapshots, freezes and build events into app.db (#252)"
+      },
+      {
+        "sha": "89c5ef9005ade9fca75c6129cfad11a23b99ca22",
+        "date": "2026-10-20T13:47:57-05:00",
+        "subject": "Fix main CI: test ratchets and narrow-viewport help drawer (#238)"
+      },
+      {
+        "sha": "1d6b10a62f3a69627725be41ebc684c6b5f32af8",
+        "date": "2026-10-20T12:32:15-05:00",
+        "subject": "Wave 2 engine chain: WI-022 to WI-025 (qualified-dividend stacking, brokerage-gain MAGI, symmetric step-up) (#237)"
+      },
+      {
+        "sha": "20e47b38ad59fd1a7d6de79a2473ca59375cc00f",
+        "date": "2026-10-20T12:29:09-05:00",
+        "subject": "Wave 2 UI chain: WI-018 to WI-021 (save-before-change, honest build overlay, field errors, keyboard/nav a11y) (#234)"
+      },
+      {
+        "sha": "fc0c883d8db7488b41e91e303b5a4cfef6386497",
+        "date": "2026-10-14T16:19:41-05:00",
+        "subject": "Item 347a: prior-year YTD and full-year budget markers on the YTD spending bars (#212)"
+      },
+      {
+        "sha": "3f0585dc9a8c3e7bbf7f7a5793852a2d202f49b1",
+        "date": "2026-10-13T23:55:25Z",
+        "subject": "H3: converted home moves back in (121 residence clock, depreciation stop, nonqualified use)"
+      },
+      {
+        "sha": "ab2dd843e41ddda44570b77a5b44458caf8e5da7",
+        "date": "2026-10-13T22:32:46Z",
+        "subject": "H3: design note, worked examples and UI mock for personal-use reversion (checkpoint)"
+      },
+      {
+        "sha": "543f90dfeb58259b33fb395454f6492a640a5c89",
+        "date": "2026-10-13T19:49:51Z",
+        "subject": "M7: exact tax delta for shortlisted rent-out lifetime cost (code landed in 1758878); drop unused test import"
+      }
+    ]
+  },
+  "tags": [
+    {
+      "name": "archive/wave2-base-2026-10-20",
+      "sha": "d270327ee8333f86e51c27729a55b311df319636"
+    },
+    {
+      "name": "archive/tier3-h1-prototype",
+      "sha": "1535ec7ca23f28e7b7569bd317d2c2f7fe60e8ae"
+    },
+    {
+      "name": "archive/main-before-reset-2026-10-19",
+      "sha": "0d979c9fcb72e8cccca51fe87b58fb8750fdef56"
+    }
+  ],
+  "tags_meta": {
+    "total_returned": 3,
+    "note": "All three are archive/* pointers; no version tags exist."
+  },
+  "releases": [],
+  "latest_release": null,
+  "latest_release_note": "get_latest_release returned 404 Not Found; the repository has no releases.",
+  "gaps": [
+    "search_pull_requests matched 108 PRs; only the first 30 (by updated desc) were retrieved.",
+    "pull_request_read get was called for 15 PRs (limit was 30); the other scope-search hits are recorded by title only.",
+    "search_commits query 'usability' matched 321 commits on the default branch (semantic/loose match); only the first 30 by committer date are recorded, subjects only.",
+    "search_commits covers the default branch only; the reviewed head commit e75d6ac1 is unpushed and absent from GitHub, so it comes from local git log.",
+    "Zero GitHub issues exist, so pending work could only be inferred from merged PR descriptions; items already resolved by later PRs were not cross-checked.",
+    "Some commit and PR titles mention CI by name; they are kept verbatim as titles only and no CI content was inspected."
+  ]
+}

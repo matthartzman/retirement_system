@@ -50,6 +50,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {},
@@ -60,7 +62,7 @@
       "agi": 180000.0,
       "ann_nw": 0.0,
       "autos_val": 0.0,
-      "business_expenses_yr": 0,
+      "business_expenses_yr": 0.0,
       "cap_loss_carryforward": 0.0,
       "cap_loss_used": 0.0,
       "cash_nw": 120000.0,
@@ -73,7 +75,7 @@
           "trust_wd": 0.0
         },
         "expense": {
-          "business_expenses": 0,
+          "business_expenses": 0.0,
           "heloc_pai": 0.0,
           "housing_operating": 0.0,
           "mortgage": 0.0,
@@ -231,6 +233,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -259,6 +262,9 @@
       "roth_nw": 381600.0,
       "roth_wd": 0.0,
       "salt_gross": 8910.0,
+      "scorp_pte_base": 0.0,
+      "scorp_pte_tax": 0.0,
+      "scorp_replacement_tax": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 110000.0,
@@ -380,6 +386,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {},
@@ -390,7 +398,7 @@
       "agi": 185400.0,
       "ann_nw": 0.0,
       "autos_val": 0.0,
-      "business_expenses_yr": 0,
+      "business_expenses_yr": 0.0,
       "cap_loss_carryforward": 0.0,
       "cap_loss_used": 0.0,
       "cash_nw": 120000.0,
@@ -403,7 +411,7 @@
           "trust_wd": 0.0
         },
         "expense": {
-          "business_expenses": 0,
+          "business_expenses": 0.0,
           "heloc_pai": 0.0,
           "housing_operating": 0.0,
           "mortgage": 0.0,
@@ -559,6 +567,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -587,6 +596,9 @@
       "roth_nw": 404496.0,
       "roth_wd": 0.0,
       "salt_gross": 9177.300000000001,
+      "scorp_pte_base": 0.0,
+      "scorp_pte_tax": 0.0,
+      "scorp_replacement_tax": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 112749.99999999999,
@@ -717,6 +729,8 @@
         "Member_1_IRA": 43642.531854123255,
         "Member_2_IRA": 46759.855557989205
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -898,6 +912,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -1057,6 +1072,8 @@
         "Member_1_IRA": 44756.50520953618,
         "Member_2_IRA": 47953.39843878876
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -1238,6 +1255,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -1397,6 +1415,8 @@
         "Member_1_IRA": 45898.78610001564,
         "Member_2_IRA": 49177.27082144531
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -1578,6 +1598,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -1740,6 +1761,8 @@
         "Member_1_IRA": 37247.56068061185,
         "Member_2_IRA": 13816.706397424754
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {
         "Member_1_Roth": 3.980866485284837e-06,
@@ -1924,6 +1947,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 2631.3619332261696,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -1951,7 +1975,7 @@
       "roth_conv_src": "Member_2_IRA $258,968\u2192Member_2_Roth",
       "roth_nw": 785172.6135632882,
       "roth_wd": 1.0492724471585554e-05,
-      "salt_gross": 12818.899803331511,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 124454.90341796869,
@@ -2082,6 +2106,8 @@
         "Member_1_IRA": 44587.15781649308,
         "Member_2_IRA": 9298.199484052235
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {
         "Member_1_Roth": 3.0201377086635767e-06,
@@ -2266,6 +2292,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 2667.914316112011,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -2293,7 +2320,7 @@
       "roth_conv_src": "Member_2_IRA $264,147\u2192Member_2_Roth",
       "roth_nw": 1112278.8181913043,
       "roth_wd": 1.0638491747877109e-05,
-      "salt_gross": 13075.277799398144,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 127566.2760034179,
@@ -2424,6 +2451,8 @@
         "Member_1_IRA": 54019.269544475144,
         "Member_2_IRA": 2585.4071450913175
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {
         "Member_1_Roth": 2.600879591153195e-06,
@@ -2608,6 +2637,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 2854.097017096599,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -2635,7 +2665,7 @@
       "roth_conv_src": "Member_2_IRA $269,430\u2192Member_2_Roth",
       "roth_nw": 1464611.3120527242,
       "roth_wd": 1.1380894935330448e-05,
-      "salt_gross": 13336.783355386106,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 130755.43290350334,
@@ -2766,6 +2796,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 42444.62999539977
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -2947,6 +2979,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 2837.6716554448935,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -2974,7 +3007,7 @@
       "roth_conv_src": "Member_2_IRA $82,329\u2192Member_2_Roth + Member_1_IRA $192,490\u2192Member_1_Roth",
       "roth_nw": 1843795.6708535333,
       "roth_wd": 0.0,
-      "salt_gross": 14433.69579849383,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 134024.3187260909,
@@ -3101,6 +3134,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 27505.97843706006
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -3282,6 +3317,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 2822.651573911721,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -3309,7 +3345,7 @@
       "roth_conv_src": "Member_1_IRA $280,315\u2192Member_1_Roth",
       "roth_nw": 2251557.2447839435,
       "roth_wd": 0.0,
-      "salt_gross": 15569.150025983703,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 137374.9266942432,
@@ -3437,6 +3473,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 95192.0108917867
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -3618,6 +3656,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -3773,6 +3812,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 89177.61133524608
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -3954,6 +3995,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -3981,7 +4023,7 @@
       "roth_conv_src": "",
       "roth_nw": 2529849.7202392393,
       "roth_wd": 0.0,
-      "salt_gross": 107.13418905024011,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 144329.5323581392,
@@ -4109,6 +4151,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 83179.83780246237
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -4290,6 +4334,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -4317,7 +4362,7 @@
       "roth_conv_src": "",
       "roth_nw": 2681640.703453594,
       "roth_wd": 0.0,
-      "salt_gross": 125.11687283124473,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 147937.77066709267,
@@ -4435,6 +4480,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 32900.642259070664
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 52732.415154346745
@@ -4616,6 +4663,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -4643,7 +4691,7 @@
       "roth_conv_src": "",
       "roth_nw": 2842539.1456608092,
       "roth_wd": 0.0,
-      "salt_gross": 4864.951575248682,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 151636.21493376995,
@@ -4760,6 +4808,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 34150.50807405519
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 54189.004924325876
@@ -4941,6 +4991,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -4968,7 +5019,7 @@
       "roth_conv_src": "",
       "roth_nw": 3013091.4944004575,
       "roth_wd": 0.0,
-      "salt_gross": 5030.144396584309,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 155427.12030711424,
@@ -5085,6 +5136,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 35726.99888304338
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 55357.91694020222
@@ -5266,6 +5319,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -5293,7 +5347,7 @@
       "roth_conv_src": "",
       "roth_nw": 3193876.984064485,
       "roth_wd": 0.0,
-      "salt_gross": 5169.629239850968,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -5410,6 +5464,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 32706.44808697722
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 56691.27568335583
@@ -5591,6 +5647,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -5618,7 +5675,7 @@
       "roth_conv_src": "",
       "roth_nw": 3385509.6031083544,
       "roth_wd": 0.0,
-      "salt_gross": 5324.822126676299,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -5735,6 +5792,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 29525.072907617436
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 58164.87970328461
@@ -5916,6 +5975,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -5943,7 +6003,7 @@
       "roth_conv_src": "",
       "roth_nw": 3588640.179294856,
       "roth_wd": 0.0,
-      "salt_gross": 5493.5197859207365,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -6060,6 +6120,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 26163.140779307716
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 59800.215330500345
@@ -6241,6 +6303,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -6268,7 +6331,7 @@
       "roth_conv_src": "",
       "roth_nw": 3803958.590052547,
       "roth_wd": 0.0,
-      "salt_gross": 5677.703064524867,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -6385,6 +6448,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 22878.11992024766
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 61305.20892681839
@@ -6566,6 +6631,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -6593,7 +6659,7 @@
       "roth_conv_src": "",
       "roth_nw": 4032196.1054557,
       "roth_wd": 0.0,
-      "salt_gross": 5850.638820020378,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -6710,6 +6776,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 19102.060429573085
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 63321.404745578555
@@ -6891,6 +6959,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -6918,7 +6987,7 @@
       "roth_conv_src": "",
       "roth_nw": 4274127.871783042,
       "roth_wd": 0.0,
-      "salt_gross": 6071.0902383742805,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -7035,6 +7104,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 15391.604100745595
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 65218.297964696896
@@ -7216,6 +7287,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -7243,7 +7315,7 @@
       "roth_conv_src": "",
       "roth_nw": 4530575.544090024,
       "roth_wd": 0.0,
-      "salt_gross": 6281.332886890999,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -7360,6 +7432,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 11080.344513650298
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 67748.76251334963
@@ -7541,6 +7615,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -7568,7 +7643,7 @@
       "roth_conv_src": "",
       "roth_nw": 4802410.076735426,
       "roth_wd": 0.0,
-      "salt_gross": 6550.325522949352,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -7685,6 +7760,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 6813.609721823741
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 70181.9443368194
@@ -7866,6 +7943,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -7893,7 +7971,7 @@
       "roth_conv_src": "",
       "roth_nw": 5090554.681339552,
       "roth_wd": 0.0,
-      "salt_gross": 6811.154800349384,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -8010,6 +8088,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 2218.363832442529
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 72938.84793751944
@@ -8191,6 +8271,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -8218,7 +8299,7 @@
       "roth_conv_src": "",
       "roth_nw": 5395987.962219924,
       "roth_wd": 0.0,
-      "salt_gross": 7102.389112537592,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -8342,6 +8423,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 76078.06065924675
@@ -8523,6 +8606,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -8550,7 +8634,7 @@
       "roth_conv_src": "",
       "roth_nw": 5719747.239953119,
       "roth_wd": 0.0,
-      "salt_gross": 7429.408799782956,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -8674,6 +8758,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 78876.84478860883
@@ -8855,6 +8941,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -8882,7 +8969,7 @@
       "roth_conv_src": "",
       "roth_nw": 6062932.074350307,
       "roth_wd": 0.0,
-      "salt_gross": 7726.044664327536,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -9006,6 +9093,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 82313.18484839163
@@ -9187,6 +9276,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -9214,7 +9304,7 @@
       "roth_conv_src": "",
       "roth_nw": 6426707.998811325,
       "roth_wd": 0.0,
-      "salt_gross": 8081.87145735836,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -9365,6 +9455,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 75788.21267719795
       },
@@ -9545,6 +9637,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -9572,7 +9665,7 @@
       "roth_conv_src": "",
       "roth_nw": 6812310.478740005,
       "roth_wd": 0.0,
-      "salt_gross": 7526.313961878638,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -9696,6 +9789,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 79089.9937256154
       },
@@ -9876,6 +9971,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -9903,7 +9999,7 @@
       "roth_conv_src": "",
       "roth_nw": 7221049.107464405,
       "roth_wd": 0.0,
-      "salt_gross": 6431.49668715573,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -10027,6 +10123,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 81773.86728318957
       },
@@ -10207,6 +10305,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -10234,7 +10333,7 @@
       "roth_conv_src": "",
       "roth_nw": 7654312.053912269,
       "roth_wd": 0.0,
-      "salt_gross": 6614.679268210408,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -10358,6 +10457,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 84419.07412052403
       },
@@ -10538,6 +10639,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -10565,7 +10667,7 @@
       "roth_conv_src": "",
       "roth_nw": 8113570.777147005,
       "roth_wd": 0.0,
-      "salt_gross": 6796.954463412314,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -10710,6 +10812,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 86998.54582976227
       },
@@ -10890,6 +10994,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -10917,7 +11022,7 @@
       "roth_conv_src": "",
       "roth_nw": 8600385.023775825,
       "roth_wd": 0.0,
-      "salt_gross": 6977.0025189085345,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -11041,6 +11146,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {},
@@ -11051,7 +11158,7 @@
       "agi": 180000.0,
       "ann_nw": 0.0,
       "autos_val": 0.0,
-      "business_expenses_yr": 0,
+      "business_expenses_yr": 0.0,
       "cap_loss_carryforward": 0.0,
       "cap_loss_used": 0.0,
       "cash_nw": 120000.0,
@@ -11064,7 +11171,7 @@
           "trust_wd": 0.0
         },
         "expense": {
-          "business_expenses": 0,
+          "business_expenses": 0.0,
           "heloc_pai": 0.0,
           "housing_operating": 0.0,
           "mortgage": 0.0,
@@ -11222,6 +11329,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -11250,6 +11358,9 @@
       "roth_nw": 381600.0,
       "roth_wd": 0.0,
       "salt_gross": 8910.0,
+      "scorp_pte_base": 0.0,
+      "scorp_pte_tax": 0.0,
+      "scorp_replacement_tax": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 110000.0,
@@ -11371,6 +11482,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {},
@@ -11381,7 +11494,7 @@
       "agi": 185400.0,
       "ann_nw": 0.0,
       "autos_val": 0.0,
-      "business_expenses_yr": 0,
+      "business_expenses_yr": 0.0,
       "cap_loss_carryforward": 0.0,
       "cap_loss_used": 0.0,
       "cash_nw": 120000.0,
@@ -11394,7 +11507,7 @@
           "trust_wd": 0.0
         },
         "expense": {
-          "business_expenses": 0,
+          "business_expenses": 0.0,
           "heloc_pai": 0.0,
           "housing_operating": 0.0,
           "mortgage": 0.0,
@@ -11550,6 +11663,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -11578,6 +11692,9 @@
       "roth_nw": 404496.0,
       "roth_wd": 0.0,
       "salt_gross": 9177.300000000001,
+      "scorp_pte_base": 0.0,
+      "scorp_pte_tax": 0.0,
+      "scorp_replacement_tax": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 112749.99999999999,
@@ -11708,6 +11825,8 @@
         "Member_1_IRA": 43642.531854123255,
         "Member_2_IRA": 46759.855557989205
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -11889,6 +12008,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -12048,6 +12168,8 @@
         "Member_1_IRA": 44756.50520953618,
         "Member_2_IRA": 47953.39843878876
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -12229,6 +12351,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -12388,6 +12511,8 @@
         "Member_1_IRA": 45898.78610001564,
         "Member_2_IRA": 49177.27082144531
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -12569,6 +12694,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -12751,6 +12877,8 @@
       "_pretax_elective_by_account": {
         "Member_2_IRA": 51032.32720542402
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -12931,6 +13059,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -12958,7 +13087,7 @@
       "roth_conv_src": "Member_2_IRA $258,968\u2192Member_2_Roth",
       "roth_nw": 785172.6135744104,
       "roth_wd": 0.0,
-      "salt_gross": 12818.899803331511,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 124454.90341796869,
@@ -13084,6 +13213,8 @@
       "_pretax_elective_by_account": {
         "Member_2_IRA": 30.501624017371796
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -13264,6 +13395,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -13291,7 +13423,7 @@
       "roth_conv_src": "Member_2_IRA $132,501\u2192Member_2_Roth",
       "roth_nw": 972734.5125241023,
       "roth_wd": 0.0,
-      "salt_gross": 7868.99016961114,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 82918.07940222163,
@@ -13417,6 +13549,8 @@
       "_pretax_elective_by_account": {
         "Member_2_IRA": 851.1116564976983
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -13597,6 +13731,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -13624,7 +13759,7 @@
       "roth_conv_src": "Member_2_IRA $135,151\u2192Member_2_Roth",
       "roth_nw": 1174359.1562534804,
       "roth_wd": 0.0,
-      "salt_gross": 8026.369973003364,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 84991.03138727718,
@@ -13750,6 +13885,8 @@
       "_pretax_elective_by_account": {
         "Member_2_IRA": 1608.1338896276138
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -13930,6 +14067,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -13957,7 +14095,7 @@
       "roth_conv_src": "Member_2_IRA $137,855\u2192Member_2_Roth",
       "roth_nw": 1390946.4900661798,
       "roth_wd": 0.0,
-      "salt_gross": 8186.897372463433,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 87115.80717195908,
@@ -14083,6 +14221,8 @@
       "_pretax_elective_by_account": {
         "Member_2_IRA": 2300.296567420184
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -14263,6 +14403,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -14290,7 +14431,7 @@
       "roth_conv_src": "Member_2_IRA $140,612\u2192Member_2_Roth",
       "roth_nw": 1623451.579596391,
       "roth_wd": 0.0,
-      "salt_gross": 8350.6353199127,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 89293.70235125808,
@@ -14408,6 +14549,8 @@
       "_pretax_elective_by_account": {
         "Member_2_IRA": 67710.81044910087
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -14588,6 +14731,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -14733,6 +14877,8 @@
       "_pretax_elective_by_account": {
         "Member_2_IRA": 69657.60626900433
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -14913,6 +15059,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -15058,6 +15205,8 @@
       "_pretax_elective_by_account": {
         "Member_2_IRA": 69720.8288252579
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -15238,6 +15387,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -15383,6 +15533,8 @@
       "_pretax_elective_by_account": {
         "Member_2_IRA": 71731.45796437132
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -15563,6 +15715,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -15708,6 +15861,8 @@
       "_pretax_elective_by_account": {
         "Member_2_IRA": 73797.70500033231
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -15888,6 +16043,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -16039,6 +16195,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 101373.63029004374
       },
@@ -16219,6 +16377,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -16246,7 +16405,7 @@
       "roth_conv_src": "",
       "roth_nw": 2302897.0934796734,
       "roth_wd": 0.0,
-      "salt_gross": 6583.766924811081,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -16370,6 +16529,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 107002.64706057952
       },
@@ -16550,6 +16711,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -16577,7 +16739,7 @@
       "roth_conv_src": "",
       "roth_nw": 2441070.919088454,
       "roth_wd": 0.0,
-      "salt_gross": 6893.7186994616795,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -16701,6 +16863,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 112432.21369308577
       },
@@ -16881,6 +17045,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -16908,7 +17073,7 @@
       "roth_conv_src": "",
       "roth_nw": 2587535.174233761,
       "roth_wd": 0.0,
-      "salt_gross": 7194.4240011699985,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -17032,6 +17197,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 118636.42766687699
       },
@@ -17212,6 +17379,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -17239,7 +17407,7 @@
       "roth_conv_src": "",
       "roth_nw": 2742787.284687787,
       "roth_wd": 0.0,
-      "salt_gross": 7534.113181339909,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -17363,6 +17531,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 125158.61989880008
       },
@@ -17543,6 +17713,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -17570,7 +17741,7 @@
       "roth_conv_src": "",
       "roth_nw": 2907354.5217690542,
       "roth_wd": 0.0,
-      "salt_gross": 7890.193897056693,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -17694,6 +17865,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 132011.36413682348
       },
@@ -17874,6 +18047,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -17901,7 +18075,7 @@
       "roth_conv_src": "",
       "roth_nw": 3081795.7930751974,
       "roth_wd": 0.0,
-      "salt_gross": 8263.301581080172,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -18025,6 +18199,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 138489.44757281605
       },
@@ -18205,6 +18381,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -18232,7 +18409,7 @@
       "roth_conv_src": "",
       "roth_nw": 3266703.5406597094,
       "roth_wd": 0.0,
-      "salt_gross": 8618.541492287954,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -18356,6 +18533,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 146005.30732217318
       },
@@ -18536,6 +18715,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -18563,7 +18743,7 @@
       "roth_conv_src": "",
       "roth_nw": 3462705.753099292,
       "roth_wd": 0.0,
-      "salt_gross": 9025.842826629801,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -18687,6 +18867,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 153016.86162860523
       },
@@ -18867,6 +19049,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -18894,7 +19077,7 @@
       "roth_conv_src": "",
       "roth_nw": 3670468.0982852494,
       "roth_wd": 0.0,
-      "salt_gross": 9408.886367081832,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -19018,6 +19201,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 161232.40979461724
       },
@@ -19198,6 +19383,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -19225,7 +19411,7 @@
       "roth_conv_src": "",
       "roth_nw": 3890696.1841823645,
       "roth_wd": 0.0,
-      "salt_gross": 9852.247035628745,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -19349,6 +19535,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 168770.0249525156
       },
@@ -19529,6 +19717,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -19556,7 +19745,7 @@
       "roth_conv_src": "",
       "roth_nw": 4124137.955233306,
       "roth_wd": 0.0,
-      "salt_gross": 10262.783840960617,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -19680,6 +19869,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 176542.32873322358
       },
@@ -19860,6 +20051,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -19887,7 +20079,7 @@
       "roth_conv_src": "",
       "roth_nw": 4371586.232547305,
       "roth_wd": 0.0,
-      "salt_gross": 10685.686230221885,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -20011,6 +20203,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 184535.77306197784
       },
@@ -20191,6 +20385,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -20218,7 +20413,7 @@
       "roth_conv_src": "",
       "roth_nw": 4633881.406500143,
       "roth_wd": 0.0,
-      "salt_gross": 11120.298543653767,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -20342,6 +20537,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 191324.53434834554
       },
@@ -20522,6 +20719,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -20549,7 +20747,7 @@
       "roth_conv_src": "",
       "roth_nw": 4911914.290890152,
       "roth_wd": 0.0,
-      "salt_gross": 11496.057782870686,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -20673,6 +20871,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 199659.7582478626
       },
@@ -20853,6 +21053,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -20880,7 +21081,7 @@
       "roth_conv_src": "",
       "roth_nw": 5206629.14834356,
       "roth_wd": 0.0,
-      "salt_gross": 11949.161232549332,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -21004,6 +21205,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 206435.09758512612
       },
@@ -21184,6 +21387,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -21211,7 +21415,7 @@
       "roth_conv_src": "",
       "roth_nw": 5519026.897244174,
       "roth_wd": 0.0,
-      "salt_gross": 12325.860593729478,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -21335,6 +21539,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 213112.82422005365
       },
@@ -21515,6 +21721,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -21542,7 +21749,7 @@
       "roth_conv_src": "",
       "roth_nw": 5850168.511078824,
       "roth_wd": 0.0,
-      "salt_gross": 12698.554527423707,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -21687,6 +21894,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 219624.6049601108
       },
@@ -21867,6 +22076,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -21894,7 +22104,7 @@
       "roth_conv_src": "",
       "roth_nw": 6201178.621743553,
       "roth_wd": 0.0,
-      "salt_gross": 13063.877068627155,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -22012,6 +22222,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {},
@@ -22022,7 +22234,7 @@
       "agi": 140000.0,
       "ann_nw": 0.0,
       "autos_val": 0.0,
-      "business_expenses_yr": 0,
+      "business_expenses_yr": 0.0,
       "cap_loss_carryforward": 0.0,
       "cap_loss_used": 0.0,
       "cash_nw": 120000.0,
@@ -22035,7 +22247,7 @@
           "trust_wd": 0.0
         },
         "expense": {
-          "business_expenses": 0,
+          "business_expenses": 0.0,
           "heloc_pai": 0.0,
           "housing_operating": 0.0,
           "mortgage": 0.0,
@@ -22193,6 +22405,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -22221,6 +22434,9 @@
       "roth_nw": 222600.0,
       "roth_wd": 0.0,
       "salt_gross": 6930.0,
+      "scorp_pte_base": 0.0,
+      "scorp_pte_tax": 0.0,
+      "scorp_replacement_tax": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 80000.0,
@@ -22336,6 +22552,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {},
@@ -22346,7 +22564,7 @@
       "agi": 144200.0,
       "ann_nw": 0.0,
       "autos_val": 0.0,
-      "business_expenses_yr": 0,
+      "business_expenses_yr": 0.0,
       "cap_loss_carryforward": 0.0,
       "cap_loss_used": 0.0,
       "cash_nw": 120000.0,
@@ -22359,7 +22577,7 @@
           "trust_wd": 0.0
         },
         "expense": {
-          "business_expenses": 0,
+          "business_expenses": 0.0,
           "heloc_pai": 0.0,
           "housing_operating": 0.0,
           "mortgage": 0.0,
@@ -22515,6 +22733,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -22543,6 +22762,9 @@
       "roth_nw": 235956.0,
       "roth_wd": 0.0,
       "salt_gross": 7137.900000000001,
+      "scorp_pte_base": 0.0,
+      "scorp_pte_tax": 0.0,
+      "scorp_replacement_tax": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 82000.0,
@@ -22665,6 +22887,8 @@
         "Member_1_401k": 50342.848141575385,
         "Member_1_IRA": 50342.848141575385
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -22846,6 +23070,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -22997,6 +23222,8 @@
         "Member_1_401k": 10569.463056823486,
         "Member_1_IRA": 12582.760059026163
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {
         "Member_1_Roth": 3.713330194012672e-06
@@ -23180,6 +23407,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -23207,7 +23435,7 @@
       "roth_conv_src": "Member_1_401k $124,859\u2192Member_1_Roth",
       "roth_nw": 397470.78667166387,
       "roth_wd": 3.713330194012672e-06,
-      "salt_gross": 6180.524472870001,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 86151.24999999997,
@@ -23331,6 +23559,8 @@
         "Member_1_401k": 9604.055201104477,
         "Member_1_IRA": 14051.16919402522
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {
         "Member_1_Roth": 3.7734070036928122e-06
@@ -23514,6 +23744,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -23541,7 +23772,7 @@
       "roth_conv_src": "Member_1_401k $127,356\u2192Member_1_Roth",
       "roth_nw": 556316.6714450759,
       "roth_wd": 3.7734070036928122e-06,
-      "salt_gross": 6304.1349623274,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 88305.03124999996,
@@ -23667,6 +23898,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 25117.653077617833
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {
         "Member_1_Roth": 6.912018787262848e-06
@@ -23850,6 +24083,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 296.9922934610502,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -23877,7 +24111,7 @@
       "roth_conv_src": "Member_1_IRA $129,903\u2192Member_1_Roth",
       "roth_nw": 727393.262053108,
       "roth_wd": 6.912018787262848e-06,
-      "salt_gross": 6430.217661573947,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 90512.65703124995,
@@ -23999,6 +24233,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 26520.35983218276
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {
         "Member_1_Roth": 7.166451315413283e-06
@@ -24182,6 +24418,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 488.4790886507366,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -24209,7 +24446,7 @@
       "roth_conv_src": "Member_1_IRA $132,501\u2192Member_1_Roth",
       "roth_nw": 911488.3999039254,
       "roth_wd": 7.166451315413283e-06,
-      "salt_gross": 6558.822014805427,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 92775.4734570312,
@@ -24331,6 +24568,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 27871.13321250688
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {
         "Member_1_Roth": 7.430077304373299e-06
@@ -24514,6 +24753,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 682.2710616677642,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -24541,7 +24781,7 @@
       "roth_conv_src": "Member_1_IRA $135,151\u2192Member_1_Roth",
       "roth_nw": 1109438.276868217,
       "roth_wd": 7.430077304373299e-06,
-      "salt_gross": 6689.998455101536,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 95094.86029345698,
@@ -24662,6 +24902,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 12396.912228444702
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -24843,6 +25085,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 814.6210446412636,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -24870,7 +25113,7 @@
       "roth_conv_src": "Member_1_IRA $137,855\u2192Member_1_Roth",
       "roth_nw": 1322130.3579178005,
       "roth_wd": 0.0,
-      "salt_gross": 7653.9752002035675,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 97472.23180079338,
@@ -24991,6 +25234,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 22.28811721595111
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -25172,6 +25417,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 1032.6150205448755,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -25199,7 +25445,7 @@
       "roth_conv_src": "Member_1_IRA $140,612\u2192Member_1_Roth",
       "roth_nw": 1550506.479519109,
       "roth_wd": 0.0,
-      "salt_gross": 8653.835015727638,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 99909.03759581322,
@@ -25321,6 +25567,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 77827.64222260394
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -25502,6 +25750,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -25651,6 +25900,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 80063.84921316938
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -25832,6 +26083,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -25981,6 +26233,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 74570.97220147368
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -26162,6 +26416,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -26311,6 +26566,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 40133.955469580294
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 37277.017747790516
@@ -26495,6 +26752,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -26522,7 +26780,7 @@
       "roth_conv_src": "",
       "roth_nw": 1957478.706723587,
       "roth_wd": 0.0,
-      "salt_gross": 3122.4251418979834,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 110280.88358819635,
@@ -26644,6 +26902,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 42138.89322797796
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 37551.89380510433
@@ -26828,6 +27088,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -26855,7 +27116,7 @@
       "roth_conv_src": "",
       "roth_nw": 2074927.4291270021,
       "roth_wd": 0.0,
-      "salt_gross": 3165.928561679377,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 113037.90567790126,
@@ -26977,6 +27238,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 44449.07384223707
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 37506.831524749505
@@ -27161,6 +27424,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -27188,7 +27452,7 @@
       "roth_conv_src": "",
       "roth_nw": 2199423.0748746223,
       "roth_wd": 0.0,
-      "salt_gross": 3180.500261085423,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 115863.85331984877,
@@ -27310,6 +27574,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 43130.35928846049
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 37434.88948830744
@@ -27494,6 +27760,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -27521,7 +27788,7 @@
       "roth_conv_src": "",
       "roth_nw": 2331388.4593670997,
       "roth_wd": 0.0,
-      "salt_gross": 3192.9844123823705,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 115863.85331984877,
@@ -27643,6 +27910,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 41812.133461504614
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 37326.18289876567
@@ -27827,6 +28096,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -27854,7 +28124,7 @@
       "roth_conv_src": "",
       "roth_nw": 2471271.7669291254,
       "roth_wd": 0.0,
-      "salt_gross": 3202.483294594895,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 115863.85331984877,
@@ -27976,6 +28246,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 40497.59595626877
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 37175.781751084476
@@ -28160,6 +28432,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -28187,7 +28460,7 @@
       "roth_conv_src": "",
       "roth_nw": 2619548.072944873,
       "roth_wd": 0.0,
-      "salt_gross": 3208.5530714087986,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 115863.85331984877,
@@ -28309,6 +28582,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 39335.50866096761
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 36787.32260229001
@@ -28493,6 +28768,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -28520,7 +28796,7 @@
       "roth_conv_src": "",
       "roth_nw": 2776720.9573215656,
       "roth_wd": 0.0,
-      "salt_gross": 3193.21954200901,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 115863.85331984877,
@@ -28642,6 +28918,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 38044.57914922141
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 36529.96220830494
@@ -28826,6 +29104,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -28853,7 +29132,7 @@
       "roth_conv_src": "",
       "roth_nw": 2943324.2147608595,
       "roth_wd": 0.0,
-      "salt_gross": 3190.296173423914,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 115863.85331984877,
@@ -28965,6 +29244,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 37274.71453969816
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 36005.850003722146
@@ -29146,6 +29427,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -29173,7 +29455,7 @@
       "roth_conv_src": "",
       "roth_nw": 3119923.667646511,
       "roth_wd": 0.0,
-      "salt_gross": 3163.3578959732117,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 115863.85331984877,
@@ -29284,6 +29566,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 36460.29005571467
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 35587.16424725055
@@ -29465,6 +29749,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -29492,7 +29777,7 @@
       "roth_conv_src": "",
       "roth_nw": 3307119.0877053016,
       "roth_wd": 0.0,
-      "salt_gross": 3146.4951914619724,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 115863.85331984877,
@@ -29603,6 +29888,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 35916.6721807699
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 34835.369959618416
@@ -29784,6 +30071,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -29811,7 +30099,7 @@
       "roth_conv_src": "",
       "roth_nw": 3505546.23296762,
       "roth_wd": 0.0,
-      "salt_gross": 3099.55764208246,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 115863.85331984877,
@@ -29922,6 +30210,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 35480.31829967571
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 33934.915121468206
@@ -30103,6 +30393,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -30130,7 +30421,7 @@
       "roth_conv_src": "",
       "roth_nw": 3715879.006945677,
       "roth_wd": 0.0,
-      "salt_gross": 3039.4446630394627,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 115863.85331984877,
@@ -30241,6 +30532,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 35173.84880204714
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 32859.66701463077
@@ -30422,6 +30715,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -30449,7 +30743,7 @@
       "roth_conv_src": "",
       "roth_nw": 3938831.7473624176,
       "roth_wd": 0.0,
-      "salt_gross": 2963.771913871645,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 115863.85331984877,
@@ -30560,6 +30854,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 35228.92141551639
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 31347.038725959534
@@ -30741,6 +31037,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -30768,7 +31065,7 @@
       "roth_conv_src": "",
       "roth_nw": 4175161.6522041624,
       "roth_wd": 0.0,
-      "salt_gross": 2848.5019364767127,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 115863.85331984877,
@@ -30879,6 +31176,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 35272.92778016156
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 29817.920823908513
@@ -31060,6 +31359,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -31087,7 +31387,7 @@
       "roth_conv_src": "",
       "roth_nw": 4425671.351336412,
       "roth_wd": 0.0,
-      "salt_gross": 2732.1869018993298,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 115863.85331984877,
@@ -31225,6 +31525,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 35753.78885668028
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 27765.07785457465
@@ -31409,6 +31711,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -31436,7 +31739,7 @@
       "roth_conv_src": "",
       "roth_nw": 4691211.632416597,
       "roth_wd": 0.0,
-      "salt_gross": 2568.38602303158,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 115863.85331984877,
@@ -31561,6 +31864,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {},
@@ -31571,7 +31876,7 @@
       "agi": 180000.0,
       "ann_nw": 0.0,
       "autos_val": 0.0,
-      "business_expenses_yr": 0,
+      "business_expenses_yr": 0.0,
       "cap_loss_carryforward": 476667.15,
       "cap_loss_used": 3000.0,
       "cash_nw": 120000.0,
@@ -31584,7 +31889,7 @@
           "trust_wd": 0.0
         },
         "expense": {
-          "business_expenses": 0,
+          "business_expenses": 0.0,
           "heloc_pai": 0.0,
           "housing_operating": 0.0,
           "mortgage": 0.0,
@@ -31742,6 +32047,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -31770,6 +32076,9 @@
       "roth_nw": 381600.0,
       "roth_wd": 0.0,
       "salt_gross": 8910.0,
+      "scorp_pte_base": 0.0,
+      "scorp_pte_tax": 0.0,
+      "scorp_replacement_tax": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 110000.0,
@@ -31891,6 +32200,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {},
@@ -31901,7 +32212,7 @@
       "agi": 185400.0,
       "ann_nw": 0.0,
       "autos_val": 0.0,
-      "business_expenses_yr": 0,
+      "business_expenses_yr": 0.0,
       "cap_loss_carryforward": 473667.15,
       "cap_loss_used": 3000.0,
       "cash_nw": 120000.0,
@@ -31914,7 +32225,7 @@
           "trust_wd": 0.0
         },
         "expense": {
-          "business_expenses": 0,
+          "business_expenses": 0.0,
           "heloc_pai": 0.0,
           "housing_operating": 0.0,
           "mortgage": 0.0,
@@ -32070,6 +32381,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -32098,6 +32410,9 @@
       "roth_nw": 404496.0,
       "roth_wd": 0.0,
       "salt_gross": 9177.300000000001,
+      "scorp_pte_base": 0.0,
+      "scorp_pte_tax": 0.0,
+      "scorp_replacement_tax": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 112749.99999999999,
@@ -32219,6 +32534,8 @@
         "Member_1_IRA": 43642.531422673936,
         "Member_2_IRA": 46759.85509572207
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -32399,6 +32716,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -32548,6 +32866,8 @@
         "Member_1_IRA": 44756.50476191312,
         "Member_2_IRA": 47953.397959192625
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -32728,6 +33048,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -32877,6 +33198,8 @@
         "Member_1_IRA": 45898.78563570676,
         "Member_2_IRA": 49177.27032397151
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -33057,6 +33380,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -33216,6 +33540,8 @@
         "Member_1_IRA": 37224.26292564477,
         "Member_2_IRA": 13808.064279779248
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -33396,6 +33722,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -33423,7 +33750,7 @@
       "roth_conv_src": "Member_2_IRA $258,968\u2192Member_2_Roth",
       "roth_nw": 785172.6135744106,
       "roth_wd": 0.0,
-      "salt_gross": 12818.899803331511,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 124454.90341796869,
@@ -33551,6 +33878,8 @@
         "Member_1_IRA": 44560.27127652244,
         "Member_2_IRA": 9292.702473010055
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -33731,6 +34060,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -33758,7 +34088,7 @@
       "roth_conv_src": "Member_2_IRA $264,147\u2192Member_2_Roth",
       "roth_nw": 1112278.8182143706,
       "roth_wd": 0.0,
-      "salt_gross": 13075.277799398144,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 127566.2760034179,
@@ -33886,6 +34216,8 @@
         "Member_1_IRA": 53985.811403268024,
         "Member_2_IRA": 2584.221821255105
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -34066,6 +34398,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -34093,7 +34426,7 @@
       "roth_conv_src": "Member_2_IRA $269,430\u2192Member_2_Roth",
       "roth_nw": 1464611.3120892383,
       "roth_wd": 0.0,
-      "salt_gross": 13336.783355386106,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 130755.43290350334,
@@ -34223,6 +34556,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 42410.18588901354
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -34403,6 +34738,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -34430,7 +34766,7 @@
       "roth_conv_src": "Member_2_IRA $82,346\u2192Member_2_Roth + Member_1_IRA $192,472\u2192Member_1_Roth",
       "roth_nw": 1843795.6708922384,
       "roth_wd": 0.0,
-      "salt_gross": 14433.69579849383,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 134024.3187260909,
@@ -34556,6 +34892,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 27471.71664679388
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -34736,6 +35074,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -34763,7 +35102,7 @@
       "roth_conv_src": "Member_1_IRA $280,315\u2192Member_1_Roth",
       "roth_nw": 2251557.244824971,
       "roth_wd": 0.0,
-      "salt_gross": 15569.150025983703,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 137374.9266942432,
@@ -34881,6 +35220,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 90231.10301043619
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -35061,6 +35402,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -35206,6 +35548,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 84102.1580273077
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -35386,6 +35730,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -35413,7 +35758,7 @@
       "roth_conv_src": "",
       "roth_nw": 2529849.7202853374,
       "roth_wd": 0.0,
-      "salt_gross": 107.13418905024011,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 144329.5323581392,
@@ -35531,6 +35876,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 83179.83780227537
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {},
       "_roth_by_account": {},
       "_trust_by_account": {
@@ -35711,6 +36058,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -35738,7 +36086,7 @@
       "roth_conv_src": "",
       "roth_nw": 2681640.7035024576,
       "roth_wd": 0.0,
-      "salt_gross": 125.11687283124473,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 147937.77066709267,
@@ -35855,6 +36203,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 32474.790809146296
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 53214.09802829717
@@ -36036,6 +36386,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -36063,7 +36414,7 @@
       "roth_conv_src": "",
       "roth_nw": 2842539.145712605,
       "roth_wd": 0.0,
-      "salt_gross": 4909.061684430693,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 151636.21493376995,
@@ -36180,6 +36531,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 33684.17133352612
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 54716.48092903744
@@ -36361,6 +36714,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -36388,7 +36742,7 @@
       "roth_conv_src": "",
       "roth_nw": 3013091.4944553617,
       "roth_wd": 0.0,
-      "salt_gross": 5078.44801171577,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 155427.12030711424,
@@ -36505,6 +36859,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 35217.91522505823
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 55933.74421401577
@@ -36686,6 +37042,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -36713,7 +37070,7 @@
       "roth_conv_src": "",
       "roth_nw": 3193876.9841226833,
       "roth_wd": 0.0,
-      "salt_gross": 5222.360622450445,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -36830,6 +37187,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 32147.58677586363
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 57323.40672934548
@@ -37011,6 +37370,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -37038,7 +37398,7 @@
       "roth_conv_src": "",
       "roth_nw": 3385509.603170044,
       "roth_wd": 0.0,
-      "salt_gross": 5382.7095272128,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -37155,6 +37515,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 28910.66617575664
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 58859.838474541
@@ -37336,6 +37698,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -37363,7 +37726,7 @@
       "roth_conv_src": "",
       "roth_nw": 3588640.1793602463,
       "roth_wd": 0.0,
-      "salt_gross": 5557.160635398541,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -37480,6 +37843,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 25486.58965457924
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 60565.46596001329
@@ -37661,6 +38026,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -37688,7 +38054,7 @@
       "roth_conv_src": "",
       "roth_nw": 3803958.5901218615,
       "roth_wd": 0.0,
-      "salt_gross": 5747.780890922514,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -37805,6 +38171,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 22135.687489767424
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 62144.97825692457
@@ -37986,6 +38354,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -38013,7 +38382,7 @@
       "roth_conv_src": "",
       "roth_nw": 4032196.1055291733,
       "roth_wd": 0.0,
-      "salt_gross": 5927.540696424851,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -38130,6 +38499,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 18281.727318641624
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 64249.287955886655
@@ -38311,6 +38682,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -38338,7 +38710,7 @@
       "roth_conv_src": "",
       "roth_nw": 4274127.871860923,
       "roth_wd": 0.0,
-      "salt_gross": 6156.061143358244,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -38455,6 +38827,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 14488.443468184712
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 66239.86783186087
@@ -38636,6 +39010,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -38663,7 +39038,7 @@
       "roth_conv_src": "",
       "roth_nw": 4530575.544172579,
       "roth_wd": 0.0,
-      "salt_gross": 6374.883147476542,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -38780,6 +39155,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 10078.312716711596
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 68882.16608829316
@@ -38961,6 +39338,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -38988,7 +39366,7 @@
       "roth_conv_src": "",
       "roth_nw": 4802410.076822934,
       "roth_wd": 0.0,
-      "salt_gross": 6654.116955324805,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -39105,6 +39483,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 5706.04291122621
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 71434.71913543873
@@ -39286,6 +39666,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -39313,7 +39694,7 @@
       "roth_conv_src": "",
       "roth_nw": 5090554.68143231,
       "roth_wd": 0.0,
-      "salt_gross": 6925.877652532949,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -39430,6 +39811,8 @@
       "_pretax_elective_by_account": {
         "Member_1_IRA": 991.5050546880097
       },
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 74326.55452418263
@@ -39611,6 +39994,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -39638,7 +40022,7 @@
       "roth_conv_src": "",
       "roth_nw": 5395987.962318248,
       "roth_wd": 0.0,
-      "salt_gross": 7229.468343211273,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -39762,6 +40146,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 77618.9099541686
@@ -39943,6 +40329,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -39970,7 +40357,7 @@
       "roth_conv_src": "",
       "roth_nw": 5719747.240057344,
       "roth_wd": 0.0,
-      "salt_gross": 7570.512073965425,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -40094,6 +40481,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 80474.37934226356
@@ -40275,6 +40664,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -40302,7 +40692,7 @@
       "roth_conv_src": "",
       "roth_nw": 6062932.074460784,
       "roth_wd": 0.0,
-      "salt_gross": 7872.33889107847,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -40426,6 +40816,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_1_401k": 0.0,
         "Member_1_IRA": 83980.31741903504
@@ -40607,6 +40999,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -40634,7 +41027,7 @@
       "roth_conv_src": "",
       "roth_nw": 6426707.998928431,
       "roth_wd": 0.0,
-      "salt_gross": 8234.539122515032,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -40785,6 +41178,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 77323.19152727796
       },
@@ -40965,6 +41360,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -40992,7 +41388,7 @@
       "roth_conv_src": "",
       "roth_nw": 6812310.478864137,
       "roth_wd": 0.0,
-      "salt_gross": 7666.879650074715,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 159312.79831479205,
@@ -41116,6 +41512,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 80691.84529769116
       },
@@ -41296,6 +41694,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -41323,7 +41722,7 @@
       "roth_conv_src": "",
       "roth_nw": 7221049.107595986,
       "roth_wd": 0.0,
-      "salt_gross": 6510.788339973481,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -41447,6 +41846,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 83430.07676926855
       },
@@ -41627,6 +42028,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -41654,7 +42056,7 @@
       "roth_conv_src": "",
       "roth_nw": 7654312.054051745,
       "roth_wd": 0.0,
-      "salt_gross": 6696.661637771316,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -41778,6 +42180,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 86128.85838302228
       },
@@ -41958,6 +42362,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -41985,7 +42390,7 @@
       "roth_conv_src": "",
       "roth_nw": 8113570.777294849,
       "roth_wd": 0.0,
-      "salt_gross": 6881.588784405978,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,
@@ -42130,6 +42535,8 @@
       "_niit_hs_taxable": 0.0,
       "_niit_ws_taxable": 0.0,
       "_pretax_elective_by_account": {},
+      "_qbi_income": 0.0,
+      "_qbi_w2_wages": 0.0,
       "_rmd_by_account": {
         "Member_2_IRA": 88760.57350028129
       },
@@ -42310,6 +42717,7 @@
       "next_housing_mortgage_balance": 0.0,
       "next_housing_purchase_cash_yr": 0.0,
       "niit": 0.0,
+      "nonitemizer_charitable_deduction": 0.0,
       "note_bal": 0.0,
       "note_int": 0.0,
       "note_princ": 0.0,
@@ -42337,7 +42745,7 @@
       "roth_conv_src": "",
       "roth_nw": 8600385.02393254,
       "roth_wd": 0.0,
-      "salt_gross": 7064.222888599225,
+      "salt_gross": 0.0,
       "sehi_deduction_source": 0.0,
       "senior_bonus_deduction": 0.0,
       "spend_base_yr": 103553.31890461483,

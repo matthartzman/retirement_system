@@ -26,8 +26,7 @@ export function hsInitial(hash, storage = globalThis.localStorage) {
   return { tab: "positions", filters: {} };
 }
 export const hsBackHtml = (f) => (f && f.back === "sales" ? `<p class="hs-back"><a href="#sales_ledger?tab=fix" onclick="hsBack();return false">← Back to Sales Ledger</a></p>` : "");
-export const hsTabBarHtml = (active) => `<div class="workspace-tabs hs-tabbar" role="tablist" aria-label="Investment holdings sections">` +
-  HOLDINGS_TABS.map(([id, label]) => `<button type="button" role="tab" id="hs-t-${id}" class="workspace-tab${id === active ? " active" : ""}" aria-selected="${id === active}" onclick="hsSetTab('${id}')">${label}</button>`).join("") + `</div>`;
+export const hsTabBarHtml = (active) => window.tabBarHtml("hs", HOLDINGS_TABS, active, "hsSetTab", "Investment holdings sections", "workspace-tabs hs-tabbar");
 export function hsSetTab(id) {
   if (!hsTabOk(id)) return;
   hsState = { tab: id, filters: id === hsState.tab ? hsState.filters : {} };
@@ -39,7 +38,7 @@ export function hsBack() { if (typeof setStep === "function") setStep("sales_led
 export function renderHoldingsTabs(positionsFn) {
   const body = hsState.tab === "activity" ? window.renderTransactionLog()
     : hsState.tab === "import" ? window.renderBrokerImport() : positionsFn();
-  return `${hsTabBarHtml(hsState.tab)}${hsState.tab === "positions" ? (window.tlStatusHtml ? `<p>${window.tlStatusHtml()}</p>` : "") : hsBackHtml(hsState.filters)}<div role="tabpanel" id="hs-p-${hsState.tab}">${body}</div>`;
+  return `${hsTabBarHtml(hsState.tab)}${hsState.tab === "positions" ? (window.tlStatusHtml ? `<p>${window.tlStatusHtml()}</p>` : "") : hsBackHtml(hsState.filters)}${window.tabPanelHtml("hs", hsState.tab, body)}`;
 }
 // Follow #holdings/... links (from the ledger, the chooser, Activity rows) and restore one after a reload.
 export function hsGoHash() {

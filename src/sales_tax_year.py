@@ -22,7 +22,7 @@ from .sales_ledger import ValidationError
 from .sales_matching import buy_rows
 from .wash_sales import buys_from_rows, dedupe_buys, detect_wash_sales, plan_flag_updates, sale_key
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("retirement_system.sales_tax_year")
 
 _LEDGER_CLASSES = ("taxable", "pre_tax", "roth", "hsa")
 

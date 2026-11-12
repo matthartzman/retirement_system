@@ -1,0 +1,782 @@
+[
+  {
+    "id": "W1-01",
+    "wave": 1,
+    "change": "Frontend size guard: add per-file ceilings for every frontend/js file over about 1,500 lines and require a recorded reason line next to any ceiling increase (ARC-005 option 1).",
+    "findings": [
+      "ARC-005",
+      "QA-006"
+    ],
+    "deps": [],
+    "priority": "P1",
+    "effort": "S",
+    "risk": "Low",
+    "owner": "Frontend maintainer",
+    "group": "G-FE",
+    "validation": "Run tests/test_frontend_size_ratchet.py locally; confirm a raised ceiling without a reason line fails; wc -l per file against the new caps.",
+    "exit": "Per-file caps exist for all large decomp modules and no ceiling is raised in this change.",
+    "tier": "mechanical (low effort)",
+    "usage": "Light",
+    "drivers": "One test file plus wc -l output."
+  },
+  {
+    "id": "W1-02",
+    "wave": 1,
+    "change": "Replace the wildcard imports at src/engine_kernels.py:19, src/planning_engines.py:177 and src/reporting/workbook_common.py:16 (and the workbook_builder reliance on it) with explicit name lists using the AST method of deterministic_engine.py:46-52; give src/core.py an explicit __all__ (ARC-001 option 1).",
+    "findings": [
+      "ARC-001"
+    ],
+    "deps": [],
+    "priority": "P1",
+    "effort": "M",
+    "risk": "Medium",
+    "owner": "Engine maintainer",
+    "group": "G-ENG",
+    "validation": "Golden-master and phase-golden equality with no regeneration; grep shows no `import *` in src/; monkeypatch-dependent tests (for example tests/test_lcv_feasibility_gate_regression.py) run locally.",
+    "exit": "Zero wildcard imports in src/; golden values unchanged.",
+    "tier": "standard_reasoning (medium effort)",
+    "usage": "Moderate",
+    "drivers": "planning_engines.py (3,050 lines) and engine_kernels.py (2,415) must be grep-located, not read whole; the slow phase-golden test. FLAG: run the phase-golden test once at the end, use `pytest -m \"not slow\"` while iterating."
+  },
+  {
+    "id": "W1-03",
+    "wave": 1,
+    "change": "Rename the getLogger(__name__) loggers in src/sales_tax_year.py, src/year_end.py, src/data_io.py and src/market_data.py into the 'retirement_system.*' tree; log the startup migration result and errors inside run_startup_bootstrap; add a grep check forbidding getLogger(__name__) in src/; make the automatic-backup catch in dashboard_decomp_local_backups.js report failure (ARC-003 option 1).",
+    "findings": [
+      "ARC-003"
+    ],
+    "deps": [],
+    "priority": "P1",
+    "effort": "S",
+    "risk": "Low",
+    "owner": "Platform maintainer",
+    "group": "G-PLAT",
+    "validation": "Unit test: a record from the sales_tax_year logger reaches the configure_logging handler with MaskingFilter applied; an injected migration error is logged by run_startup_bootstrap.",
+    "exit": "No getLogger(__name__) in src/; migration failures recorded on every launch path.",
+    "tier": "mechanical (low effort)",
+    "usage": "Light",
+    "drivers": "Five small edits and two unit tests."
+  },
+  {
+    "id": "W1-04",
+    "wave": 1,
+    "change": "Data-integrity fix for plan defaults: blank means the schema default, or zero/none when the schema default is blank; remove the household-specific literals in src/parsing/client_sections.py; an unreadable dollar or rate value becomes a validation error instead of a logged fallback; the JSON/wizard path (data_io.py:858-885) uses the same default source; /api/build/start refuses to start while preflight blockers exist (QA-001).",
+    "findings": [
+      "QA-001"
+    ],
+    "deps": [
+      "W1-03"
+    ],
+    "priority": "P0",
+    "effort": "M",
+    "risk": "Low-Medium",
+    "owner": "Engine maintainer with quality reviewer",
+    "group": "G-VAL",
+    "validation": "Contract test: parse_client on blank_plan_rows() gives mort_bal == 0, mort_pmt == 0, home_val == 0; test that every parser default equals the schema.csv default; test that build start is refused with a blocker; `tools/regen_golden_master.py measure` shows zero delta on populated fixtures before any regeneration.",
+    "exit": "No household-specific numeric default remains; a blank-mortgage plan projects no mortgage; builds cannot start with blockers.",
+    "tier": "expert_reasoning (high effort)",
+    "usage": "Moderate",
+    "drivers": "client_sections.py is large (grep the cited lines), schema.csv, one measure run. Depends on W1-03 because both edit src/data_io.py."
+  },
+  {
+    "id": "W1-05",
+    "wave": 1,
+    "change": "Version surfaces: derive the server banners in main.py and src/server/__main__.py from src.version.release_label(); make the admin.html cache-buster use VERSION; add pyproject.toml and package.json to tools/bump_version.py and to tools/check_version_surfaces.py with a case-insensitive 'SYSTEM v<digits>' pattern (ARC-006 option 1).",
+    "findings": [
+      "ARC-006"
+    ],
+    "deps": [],
+    "priority": "P3",
+    "effort": "S",
+    "risk": "Low",
+    "owner": "Platform maintainer",
+    "group": "G-VER",
+    "validation": "Run the extended check_version_surfaces statically; confirm it flags a planted 'v11' banner.",
+    "exit": "All version surfaces agree with src/version.py or are checked against it.",
+    "tier": "mechanical (low effort)",
+    "usage": "Light",
+    "drivers": "Six small files."
+  },
+  {
+    "id": "W1-06",
+    "wave": 1,
+    "change": "Set err.status in RetirementApiClient.request, delete the inline fallback in api() in dashboard_decomp_row_model.js, and add a Node vm-sandbox test that a 404 from /api/build/start triggers POST /api/build (QA-004 option 1).",
+    "findings": [
+      "QA-004"
+    ],
+    "deps": [
+      "W1-01"
+    ],
+    "priority": "P3",
+    "effort": "S",
+    "risk": "Low",
+    "owner": "Frontend maintainer",
+    "group": "G-FE",
+    "validation": "Sandbox test with mocked fetch returning 404; existing frontend tests run locally.",
+    "exit": "One error shape {message, status, errors, fieldErrors}; the 404 fallback is covered by a test.",
+    "tier": "mechanical (low effort)",
+    "usage": "Light",
+    "drivers": "FLAG: dashboard_decomp_row_model.js is 5,974 lines; grep the api() function, never read it whole."
+  },
+  {
+    "id": "W1-07",
+    "wave": 1,
+    "change": "Backlog intake: add the untracked items to documentation/reference/BACKLOG.md (Business Succession inputs, Fidelity 1099-B parser, automatic wash-sale disallowance, pair-status turn-on approval, redaction run and Phase 5 owner task, wash-sale W1 CPA confirmation, and this review's professional-review gates for FIN-001, FIN-002, FIN-004, FIN-007 and FIN-011); adopt the inflow rule and a small docs check (DOC-006 option 1).",
+    "findings": [
+      "DOC-006"
+    ],
+    "deps": [],
+    "priority": "P1",
+    "effort": "S",
+    "risk": "Low",
+    "owner": "Documentation owner",
+    "group": "G-DOC",
+    "validation": "Grep the first 20 lines of documentation/future/**/*.md for not built / deferred / awaits / owner and confirm each has a BACKLOG row.",
+    "exit": "The docs check passes and every pending approval gate is in BACKLOG.md.",
+    "tier": "mechanical (low effort)",
+    "usage": "Light",
+    "drivers": "Status-line grep only; do not read plan bodies."
+  },
+  {
+    "id": "W1-08",
+    "wave": 1,
+    "change": "Agent guidance: replace fixed line counts in .claude/claude.md with size bands, make .claude/hooks/large_file_guard.py compute size at call time against a threshold and guard module_catalog.py, fix the zip_screen path, the documentation/reference/CLAUDE.md location line and the conftest.py docstring (DOC-005 option 1; also the table update ARC-005 asks for).",
+    "findings": [
+      "DOC-005",
+      "ARC-005"
+    ],
+    "deps": [],
+    "priority": "P3",
+    "effort": "S",
+    "risk": "Low",
+    "owner": "Maintainer",
+    "group": "G-AGENT",
+    "validation": "wc -l each listed file against its band; a whole-file Read of module_catalog.py is refused by the hook.",
+    "exit": "No stale count or path remains in the guidance or hook.",
+    "tier": "mechanical (low effort)",
+    "usage": "Light",
+    "drivers": "Two guidance files and one hook."
+  },
+  {
+    "id": "W2-01",
+    "wave": 2,
+    "change": "Grid saves validate only format and range of the changed rows; 'required value missing' moves to the build preflight, which W1-04 made blocking (QA-002 option 1).",
+    "findings": [
+      "QA-002"
+    ],
+    "deps": [
+      "W1-04"
+    ],
+    "priority": "P0",
+    "effort": "S",
+    "risk": "Low",
+    "owner": "Quality reviewer with platform maintainer",
+    "group": "G-VAL",
+    "validation": "Python functional test: blank_plan_rows() then POST /api/config/rows with one field returns 200; a build with a missing required field is refused; field_errors shape kept for format errors. Confirm the 422 behaviour exists before the change in an isolated test client.",
+    "exit": "Start New Plan can be saved field by field and still cannot be built incomplete.",
+    "tier": "standard_reasoning (medium effort)",
+    "usage": "Light",
+    "drivers": "config_service.py and schema_registry.py only."
+  },
+  {
+    "id": "W2-02",
+    "wave": 2,
+    "change": "Treat 'dollars' and 'decimal' as 'currency' in schema_registry.validate_value using money.parse_strict_number; route /api/plan/forms writes through the same format/range validator; add a contract test that every type in reference_src/schema.csv is handled (QA-003 option 3).",
+    "findings": [
+      "QA-003"
+    ],
+    "deps": [
+      "W2-01"
+    ],
+    "priority": "P1",
+    "effort": "S",
+    "risk": "Low-Medium",
+    "owner": "Quality reviewer",
+    "group": "G-VAL",
+    "validation": "validate_value('abc', {'type': 'dollars'}) returns an error; schema-type coverage test; forms write with bad money text is rejected.",
+    "exit": "Server, parser and client accept the same number grammar for every money type.",
+    "tier": "standard_reasoning (medium effort)",
+    "usage": "Light",
+    "drivers": "Two modules and one test file."
+  },
+  {
+    "id": "W2-03",
+    "wave": 2,
+    "change": "Disclosure and text bundle with one measured golden re-pin: limitation notice when qbi_eligible is on (FIN-001 interim); life-policy inventory-only notice and sheet banner (FIN-005 option B); correct the income.py:285-286 comment and stop sheets_strategy.py:162,165,195 asserting a QBI basis and a 1.5% surcharge the engine does not apply (FIN-008, FIN-001); widen the divorce scenario label (FIN-009 option A); help text on 401(k) limit simplifications (FIN-010 option A); fix the mortality docstring drift (FIN-012); replace the reference_data/state_tax.csv path in user-facing strings in core.py, sheets_strategy.py, strategy_asset_service.py:1131 and tax_assumptions.py:73 (QA-005 option 1).",
+    "findings": [
+      "FIN-001",
+      "FIN-005",
+      "FIN-008",
+      "FIN-009",
+      "FIN-010",
+      "FIN-012",
+      "QA-005"
+    ],
+    "deps": [
+      "W1-02"
+    ],
+    "priority": "P1",
+    "effort": "M",
+    "risk": "Low",
+    "owner": "Engine maintainer; financial planner approves wording",
+    "group": "G-ENG",
+    "validation": "`regen_golden_master.py measure` shows text-only deltas; hand-check every changed string; one `regen --reason`; grep shows no user-facing reference_data/ path.",
+    "exit": "All listed disclosures shipped; no numeric golden delta.",
+    "tier": "standard_reasoning (medium effort)",
+    "usage": "Moderate",
+    "drivers": "FLAG: the phase-golden fixtures are about 10k lines; diff only the changed keys, never read the fixture whole."
+  },
+  {
+    "id": "W2-04",
+    "wave": 2,
+    "change": "Route every destructive record action (caDelete, ciCloseYear, ciReopenYear, ciMarkRollover, bbApply replace, tlStart, tlCleanBank, tlVoid, slVoid) through showInAppConfirm with an action-named primary button, a consequence line and Cancel as initial focus; make tlConfirmed and the `window.confirm &&` guards fail closed; give log-linked sale voids a confirm that says Restore will not be available and drop the 'Use Restore' success text (UX-002 option 1, UX-001).",
+    "findings": [
+      "UX-001",
+      "UX-002"
+    ],
+    "deps": [
+      "W1-01"
+    ],
+    "priority": "P1",
+    "effort": "M",
+    "risk": "Low-Medium",
+    "owner": "Frontend maintainer; usability reviewer",
+    "group": "G-FE",
+    "validation": "Node vm-sandbox tests: each handler calls the in-app confirm and does nothing when dismissed or when no dialog exists; log_sell and manual voids produce different texts. Manual keyboard pass (Tab, Escape, initial focus) in the desktop shell.",
+    "exit": "No destructive record action uses native confirm() or proceeds without explicit confirmation; line total does not rise.",
+    "tier": "standard_reasoning (medium effort)",
+    "usage": "Moderate",
+    "drivers": "About 9 call sites across 6 modules; async conversion of tlConfirmed; row_model grep only."
+  },
+  {
+    "id": "W2-05",
+    "wave": 2,
+    "change": "Add one shared announce(text, {error}) helper writing to persistent polite and assertive regions in frontend/index.html (generalizing slAnnounce); remove live roles from injected panel messages; make showMessage keep an unread error instead of replacing it (UX-003 option 1).",
+    "findings": [
+      "UX-003"
+    ],
+    "deps": [
+      "W2-04"
+    ],
+    "priority": "P2",
+    "effort": "M",
+    "risk": "Low-Medium",
+    "owner": "Frontend maintainer; usability reviewer",
+    "group": "G-FE",
+    "validation": "Sandbox test that an info showMessage after an error leaves the error reachable; NVDA or Narrator pass in WebView2 on 1099-B apply, sale void and cash-account delete (each announced once, errors assertive).",
+    "exit": "One feedback convention; persistent regions exist at load.",
+    "tier": "standard_reasoning (medium effort)",
+    "usage": "Moderate",
+    "drivers": "Same modules as W2-04, hence serialized. If the helper is a new file, regenerate the architecture diagram after W2-07, not concurrently."
+  },
+  {
+    "id": "W2-06",
+    "wave": 2,
+    "change": "run_backup uses the SQLite backup API (reuse plan_db_replace._backup_with_api) and checks the checkpoint result; _check_and_migrate writes a one-time pre-upgrade copy into plan_paths(...).backups_dir for real files, with a retention cap, skipping :memory: and read-only opens (ARC-004 option 1).",
+    "findings": [
+      "ARC-004"
+    ],
+    "deps": [
+      "W1-03"
+    ],
+    "priority": "P1",
+    "effort": "M",
+    "risk": "Low-Medium",
+    "owner": "Platform maintainer",
+    "group": "G-PLAT",
+    "validation": "Unit test: with an open reader or writer on a WAL database, the backup contains every committed row; unit test: opening a v23 fixture leaves a v23 pre-upgrade copy.",
+    "exit": "Backups are consistent snapshots; every in-place upgrade leaves a copy.",
+    "tier": "expert_reasoning (high effort)",
+    "usage": "Moderate",
+    "drivers": "Touches the open path of every store; store tests run locally."
+  },
+  {
+    "id": "W2-07",
+    "wave": 2,
+    "change": "Move estimate_housing_cost, STATE_ESTIMATES and the HOME_APPR/INFLATION defaults into src/housing/pricing.py and classify_symbol into src/portfolio_analytics.py with re-exports for one release; remove the duplicated plan_variant._years_out formula; add an import-direction rule (domain must not import server_services or server); regenerate SYSTEM_ARCHITECTURE_DIAGRAM.md (ARC-002 option 1).",
+    "findings": [
+      "ARC-002"
+    ],
+    "deps": [
+      "W2-03"
+    ],
+    "priority": "P2",
+    "effort": "M",
+    "risk": "Low",
+    "owner": "Architect / platform maintainer",
+    "group": "G-ARCH",
+    "validation": "Housing and golden-master tests unchanged; regenerated diagram shows no Core->Server Services or Core->HTTP Routes edge apart from the desktop_api adapter; the import rule fails on a planted inversion.",
+    "exit": "No domain module imports server_services; src no longer imports financial_trends_reporter.",
+    "tier": "standard_reasoning (medium effort)",
+    "usage": "Moderate",
+    "drivers": "strategy_asset_service.py (1,256 lines) grep only. Depends on W2-03 because both edit strategy_asset_service.py."
+  },
+  {
+    "id": "W2-08",
+    "wave": 2,
+    "change": "Rewrite the longest help records (Optimize, Spending Model, then Stress Test and Build & Results) into page-scoped text, move sub-page detail into HELP_SECTIONS, add glossary entries for terminal net worth, probability of success, LCV, allocation sleeve and KPI, and add a length and undefined-abbreviation guard (DOC-001 options 1 and 2).",
+    "findings": [
+      "DOC-001"
+    ],
+    "deps": [
+      "W1-01"
+    ],
+    "priority": "P2",
+    "effort": "M",
+    "risk": "Low",
+    "owner": "Documentation owner; usability reviewer",
+    "group": "G-DOC-HELP",
+    "validation": "Word count per HELP_PAGES slot under the guard limit; every abbreviation defined or spelled out; tools/page_help_ledger.py check --strict passes with recorded accepted_losses; read the panels in the running app.",
+    "exit": "No help slot over the limit; no retired page names in help_registry.js.",
+    "tier": "standard_reasoning (medium effort)",
+    "usage": "Moderate",
+    "drivers": "help_registry.js is large; grep each record by key."
+  },
+  {
+    "id": "W2-09",
+    "wave": 2,
+    "change": "Update documentation/reference/readme/README.md and the Plan Status cards in dashboard_decomp_checklist_closeout.js to the current nav, and extend the README currency test to check group placement through the Node vm sandbox (DOC-002 option 1).",
+    "findings": [
+      "DOC-002"
+    ],
+    "deps": [
+      "W1-01"
+    ],
+    "priority": "P2",
+    "effort": "S",
+    "risk": "Low",
+    "owner": "Documentation owner",
+    "group": "G-DOC-NAV",
+    "validation": "Walk every README and Plan Status direction against the running app in Set up and Maintain modes; extended test passes locally.",
+    "exit": "No retired page name or location in README or Plan Status.",
+    "tier": "mechanical (low effort)",
+    "usage": "Light",
+    "drivers": "Two files plus one test."
+  },
+  {
+    "id": "W2-10",
+    "wave": 2,
+    "change": "Add dated 2027 rows to reference_src/tax_law_v10.json once the IRS inflation Rev. Proc. and the CMS 2027 fact sheet are published, rebuild reference.db, and make the year-end transition warn when the new first plan year has no dated rows (FIN-011 options A and B). External gate: primary-source publication.",
+    "findings": [
+      "FIN-011"
+    ],
+    "deps": [
+      "W2-03"
+    ],
+    "priority": "P1",
+    "effort": "S-M",
+    "risk": "Low",
+    "owner": "Financial planner with engine maintainer; CPA verifies state rows",
+    "group": "G-ENG",
+    "validation": "Compare each new row with the primary source and record it in tax_update_dashboard.csv; measure, hand-check one 2027 delta, then re-pin.",
+    "exit": "2027 rows present and sourced, or a visible currency warning on year-end.",
+    "tier": "standard_reasoning (medium effort)",
+    "usage": "Moderate",
+    "drivers": "One golden re-pin; serialized with the other G-ENG items."
+  },
+  {
+    "id": "W2-11",
+    "wave": 2,
+    "change": "Introduce a minimum label size token (11-12px) for results table headers and status chips in frontend/css/dashboard.css and add 150% and 200% steps to frontend/js/text_size.js (UX-006 option 1).",
+    "findings": [
+      "UX-006"
+    ],
+    "deps": [
+      "W1-01"
+    ],
+    "priority": "P3",
+    "effort": "S",
+    "risk": "Low-Medium",
+    "owner": "Frontend maintainer",
+    "group": "G-CSS",
+    "validation": "Visual check at 100%, 130% and 200% on Build & Results at 1280px and 900px; existing reflow spec run locally.",
+    "exit": "No results header or status chip below the minimum token at 100%.",
+    "tier": "mechanical (low effort)",
+    "usage": "Light",
+    "drivers": "FLAG: dashboard.css is minified on long lines; edit with care and preserve line endings."
+  },
+  {
+    "id": "W3-01",
+    "wave": 3,
+    "change": "Add a dated state entity-tax rate (Illinois 1.5% replacement tax for S-corps) applied to S-corp ordinary income, reducing the distribution and the QBI base like employer FICA (FIN-008).",
+    "findings": [
+      "FIN-008"
+    ],
+    "deps": [
+      "W2-03"
+    ],
+    "priority": "P2",
+    "effort": "S",
+    "risk": "Low",
+    "owner": "Engine maintainer; financial planner",
+    "group": "G-ENG",
+    "validation": "Unit test: an Illinois S-corp distribution falls by 1.5% of pre-tax income; measure, hand-check one delta, re-pin.",
+    "exit": "The engine and the S-corp sheet agree on the surcharge.",
+    "tier": "expert_reasoning (high effort)",
+    "usage": "Moderate",
+    "drivers": "One golden cycle. Serialize after W2-10 if W2-10 lands first."
+  },
+  {
+    "id": "W3-02",
+    "wave": 3,
+    "change": "QBI (IRC 199A) limits: SSTB and UBIA inputs, W-2 wages from scorp_salary, dated threshold and phase-in rows, SSTB phase-out, wage/UBIA limit, and the overall 20%-of-(taxable income before QBI minus net capital gain) cap applied in apply_agi_and_tax; wire the parsed but unused scorp_qbi_phaseout input (FIN-001). Gate: CPA confirms rule values and the household's SSTB status.",
+    "findings": [
+      "FIN-001"
+    ],
+    "deps": [
+      "W3-01"
+    ],
+    "priority": "P1",
+    "effort": "M-L",
+    "risk": "Medium",
+    "owner": "Engine maintainer; financial planner; CPA",
+    "group": "G-ENG",
+    "validation": "Closed-form unit cases (below threshold; SSTB inside and above phase-in; wage limit binding; taxable-income cap binding); one real-plan year checked by hand against Form 8995-A; measure, hand-verify, re-pin.",
+    "exit": "All four limit layers implemented and tested; the interim notice from W2-03 removed or narrowed.",
+    "tier": "expert_reasoning (high effort)",
+    "usage": "Heavy",
+    "drivers": "FLAG: test-fix loops against goldens; iterate on closed-form unit tests and run the slow phase-golden test once per completed change."
+  },
+  {
+    "id": "W3-03",
+    "wave": 3,
+    "change": "Feed the SALT state-income-tax component from state_income_tax (same income classification, or prior-year actual), keeping the cap logic; reuse the same SALT in the DAF makeup and HSA correction sub-stages (FIN-003).",
+    "findings": [
+      "FIN-003"
+    ],
+    "deps": [
+      "W3-02"
+    ],
+    "priority": "P1",
+    "effort": "M",
+    "risk": "Medium",
+    "owner": "Engine maintainer; financial planner",
+    "group": "G-ENG",
+    "validation": "Closed-form Illinois case with a large conversion and high property tax; measure, hand-verify one year, re-pin.",
+    "exit": "No AGI-times-flat-rate proxy remains in the SALT calculation.",
+    "tier": "expert_reasoning (high effort)",
+    "usage": "Heavy",
+    "drivers": "Shares the deduction block with W3-02; same golden-loop flag."
+  },
+  {
+    "id": "W3-04",
+    "wave": 3,
+    "change": "Exclude premiums already deducted as self-employed health insurance from itemized medical expense and cap the SEHI source at premiums net of the premium tax credit with a one- or two-pass fixed point (FIN-006).",
+    "findings": [
+      "FIN-006"
+    ],
+    "deps": [
+      "W3-03"
+    ],
+    "priority": "P3",
+    "effort": "S-M",
+    "risk": "Low",
+    "owner": "Engine maintainer; financial planner",
+    "group": "G-ENG",
+    "validation": "Unit test for an itemizing self-employed household with and without a credit; measure, hand-verify, re-pin.",
+    "exit": "No premium is deducted under both 162(l) and 213.",
+    "tier": "expert_reasoning (high effort)",
+    "usage": "Moderate",
+    "drivers": "Touches deterministic_engine.py:446-480; grep only."
+  },
+  {
+    "id": "W3-05",
+    "wave": 3,
+    "change": "Compute the OBBBA senior deduction per qualifying person and settle the QSS threshold (FIN-002). Gate: CPA confirms the per-person reading.",
+    "findings": [
+      "FIN-002"
+    ],
+    "deps": [
+      "W3-04"
+    ],
+    "priority": "P3",
+    "effort": "S",
+    "risk": "Low",
+    "owner": "Engine maintainer; CPA",
+    "group": "G-ENG",
+    "validation": "Unit cases at $200k, $250k and $300k MAGI with two qualifiers against a hand-filled Schedule 1-A; measure, hand-verify, re-pin.",
+    "exit": "Phase-out range is tested.",
+    "tier": "expert_reasoning (high effort)",
+    "usage": "Light",
+    "drivers": "One function in core.py plus one golden cycle."
+  },
+  {
+    "id": "W3-06",
+    "wave": 3,
+    "change": "Wire the Build Impact card 'i' buttons into the help panel (aria-controls=helpPanel plus help keys) and show a short visible percentile qualifier under the Worst-Case value (UX-004 option 1).",
+    "findings": [
+      "UX-004"
+    ],
+    "deps": [
+      "W2-08"
+    ],
+    "priority": "P3",
+    "effort": "S",
+    "risk": "Low",
+    "owner": "Frontend maintainer",
+    "group": "G-DOC-HELP",
+    "validation": "Keyboard: Tab to each card 'i', Enter opens the definition; sandbox test that impactCardHtml carries aria-controls.",
+    "exit": "All three cards open help; Worst-Case shows its percentile without hover.",
+    "tier": "mechanical (low effort)",
+    "usage": "Light",
+    "drivers": "Shares help_registry.js with W2-08, hence after it."
+  },
+  {
+    "id": "W3-07",
+    "wave": 3,
+    "change": "Extract the Sales Ledger tab bar and keydown into a shared helper and use it for the Strategy, Holdings, Reconciliation and Rental Properties tab strips, restoring focus after re-render (UX-005 option 1).",
+    "findings": [
+      "UX-005"
+    ],
+    "deps": [
+      "W2-05"
+    ],
+    "priority": "P3",
+    "effort": "M",
+    "risk": "Low",
+    "owner": "Frontend maintainer",
+    "group": "G-FE",
+    "validation": "Keyboard pass on each page; sandbox test that each tab bar emits aria-controls and a role=tabpanel panel.",
+    "exit": "One tab implementation; line total falls.",
+    "tier": "standard_reasoning (medium effort)",
+    "usage": "Moderate",
+    "drivers": "dashboard.js (6,474 lines) grep only; shares sales_ledger_ui.js with W2-05."
+  },
+  {
+    "id": "W3-08",
+    "wave": 3,
+    "change": "Reconcile every documentation/future/ Status line against merge history, move shipped documents to archive/superpowers/ with pointers, and require a merge reference for 'implemented' (DOC-004 option 1 plus the light half of option 2).",
+    "findings": [
+      "DOC-004"
+    ],
+    "deps": [
+      "W1-07"
+    ],
+    "priority": "P2",
+    "effort": "M",
+    "risk": "Low",
+    "owner": "Documentation owner",
+    "group": "G-DOC-STATUS",
+    "validation": "For each future/ document compare Status with `git log --merges`; afterwards count future/ documents marked implemented (target 0 or each names its open items).",
+    "exit": "Folder placement matches status; no 'not yet merged' line refers to a merged PR.",
+    "tier": "mechanical (low effort)",
+    "usage": "Moderate-Heavy",
+    "drivers": "FLAG: about 35 status-uncertain documents; script the git lookups per branch or PR instead of reading bodies; update paths cited from other documents and memory files."
+  },
+  {
+    "id": "W3-09",
+    "wave": 3,
+    "change": "Add the 11 missing reference/ items to DOCUMENTATION_INDEX.md (archiving one-off studies), add FUNCTIONAL_SPEC sections for Sales Ledger, 1099-B, wash sales, Year-End Transition, Account Tax Basis and Checking & Savings, and add an index-coverage test (DOC-007).",
+    "findings": [
+      "DOC-007"
+    ],
+    "deps": [
+      "W3-08"
+    ],
+    "priority": "P3",
+    "effort": "S-M",
+    "risk": "Low",
+    "owner": "Documentation owner",
+    "group": "G-DOC-STATUS",
+    "validation": "Index-coverage test passes locally; FUNCTIONAL_SPEC headings checked against STEPS titles.",
+    "exit": "Every reference/ file indexed or archived.",
+    "tier": "mechanical (low effort)",
+    "usage": "Light",
+    "drivers": "Index and spec headings only."
+  },
+  {
+    "id": "W3-10",
+    "wave": 3,
+    "change": "Concepts Guide: decide between generating an in-app HTML concepts page from the help registry (option 2) or refreshing the .docx with a currency check (option 1); first confirm whether the packaged build ships documentation/; make the Plan Status card a working link (DOC-003).",
+    "findings": [
+      "DOC-003"
+    ],
+    "deps": [
+      "W2-08",
+      "W2-09"
+    ],
+    "priority": "P2",
+    "effort": "M",
+    "risk": "Low-Medium",
+    "owner": "Documentation owner; platform maintainer if a route is added",
+    "group": "G-DOC-HELP",
+    "validation": "Extract guide or page text and diff every 'Find it' screen name against STEPS titles; click through on a packaged build.",
+    "exit": "End-user concepts reference matches the nav and opens from the app.",
+    "tier": "standard_reasoning (medium effort)",
+    "usage": "Moderate",
+    "drivers": "Binary .docx handling, or a new local-only route plus diagram regeneration."
+  },
+  {
+    "id": "W3-11",
+    "wave": 3,
+    "change": "Cache the Excel fallback index keyed on workbook mtime and record an exit criterion for each compatibility shim (Excel fallback, parse-time migrate_sectioned_data, legacy_conversion, market_data USER_AGENT fallback) in the backlog or module catalog (ARC-007 option 1).",
+    "findings": [
+      "ARC-007"
+    ],
+    "deps": [
+      "W1-07"
+    ],
+    "priority": "P3",
+    "effort": "S",
+    "risk": "Low",
+    "owner": "Platform maintainer",
+    "group": "G-PLAT",
+    "validation": "Measure Results Explorer index latency before and after on a real workbook (isolated environment); golden masters unchanged.",
+    "exit": "Each shim has a recorded removal trigger.",
+    "tier": "mechanical (low effort)",
+    "usage": "Light",
+    "drivers": "detailed_results.py only."
+  },
+  {
+    "id": "W4-01",
+    "wave": 4,
+    "change": "Illinois estate tax: after an estate attorney confirms the method (or an Illinois Attorney General calculator comparison), implement adjusted taxable estate = TE - 60,000, credit = min(table, tentative federal tax with a $4M exclusion) with a section 2001 rate schedule, and solve the interrelated deduction (FIN-004).",
+    "findings": [
+      "FIN-004"
+    ],
+    "deps": [
+      "W3-05"
+    ],
+    "priority": "P2",
+    "effort": "M",
+    "risk": "Low-Medium",
+    "owner": "Engine maintainer; estate attorney",
+    "group": "G-ENG",
+    "validation": "Calculator-matched test points at $4.05M, $4.5M, $5M and $10M; measure, hand-verify, re-pin.",
+    "exit": "Attorney sign-off recorded; tests match the calculator.",
+    "tier": "expert_reasoning (high effort)",
+    "usage": "Moderate",
+    "drivers": "Professional gate dominates elapsed time."
+  },
+  {
+    "id": "W4-02",
+    "wave": 4,
+    "change": "Freeze the DSUE at the first-death year's indexed amount and index only the survivor's own exclusion, in after_tax.estimate_terminal_estate_tax and roth_conversion._estate_tax_for_row; disclose the assumed portability election (FIN-007).",
+    "findings": [
+      "FIN-007"
+    ],
+    "deps": [
+      "W4-01"
+    ],
+    "priority": "P3",
+    "effort": "S",
+    "risk": "Low",
+    "owner": "Engine maintainer; estate attorney",
+    "group": "G-ENG",
+    "validation": "Unit test with known first- and second-death years against a hand calculation; measure, hand-verify, re-pin.",
+    "exit": "DSUE no longer indexed after the first death.",
+    "tier": "expert_reasoning (high effort)",
+    "usage": "Light",
+    "drivers": "Same estate functions as W4-01."
+  },
+  {
+    "id": "W4-03",
+    "wave": 4,
+    "change": "Add a per-member actuarial sex field (default = current positional choice) read by both the scalar and vectorized mortality samplers (FIN-012 option A).",
+    "findings": [
+      "FIN-012"
+    ],
+    "deps": [
+      "W4-02"
+    ],
+    "priority": "P3",
+    "effort": "S-M",
+    "risk": "Low",
+    "owner": "Engine maintainer; financial planner reviews wording",
+    "group": "G-ENG",
+    "validation": "Unit test: member 1 set to female samples the female column; default plans unchanged in golden and Monte Carlo baselines.",
+    "exit": "No positional sex assumption remains.",
+    "tier": "standard_reasoning (medium effort)",
+    "usage": "Moderate",
+    "drivers": "Schema change plus Monte Carlo baseline check."
+  },
+  {
+    "id": "W4-04",
+    "wave": 4,
+    "change": "Integrate in-force life insurance behind the existing module switch: pay the face amount into the survivor or beneficiary account in the death year (per Monte Carlo path), stop premiums, add non-ILIT face to the estate base (FIN-005 option A).",
+    "findings": [
+      "FIN-005"
+    ],
+    "deps": [
+      "W4-02",
+      "W2-03"
+    ],
+    "priority": "P2",
+    "effort": "L",
+    "risk": "Medium",
+    "owner": "Engine maintainer; financial planner reviews beneficiary routing",
+    "group": "G-ENG",
+    "validation": "Scenario test: a $1M term policy with a death in the projection raises the survivor balance by $1M and enters the estate base when not ILIT-owned; measure, hand-verify, re-pin.",
+    "exit": "Survivor and estate outputs include in-force policies when the switch is on.",
+    "tier": "expert_reasoning (high effort)",
+    "usage": "Heavy",
+    "drivers": "FLAG: per-path Monte Carlo death years; deterministic and Monte Carlo baselines both move."
+  },
+  {
+    "id": "W4-05",
+    "wave": 4,
+    "change": "Lift the nested helpers of run_deterministic_projection_stage into pure functions in projection_stages modules, one group per change (housing and Medicare first), each verified by golden equality with no regeneration; then narrow the planning_engines re-export list (ARC-001 option 2).",
+    "findings": [
+      "ARC-001"
+    ],
+    "deps": [
+      "W4-04"
+    ],
+    "priority": "P3",
+    "effort": "L",
+    "risk": "Medium",
+    "owner": "Engine maintainer",
+    "group": "G-ENG",
+    "validation": "Golden-master and phase-golden equality before and after each extraction; new unit tests per lifted helper; regenerate the architecture diagram.",
+    "exit": "No domain calculation remains as a closure inside the stage function.",
+    "tier": "expert_reasoning (high effort)",
+    "usage": "Heavy",
+    "drivers": "FLAG: deterministic_engine.py is 1,792 lines; read only the helper being lifted; one helper group per session."
+  },
+  {
+    "id": "W4-06",
+    "wave": 4,
+    "change": "Extract dashboard_decomp_row_model.js by feature area and lower the per-file and total ceilings afterwards (ARC-005 option 2).",
+    "findings": [
+      "ARC-005"
+    ],
+    "deps": [
+      "W1-06",
+      "W2-04",
+      "W2-05",
+      "W3-07"
+    ],
+    "priority": "P3",
+    "effort": "L",
+    "risk": "Medium",
+    "owner": "Frontend maintainer",
+    "group": "G-FE",
+    "validation": "Read the Python tests that assert on panel JS text before moving code; frontend Node tests and Playwright e2e run locally; regenerate the architecture diagram.",
+    "exit": "row_model below its new cap; ceilings lowered.",
+    "tier": "expert_reasoning (high effort)",
+    "usage": "Heavy",
+    "drivers": "FLAG: 5,974-line file; grep only, one feature area per session."
+  },
+  {
+    "id": "W4-07",
+    "wave": 4,
+    "change": "Owner scope decisions, recorded in the backlog before any build: post-divorce household modelling (FIN-009 option B) and per-member 401(k) limits with age-based and Roth catch-up rules (FIN-010 option B).",
+    "findings": [
+      "FIN-009",
+      "FIN-010"
+    ],
+    "deps": [
+      "W1-07"
+    ],
+    "priority": "P3",
+    "effort": "S (decision)",
+    "risk": "None until built",
+    "owner": "Owner; financial planner",
+    "group": "G-DOC",
+    "validation": "Decision and rationale recorded in BACKLOG.md.",
+    "exit": "Each option is either scheduled with its own design or declined.",
+    "tier": "mechanical (low effort)",
+    "usage": "Light",
+    "drivers": "Decision only."
+  }
+]

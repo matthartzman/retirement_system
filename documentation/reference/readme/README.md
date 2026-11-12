@@ -4,13 +4,13 @@ A local-only retirement planning workspace. You enter your plan, the app saves
 it to a database on this computer, and it builds an Excel/PDF report package
 you can review with an advisor.
 
-- **Where to start:** open the app and begin on the **Welcome** page, then work
-  down the left-hand menu. The **Open Demo Plan** button on the Welcome page
-  shows a made-up household so you can look around safely.
-- **If a word is unfamiliar:** the plain-English **Concepts Guide**
-  (`documentation/reference/Retirement_Planner_Concepts_Guide.docx`, open it in
-  Word) explains each setting with everyday comparisons. It is also listed on
-  **Settings -> Data & Backups** in the app.
+- **Where to start:** open the app and begin on **Plan Status** (the first item
+  in the left-hand menu, which shows the Welcome message), then work down the
+  menu. The **Open Demo Plan** button there shows a made-up household so you
+  can look around safely.
+- **If a word is unfamiliar:** the plain-English **Concepts Guide** opens from
+  **Settings -> Data & Backups** in the app (the **Help: Concepts Guide** card). It has a page for
+  every screen and a glossary, built from the same text as the help panel.
 - **Developers:** setup, commands and tests are in
   `documentation/reference/CONTRIBUTING.md`, not here.
 
@@ -38,11 +38,12 @@ on the card headed **Third-party import auto-update**: check
 **Enable daily auto-update**, confirm the source folder and run time, and it saves on its own,
 with no separate save button. Use **Import now** on the same card any time you
 want to pull in the latest files without waiting for the daily run. The
-**Account Reconciliation** page (under Reports & Review) then shows the app's
+**Account Reconciliation** page (under **Track & Reconcile**) then shows the app's
 account numbers beside the imported balances.
 
 **Rental Properties** — turn on under **Settings → Plan Features** if you own
-rental real estate; the page then appears in the left menu.
+rental real estate; the **Rental Properties** page then appears in the left menu
+under **Accounts & Property**.
 
 **Local backups** — **Settings → Data & Backups** also holds the automatic
 backup controls and **Export CSV backup**.

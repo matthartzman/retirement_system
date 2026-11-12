@@ -290,7 +290,7 @@ def test_startup_wrapper_never_raises_on_a_broken_store(monkeypatch, tmp_path):
     import src.plan_data_migration as m
     monkeypatch.setattr(m, "migrate_plan_data_at_rest", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
     report = m.run_startup_plan_data_migration(input_dir=tmp_path, db_path=tmp_path / "s.sqlite")
-    assert report == {"migrated": {}, "total_changed": 0, "skipped": True}
+    assert report["skipped"] is True and report["total_changed"] == 0 and "boom" in report["error"]
 
 
 # --- Phase 3: wellness -> healthcare, namespaces 2 and 3 only -----------------

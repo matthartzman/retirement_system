@@ -1,4 +1,4 @@
-// Recent Projections view (design: documentation/future/superpowers/plans/2026-10-29-trends-recent-projections-design.md).
+// Recent Projections view (design: documentation/archive/superpowers/plans/2026-10-29-trends-recent-projections-design.md).
 // The next N years of the workbook's Net Worth and Cash Flow tables from /api/projections, with column
 // groups that start collapsed (projection_groups.js) and a frozen Year column. Runs as its own module,
 // like live_snapshot.js: the shared [data-view] toggle switches body.proj-mode and CSS hides the rest.

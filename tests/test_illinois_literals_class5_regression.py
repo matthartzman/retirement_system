@@ -149,24 +149,30 @@ def test_sheet9_residency_row_still_correct_for_illinois():
 
 def test_sheet9_scorp_surcharge_row_names_the_households_actual_state():
     text = _sheet9_text(_minimal_sheet9_config("Florida", il_exempt=0.0))
-    assert any("Florida Corp Surcharge" in t for t in text)
-    assert not any("Illinois Corp Surcharge" in t for t in text)
+    # FIN-008 / W2-03: the row no longer asserts a surcharge the engine does not apply, but it
+    # still names the household's own state and never Illinois for a Florida household.
+    assert any("Florida entity-level tax" in t for t in text)
+    assert not any("Illinois" in t and "entity-level tax" in t for t in text)
+    assert not any("Corp Surcharge" in t for t in text)
 
 
 def test_sheet9_scorp_surcharge_note_names_the_households_actual_state():
     text = _sheet9_text(_minimal_sheet9_config("Florida", il_exempt=0.0))
     combined = " ".join(text)
-    assert "Florida " in combined and "corporate surcharge applies" in combined
-    assert "Illinois 1.5%" not in combined
+    assert "Florida " in combined and "entity-level taxes on S-corp income are not modeled" in combined
+    assert "Illinois 1.5%" not in combined and "corporate surcharge applies" not in combined
 
 
 def test_sheet9_scorp_surcharge_rate_itself_is_unchanged_by_state():
-    # The RATE was never the defect -- it's already a generic plan-data
-    # field. Only the label should change; the number must not.
+    # FIN-008 / W3-01: Illinois now shows the modeled replacement tax at the plan's rate;
+    # every other state still says the entity-level tax is not modeled.
     fl = _sheet9_text(_minimal_sheet9_config("Florida", il_exempt=0.0))
     il = _sheet9_text(_minimal_sheet9_config("Illinois", il_exempt=4_000_000.0))
-    assert any("1.5% on taxable income" in t for t in fl)
-    assert any("1.5% on taxable income" in t for t in il)
+    assert any("Not modeled in the projection" in t for t in fl)
+    assert any("Modeled: 1.5% replacement tax" in t for t in il)
+    assert not any("Not modeled in the projection" in t for t in il)
+    for text in (fl, il):
+        assert not any("1.5% on taxable income" in t for t in text)
 
 
 # --- ruled-out false positive, kept as a regression guard against a rewrite ---

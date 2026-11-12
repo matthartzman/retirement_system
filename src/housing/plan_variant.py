@@ -10,11 +10,11 @@ from __future__ import annotations
 from typing import Any
 
 from .. import planning_engines as _pe
-from .. import platform_runtime as _platform_runtime
-from ..server_services.strategy_asset_service import (
+from .pricing import (
     HOME_APPR_DEFAULT,
     INFLATION_GENERAL_DEFAULT,
     housing_state_estimate_payload,
+    years_out_from,
 )
 from .models import NO_SALE_DISPOSITIONS, HousingCandidate, Location, Move
 from .rent_out import RentOutPlan, apply_rent_out
@@ -69,15 +69,6 @@ def _estimate_for_location(loc: Location, housing_type: str, *,
     return payload['estimate']
 
 
-def _years_out(start_year: int) -> int:
-    """Same formula ``estimate_housing_cost`` uses internally: years from
-    "now" (``platform_runtime.today().year``, the same clock
-    ``data_io.py`` pins ``c['plan_start']`` to) to ``start_year``, floored at
-    zero so a current-year or past move is never discounted backwards."""
-    plan_start = _platform_runtime.today().year
-    return max(0, int(start_year) - plan_start) if start_year else 0
-
-
 def _purchase_price_for_location(loc: Location, *, start_year: int,
                                  home_appr: float, inflation_general: float) -> float:
     """Price range midpoint, else the ZIP-scaled screening estimate
@@ -98,7 +89,7 @@ def _purchase_price_for_location(loc: Location, *, start_year: int,
         lo, hi = loc.target_purchase_price_range
         return (float(lo) + float(hi)) / 2.0
     if loc.est_price is not None:
-        years_out = _years_out(start_year)
+        years_out = years_out_from(start_year)
         factor = (1.0 + float(home_appr)) ** years_out if years_out else 1.0
         return float(loc.est_price) * factor
     return float(_estimate_for_location(

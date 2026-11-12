@@ -535,7 +535,8 @@ class ConfigService:
                     value = normalize_roth_csv_value(section, subsection, label, value).strip()
                     store.set_row(row_id, value=value)
                     applied[row_id] = ((section, subsection, label), value)
-                errors = _schema_validate_rows_full(store.all_rows())
+                # QA-002: format/range only; 'required value missing' is the build preflight's job.
+                errors = _schema_validate_rows_full(store.all_rows(), check_required=False)
                 if errors:
                     row_ids = {(r["section"], r["subsection"], r["label"]): r["row_id"] for r in store.all_rows() if "row_id" in r}
                     raise _Rejected(errors, structure_validation_errors(errors[:50], row_ids))

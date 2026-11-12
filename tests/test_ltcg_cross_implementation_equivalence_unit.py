@@ -31,17 +31,13 @@ of silently drifting.
 
 Method
 ------
-``_bracket_factor_for_year``/``_ltcg_tax_on_gain_path`` are nested closures
-with no module-level name -- they only exist inside the 3,000+ line
-``run_deterministic_projection_stage`` function and are never returned or
-exposed. To exercise the REAL current source (not a hand-transcribed copy of
-it, which would just be a fourth implementation and prove nothing about the
-other three), this file extracts their AST source segments directly out of
-``inspect.getsource(run_deterministic_projection_stage)`` and execs them into
-an isolated namespace that supplies the same free variables (``c``, the
-module's ``_ar`` alias for ``src.core``, and ``TAX_BASE_YEAR``) the real
-closures rely on. If the engine's source for either closure is ever renamed
-or restructured, ``_extract_engine_ltcg_fn`` fails loudly (AssertionError)
+The engine's ``_bracket_factor_for_year``/``_ltcg_tax_on_gain_path`` are
+``functools.partial`` bindings of module-level helpers in
+``src.projection_stages.tax_paths`` (lifted out of the stage by W4-05; they
+used to be nested closures extracted here by AST). To exercise the REAL
+current implementation rather than a transcribed copy, this file binds that
+same ``tax_paths.ltcg_tax_on_gain_path`` to ``c``, exactly as the stage does.
+If the helper is ever renamed or moved, the import or call fails loudly
 rather than silently drifting from the real implementation.
 
 ``_ltcg_marginal_rate`` returns a marginal *rate*, not a total tax dollar
@@ -59,14 +55,12 @@ feeds it can be.
 """
 from __future__ import annotations
 
-import ast
-import inspect
-import textwrap
+import functools
 
 import pytest
 
 import src.core as core
-import src.projection_stages.deterministic_engine as de
+import src.projection_stages.tax_paths as tax_paths
 import src.taxes as taxes
 from src.tlh import _ltcg_marginal_rate
 
@@ -81,36 +75,15 @@ ORDINARY_INCOMES = [0.0, 40_000.0, 90_000.0, 150_000.0, 300_000.0]
 YEAR_OFFSETS = [0, 5, 10, 20, 30]
 
 
-def _extract_nested_source(outer_func, name: str) -> str:
-    """Pull the exact source of a nested ``def`` out of ``outer_func`` by AST,
-    so the test exercises the real current implementation rather than a
-    transcribed copy of it."""
-    src_text = textwrap.dedent(inspect.getsource(outer_func))
-    tree = ast.parse(src_text)
-    outer_def = tree.body[0]
-    for node in ast.walk(outer_def):
-        if isinstance(node, ast.FunctionDef) and node.name == name:
-            segment = ast.get_source_segment(src_text, node)
-            assert segment is not None, name
-            return textwrap.dedent(segment)
-    raise AssertionError(
-        f"{name!r} not found as a nested def inside {outer_func.__name__}; "
-        "the engine's internal structure changed -- update this extractor."
-    )
-
-
 def _extract_engine_ltcg_fn(c: dict):
-    """Build a standalone callable out of the engine's real, un-exported
-    ``_ltcg_tax_on_gain_path``/``_bracket_factor_for_year`` closures, bound to
-    ``c``."""
-    bf_src = _extract_nested_source(de.run_deterministic_projection_stage, "_bracket_factor_for_year")
-    ltcg_src = _extract_nested_source(de.run_deterministic_projection_stage, "_ltcg_tax_on_gain_path")
-    # Post-2.1, both nested closures are one-line delegations to `_tk`
-    # (module-level alias for src.tax_kernel) rather than self-contained
-    # arithmetic, so the exec namespace must supply it.
-    namespace = {"c": c, "TAX_BASE_YEAR": de.TAX_BASE_YEAR, "_ar": de._ar, "_tk": de._tk}
-    exec(compile(bf_src + "\n" + ltcg_src, "<deterministic_engine_ltcg_extract>", "exec"), namespace)
-    return namespace["_ltcg_tax_on_gain_path"]
+    """The engine's real LTCG-on-gain helper, bound to ``c``.
+
+    W4-05 lifted ``_ltcg_tax_on_gain_path`` (and ``_bracket_factor_for_year``)
+    out of ``run_deterministic_projection_stage`` into
+    ``src.projection_stages.tax_paths``; the stage now binds them with
+    ``functools.partial(..., c)``. Importing the lifted function exercises the
+    same code the engine runs, and an import error fails loudly if it moves."""
+    return functools.partial(tax_paths.ltcg_tax_on_gain_path, c)
 
 
 def _tlh_reconstructed_tax(gain: float, ordinary_income: float, bracket_factor: float,

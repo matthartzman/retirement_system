@@ -92,7 +92,7 @@ describe("add/delete/seed handlers save staged edits first", () => {
 describe("importPlanFolder (UX-011)", () => {
   function loadImporter({ confirm = true, unsaved = false } = {}) {
     let src = fs.readFileSync(path.join(JS_DIR, "dashboard_plan_folder_io.js"), "utf8");
-    src = src.replace(/^import .*$/m, "").replace(/^export /gm, "").replace(/Object\.assign\(window,[\s\S]*$/m, "");
+    src = src.replace(/^import .*$/gm, "").replace(/^export /gm, "").replace(/Object\.assign\(window,[\s\S]*$/m, "");
     const log = [];
     const sb = {
       window: {

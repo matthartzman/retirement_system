@@ -31,6 +31,64 @@ def _add_account_flow(target: dict[str, float], acct: str | None, amount: float)
         target[acct] = target.get(acct, 0.0) + amount
 
 
+def salt_deduction(year, agi, filing, state_income_tax_paid, property_tax):
+    """FIN-003: state income tax (the engine's computed state tax) plus property tax, held to the SALT cap."""
+    return min(state_income_tax_paid + property_tax, salt_cap(year, agi, filing))
+
+
+def medical_expense_after_sehi(premiums, sehi_deducted, other_medical):
+    """Itemizable medical expense: premiums net of the self-employed health insurance deduction, plus other costs."""
+    return max(0.0, premiums - max(0.0, sehi_deducted)) + other_medical
+
+
+def sehi_net_of_credit(sehi_ded, source, ptc_at_deduction):
+    """FIN-006: cap the self-employed health insurance deduction at premiums net of the premium tax credit.
+
+    ``ptc_at_deduction(s)`` is the credit when the deduction is ``s`` (a smaller deduction raises MAGI and
+    lowers the credit). Two passes of the Rev. Proc. 2014-41 iteration, which is close for the usual case.
+    """
+    s = sehi_ded
+    for _ in range(2):
+        s_new = min(sehi_ded, max(0.0, source - ptc_at_deduction(s)))
+        if abs(s_new - s) < 1e-6:
+            break
+        s = s_new
+    return s
+
+
+def nonitemizer_charitable_deduction(year, filing, cash_gifts):
+    """IRC 170(p) (OBBBA sec. 70424): min(cap, cash gifts to public charities), 2026 on; cap $1,000, $2,000 joint."""
+    if year < 2026 or cash_gifts <= 0:
+        return 0.0
+    key = 'MFJ' if str(filing or '').upper().startswith(('MFJ', 'MARRIED', 'Q')) else 'Single'
+    return min(float(default_tax_law_dataset().latest_value('nonitemizer_charitable_cap', filing_status=key).value), cash_gifts)
+
+
+def charitable_agi_floor(year, agi):
+    """OBBBA: itemized charitable gifts count only above 0.5% of AGI from 2026 (no floor before)."""
+    return 0.005 * agi if year >= 2026 else 0.0
+
+
+def _qbi_limited_deduction(c, row, year, filing, base_deduction, agi, qualified_dividends, tentative_qbi_ded):
+    """FIN-001: the Section 199A deduction after its statutory limits (see src/qbi.py)."""
+    from ..qbi import qbi_deduction
+    qbi = float(row.get('_qbi_income', 0.0) or 0.0)
+    if qbi <= 0.0:
+        return tentative_qbi_ded
+    key = 'MFJ' if str(filing or '').upper().startswith(('MFJ', 'MARRIED', 'Q')) else 'Single'
+    ds = default_tax_law_dataset()
+    inf = c.get('brk_inf', 0.0)
+    return qbi_deduction(
+        qbi=qbi, w2_wages=float(row.get('_qbi_w2_wages', 0.0) or 0.0),
+        ubia=float(c.get('qbi_ubia', 0.0) or 0.0), sstb=bool(c.get('qbi_sstb', False)),
+        taxable_before_qbi=max(0.0, agi - base_deduction),
+        net_capital_gain=float(qualified_dividends or 0.0),
+        threshold=ds.indexed_value('qbi_threshold', year, inf, filing_status=key),
+        phase_in_width=ds.indexed_value('qbi_phasein_width', year, 0.0, filing_status=key),
+        min_deduction=ds.indexed_value('qbi_min_deduction', year, inf, filing_status=key) if year >= 2026 else 0.0,
+        min_income=ds.indexed_value('qbi_min_income', year, inf, filing_status=key) if year >= 2026 else 0.0)
+
+
 def _qualified_and_nonqualified_annuity_income(c: dict[str, Any], year: int) -> tuple[float, float]:
     """Split this year's annuity cash income into its qualified and
     non-qualified (basis-excluded) taxable pieces.
@@ -512,6 +570,8 @@ class AgiTaxResult(NamedTuple):
     medical_ded: float
     medical_expense_yr: float
     ded: float
+    qbi_ded: float
+    sehi_ded: float
     char: float
     daf_agi_limit_pct: float
     daf_agi_limit: float
@@ -698,6 +758,23 @@ def apply_agi_and_tax(
     # withdrawal cascade and is also exposed to the Roth optimizer metrics.
     aca_magi_current = aca_magi(agi, portfolio_tax_exempt, ss_total, ss_taxable)
     aca_ptc_final = aca_premium_tax_credit(c, year=year, magi=aca_magi_current, bridge_people=bridge_people)
+    if sehi_ded > 0 and aca_ptc_final > 0:
+        # FIN-006: the self-employed health insurance deduction cannot exceed premiums net of the credit.
+        # A smaller deduction raises AGI (Social Security taxability is held fixed), which can lower the credit.
+        _sehi_in = sehi_ded
+        _ptc_at = lambda s: aca_premium_tax_credit(c, year=year, magi=aca_magi(agi + (_sehi_in - s), portfolio_tax_exempt, ss_total, ss_taxable), bridge_people=bridge_people)
+        _sehi_new = sehi_net_of_credit(_sehi_in, float(row.get('sehi_deduction_source', 0.0) or 0.0), _ptc_at)
+        if _sehi_in - _sehi_new > 1e-6:
+            _shift = _sehi_in - _sehi_new
+            sehi_ded = _sehi_new
+            agi += _shift
+            irmaa_magi_current = agi + portfolio_tax_exempt
+            row['agi'] = agi
+            row['irmaa_magi_current'] = irmaa_magi_current
+            row['sehi_credit_cap_shift'] = _shift
+            row['_qbi_income'] = float(row.get('_qbi_income', 0.0) or 0.0) + (_shift if row.get('_qbi_income') else 0.0)
+            aca_magi_current = aca_magi(agi, portfolio_tax_exempt, ss_total, ss_taxable)
+            aca_ptc_final = aca_premium_tax_credit(c, year=year, magi=aca_magi_current, bridge_people=bridge_people)
     # n_alive guard: the ACA recompute rebuilds wellness_base_yr and
     # total_spend_need from premium components, which would resurrect
     # spending the estate-mode block above just zeroed.
@@ -748,7 +825,25 @@ def apply_agi_and_tax(
         business_expenses_yr=business_expenses_yr,
     )
 
-    # SALT
+    # Classify income for state taxation (retirement income may be exempt)
+    qual_ann, nonqual_ann = _qualified_and_nonqualified_annuity_income(c, year)
+    retirement_dist = rmd_taxable_total + qual_ann  # pension already included in qual_ann if qualified
+    # PTE election: the owner's Illinois return takes a credit for the entity tax, modeled as excluding the
+    # taxed income from the owner's state base (equal while the entity and state rates agree).
+    earned_net = max(0, net_earned_taxable - half_se_ded - sehi_ded - float(row.get('scorp_pte_base', 0.0) or 0.0))
+    # WI-305 / FIN-006: count of qualifying LIVING members (per-person NY/CO
+    # retirement exclusion), not a household-wide OR of both ages. Name kept
+    # for the downstream stages that thread it into state_income_tax.
+    h_over_65 = state_retirement_exclusion_count(h_age, w_age, h_alive, w_alive)
+    state_tax = state_income_tax(state_for_year(c, year), earned_net, retirement_dist,
+                                 ss_taxable, note_int_yr + portfolio_ordinary + portfolio_qualified, nonqual_ann,
+                                 roth_conv, year, h_over_65, filing=filing, brk_inf=c['brk_inf'],
+                                 rate_override=c.get('state_rate_override'))
+
+    # SALT (FIN-003): the state income tax in the deduction is the state tax the engine actually
+    # computes below (same income classification: retirement distributions, Social Security and
+    # conversions are excluded where the state exempts them), computed once and reused for the
+    # tax line. Current-year computed tax stands in for cash-basis payments (CPA confirmed this timing, 2026-11).
     # Preliminary state tax estimate for SALT deduction (computed before final state_tax)
     # SALT estimate: use residence state rate (not hardcoded IL). Item 291
     # (2026-08-19): a Step 7.7 sweep flagged this fallback and neutralized
@@ -760,8 +855,7 @@ def apply_agi_and_tax(
     # 1); this fallback exists only for lower-level/defensive callers this
     # repo deliberately keeps lenient, out of scope for this ticket.
     _state_rules = STATE_TAX_RULES.get(state_for_year(c, year), STATE_TAX_RULES['Illinois'])
-    _sro = c.get('state_rate_override')
-    il_tax_est = agi * (_state_rules.get('rate', 0.0495) if _sro is None else _sro)
+    il_tax_est = state_tax   # the engine's own state tax, not an AGI-times-flat-rate proxy
     configured_prop_tax_yr = float(row.get('real_estate_tax_yr', 0.0) or 0.0)
     estimated_prop_tax_yr = (home_val * _state_rules.get('prop_rate', 0.0)) if home_val > 0 else 0.0
     mort_interest_yr = float((c.get('mort_interest_schedule') or {}).get(year, 0.0) or 0.0)
@@ -774,7 +868,7 @@ def apply_agi_and_tax(
         mort_interest_yr *= 1.0 - _converted_share
     prop_tax_yr = configured_prop_tax_yr if configured_prop_tax_yr > 0 else estimated_prop_tax_yr
     salt_gross = il_tax_est + prop_tax_yr
-    salt = min(salt_gross, salt_cap(year, agi, filing))
+    salt = salt_deduction(year, agi, filing, il_tax_est, prop_tax_yr)
     # Item 4.1: QCD dollars already left AGI above (never a deduction);
     # treat char_low as the household's total giving intent and net the
     # QCD portion out of the itemizable cash-gift component so the same
@@ -788,7 +882,10 @@ def apply_agi_and_tax(
     # grant window. Netting here, not in the cash bridge -- char_low is a
     # deduction input only and is not a cash-flow line, so a grant moves
     # no cash in this model.
-    char = max(0, (c['char_low'] - qcd_total_yr - daf_grant_yr) - 0.005*agi)
+    # OBBBA: itemized charitable gifts are deductible only above 0.5% of AGI from 2026 on
+    # (no floor in 2025 and earlier).
+    char_floor = charitable_agi_floor(year, agi)
+    char = max(0, (c['char_low'] - qcd_total_yr - daf_grant_yr) - char_floor)
 
     # Item 4.2 (P4): DAF contribution deduction, AGI-limited with a
     # 5-year carryforward (IRC 170(b)(1)(G)/(d)(1)) — replaces treating
@@ -862,6 +959,12 @@ def apply_agi_and_tax(
     n65 = (1 if (h_alive and h_age >= 65) else 0) + (1 if (w_alive and w_age >= 65) else 0)
     senior_bonus = senior_bonus_deduction(year, filing, agi, n65)
     std_ded = standard_deduction_fn(year, filing, c['brk_inf'], n65) + senior_bonus
+    # OBBBA IRC 170(p), 2026 on: a household taking the standard deduction also deducts cash gifts to public
+    # charities up to a fixed cap. Donor-advised-fund gifts are excluded and the 0.5% floor does not apply.
+    # It rides on the standard side of the comparison, so itemizing wins only when it beats standard + this.
+    nonitemizer_charity = nonitemizer_charitable_deduction(year, filing, c['char_low'] - qcd_total_yr - daf_grant_yr)
+    std_ded += nonitemizer_charity
+    row['nonitemizer_charitable_deduction'] = nonitemizer_charity
     # Sec 213 medical expense deduction: Medicare/bridge premiums, wellness
     # detail spend (medical/dental/vision/Rx), LTC insurance premiums, and
     # any LTC cost shock are all qualifying medical expenses; only the
@@ -869,7 +972,10 @@ def apply_agi_and_tax(
     # flows into total_spend_need as a cash cost (line ~1376/1527) -- this
     # is the first place it also counts toward the tax deduction it can
     # legitimately generate.
-    medical_expense_yr = wellness_premium_yr + wellness_detail_budget_yr + wellness_shock_yr + ltc_prem_yr
+    # FIN-006 / IRC 162(l)(3): premiums already deducted above the line as self-employed health
+    # insurance cannot also count as a Sec. 213 medical expense.
+    medical_expense_yr = medical_expense_after_sehi(
+        wellness_premium_yr, sehi_ded, wellness_detail_budget_yr + wellness_shock_yr + ltc_prem_yr)
     medical_ded = max(0.0, medical_expense_yr - 0.075 * max(0.0, agi))
     # OBBBA senior bonus is added to whichever deduction is taken, so itemizers get it too
     # (std_ded above already includes it; max(std_ded, item_ded) then compares like with like).
@@ -881,23 +987,15 @@ def apply_agi_and_tax(
     row['medical_expense_deduction'] = medical_ded
     ded = max(std_ded, item_ded)
     if c['qbi_elig']:
+        # Section 199A limits (FIN-001): threshold / phase-in / SSTB / wage-UBIA limit, the overall
+        # 20% of (taxable income before QBI - net capital gain) cap, and the 2026+ minimum deduction.
+        # Net capital gain here is the qualified dividends known at this point; LTCG realized by
+        # later withdrawals is not yet known (approximation).
+        qbi_ded = _qbi_limited_deduction(c, row, year, filing, ded, agi, portfolio_qualified, qbi_ded)
         ded += qbi_ded
 
     taxable_inc = max(0, agi - ded)
     fed_tax = compute_fed_tax_fn(taxable_inc, year, filing, c['brk_inf'])
-    # Classify income for state taxation (retirement income may be exempt)
-    qual_ann, nonqual_ann = _qualified_and_nonqualified_annuity_income(c, year)
-    retirement_dist = rmd_taxable_total + qual_ann  # pension already included in qual_ann if qualified
-    earned_net = max(0, net_earned_taxable - half_se_ded - sehi_ded)
-    # WI-305 / FIN-006: count of qualifying LIVING members (per-person NY/CO
-    # retirement exclusion), not a household-wide OR of both ages. Name kept
-    # for the downstream stages that thread it into state_income_tax.
-    h_over_65 = state_retirement_exclusion_count(h_age, w_age, h_alive, w_alive)
-    state_tax = state_income_tax(state_for_year(c, year), earned_net, retirement_dist,
-                                 ss_taxable, note_int_yr + portfolio_ordinary + portfolio_qualified, nonqual_ann,
-                                 roth_conv, year, h_over_65, filing=filing, brk_inf=c['brk_inf'],
-                                 rate_override=c.get('state_rate_override'))
-
     # NIIT placeholder — computed after trust draws where ltcg_gain is available
     niit = 0.0
     row['_niit_ws_taxable'] = ws_taxable  # stash for later NIIT calc
@@ -963,6 +1061,8 @@ def apply_agi_and_tax(
         medical_ded=medical_ded,
         medical_expense_yr=medical_expense_yr,
         ded=ded,
+        qbi_ded=qbi_ded,
+        sehi_ded=sehi_ded,
         char=char,
         daf_agi_limit_pct=daf_agi_limit_pct,
         daf_agi_limit=daf_agi_limit,

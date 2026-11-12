@@ -1,0 +1,292 @@
+{
+  "stage": "recon:ui-workflows",
+  "date": "2026-11-10",
+  "repository": "matthartzman/retirement_system",
+  "reviewed_ref": "fix-401k-hsa-agi-and-cash @ e75d6ac159210dc5127e8c42f5a71b41689f8a1f (local checkout, working tree dirty; dirty files are golden/test/changelog only, none under frontend/ or src/server/)",
+  "nature": "Map, not a review. Nothing below is a finding. Items under known_risks are candidate leads for the review stages, each with the evidence opened in this run and what still needs verifying.",
+  "method": "Static read of frontend/index.html, frontend/admin.html, src/server/route_manifest.py, src/server/base_routes.py, src/desktop_app.py, frontend/js/api_client.js, targeted greps and windowed reads of frontend/js/*.js and frontend/css/dashboard.css, git ls-files over frontend/, financial_trends_reporter/, tests/e2e, tests/frontend; manifest-github.json for work items. No app, test, or build was run.",
+  "ci_statement": "CI was intentionally excluded from this review.",
+
+  "ui_surfaces": [
+    {
+      "id": "client-dashboard",
+      "entry": "frontend/index.html",
+      "evidence": "frontend/index.html:1-165 — static shell — header (plan switcher, text-size select, save-mode badge, Unsaved badge, #actionMessage live region, Save Changes, Download Workbook, Exit), left nav aside#sideNav with Navigation/Page search scope, Set up/Maintain mode group and #steps, main #mainPane, help aside #helpPane, build overlay, exit modal, chart modal; 70 module <script> tags loaded in a fixed order (lines 93-162).",
+      "host": "Served by Flask (src/server/app_core.py:136 `app = Flask(...)`; src/server/base_routes.py:63-80 `index` redirects to /frontend/index.html after `_require(\"view_dashboard\")`) and also loaded as a file:// URI in a pywebview desktop window (src/desktop_app.py:37-51 create_window url=index_html.as_uri(), maximized, min_size 900x600, zoomable=True).",
+      "rendering_model": "No framework or bundler; ES-module scripts attach functions to window and build HTML strings into innerHTML (91 innerHTML occurrences across frontend/js). Page content is chosen by activeStep in setStep (frontend/js/dashboard_decomp_row_model.js:4520) and frontend/js/navigation.js:186 setStep(ctx,id,opts).",
+      "size": "frontend/js: 71 files, 43,763 lines total (wc -l). Largest: dashboard.js 6,474; dashboard_decomp_row_model.js 5,974; dashboard_decomp_housing_optimizer.js 2,832; admin.js 2,048; reports_ui.js 1,550; dashboard_decomp_housing_scenarios.js 1,466; dashboard_decomp_allocation_optimizer.js 1,456. frontend/css/dashboard.css 1,414 lines, mostly minified long lines (line 3 is 14,906 chars)."
+    },
+    {
+      "id": "admin-control-center",
+      "entry": "frontend/admin.html",
+      "evidence": "frontend/admin.html:1-7 — single-line shell — header with #msg role=status aria-live=polite, 'Open client UI' button, nav aside 'Configuration areas', #main content, static Guidance aside; loads pywebview_bridge.js and admin.js (2,048 lines). No skip link in this shell (the client shell has one at frontend/index.html:71).",
+      "routes": "/admin, /system-configuration (src/server/route_manifest.py:7) and admin API group (route_manifest.py:67-71)."
+    },
+    {
+      "id": "financial-trends-reporter",
+      "entry": "financial_trends_reporter/frontend/index.html (1,060 lines), signin.html, change_password.html",
+      "evidence": "financial_trends_reporter/main.py:109-407 and access_routes.py:138-296 — Flask routes — a separate app with its own pages (/, /signin, /change-password), sign-in/people/activity APIs and chart/projection/spending APIs; frontend JS charts.js 1,281, live_snapshot.js 562, realized.js 299, etc. Remote-access runbook exists at documentation/reference/TRENDS_REMOTE_ACCESS_RUNBOOK.md (not opened).",
+      "note": "Separate user population (remote viewers with passwords) from the local desktop dashboard; routes/HTML only mapped, not read."
+    },
+    {
+      "id": "excel-workbook",
+      "entry": "/api/xlsx (route_manifest.py:6), Download Workbook button (frontend/index.html:72 downloadWithBuild('/api/xlsx','Workbook'))",
+      "note": "The workbook is a primary output surface users read; workbook builder internals belong to the engine/reporting recon pass. Workbook Formatting settings page is a UI step (dashboard.js:176-178)."
+    }
+  ],
+
+  "information_architecture": {
+    "evidence": "frontend/js/dashboard.js:14-185 — const STEPS — nav order equals array order; renderSteps groups contiguous runs of `group` (comment lines 14-16).",
+    "groups_and_steps": {
+      "Plan Status": ["start (Plan Status)"],
+      "Household & Cash Flow": ["household_people (Household & People)", "income_work (Work Income)", "income_retirement (Social Security & Pensions)", "spending_core (Spending Model)"],
+      "Accounts & Property": ["cash_accounts (Checking & Savings)", "holdings (Investment Holdings)", "rental_properties (Rental Properties; gated)", "heloc_strategy (Home Equity Line; gated)", "assets_special (Other Assets & Debts)", "assets_home_cash (Cash Reserves)", "family_business (529 & Equity Compensation; no page of its own per comment dashboard.js:77)"],
+      "Protection & Legacy": ["annuity_death_benefits (Insurance)", "estate (Estate Inputs)"],
+      "Taxes": ["account_tax_basis (Account Tax Basis)", "roth_conversion (Roth Conversion)", "entity_charitable (Charitable Giving)"],
+      "Analyze": ["strategy_optimize (Optimize)", "strategy_stress (Stress Test)", "strategy_scenarios (Scenarios)", "strategy_workbench (Planning Workbench)", "reports_and_review (Build & Results)", "detailed_results (Results; hidden:true)"],
+      "Track & Reconcile": ["actual_spending (Actual Spending)", "monarch_reconciliation (Account Reconciliation)", "sales_ledger (Investment Sales Ledger)", "year_end (Year-End Transition)"],
+      "Settings": ["optional_functions (Plan Features)", "economic_tax_assumptions (Economic & Tax Assumptions)", "all_assumptions (Find a Field)", "workbook_formatting (Workbook Formatting)", "system_configuration (Data & Backups)"]
+    },
+    "count": "8 groups, 32 step entries (one hidden).",
+    "modes": "Set up | Maintain switch (frontend/index.html:78 data-nav-mode buttons; frontend/js/dashboard_decomp_nav_features.js:25,42 read/write localStorage MODE_KEY; :497-532 click handling). Desktop window persists localStorage via a stable WebView2 profile (src/desktop_app.py:84-92).",
+    "feature_gating": "Per-heading Features popover (dashboard_decomp_nav_features.js, 558 lines) writes through setPlanFeatureSwitch; Plan Features page (dashboard_decomp_plan_features.js, 539 lines); plan tiers (dashboard_decomp_plan_tiers.js). Feature/nav map documented at documentation/reference/NAV_FEATURE_MAP.md (not opened).",
+    "secondary_tabs_inside_pages": "role=tablist strips at dashboard.js:2877 (strategy workspace tabs), dashboard_decomp_holdings_tabs.js:29 (Positions/Activity/Import), dashboard_decomp_monarch_reconciliation.js:248 (Needs a decision / All mappings), dashboard_decomp_rental_properties.js:391, dashboard_decomp_sales_ledger_ui.js:53 (Sales ledger sections).",
+    "churn_signal": "Same IA reworked repeatedly in two weeks: PR #390 (12->8 groups, 2026-11-04), #387 (Account Tax Basis moved hours after #386 added it), #388 then #418 (Sales Ledger 4 tabs -> 3 tabs within six days). Relevant to learnability / habit disruption for a returning user."
+  },
+
+  "routes": {
+    "manifest": "src/server/route_manifest.py:5-72 — ROUTE_MODULES — groups: build_results, app_shell, runtime, plan_data, rental, plan_config, pricing, portfolio, security, spending, ytd, sales_ledger (largest; includes cash, year-end, transactions, investment-income), reconcile, strategy_assets, admin.",
+    "route_decorator_counts": "grep -c of .route( per file: src/server/plan_routes.py 198, workbook_routes.py 40, base_routes.py 13, admin_routes.py 11, import_export_routes.py 4. Manifest-vs-decorator parity not checked in this pass.",
+    "ui_relevant_endpoints": [
+      "/api/build/preflight, /api/build/start, /api/build/progress/<job_id>, /api/build/events/<job_id>, /api/build/cancel/<job_id>, /api/build (legacy synchronous) — build workflow",
+      "/api/plan, /api/plan/forms, /api/validate — save/validation (422 with field_errors at src/server_services/config_service.py:545)",
+      "/api/plans, /api/plans/switch|rename|forget, /api/plan/open-demo|reset-demo|exit-demo, /api/plan/blank, /api/plan/interview — plan lifecycle / onboarding",
+      "/api/import/preview, /api/import/commit, /api/export/plan-set — plan-folder import/export",
+      "/api/year-end, /api/year-end/confirm — guided year-end",
+      "/api/sales/* (≈60 routes), /api/transactions/*, /api/cash/* — ledger and cash workflows",
+      "/api/reconcile/* — account reconciliation",
+      "/api/glossary, /api/contracts — help content",
+      "/api/shutdown — exit"
+    ],
+    "auth_shape": "src/server/base_routes.py:42-60 — /login redirects to /, /api/auth/login returns a CSRF token payload, /api/auth/session; non-GET calls carry X-CSRF-Token (frontend/js/api_client.js:18-19). Security depth belongs to the access-security pass."
+  },
+
+  "component_map": {
+    "shell_and_infrastructure": ["pywebview_bridge.js (314)", "dashboard_shared_helpers.js (233)", "render_hooks.js (27; WI-035 hook registry)", "text_size.js (54)", "api_client.js (64)", "app_store.js (36)", "navigation.js (481)", "dashboard_decomp_focus_restore.js (66)", "dashboard_decomp_row_model.js (5,974; rows, renderSteps, setStep, showMessage, api, save, build)", "dashboard.js (6,474)"],
+    "help_and_content": ["help_registry.js (1,124; HELP_PAGES/HELP_SECTIONS/HELP_FIELDS/GLOSSARY per PR #259)", "dashboard_decomp_field_choice_help.js (217)", "dashboard_source_truth_banners.js (688)", "dashboard_decomp_page_recommendations.js (523)"],
+    "build_and_results": ["dashboard_decomp_build_lifecycle.js (397)", "dashboard_decomp_build_history.js (921)", "reports_ui.js (1,550)", "dashboard_decomp_checklist_closeout.js (1,399)", "dashboard_decomp_workbook_formatting.js (366)"],
+    "planning_inputs": ["income_streams (630)", "spending_taxonomy (836)", "spending_sources (147)", "spending_adjustments (232)", "large_discretionary (222)", "assets_other (728)", "holdings (600) + holdings_tabs (58) + holdings_tree (180)", "cash_accounts (68)", "rental_properties (592)", "estate_insurance (639)", "death_benefits (92)", "tax_assumptions (243)", "state_inputs (45)", "home_panels (200)"],
+    "analysis_tools": ["housing_optimizer (2,832)", "housing_scenarios (1,466)", "allocation_optimizer (1,456)", "optimizer_apply (503)", "roth_guardrails (431)", "strategy_workspace (511)", "planning_workbench_ui.js (441)", "mc_stress_options (121)", "dashboard_batch_assumption_edit.js (510)"],
+    "track_and_reconcile": ["spending_dashboard.js (572)", "ytd_and_plan_folder_io (1,184)", "monarch_reconciliation (444)", "monarch_autoupdate (170)", "sales_ledger (271) + sales_ledger_ui (257) + sales_entry (171) + sales_queue (204) + sales_wash (72) + sales_tax (164) + sales_1099b (207) + sales_group (18)", "broker_import (188)", "transactions_log (229)", "cash_investment (105)", "year_end (43)"],
+    "plan_lifecycle": ["plan_switcher (81)", "plan_folder_io (73)", "local_backups (148)", "conversion (155)", "plan_features (539)", "plan_tiers (429)", "nav_features (558)"],
+    "admin": ["admin.js (2,048)", "admin.css (11)"]
+  },
+
+  "workflows": [
+    {
+      "id": "WF-save",
+      "name": "Edit fields and save",
+      "evidence": "frontend/js/dashboard_decomp_row_model.js:5438-5460 — saveAll — refuses when no plan loaded, saveWorkingCopy(), clears validation errors, showMessage('Changes saved.'), reloads via loadAll with an overlay, triggers local backup; :5424-5436 — saveBeforeStructuralChange — saves before add/delete (WI-018); :5306-5340 — renderSaveErrorSummary — error summary region with heading; frontend/index.html:72 Unsaved badge + Save Changes; save-mode badge (auto vs manual) #saveModeBadge.",
+      "usability_lenses": ["system-status visibility (save-mode badge, Unsaved badge)", "error recovery (field_errors + summary)", "data-loss prevention (beforeunload, exit modal, structural-change save)"]
+    },
+    {
+      "id": "WF-navigate",
+      "name": "Move between pages",
+      "evidence": "frontend/js/navigation.js:177-186 — announcePage — sets document.title and polite #navAnnouncer; :298 guardedNavigate with :326 confirmSaveDiscardStay fallback to window.confirm; :343-346 window.setStep/navigateTo/navigateHistoryBack/Forward; frontend/index.html:72 Back/Forward buttons; combined nav/page search (index.html:78).",
+      "usability_lenses": ["wayfinding", "unsaved-change guard coverage across entry points (prior UX-009)", "suggested-next chain (Set up vs Maintain)"]
+    },
+    {
+      "id": "WF-build",
+      "name": "Build workbook and read results",
+      "evidence": "frontend/js/dashboard_decomp_row_model.js:5479-5520 — runBuild — blocks a second build while one runs, validates allocation targets, overlay stages 'Preparing build'/'Saving current plan', saves first; frontend/js/dashboard_decomp_build_lifecycle.js:79-87 — cancelActiveBuild — POST /api/build/cancel/<job_id>; :108-122 — hideBuildInBackground — hides overlay, 'still running' chip; :250-265 — fallback to /api/build when start returns 404; frontend/index.html:82 overlay with Cancel build + Hide; row_model.js build warnings banner (buildWarningsBannerHtml).",
+      "usability_lenses": ["progress feedback for long tasks", "user control (cancel/hide)", "honest completion state and warnings"]
+    },
+    {
+      "id": "WF-exit",
+      "name": "Exit the app",
+      "evidence": "frontend/js/dashboard.js:6066-6072 — exitApp — opens #exitModal when unsavedChangeCount(); :6159-6166 beforeunload guard; frontend/index.html:83 modal (Keep Editing / Discard & Exit / Save & Exit); src/desktop_app.py:58-82 — on_closing — cancels native close and calls exitApp() in JS.",
+      "usability_lenses": ["data-loss prevention", "destructive-action labelling"]
+    },
+    {
+      "id": "WF-onboard",
+      "name": "Start a plan / demo / blank plan / interview",
+      "evidence": "Routes only: src/server/route_manifest.py:15-18,24 (/api/plan/open-demo, reset-demo, exit-demo, /api/plan/blank, /api/plan/interview); progress label 'Start a plan' (frontend/index.html:78); e2e spec tests/e2e/new-plan-creation.spec.js exists (not opened).",
+      "usability_lenses": ["first-run learnability", "progressive disclosure (Set up mode, tiers, feature switches)"]
+    },
+    {
+      "id": "WF-plan-switch-import",
+      "name": "Switch plans, import/export plan folder, backups",
+      "evidence": "Routes: route_manifest.py:12-17; components dashboard_decomp_plan_switcher.js, dashboard_plan_folder_io.js:30 (comment: in-app confirm listing each dataset, UX-011/WI-018), dashboard_decomp_local_backups.js.",
+      "usability_lenses": ["confirmation of bulk/destructive changes", "refresh after commit (prior UX-011)"]
+    },
+    {
+      "id": "WF-track",
+      "name": "Track actuals: Actual Spending, Account Reconciliation, Sales Ledger, broker/1099-B import, Year-End Transition",
+      "evidence": "STEPS group 'Track & Reconcile' (dashboard.js:140-159); sales ledger tab keyboard handler dashboard_decomp_sales_ledger_ui.js:105 (ArrowRight/ArrowLeft/Home/End); year-end page dashboard_decomp_year_end.js (43 lines) over /api/year-end and /api/year-end/confirm; native confirm() calls in cash/ledger flows (see error_handling.native_dialogs).",
+      "usability_lenses": ["recurring-task efficiency for a returning user (Maintain mode)", "error prevention in irreversible financial records (close year, void sale, 1099-B replace)", "recently restructured (PR #418), several flows stated unexercised in-app"]
+    },
+    {
+      "id": "WF-analyze",
+      "name": "Optimize, Stress Test, Scenarios, Planning Workbench, Housing optimizer, Roth guardrails",
+      "evidence": "STEPS dashboard.js:109-133; components listed under component_map.analysis_tools. Not read in this pass.",
+      "usability_lenses": ["comprehension of probabilistic results (Monte Carlo success wording at dashboard.js:214-224 TERM_NOTES)", "cognitive load of large panels"]
+    },
+    {
+      "id": "WF-help",
+      "name": "Contextual help and glossary",
+      "evidence": "frontend/index.html:80 — help aside with toggle and #helpPanel region; help_registry.js (1,124 lines); dashboard.js:186-189 nav one-liner comes from RPHelp.summary; dashboard.js:214-224 TERM_NOTES parentheticals; /api/glossary loaded by loadCanonicalGlossary (dashboard.js:6168+). PR #259 describes default-open on 11 pre-build pages above 1180px and a slide-over sheet below.",
+      "usability_lenses": ["just-in-time help", "plain-language comprehension (WI-033 not started per prior review)", "terminology consistency after renames"]
+    },
+    {
+      "id": "WF-admin",
+      "name": "Control Center configuration",
+      "evidence": "frontend/admin.html:4-5; admin.js:55 announceUnsaved, :2012 beforeunload.",
+      "usability_lenses": ["expert-user efficiency", "accessibility of admin controls (prior UX-006)"]
+    },
+    {
+      "id": "WF-trends-remote",
+      "name": "Remote viewer reads Trends report",
+      "evidence": "financial_trends_reporter/access_routes.py:138-296 (signin, change-password, people, activity); main.py:109-407.",
+      "usability_lenses": ["sign-in and password-change UX", "chart accessibility for a different audience"]
+    }
+  ],
+
+  "error_handling_surface": {
+    "message_channel": "frontend/js/dashboard_decomp_row_model.js:195-240 — showMessage — single #actionMessage slot in the header; errors persistent until dismissed, others auto-hide at 10 s; sets role alert/assertive for errors and status/polite otherwise on each call; raw error text split into summary plus 'Technical details' <details>.",
+    "api_layer": "Two request paths. frontend/js/api_client.js:22-51 — RetirementApiClient.request — throws Error(data.error||text), attaches err.errors and err.fieldErrors, does NOT set err.status. frontend/js/dashboard_decomp_row_model.js:4949-5000 — api() — uses RetirementApiClient when present (it is loaded early, index.html:98); its own fallback sets err.status (ARC-004 comment) but not err.fieldErrors. api() also throws a launcher-instruction message when the app is not ready (row_model.js:4950-4954). api_client.js:52-56 text() throws the raw response body.",
+    "direct_fetch_bypassing_client": "grep counts of fetch( outside api_client.js: admin.js 5, dashboard_decomp_row_model.js 4, dashboard_decomp_checklist_closeout.js 3, dashboard_decomp_ytd_and_plan_folder_io.js 3, pywebview_bridge.js 3, text_size.js 2, dashboard.js 1, dashboard_decomp_holdings.js 1, modules/phase3_module_manifest.js 1 — not inspected individually.",
+    "validation": "Server: src/server_services/config_service.py:82-85 field_errors on ValidationError; :545 returns 422 with errors[:50] and field_errors. Client: dashboard_decomp_row_model.js:5236 prefers structured field_errors; :5401 markSaveValidationErrors(errs, e.fieldErrors); aria-describedby (9) and aria-invalid (6) occurrences in frontend/js.",
+    "native_dialogs": "window.confirm still used in newer flows: dashboard_decomp_cash_accounts.js:60 (delete account), dashboard_decomp_cash_investment.js:83,88,99 (close/reopen year, mark rollover), dashboard_decomp_sales_1099b.js:180 (replace statement), dashboard_decomp_sales_ledger.js:259 (remove gain), dashboard_decomp_transactions_log.js:183 (tlConfirmed returns true when window.confirm is not a function), navigation.js:326 (fallback), planning_workbench_ui.js (2 hits of alert/confirm/prompt). In-app modal pattern exists elsewhere (dashboard_plan_folder_io.js:30; openStaticDialog in dashboard.js:6060).",
+    "long_running": "Build overlay with Cancel/Hide (index.html:82; build_lifecycle.js:79-122); one-build-at-a-time guard (row_model.js:5470-5486); price test-symbol jobs (route_manifest.py:25)."
+  },
+
+  "accessibility_surface": {
+    "landmarks_and_structure": "frontend/index.html:2 lang=en; :71 skip link to #mainPane; header/main/aside landmarks with aria-labels (:78-80); #mainPane tabindex=-1 for heading/page focus; document.title updated per page (navigation.js:181). Admin shell (admin.html) has lang but no skip link.",
+    "live_regions": "#actionMessage (role/aria-live switched per message), #navAnnouncer polite status, #planSwitcher aria-live polite, #planStateBanner aria-live polite, #conversionNotice aria-live polite, build overlay role=status aria-live polite (index.html:72-82). Only 5 aria-live strings in frontend/js; most announcements come from these shell regions.",
+    "dialogs": "exitModal and chartModal role=dialog aria-modal with labelledby (index.html:83-84); openStaticDialog/closeStaticDialog with initialFocus/onEscape (dashboard.js:6060-6064); 6 role=dialog strings in JS. Native confirm() dialogs listed under error_handling_surface.",
+    "keyboard": "Capture-phase keydown handler moveToNextEntry (dashboard.js:6126-6157) turns Enter in input/select into move-to-next-field and opens the next collapsed section; skips dialogs and width fields. Arrow-key tab switching found only in dashboard_decomp_sales_ledger_ui.js:105 and Alt+Arrow in dashboard_source_truth_banners.js:640; other role=tablist strips (dashboard.js:2877, holdings_tabs.js:29, monarch_reconciliation.js:248, rental_properties.js:391) not checked for arrow-key support. 14 <div ... onclick> patterns in frontend/js; 29 tabindex; 42 .focus() calls.",
+    "visual": "frontend/css/dashboard.css:3 :root tokens (--ink #171713, --muted #68645b, --accent #1f4f8f, --focus #1f4f8f, --focus-dark #fff); 19 :focus-visible rules, 1 outline:none; 1 prefers-reduced-motion block; no prefers-color-scheme or forced-colors rules; small fixed font sizes: 5x 9px, 20x 10px, 65x 11px (body 14px); target sizes: 5x min-height:44px, 6x min-height:24px, 2 pointer:coarse blocks. Text size control 100/115/130% (index.html:72; text_size.js). Desktop window allows zoom (desktop_app.py:48-50).",
+    "forms_and_tables": "93 <label, 129 aria-label, 156 title= attributes, 83 <table / 86 <th with only 10 scope= in frontend/js; 114 <details> (heavy use of collapsible sections).",
+    "charts": "reports_ui.js renders chart dashboards; PR #234 claims per-chart summaries; trends reporter has a dedicated test name 'trends_reporter_chart_escaping_and_accessibility'. Not opened in this pass."
+  },
+
+  "usability_science_entry_points": {
+    "note": "Where the usability reviewer should look, by lens. Not judgements.",
+    "cognitive_load_and_information_scent": ["STEPS IA (dashboard.js:17-185) — 32 steps, 8 groups, renamed often", "Find a Field page and nav/page search (index.html:78)", "Features popover and gated-off notes (nav_features.js, plan_features.js offFeaturesLineHtml per follow-up plan)"],
+    "progressive_disclosure": ["Set up / Maintain modes", "plan tiers", "114 <details> collapsibles", "help panel default-open rule (PR #259)"],
+    "error_prevention_and_recovery": ["native confirm() on irreversible ledger/cash actions", "field_errors + error summary", "exit modal and beforeunload", "saveBeforeStructuralChange"],
+    "system_status_visibility": ["save-mode badge + Unsaved badge", "build overlay, chip, warnings banner", "appStatus pill 'Starting...'", "planStateBanner, conversionNotice, year-end banner 15 Dec-31 Jan (PR #366)"],
+    "risk_communication_of_financial_results": ["TERM_NOTES Monte Carlo success wording (dashboard.js:214-224)", "limitation notices N1-N7 (PR #233; src/limitation_notices.py)", "source-truth banners (dashboard_source_truth_banners.js)"],
+    "learnability_for_infrequent_tasks": ["Year-End Transition guided steps", "Maintain mode suggested-next chain", "Concepts Guide docx (documentation/reference/Retirement_Planner_Concepts_Guide.docx, not opened)"],
+    "consistency": ["tab widgets with differing keyboard models", "two API error shapes", "mixed in-app vs native confirmations", "on-screen prose policy test tests/frontend/ui_prose_guard.test.mjs (PR #267)"]
+  },
+
+  "known_risks": [
+    {
+      "id": "UIR-01",
+      "lead": "Build-start 404 fallback may never trigger: dashboard_decomp_build_lifecycle.js:258 checks `e.status === 404`, but api() (row_model.js:4958-4961) routes through RetirementApiClient.request, which (api_client.js:38-42) does not set err.status. Only the unused fallback branch (row_model.js:4988) sets it.",
+      "verify": "Confirm RetirementApiClient is always defined when api() runs (load order index.html:98 vs row_model at :108) and whether /api/build/start can 404 in any supported runtime. Also check other e.status consumers (only one found)."
+    },
+    {
+      "id": "UIR-02",
+      "lead": "Inconsistent error object shape between the two API paths (status vs fieldErrors) and raw-body errors from RetirementApiClient.text() (api_client.js:52-56) may surface server HTML/tracebacks in messages, partly mitigated by showMessage's splitRawErrorText.",
+      "verify": "Trace callers of RetirementApiClient.text and direct fetch() sites listed under error_handling_surface."
+    },
+    {
+      "id": "UIR-03",
+      "lead": "Native window.confirm() used for irreversible financial-record actions (close/reopen tax year, mark rollover, replace 1099-B, remove gain, delete cash account), inconsistent with the in-app dialog direction of WI-018; transactions_log.js:183 treats a missing confirm as consent. Behaviour of confirm() inside the pywebview/WebView2 shell not established.",
+      "verify": "Check pywebview_bridge.js for a confirm shim; check whether confirm() messages state consequences and offer undo."
+    },
+    {
+      "id": "UIR-04",
+      "lead": "Keyboard model of secondary tab strips differs: only the sales ledger tablist implements Arrow/Home/End; others use role=tab buttons with onclick only, and dashboard.js:2877 tablist has no aria-label.",
+      "verify": "Read each tablist renderer for aria-controls/tabpanel, roving tabindex and key handling."
+    },
+    {
+      "id": "UIR-05",
+      "lead": "Global capture-phase Enter-to-next-field (dashboard.js:6126-6157) changes standard Enter semantics on every input/select outside dialogs; may conflict with search boxes, comboboxes or inputs that expect Enter to submit/apply.",
+      "verify": "Check exclusions (only .helpbtn, .wf-col-width, dialogs) against inputs that bind their own Enter handling (nav search, ledger grid, lot chooser)."
+    },
+    {
+      "id": "UIR-06",
+      "lead": "Many very small fixed font sizes (9-11px: 90 declarations) against a 14px base, no forced-colors/high-contrast handling; text-size control tops at 130%.",
+      "verify": "Determine which surfaces use 9-10px (likely table headers, badges, chips) and whether text_size.js scales them; contrast of --muted on --bg/--soft."
+    },
+    {
+      "id": "UIR-07",
+      "lead": "High IA churn and recently restructured flows with stated unexercised paths: PR #418 says saving a Record sales entry, a wash-card review and a 1099-B apply were not exercised in the app; PR #390 lists five spec deviations, with follow-up plan documentation/future/superpowers/plans/2026-11-04-left-nav-redesign-followups.md (Status: planned) workstreams A-E still open on its face.",
+      "verify": "Check whether follow-up workstreams A (Maintain footer fallback — a test named suggested_next_maintain_fallback.test.mjs exists), D (Turn-on buttons) and E landed; read sales ledger entry/1099-B handlers."
+    },
+    {
+      "id": "UIR-08",
+      "lead": "Single header message slot (#actionMessage) carries all feedback; persistent errors stay until dismissed and a new message replaces the previous one; dynamic role switching between status and alert on one element may be announced unreliably by some screen readers.",
+      "verify": "Check whether queued/overlapping messages lose information (e.g. build-finished replacing an unread error) and the prior UX-013 overlap question."
+    },
+    {
+      "id": "UIR-09",
+      "lead": "Admin Control Center shell lacks a skip link and has a static help aside; prior review UX-006 addressed labels/live region; PR #233 asked for a screen-reader pass on Admin before merge (no record of it found in this pass).",
+      "verify": "Read admin.js render functions for labels and focus handling."
+    },
+    {
+      "id": "UIR-10",
+      "lead": "Trends reporter is a second, remotely reachable UI with sign-in and password change pages; its usability/accessibility was not mapped beyond routes.",
+      "verify": "Read signin.html, change_password.html, access.js for labels, error messages, lockout feedback."
+    },
+    {
+      "id": "UIR-11",
+      "lead": "Project CLAUDE.md large-file table is stale versus measured sizes (states dashboard.js 7,287 / row_model 5,188 / housing_optimizer 1,984; measured 6,474 / 5,974 / 2,832). Not a product risk; affects reviewer cost estimates.",
+      "verify": "None needed beyond noting in docs review."
+    },
+    {
+      "id": "UIR-12",
+      "lead": "Frontend JS total 43,763 lines vs the 43,620 ceiling PR #390 reports raising to; the ratchet test file was not read in full, so the current ceiling is unknown here.",
+      "verify": "Read the current ceiling constant in tests/test_frontend_size_ratchet.py (architecture/quality pass)."
+    }
+  ],
+
+  "github_work_items_touching_ui": {
+    "source": "manifest-github.json (GitHub metadata is context, not proof). Repository has 0 issues and 0 open PRs; work is tracked by in-repo WI-/Item/Wave/Phase ids.",
+    "merged_prs": [
+      {"pr": 418, "area": "Sales Ledger v3 three tabs, Record sales grid, Holdings Activity/Import, wash-sale rules", "pending": "W1 needs CPA confirmation; Record sales save, wash-card review, 1099-B apply stated not exercised in app"},
+      {"pr": 417, "area": "Liquid investments Sold positions row (totals foot)"},
+      {"pr": 390, "area": "Left nav redesign, Set up/Maintain, Features popover", "pending": "five spec deviations; follow-up plan planned"},
+      {"pr": 388, "area": "Sales Ledger redesign (superseded by #418)", "pending": "follow-ups list incl. carryforward inputs losing typed text on reload; may be moot after #418"},
+      {"pr": 387, "area": "Account Tax Basis moved under Taxes"},
+      {"pr": 386, "area": "Account Tax Basis page (inputs previously only in Find a Field)"},
+      {"pr": 385, "area": "Nav search keeps typed text; render cost"},
+      {"pr": 366, "area": "Year-End Transition guided page", "pending": "Phase 3 not included"},
+      {"pr": 268, "area": "Help registry content pass"},
+      {"pr": 267, "area": "UI prose guard and inventory closeout", "pending": "judgement calls flagged for review"},
+      {"pr": 259, "area": "Help registry and follow-focus panel"},
+      {"pr": 235, "area": "WI-017 end-user docs", "pending": "Concepts Guide 'Find it' labels not walked against running app"},
+      {"pr": 234, "area": "WI-018..WI-021 save-before-change, build overlay, field errors, keyboard/nav a11y"},
+      {"pr": 233, "area": "WI-010..WI-016 notices, Admin a11y, focus token, reflow, nav baseline", "pending": "N7 heading wording needs planner review; Admin screen-reader pass requested"}
+    ],
+    "prior_review_items": "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19.md:478-1186 UX-001..UX-011 detailed; :1552-1555 UX-005, UX-009, UX-012, UX-013 left insufficient_evidence; :1375-1376 WI-031 (UI handler tests) and WI-033 (plain-English help); documentation/archive/reports/SYSTEM_REVIEW_2026-10-19_WAVE3_STATUS.md:10-14 lists WI-031/WI-033 'Not started' and WI-041 build cancel 'Done' (status as of that document; later state not verified — documentation/future/WI-033_plain_english_help_review.md exists).",
+    "pull_request_search_truncation": "Scope PR search matched 108 PRs; 30 retrieved, 15 read (manifest-github.json gaps)."
+  },
+
+  "tests_touching_ui_existence_only": {
+    "note": "Listed to locate interface contracts. Existence says nothing about whether they pass; nothing was run.",
+    "e2e_playwright": "tests/e2e: 29 specs incl. build-and-results, build-failure, contextual-help-panel, field-save-persist, focus-restoration-*, narrow-window-drawer, nav-integrity, new-plan-creation, reflow-and-message-row, wi018..wi021, wi015-navigation-baseline (+ JSON baseline).",
+    "node_frontend": "tests/frontend: ~150 *.test.mjs incl. admin_accessibility, field_control_accessible_names, focus_token_contrast, inapp_modal_accessibility_and_listener_leak, selected_state_aria, static_dialog_focus_management, wi021_keyboard_navigation_accessibility, ui_prose_guard, no_internal_keys_on_screen, plain_english_help, sales_ledger_*, year_end_page, nav_features_popover, suggested_next_maintain_fallback; harness tests/frontend/load_dashboard.mjs.",
+    "python_reading_ui": "e.g. tests/test_main_content_skip_link_accessibility_regression.py, tests/test_zip_screen_panel_functional.py (asserts on panel JS text per project CLAUDE.md), tests/test_freeze_frontend_source_grep.py, tests/test_frontend_size_ratchet.py, tests/test_ui_prose_inventory_closeout_regression.py."
+  },
+
+  "inspection_status": {
+    "opened_and_read": ["frontend/index.html (whole)", "frontend/admin.html (whole)", "src/server/route_manifest.py (whole)", "src/server/base_routes.py:1-80", "src/desktop_app.py:17-93", "frontend/js/api_client.js (whole)", "frontend/js/dashboard.js:1-230, 6060-6175", "frontend/js/dashboard_decomp_row_model.js:195-240, 4940-5000, 5424-5520", "frontend/js/dashboard_decomp_build_lifecycle.js:75-125, 250-265", "documentation/future/superpowers/plans/2026-11-04-left-nav-redesign-followups.md:1-60", "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19_WAVE3_STATUS.md (grep lines)", "documentation/archive/reports/SYSTEM_REVIEW_2026-10-19.md (grep lines)"],
+    "grep_only": ["frontend/js/* (pattern counts)", "frontend/css/dashboard.css (pattern counts)", "src/server/*.py (route counts)", "financial_trends_reporter/*.py (route lines)", "src/server_services/config_service.py (field_errors)"],
+    "not_inspected": ["reports_ui.js and chart accessibility", "admin.js render code", "help_registry.js content", "housing/allocation/roth panels", "sales ledger entry/1099-B/wash handlers", "year_end page body", "pywebview_bridge.js", "text_size.js", "financial_trends_reporter frontend HTML/JS", "plan_routes.py handlers", "NAV_FEATURE_MAP.md, Concepts Guide, left-nav spec body", "dashboard.css rule-level contrast values beyond :root"],
+    "residual_uncertainty": "No rendering, screen-reader, keyboard, or viewport check was done; all accessibility statements are markup-level counts and code paths, not observed behaviour. Absence of a pattern in grep counts is not evidence of correct behaviour."
+  },
+
+  "gaps": [
+    "Static only: the app was not launched, so no layout, contrast, focus order, zoom/reflow, or screen-reader behaviour was observed.",
+    "Grep counts treat JS template strings as markup; escaped-quote variants and dynamically built attributes may be under- or over-counted.",
+    "Route manifest vs. decorator parity and per-route permission checks were not compared.",
+    "The trends reporter UI and the admin UI were mapped at shell/route level only.",
+    "GitHub context limited to manifest-github.json (30 of 108 scope PRs, 15 read); no issue tracker content exists.",
+    "Status of the 2026-11-04 left-nav follow-up workstreams and of WI-031/WI-033 after their status documents was not verified against code.",
+    "CI was intentionally excluded from this review."
+  ]
+}

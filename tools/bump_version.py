@@ -258,7 +258,20 @@ def apply_admin_html_version(html: str, old_version: str, new_version: str) -> s
     (with a space before the v) cannot appear as a substring of a
     "?v=vN-..." query string (no space there), so no special casing is
     needed to leave it alone."""
-    return html.replace(f'Retirement System v{old_version}', f'Retirement System v{new_version}')
+    html = html.replace(f'Retirement System v{old_version}', f'Retirement System v{new_version}')
+    # W1-05 (ARC-006): the admin page's asset cache-busters track the app version, so a
+    # stale browser cache cannot keep serving the previous release's admin.js / admin.css.
+    return re.sub(r"(admin\.(?:css|js)\?v=)[^\"'\s>]*", r"\g<1>" + new_version, html)
+
+
+def apply_package_json_version(text: str, new_version: str) -> str:
+    """package.json's top-level "version" tracks the app version as <N>.0.0 (W1-05)."""
+    return re.sub(r'("version"\s*:\s*")[^"]*(")', r'\g<1>' + new_version + r'.0.0\g<2>', text, count=1)
+
+
+def apply_pyproject_version(text: str, new_version: str) -> str:
+    """pyproject.toml's [project] version tracks the app version as <N>.0.0 (W1-05)."""
+    return re.sub(r'(?m)^(version\s*=\s*")[^"]*(")', r'\g<1>' + new_version + r'.0.0\g<2>', text, count=1)
 
 
 def apply_project_manifest_version(text: str, old_version: str, new_version: str) -> str:
@@ -343,6 +356,16 @@ def bump(new_version: str) -> str | None:
         else:
             manifest_path.write_text(updated_manifest, encoding='utf-8')
             print(f'  updated {manifest_path.relative_to(ROOT)}')
+
+    # 3d. package.json and pyproject.toml carry the same version as <N>.0.0 (W1-05 / ARC-006).
+    for _rel, _fn in (('package.json', apply_package_json_version), ('pyproject.toml', apply_pyproject_version)):
+        _path = ROOT / _rel
+        if _path.exists():
+            _text = _path.read_text(encoding='utf-8')
+            _updated = _fn(_text, new_version)
+            if _updated != _text:
+                _path.write_text(_updated, encoding='utf-8', newline='')
+                print(f'  updated {_rel}')
 
     # 6. Validate version surfaces. --old-version makes this check dynamic
     # for THIS bump (leftover "Retirement System v<old>" text etc.), not just

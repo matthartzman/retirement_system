@@ -1,6 +1,7 @@
 // Checking & Savings page (dashboard_decomp_cash_accounts.js): name, balance, last updated; add and delete only.
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
+import { installInAppConfirm, resetInAppConfirm, confirmState } from "./inapp_confirm_stub.mjs";
 import fs from "node:fs";
 
 let m;
@@ -11,6 +12,7 @@ before(async () => {
   globalThis.document = { getElementById: () => null };
   globalThis.setTimeout = () => 0;
   globalThis.api = async () => ({ accounts: [], import_accounts: [] });
+  await installInAppConfirm();
   m = await import("../../frontend/js/dashboard_decomp_cash_accounts.js");
 });
 
@@ -37,7 +39,7 @@ test("escapes account names and offers imported accounts to link", () => {
 
 test("empty and error states", () => {
   assert.match(m.caHtml({ accounts: [], import_accounts: [] }, EMPTY, null), /No checking or savings accounts yet/);
-  assert.match(m.caHtml(DATA, EMPTY, { text: "bad", error: true }), /field-error" role="status">bad/);
+  assert.match(m.caHtml(DATA, EMPTY, { text: "bad", error: true }), /<p class="field-error">bad/);
 });
 
 test("wired into the nav first under Accounts & Property, and into index.html", () => {

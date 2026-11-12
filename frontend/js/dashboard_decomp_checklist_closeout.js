@@ -282,11 +282,11 @@ export function renderWelcome() {
     if (_autoLoadPref === null)
       _autoLoad = localStorage.getItem("rpAutoLoad") === "1";
   } catch (_e) {}
-  return `<div class="pane-head"><div class="eyebrow">Welcome</div><h2>Retirement planning workspace</h2><p>Enter source facts first, then model strategy and stress tests, run preflight, build reports, and review the workbook results.</p>${demoModeActive ? '<div class="section-note" data-kind="warn" data-help-section="start.demo_plan" style="margin:6px 0">Viewing the demo plan (Alex &amp; Morgan); your plan is not changed. <b>Exit demo</b> switches back. ${window.RPHelp?.sectionButtonHtml("start.demo_plan") || ""}</div>' : ""}<div class="pane-actions"><button class="btn primary" data-requires-app="1" onclick="startNewPlan()">Start New Plan</button><button class="btn" data-requires-app="1" onclick="openCurrentPlan()">Open Current Plan</button><button class="btn" data-requires-app="1" onclick="openDemoPlan()">Open Demo Plan</button><button class="btn" onclick="resetDemoToDefaults()">Reset Demo to Defaults</button><button class="btn" onclick="savePlanAs()">Save Plan As</button><button class="btn" onclick="loadSavedPlan()">Load Saved Plan</button></div><div style="margin:8px 0 4px;font-size:13px"><label style="cursor:pointer;user-select:none"><input type="checkbox" id="autoLoadCheck"${_autoLoad ? " checked" : ""} onchange="setAutoLoad(this.checked)"> Auto-load plan on next start</label></div></div>${nbaPanelHtml()}${taxFreshnessBannerHtml()}${planKpiMetricsHtml()}${firstRunChecklistHtml(false)}<div class="feature-grid"><div class="feature-card"><h3>Your plan</h3><ul><li><b>The saved plan</b> is the active source for all projections.</li><li><b>Plan Data files</b> can be exported for backup, sharing, or recovery.</li><li><b>Reports</b> are generated snapshots — edit the plan, then rebuild to update them.</li></ul></div><div class="feature-card"><h3>Save and build</h3><ul><li><b>Save Changes</b> stores ordinary fields, tables, category budgets, transaction edits, holdings, liabilities, and strategy-table edits.</li><li><b>Build Reports</b> and <b>Download Workbook</b> save first, run preflight, then rebuild reports.</li><li>Use page-level reload buttons only when discarding unsaved page edits.</li></ul></div><div class="feature-card"><h3>Spending flow</h3><ul><li>Spending Categories defines the Tracking Type, Group, and Category model.</li><li>Housing, Wellness, and Travel are authoritative detail pages.</li><li>Income &amp; Expense Transactions feeds Spending Analysis and actual-vs-model review.</li></ul></div><div class="feature-card"><h3>Final review</h3><ol><li>Open Reports &amp; Review.</li><li>Check the Preflight tab for missing fields.</li><li>Resolve blockers, then build.</li><li>Review Impact and Results, then download the workbook.</li></ol></div></div>${closeoutChecklistHtml()}`;
+  return `<div class="pane-head"><div class="eyebrow">Welcome</div><h2>Retirement planning workspace</h2><p>Enter source facts first, then model strategy and stress tests, run preflight, build reports, and review the workbook results.</p>${demoModeActive ? '<div class="section-note" data-kind="warn" data-help-section="start.demo_plan" style="margin:6px 0">Viewing the demo plan (Alex &amp; Morgan); your plan is not changed. <b>Exit demo</b> switches back. ${window.RPHelp?.sectionButtonHtml("start.demo_plan") || ""}</div>' : ""}<div class="pane-actions"><button class="btn primary" data-requires-app="1" onclick="startNewPlan()">Start New Plan</button><button class="btn" data-requires-app="1" onclick="openCurrentPlan()">Open Current Plan</button><button class="btn" data-requires-app="1" onclick="openDemoPlan()">Open Demo Plan</button><button class="btn" onclick="resetDemoToDefaults()">Reset Demo to Defaults</button><button class="btn" onclick="savePlanAs()">Save Plan As</button><button class="btn" onclick="loadSavedPlan()">Load Saved Plan</button></div><div style="margin:8px 0 4px;font-size:13px"><label style="cursor:pointer;user-select:none"><input type="checkbox" id="autoLoadCheck"${_autoLoad ? " checked" : ""} onchange="setAutoLoad(this.checked)"> Auto-load plan on next start</label></div></div>${nbaPanelHtml()}${taxFreshnessBannerHtml()}${planKpiMetricsHtml()}${firstRunChecklistHtml(false)}<div class="feature-grid"><div class="feature-card"><h3>Your plan</h3><ul><li><b>The saved plan</b> is the active source for all projections.</li><li><b>Plan Data files</b> can be exported for backup, sharing, or recovery.</li><li><b>Reports</b> are generated snapshots — edit the plan, then rebuild to update them.</li></ul></div><div class="feature-card"><h3>Save and build</h3><ul><li><b>Save Changes</b> stores ordinary fields, tables, category budgets, transaction edits, holdings, liabilities, and strategy-table edits.</li><li><b>Build Reports</b> and <b>Download Workbook</b> save first, run preflight, then rebuild reports.</li><li>Use page-level reload buttons only when discarding unsaved page edits.</li></ul></div><div class="feature-card"><h3>Spending flow</h3><ul><li>Spending Model defines the Tracking Type, Group, and Category model, and holds the Housing, Wellness, and Travel detail.</li><li>Track &amp; Reconcile &gt; Actual Spending feeds spending analysis and actual-vs-model review.</li></ul></div><div class="feature-card"><h3>Final review</h3><ol><li>Open Analyze &gt; Build &amp; Results.</li><li>Check the readiness list for missing fields.</li><li>Resolve blockers, then build.</li><li>Review Impact and Results, then download the workbook.</li></ol></div></div>${closeoutChecklistHtml()}`;
 }
 
 export function renderSystemConfiguration() {
-  return `<div class="system-config-panel"><section class="system-config-section"><div class="system-config-grid"><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('pricing_mode')" onfocus="showConfigCardHelp('pricing_mode')"><h3>Pricing mode</h3><p class="small" data-kind="warn"><b>Privacy:</b> LIVE sends ticker symbols of your holdings and your IP to price services; OFFLINE mode makes no outside calls.</p><button class="btn" type="button" data-step-id="build_impact" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Open Build History</button> <button class="btn primary" type="button" onclick="event.stopPropagation();refreshLivePrices()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Refresh Prices</button> <button class="btn" type="button" onclick="event.stopPropagation();freezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Freeze latest prices</button> <button class="btn" type="button" onclick="event.stopPropagation();unfreezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Unfreeze prices</button></div>${localBackupControlsHtml()}${monarchAutoUpdateControlsHtml()}${workbookDownloadControlsHtml()}<div class="feature-card" tabindex="0"><h3>Help: Concepts Guide</h3><p class="small" data-kind="state">Open documentation/reference/Retirement_Planner_Concepts_Guide.docx in the application folder with Word.</p></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('session_changes')" onfocus="showConfigCardHelp('session_changes')"><h3>Session changes</h3>${recentChangesLogHtml()}</div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('system_config_console')" onfocus="showConfigCardHelp('system_config_console')"><h3>System configuration console</h3><button class="btn primary" type="button" onclick="event.stopPropagation();openSystemConfigurationConsole()" onfocus="event.stopPropagation();showConfigCardHelp('system_config_console')">Open System Configuration Console</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('annualized_actuals')" onfocus="showConfigCardHelp('annualized_actuals')"><h3>Annualized actuals</h3><p class="small" data-kind="warn">Overwrites <b>every</b> category budget. No undo — export a backup first.</p><button class="btn" type="button" onclick="event.stopPropagation();loadAnnualizedActuals()" onfocus="event.stopPropagation();showConfigCardHelp('annualized_actuals')">Load annualized current spend</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('csv_backup')" onfocus="showConfigCardHelp('csv_backup')"><h3>CSV backup</h3><p class="small" data-kind="state">Importing a folder of CSV files shows a preview first.</p><button class="btn" type="button" onclick="event.stopPropagation();exportCsvBackup()" onfocus="event.stopPropagation();showConfigCardHelp('csv_backup')">Export CSV backup</button> <button class="btn" type="button" onclick="event.stopPropagation();exportPlanFolder()">Export to folder</button> <button class="btn" type="button" onclick="event.stopPropagation();importPlanFolder()">Import from folder</button></div></div></section></div>`;
+  return `<div class="system-config-panel"><section class="system-config-section"><div class="system-config-grid"><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('pricing_mode')" onfocus="showConfigCardHelp('pricing_mode')"><h3>Pricing mode</h3><p class="small" data-kind="warn"><b>Privacy:</b> LIVE sends ticker symbols of your holdings and your IP to price services; OFFLINE mode makes no outside calls.</p><button class="btn" type="button" data-step-id="build_impact" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Open Build History</button> <button class="btn primary" type="button" onclick="event.stopPropagation();refreshLivePrices()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Refresh Prices</button> <button class="btn" type="button" onclick="event.stopPropagation();freezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Freeze latest prices</button> <button class="btn" type="button" onclick="event.stopPropagation();unfreezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Unfreeze prices</button></div>${localBackupControlsHtml()}${monarchAutoUpdateControlsHtml()}${workbookDownloadControlsHtml()}<div class="feature-card" tabindex="0"><h3>Help: Concepts Guide</h3><p class="small" data-kind="state"><a href="/frontend/concepts.html" target="_blank" rel="noopener">Open the Concepts Guide</a>: plain-English help for every page, with a glossary.</p></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('session_changes')" onfocus="showConfigCardHelp('session_changes')"><h3>Session changes</h3>${recentChangesLogHtml()}</div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('system_config_console')" onfocus="showConfigCardHelp('system_config_console')"><h3>System configuration console</h3><button class="btn primary" type="button" onclick="event.stopPropagation();openSystemConfigurationConsole()" onfocus="event.stopPropagation();showConfigCardHelp('system_config_console')">Open System Configuration Console</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('annualized_actuals')" onfocus="showConfigCardHelp('annualized_actuals')"><h3>Annualized actuals</h3><p class="small" data-kind="warn">Overwrites <b>every</b> category budget. No undo — export a backup first.</p><button class="btn" type="button" onclick="event.stopPropagation();loadAnnualizedActuals()" onfocus="event.stopPropagation();showConfigCardHelp('annualized_actuals')">Load annualized current spend</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('csv_backup')" onfocus="showConfigCardHelp('csv_backup')"><h3>CSV backup</h3><p class="small" data-kind="state">Importing a folder of CSV files shows a preview first.</p><button class="btn" type="button" onclick="event.stopPropagation();exportCsvBackup()" onfocus="event.stopPropagation();showConfigCardHelp('csv_backup')">Export CSV backup</button> <button class="btn" type="button" onclick="event.stopPropagation();exportPlanFolder()">Export to folder</button> <button class="btn" type="button" onclick="event.stopPropagation();importPlanFolder()">Import from folder</button></div></div></section></div>`;
 }
 
 export async function refreshLivePrices() {
@@ -451,23 +451,16 @@ export function firstRunChecklistHtml(compact = false) {
     },
     {
       title: "Spending and actuals",
-      desc: "Categories, housing, Wellness, travel, large discretionary items, and current-year transactions.",
-      steps: [
-        "spending_core",
-        "retirement_wellness",
-        "spending_mortgage_events",
-        "spending_travel",
-        "spending_travel_extras",
-        "ytd_transactions",
-        "spending_dashboard",
-      ],
+      desc: "Spending Model (categories, housing, wellness, travel, large discretionary items); current-year transactions are under Track & Reconcile > Actual Spending.",
+      steps: ["spending_core", "actual_spending"],
       next: "spending_core",
     },
     {
       title: "Assets and protection",
-      desc: "Holdings, cash reserves, annuity death benefits, life insurance, other assets, liabilities, and estate inputs.",
+      desc: "Investment Holdings, Checking & Savings, Cash Reserves, Insurance, Other Assets & Debts, and Estate Inputs.",
       steps: [
         "holdings",
+        "cash_accounts",
         "assets_home_cash",
         "annuity_death_benefits",
         "assets_special",
@@ -477,29 +470,21 @@ export function firstRunChecklistHtml(compact = false) {
     },
     {
       title: "Strategy",
-      desc: "Distribution strategy, investment strategy, state residency analysis, and optional advanced strategies.",
+      desc: "Taxes > Roth Conversion, Account Tax Basis and Charitable Giving; Analyze > Optimize for allocation and withdrawal strategy; and the optional Home Equity Line.",
       steps: [
-        "planning_levers",
         "roth_conversion",
-        "allocation_assets",
-        "allocation_policy",
-        "withdrawal_strategy",
-        "state_residency",
-        "heloc_strategy",
+        "account_tax_basis",
         "entity_charitable",
+        "strategy_optimize",
+        "heloc_strategy",
       ],
-      next: "distribution_strategy",
+      next: "roth_conversion",
     },
     {
       title: "Stress tests",
-      desc: "Monte Carlo, survivor, long-term care, and optional divorce/QDRO stress.",
-      steps: [
-        "monte_carlo_options",
-        "survivor_stress",
-        "ltc_stress",
-        "divorce_options",
-      ],
-      next: "monte_carlo_options",
+      desc: "Analyze > Stress Test: Monte Carlo, survivor, long-term care, and optional divorce/QDRO stress.",
+      steps: ["strategy_stress"],
+      next: "strategy_stress",
     },
     {
       title: "Review and build",
@@ -514,7 +499,7 @@ export function firstRunChecklistHtml(compact = false) {
       // rendered on the same tab (tests/e2e/helpers.js's
       // triggerBuildAndWaitForOverlay).
       desc: "Check readiness, run the build, review impact and results, and download the final workbook.",
-      steps: ["review", "build_impact", "detailed_results", "plan_data_report"],
+      steps: ["reports_and_review", "detailed_results"],
       next: "reports_and_review",
     },
   ];

@@ -869,6 +869,10 @@ def senior_bonus_deduction(year, filing, magi, n_over_65=0):
     """
     if year < 2025 or year > 2028 or n_over_65 <= 0:
         return 0.0
+    # CPA (2026-11): a qualifying surviving spouse uses the joint threshold and phase-out, and the
+    # thresholds are not split per person; the 6% reduction applies once to the combined amount.
+    if str(filing or '').strip().upper().startswith(('QSS', 'QW', 'WIDOW')):
+        filing = 'MFJ'
     filing = filing if filing in ('MFJ','Single','HOH','MFS') else 'Single'
     # FIN-003 (system review 2026-09-25): OBBBA's senior deduction (Sec.
     # 70103) requires a married couple to file jointly to claim it; a married
@@ -982,7 +986,7 @@ def require_residence_state_for_build(state):
             "figures cannot be computed without it. Set it on the State Residency "
             "page (Plan Data field: residence_state), then rebuild. Supported "
             f"states: {', '.join(supported_states())}. To model another state, "
-            "add a row to reference_data/state_tax.csv."
+            "ask for a rule for it to be added to the state tax reference data."
         )
     _require_supported_state(state)
 
@@ -1008,7 +1012,7 @@ def _require_supported_state(state):
         raise ValueError(
             f"Unsupported residence_state {state!r}. State tax is modeled for: "
             f"{', '.join(supported_states())}. Change the state or add a rule "
-            f"to reference_data/state_tax.csv."
+            f"for it to the state tax reference data."
         )
 
 
@@ -1318,20 +1322,58 @@ def state_death_tax_credit(taxable_estate):
     return 0.0
 
 
-def illinois_estate_tax(gross_estate, exemption=4_000_000.0, iterations=30):
-    """Approximate Illinois estate tax cliff/interrelated calculation.
+# IRC section 2001(c) unified rate schedule: (lower, upper, base tax, marginal rate).
+# Permanent statute (unchanged since 2013), so it sits beside the 2011(b) and New York
+# tables as a module constant rather than in the dated reference store.
+FEDERAL_ESTATE_RATE_SCHEDULE = (
+    (0, 10_000, 0, 0.18), (10_000, 20_000, 1_800, 0.20), (20_000, 40_000, 3_800, 0.22),
+    (40_000, 60_000, 8_200, 0.24), (60_000, 80_000, 13_000, 0.26), (80_000, 100_000, 18_200, 0.28),
+    (100_000, 150_000, 23_800, 0.30), (150_000, 250_000, 38_800, 0.32),
+    (250_000, 500_000, 70_800, 0.34), (500_000, 750_000, 155_800, 0.37),
+    (750_000, 1_000_000, 248_300, 0.39), (1_000_000, float('inf'), 345_800, 0.40),
+)
 
-    Once the estate exceeds the exclusion, Illinois tax is based on the entire
-    taxable estate, not merely the excess.  The state tax itself is deductible
-    in the federal-style credit computation, so solve T = credit(gross - T).
+ILLINOIS_ESTATE_ADJUSTMENT = 60_000.0  # Illinois subtracts $60,000 before using the 2011(b) table
+
+
+def federal_tentative_tax(taxable_estate, exclusion=0.0):
+    """IRC 2001(c) tentative tax on ``taxable_estate`` less the same tax on ``exclusion``.
+
+    With ``exclusion`` = the Illinois $4,000,000 exclusion this is the "federal estate tax
+    computed with a $4,000,000 exclusion" that caps the Illinois credit.
+    """
+    def _tax(amount):
+        amount = max(0.0, float(amount or 0.0))
+        for lo, hi, base, rate in FEDERAL_ESTATE_RATE_SCHEDULE:
+            if amount <= hi:
+                return base + (amount - lo) * rate
+        return 0.0
+    return max(0.0, _tax(taxable_estate) - _tax(exclusion))
+
+
+def illinois_estate_tax(gross_estate, exemption=4_000_000.0, iterations=60):
+    """Illinois estate tax (attorney-confirmed method, W4-01 / FIN-004).
+
+    credit = min(2011(b) table on (taxable estate - $60,000),
+                 federal tentative tax computed with the Illinois exclusion).
+    Tax is zero at or below the exclusion and phases in steeply above it (about 40
+    cents per dollar before the interrelated deduction), so there is no cliff.  The
+    Illinois tax is itself deductible in computing the taxable estate, so solve
+    T = credit(gross - T) by fixed-point iteration.
     """
     gross = max(0.0, float(gross_estate or 0.0))
-    if gross <= max(0.0, float(exemption or 0.0)):
+    exclusion = max(0.0, float(exemption or 0.0))
+    if gross <= exclusion:
         return 0.0
-    tax = state_death_tax_credit(gross)
+
+    def credit(taxable):
+        return min(state_death_tax_credit(taxable - ILLINOIS_ESTATE_ADJUSTMENT),
+                   federal_tentative_tax(taxable, exclusion))
+
+    tax = credit(gross)
     for _ in range(max(1, int(iterations or 1))):
-        new_tax = state_death_tax_credit(max(0.0, gross - tax))
-        if abs(new_tax - tax) < 1.0:
+        new_tax = credit(max(0.0, gross - tax))
+        if abs(new_tax - tax) < 0.01:
             tax = new_tax
             break
         tax = new_tax
@@ -1430,7 +1472,7 @@ def state_estate_tax(state, taxable_estate, exemption=None, *, gift_addback=0.0)
       - ``'not_modeled'``  -- this state DOES levy an estate tax, but this
                               engine has no calculation for its mechanism yet
                               (a genuinely different computation from
-                              Illinois's pre-2005-federal-credit-table cliff
+                              Illinois's credit-table / federal-limit
                               method -- reusing ``illinois_estate_tax`` for a
                               different state's law would produce a wrong
                               dollar figure, not an approximate one). New York
@@ -1464,7 +1506,27 @@ def state_estate_tax(state, taxable_estate, exemption=None, *, gift_addback=0.0)
     return 0.0, 'none'
 
 
-def indexed_federal_estate_exemption(fed_exempt_base, plan_start, target_year, brk_inf):
+def household_first_death_year(c):
+    """Earliest member death year for a two-member household, else None.
+
+    Used to fix the deceased spouse's unused exclusion (DSUE) at the first
+    death (FIN-007). Single-member households have no ported amount.
+    """
+    members = (c or {}).get('members') or []
+    if len(members) < 2:
+        return None
+    years = [int(m['death_yr']) for m in members if m.get('death_yr')]
+    return min(years) if len(years) >= 2 else None
+
+
+def estate_exemption_dsue_kwargs(c):
+    """Keyword arguments that make indexed_federal_estate_exemption freeze the DSUE."""
+    return {'first_death_year': household_first_death_year(c),
+            'members': len((c or {}).get('members') or [])}
+
+
+def indexed_federal_estate_exemption(fed_exempt_base, plan_start, target_year, brk_inf,
+                                     first_death_year=None, members=1):
     """Grow the federal estate exemption to the year it is actually applied.
 
     The exemption is a statutory dollar figure indexed for inflation each
@@ -1473,8 +1535,20 @@ def indexed_federal_estate_exemption(fed_exempt_base, plan_start, target_year, b
     out understates the real future exemption and overstates federal estate
     tax on long-horizon plans. Uses the same bracket inflator (brk_inf) as
     the income-tax brackets, since both are indexed the same way in statute.
+
+    FIN-007: for a couple (members >= 2) with a first_death_year before the
+    target year, the base is split per person. The survivor's own half keeps
+    indexing to the target year, but the deceased spouse's unused exclusion
+    (DSUE) is fixed at its first-death-year amount (IRC 2010(c)(4)). A timely
+    portability election is assumed. Without first_death_year the whole base
+    is indexed as before.
     """
     years = max(0, int(target_year) - int(plan_start))
+    if first_death_year is not None and int(members or 1) >= 2 and int(first_death_year) < int(target_year):
+        per_person = max(0.0, float(fed_exempt_base or 0.0)) / int(members)
+        rate = 1.0 + float(brk_inf or 0.0)
+        frozen_years = min(years, max(0, int(first_death_year) - int(plan_start)))
+        return per_person * (rate ** years) + per_person * (rate ** frozen_years) * (int(members) - 1)
     return max(0.0, float(fed_exempt_base or 0.0)) * ((1.0 + float(brk_inf or 0.0)) ** years)
 
 
@@ -1597,3 +1671,109 @@ def annuity_pv(stream, start_year, end_year, discount_rate):
                for yr in range(start_year + 1, end_year + 1))
 
 # ===== END engine_core.py =====
+
+
+# W1-02 (system review 2026-11-10, ARC-001): explicit public surface. Wildcard imports of this
+# module were removed; consumers import the names they use. Add new public names here.
+__all__ = [
+    "ACCOUNT_TYPES",
+    "AMT_BASE_YEAR",
+    "AMT_RATE_HIGH",
+    "AMT_RATE_LOW",
+    "ASSET_CLASS_RETURNS",
+    "CA_BHST_RATE",
+    "CA_BHST_THRESHOLD",
+    "EvConversion",
+    "EvDeath",
+    "EvGrowth",
+    "EvHomeSale",
+    "EvIncome",
+    "EvRMD",
+    "EvScenario",
+    "EvSpend",
+    "EvTax",
+    "EvTransfer",
+    "EvWarning",
+    "EvWithdraw",
+    "FEDERAL_BRACKETS_BASE_YEAR",
+    "FEDERAL_BRACKETS_MFJ",
+    "FEDERAL_BRACKETS_SINGLE",
+    "INVARIANTS",
+    "IRMAA_TIERS_BASE_YEAR",
+    "IRMAA_TIERS_MFJ",
+    "Invariant",
+    "LTCG_BRACKETS_BASE_YEAR",
+    "LotEngine",
+    "NIIT_THRESHOLD",
+    "QLAC_LATEST_INCOME_START_AGE",
+    "RMD_DIVISORS",
+    "RMD_JOINT_LIFE_DIVISORS",
+    "RMD_UNIFORM_TABLE_MAX_AGE",
+    "STATE_TAX_RULES",
+    "TAX_BASE_YEAR",
+    "TaxLot",
+    "accounts",
+    "all_ids",
+    "all_investment_ids",
+    "amt_tax",
+    "annuity_cash_income",
+    "annuity_purchase_rate",
+    "annuity_pv",
+    "build_registry_from_balances",
+    "build_registry_from_json",
+    "col_factors",
+    "compute_fed_tax",
+    "deflate_to_present",
+    "deposit",
+    "draw_order",
+    "first_account",
+    "first_hsa",
+    "first_pretax",
+    "first_taxable",
+    "hsa_ids",
+    "ids_by_owner",
+    "ids_by_owner_and_tax",
+    "ids_by_tax",
+    "ids_by_type",
+    "illinois_estate_tax",
+    "federal_tentative_tax",
+    "household_first_death_year",
+    "estate_exemption_dsue_kwargs",
+    "indexed_federal_estate_exemption",
+    "inflate_brackets",
+    "irmaa_lookback_magi",
+    "irmaa_lookback_magi_and_filing",
+    "irmaa_surcharge",
+    "irmaa_tier",
+    "joint_life_divisor",
+    "ltcg_tax_on_gain",
+    "marginal_rate",
+    "new_york_estate_tax",
+    "niit_tax",
+    "qcd_annual_limit",
+    "qcd_eligible_from_year",
+    "qlac_excluded_rmd_balance",
+    "qlac_income_start_year_cap",
+    "qlac_premium_limit",
+    "registry",
+    "require_residence_state_for_build",
+    "resolved_state_estate_exemption",
+    "rmd_divisor",
+    "rmd_ids_by_owner",
+    "roth_target_for_owner",
+    "salt_cap",
+    "senior_bonus_deduction",
+    "social_security_taxable_amount",
+    "standard_deduction",
+    "state_death_tax_credit",
+    "state_estate_tax",
+    "state_for_year",
+    "state_income_tax",
+    "state_retirement_exclusion_count",
+    "statutory_rmd_start_age",
+    "sum_bal",
+    "supported_states",
+    "taxable_ids",
+    "tentative_minimum_tax",
+    "validate_projection",
+]

@@ -89,6 +89,39 @@ def _apply_ss_earnings_test(c, bal, row, who, year, annual_benefit, monthly_bene
                 return annual_benefit * ss_claim_factor(eff, c[f'{who}_dob_yr'], fra_override) / base_factor
     return annual_benefit
 
+IL_REPLACEMENT_TAX_EXEMPTION = 1_000.0   # standard exemption off the replacement-tax base (CPA confirmed 2026-11)
+
+
+def _scorp_replacement_tax(c, year, net_business_income):
+    """Illinois S-corp replacement tax for one year: rate x (base - exemption).
+
+    Applies only while the resident state for `year` is Illinois; the rate is the
+    plan input state_corporate_surcharge_rate (scorp_state_rate, default 1.5%).
+    """
+    if str(_aa.state_for_year(c, year) or '').strip().lower() != 'illinois':
+        return 0.0
+    rate = float(c.get('scorp_state_rate', 0.0) or 0.0)
+    return max(0.0, net_business_income - IL_REPLACEMENT_TAX_EXEMPTION) * rate if rate > 0 else 0.0
+
+
+PTE_EARLIEST_YEAR = 2027  # the election is made at the start of the tax year and was not made for 2026
+
+
+def pte_first_year(c):
+    """First year the PTE tax applies: the plan input, else plan start + 1, never before PTE_EARLIEST_YEAR."""
+    first = c.get('pte_first_year')
+    if first is None:
+        first = int(c.get('plan_start', PTE_EARLIEST_YEAR - 1)) + 1
+    return max(int(first), PTE_EARLIEST_YEAR)
+
+
+def _scorp_pte_tax(c, year, net_business_income):
+    """Illinois pass-through-entity tax when the election is on, the year is at or after the first election year, and the resident state is Illinois."""
+    if not c.get('pte_election') or year < pte_first_year(c) or str(_aa.state_for_year(c, year) or '').strip().lower() != 'illinois':
+        return 0.0
+    return max(0.0, net_business_income) * float(c.get('pte_rate', 0.0495) or 0.0)
+
+
 def apply_income(
     c: dict[str, Any],
     *,
@@ -272,6 +305,23 @@ def apply_income(
             employer_fica = ss_er + med_er
             payroll_tax  = ss_ee + ss_er + med_ee + med_er
             distribution = max(0, earned_base - c['biz_exp'] - c['home_off'] - salary - employer_fica)
+            # Illinois 1.5% Personal Property Replacement Income Tax (FIN-008, 35 ILCS 5/201(c)):
+            # an entity-level tax on the S-corp's Illinois net income less the standard
+            # exemption. It is deductible by the entity, so like employer FICA it reduces
+            # the distribution, the QBI base and the owner's federal taxable income.
+            # Base approximation: net business income after salary and employer FICA, all
+            # treated as Illinois-apportioned (base and PTE approach approved by the CPA, 2026-11).
+            replacement_tax = _scorp_replacement_tax(c, year, distribution)
+            distribution = max(0, distribution - replacement_tax)
+            row['scorp_replacement_tax'] = replacement_tax
+            # Illinois PTE tax election (CPA-approved approach): the entity pays rate x its net income after the
+            # replacement tax, deducts it federally (outside the SALT cap) like any entity expense, and the owner
+            # takes a credit against the Illinois tax (applied in apply_agi_and_tax).
+            pte_tax = _scorp_pte_tax(c, year, distribution)
+            row['scorp_pte_base'] = distribution if pte_tax > 0 else 0.0   # income the owner's Illinois return excludes
+            distribution = max(0, distribution - pte_tax)
+            row['scorp_pte_tax'] = pte_tax
+            replacement_tax += pte_tax   # both are paid from cash by the entity
             # SEHI: deducted via W-2 box 1 treatment. Real law requires the
             # premium to actually be added to the shareholder-employee's W-2
             # Box 1 wages for the personal SEHI deduction to be allowed at
@@ -282,12 +332,12 @@ def apply_income(
             if c['qbi_elig']:
                 qbi_base = distribution - sehi_ded
                 qbi_ded  = max(0, qbi_base * 0.20)
-            # IL corporate surcharge on distributable income
-            # (already captured in state_tax via AGI; no separate payroll item)
+            # The Illinois replacement tax and the optional PTE tax election are modeled above.
             net_earned_taxable = salary + distribution
             deferral_comp = max(0.0, salary)   # a deferral comes out of W-2 wages, never the distribution
             ss_test_earnings = salary   # S-corp distributions are not earnings
-            business_expenses_yr = c['biz_exp'] + c['home_off']
+            # The replacement tax is paid by the entity out of cash, like a business expense.
+            business_expenses_yr = c['biz_exp'] + c['home_off'] + replacement_tax
 
         # Additional Medicare tax applies to Medicare wages / SE earnings,
         # not to S-corp distributions.
@@ -348,7 +398,7 @@ def apply_income(
     if year <= c['hsa_last_contrib'] and (not c.get('hsa_requires_hdhp', True) or hsa_people_eligible > 0):
         hsa_limit_yr = c['hsa_contrib_base'] * ((1 + c.get('brk_inf', c.get('inf', 0.025))) ** max(0, year - c['plan_start'])) if c.get('hsa_limit_indexed', True) else c['hsa_contrib_base']
         catchups = ((1 if h_alive and 55 <= h_age < 65 else 0) + (1 if w_alive and 55 <= w_age < 65 else 0)) * c.get('hsa_catchup', 0.0)
-        hsa_contrib = min(hsa_limit_yr + catchups, hsa_limit_yr + catchups) * _contrib_proration
+        hsa_contrib = (hsa_limit_yr + catchups) * _contrib_proration
         row['hsa_limit_used'] = hsa_limit_yr
         row['hsa_catchups_used'] = catchups
         _hsa_acct = _aa.first_hsa(c, 0)
@@ -370,6 +420,10 @@ def apply_income(
     if c['entity'] == 'sole_prop' and c['qbi_elig'] and k401_contrib > 0:
         qbi_ded = max(0.0, qbi_ded - 0.20 * k401_contrib)
     row['pretax_payroll_deductions'] = pretax_contributions
+    # Inputs for the Section 199A limits applied in apply_agi_and_tax (FIN-001): the QBI base the
+    # tentative 20% deduction came from, and the W-2 wages paid by the business (S-corp salary).
+    row['_qbi_income'] = qbi_ded / 0.20 if (c['qbi_elig'] and qbi_ded > 0) else 0.0
+    row['_qbi_w2_wages'] = salary if (earned_base > 0 and c['entity'] != 'sole_prop') else 0.0
 
     # ── Social Security ──────────────────────────────────────────────────
     # Each spouse's benefit table (ss_benefit_age_62..70) holds the actual

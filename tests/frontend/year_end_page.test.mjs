@@ -1,10 +1,12 @@
 // Year-End Transition page: ordered steps with state words, links to existing screens, the one confirmation, the season banner.
 import { test, before } from "node:test";
+import { installInAppConfirm } from "./inapp_confirm_stub.mjs";
 import assert from "node:assert/strict";
 
 let m;
 before(async () => {
   globalThis.window = globalThis;
+  await installInAppConfirm();
   globalThis.esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
   globalThis.setTimeout = () => 0;
   globalThis.api = async () => ({});

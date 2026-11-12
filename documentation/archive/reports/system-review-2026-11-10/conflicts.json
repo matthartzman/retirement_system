@@ -1,0 +1,47 @@
+[
+  {
+    "id": "C-01",
+    "conflict": "QA-006 (quality, low) and ARC-005 (architect, medium) describe the same defect: the frontend line ceiling in tests/test_frontend_size_ratchet.py is raised in feature commits, so it does not constrain growth. The experts rated it differently and recommended different guard shapes (per-file budgets vs a required reason line).",
+    "alternatives": "Keep both as separate findings; keep QA-006 as primary at low; keep ARC-005 as primary at medium and fold QA-006's tally into it.",
+    "criterion": "Priority hierarchy: maintainability outranks documentation and cosmetic concerns; the stronger finding is the one with wider evidence and impact (decomp files becoming monoliths, stale size guidance).",
+    "decision": "ARC-005 is kept at medium. QA-006 is marked duplicate (duplicate_of ARC-005). QA-006's re-tally (about 105 value changes, 100 raises, the one large cut from blank-line removal in 2c293e62) is treated as corroborating evidence for ARC-005.",
+    "rationale": "ARC-005 covers the same governance gap plus the structural consequence (5,974-line row_model, 2,832-line housing optimizer, bare-global coupling). Its recommendation (per-file caps plus a recorded reason, then one extraction) contains both of QA-006's options.",
+    "consequence": "One work item (W1-01) addresses both. The severity of the combined issue is medium."
+  },
+  {
+    "id": "C-02",
+    "conflict": "QA-002 recommends removing the 'required value' check from grid saves so a new plan can be saved step by step (usability, functional correctness). QA-001 shows that builds can start without any preflight check (src/server/workbook_routes.py:196-240) and that blank values silently become household-specific defaults (data integrity).",
+    "alternatives": "Relax save-time validation immediately; keep whole-plan required validation on save; relax save-time validation only after the build start path enforces preflight blockers.",
+    "criterion": "Priority hierarchy: data integrity outranks usability. The integrity goal is that no projection runs on missing required facts; it does not require blocking partial saves.",
+    "decision": "Relax save-time 'required' validation (W2-01) only after W1-04 makes /api/build/start refuse to run while preflight blockers exist and makes blank mean zero or the schema default.",
+    "rationale": "If saves were relaxed first, a partly entered plan could be built with phantom defaults and no warning, which is worse than today's blocked save.",
+    "consequence": "W2-01 depends on W1-04. The Start New Plan flow stays degraded until both land; that is accepted."
+  },
+  {
+    "id": "C-03",
+    "conflict": "QA-002 option 3 (have Start New Plan write neutral values such as 0 into required dollar fields) conflicts with QA-001's goal that a blank stays an explicit, detectable blank.",
+    "alternatives": "Write neutral values into the blank plan; keep blanks and treat blank as zero/schema default only at parse time while preflight still reports required blanks.",
+    "criterion": "Priority hierarchy: financial safety and data integrity outrank convenience. A stored 0 is indistinguishable from a user who entered 0.",
+    "decision": "Reject QA-002 option 3. Keep blanks in the stored plan; parse blank as zero or the schema default; keep required blanks visible as build blockers.",
+    "rationale": "Preflight can only warn about values it can see are missing.",
+    "consequence": "QA-002 is implemented with its option 1 only."
+  },
+  {
+    "id": "C-04",
+    "conflict": "Usability and documentation fixes (UX-002, UX-003, UX-004, UX-005, DOC-001, DOC-002) change frontend/js, which is governed by a total line ceiling that ARC-005 wants enforced strictly and extended with per-file caps.",
+    "alternatives": "Raise the ceiling for each usability fix; defer usability fixes until the row_model extraction; implement usability fixes through existing shared code so they are line-neutral or negative.",
+    "criterion": "Priority hierarchy: maintainability outranks usability, but usability fixes for irreversible financial-record actions also protect data integrity, which outranks maintainability.",
+    "decision": "No ceiling is raised for these fixes. They reuse showInAppConfirm, a generalized slAnnounce, and the Sales Ledger tab helper, which collapses four bespoke implementations. Any fix that still needs net lines takes them from a recorded extraction, with the reason line W1-01 introduces. UX-001/UX-002 are not deferred.",
+    "rationale": "Reuse removes duplicated code, so the fixes should shrink the total; deferring the confirm fixes would leave a data-integrity risk open for the sake of a size metric.",
+    "consequence": "All frontend items depend on W1-01. Items in different frontend lanes must each be line-neutral or negative, otherwise they are serialized."
+  },
+  {
+    "id": "C-05",
+    "conflict": "Text corrections that users need (QA-005 stale reference_data/ path; FIN-001, FIN-005, FIN-008, FIN-009, FIN-010 disclosures) are pinned in golden fixtures (for example tests/fixtures/golden_phase_baseline/demo.json:15766), so each fix moves golden masters, while the project's golden discipline forbids repeated regeneration.",
+    "alternatives": "Fix each string separately with its own re-pin; postpone text fixes until the engine corrections; bundle all text and disclosure changes into one measured re-pin.",
+    "criterion": "Priority hierarchy: functional correctness (truthful disclosures) outranks documentation; golden stability serves functional correctness, so the number of re-pins should be minimized, not the fixes postponed.",
+    "decision": "Bundle the text and disclosure changes into W2-03 with one measure, one hand check of each changed string, and one regeneration with a recorded reason, before the numeric engine corrections in Wave 3.",
+    "rationale": "Text-only deltas are easy to verify by hand when they are not mixed with numeric deltas.",
+    "consequence": "W3 engine items depend on W2-03; each Wave 3 item then has only numeric deltas to hand-verify."
+  }
+]

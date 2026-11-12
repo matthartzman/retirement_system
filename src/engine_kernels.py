@@ -16,7 +16,38 @@ tests/test_engine_kernels_import_boundary_unit.py enforces that.
 
 import json
 import numpy as _np
-from .core import *  # noqa: F401,F403
+from .core import (  # W1-02: explicit names (replaces a wildcard import); incl. names re-exported to stage modules
+    EvDeath,
+    EvHomeSale,
+    EvIncome,
+    EvConversion,
+    EvGrowth,
+    EvRMD,
+    EvTax,
+    EvTransfer,
+    EvWarning,
+    EvWithdraw,
+    FEDERAL_BRACKETS_BASE_YEAR,
+    FEDERAL_BRACKETS_MFJ,
+    IRMAA_TIERS_BASE_YEAR,
+    LTCG_BRACKETS_BASE_YEAR,
+    NIIT_THRESHOLD,
+    STATE_TAX_RULES,
+    TAX_BASE_YEAR,
+    annuity_cash_income,
+    indexed_federal_estate_exemption,
+    irmaa_lookback_magi_and_filing,
+    marginal_rate,
+    niit_tax,
+    resolved_state_estate_exemption,
+    rmd_divisor,
+    salt_cap,
+    senior_bonus_deduction,
+    social_security_taxable_amount,
+    state_estate_tax,
+    state_for_year,
+    state_income_tax,
+)
 
 # ===== BEGIN growth_engine.py =====
 
@@ -742,9 +773,14 @@ _MORTALITY_TABLE_CACHE = None
 def _mortality_qx_table():
     """Load the reference mortality table (reference.db), cached for the process.
 
-    {age: (male_qx, female_qx)}, ages 18-119. See the table's notes column
-    for provenance: SSA Actuarial Study No. 124 anchors at 5-year ages,
-    log-linearly interpolated/extrapolated to single-year granularity.
+    {age: (male_qx, female_qx)}, ages 18-119. The rows are the SSA 2023 period
+    life table (exact single-year death probabilities); see the table's notes
+    column for provenance. The earlier Actuarial Study No. 124 interpolated
+    anchors were replaced by it (FIN-012: this docstring still named them).
+    The sampler picks the column from the member's actuarial_sex field; when
+    that is blank it falls back to the positional convention (member 1 -> male
+    column, member 2 -> female column), an assumption, not a statement about
+    either member (see _member_sex_idx).
     System review C4 (mortality-gaussian-not-life-table).
     """
     global _MORTALITY_TABLE_CACHE
@@ -778,6 +814,22 @@ def _population_median_age(sex_idx: int) -> float:
     return float(ages[-1])
 
 
+def _member_sex_idx(m: Mapping, owner_idx: int) -> int:
+    """Mortality-table column for a member: 0 = male, 1 = female.
+
+    Reads the member's actuarial_sex ('male' / 'female', an actuarial
+    assumption). Blank or unrecognised falls back to the legacy positional
+    choice (member 1 -> male column, member 2 -> female column), so plans
+    without the field are unchanged (FIN-012).
+    """
+    raw = str((m or {}).get('actuarial_sex') or '').strip().lower()
+    if raw in ('male', 'm'):
+        return 0
+    if raw in ('female', 'f'):
+        return 1
+    return 0 if owner_idx == 0 else 1
+
+
 def _age_shift_for_member(m: Mapping, sex_idx: int) -> float:
     """Calibrate the population table to this household member's own assumed
     median lifespan (c[..._mort_age]), preserving the user's own longevity
@@ -794,7 +846,7 @@ def sample_death_year(c: Mapping, owner_idx: int, rng: random.Random) -> int:
         return int(c.get('plan_start', 0))
     m = members[owner_idx]
     dob = int(m.get('dob_yr', c.get('h_dob_yr', 1960)))
-    sex_idx = 0 if owner_idx == 0 else 1  # h=male col, w=female col by registry convention
+    sex_idx = _member_sex_idx(m, owner_idx)
     shift = _age_shift_for_member(m, sex_idx)
     plan_start = int(c.get('plan_start', dob + 60) or dob + 60)
     current_age = max(18, plan_start - dob)

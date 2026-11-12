@@ -121,6 +121,28 @@ NOTICES: tuple[Notice, ...] = (
         (RemovalTrigger("WI-003", "A data family is updated and verified: its status changes", "update_status"),
          RemovalTrigger("WI-027", "AMT, state, estate, Part D and mortality values updated", "update_status")),
     ),
+    Notice(
+        "N8", "FIN-001", SEVERITY_WARNING,
+        "The qualified business income (QBI) deduction applies the income-threshold phase-in, the W-2 wage "
+        "limit, the taxable-income cap and the 2026 minimum deduction, but treats the business as one "
+        "business whose specified-service status and qualified property come from Plan Data (Cashflow, "
+        "Self-Employment: qbi_sstb and qbi_ubia; the defaults are not a specified service business and no "
+        "property). If your business is a specified service business (for example consulting, law, "
+        "accounting or health), set qbi_sstb to TRUE: otherwise the deduction is overstated above the "
+        "income threshold. Capital gains from withdrawals are not netted in the taxable-income cap. Ask a "
+        "tax professional to confirm your status.",
+        "QBI is switched on and the plan has an S-corp or sole-proprietor business",
+        (RemovalTrigger("W3-02", "CPA confirms the household's specified-service status and the plan gains screens for it and for qualified property: remove this notice"),),
+    ),
+    Notice(
+        "N10", "FIN-005", SEVERITY_INFO,
+        "Life insurance policies entered in Plan Data are an inventory only. A death in the projection does "
+        "not pay a death benefit to the survivor, and policy proceeds are not added to the estate tax "
+        "calculation. Whether proceeds are part of a taxable estate depends on who owns and controls the "
+        "policy; this plan does not decide that.",
+        "The Existing Life Insurance module has at least one policy",
+        (RemovalTrigger("W4-04", "Policy proceeds are integrated into the projection and estate base: remove"),),
+    ),
 )
 
 NOTICE_BY_ID = {n.id: n for n in NOTICES}
@@ -217,6 +239,18 @@ def _one_member_with_couple_exemption(c: Mapping[str, Any], rows: Sequence[Mappi
     return _members(c) == 1 and _f(c.get("fed_exempt")) > per_person
 
 
+def _qbi_on_with_business(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> bool:
+    """N8 (FIN-001): the flat 20% QBI deduction applies to a plan with a business entity."""
+    return bool(c.get("qbi_elig")) and str(c.get("entity") or "none").strip().lower() not in {"", "none"}
+
+
+def _has_life_policies(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> bool:
+    # FIN-005 (W4-04): with the Existing Life Insurance module on, the projection pays the policies, so
+    # the inventory-only notice no longer applies. It still describes policies the module leaves inert.
+    from .projection_stages.life_insurance_proceeds import life_insurance_enabled
+    return bool(c.get("life_policies")) and not life_insurance_enabled(c)
+
+
 CONDITIONS: dict[str, Callable[[Mapping[str, Any], Sequence[Mapping[str, Any]]], bool]] = {
     "N1": _sells_taxable_at_gain,
     "N2": _taxable_equity,
@@ -225,6 +259,8 @@ CONDITIONS: dict[str, Callable[[Mapping[str, Any], Sequence[Mapping[str, Any]]],
     "N5": _early_claim_with_wages,
     "N6": _one_member_with_couple_exemption,
     "N7": lambda c, rows: True,
+    "N8": _qbi_on_with_business,
+    "N10": _has_life_policies,
 }
 
 
@@ -295,7 +331,7 @@ def data_family_statuses(year: int | None = None) -> list[dict[str, str]]:
         "AMT": f"tax_law dataset {ds.version}, AMT rows in force for {year}",
         "State income tax": "state_tax table; tax-update dashboard review flag",
         "State estate tax": "state_tax table; tax-update dashboard review flag",
-        "Mortality": "SSA Actuarial Study No. 124 (interpolated/extrapolated)",
+        "Mortality": "SSA 2023 period life table",
         "Part D": f"tax_law dataset {ds.version}, Part D rows in force for {year}",
     }
     status = {"Federal tables": federal, "AMT": amt, "State income tax": state,

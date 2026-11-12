@@ -18,7 +18,8 @@ from src.server_services import build_service
 ROOT = Path(__file__).resolve().parents[1]
 WORDING = ROOT / "documentation" / "archive" / "reports" / "SYSTEM_REVIEW_2026-10-19_WAVE1_NOTICE_WORDING.md"
 
-ALL_IDS = ["N1", "N2", "N3", "N4", "N5", "N6", "N7"]
+ALL_IDS = ["N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N10"]
+WAVE2_WORDING = ROOT / "documentation" / "reference" / "NOTICE_WORDING_2026-11_WAVE2.md"
 # The registry as shipped, captured before any test patches it.
 REAL_NOTICES = ln.NOTICES
 # Notices whose fix has shipped (their removal triggers are marked shipped in the registry).
@@ -68,6 +69,8 @@ TRIGGERS = {
     "N4": (_base_config(account_registry=[_acct("Joint_Trust", "taxable", 0)]), [_row()]),
     "N5": (_base_config(h_ss_claim_age_precise=62.0), [_row(h_age=63, earned=90000.0)]),
     "N6": (_base_config(members=[{"name": "A"}], household_size=1, fed_exempt=30_000_000), [_row()]),
+    "N8": (_base_config(qbi_elig=True, entity="s_corp"), [_row()]),
+    "N10": (_base_config(life_policies=[{"face": 500_000}]), [_row()]),
 }
 # A plan where none of N1-N6 holds.
 QUIET = (_base_config(), [_row()])
@@ -195,10 +198,31 @@ def _approved_text():
 
 def test_notice_text_matches_approved_wording_file():
     approved = _approved_text()
-    assert sorted(approved) == ALL_IDS
+    assert sorted(approved) == sorted(ALL_IDS[:7])
     # N7 is specified as a per-family status list, not as prose: its rows are data, checked above.
     for nid in ALL_IDS[:6]:
         assert ln.NOTICE_BY_ID[nid].text == approved[nid], nid
+
+
+def test_wave2_notice_text_and_severity_match_the_draft_wording_file():
+    md = WAVE2_WORDING.read_text(encoding="utf-8")
+    text = {m.group(1): m.group(2).strip() for m in re.finditer(r"^\*\*(N\d+)\.\*\*\s+(.+)$", md, re.M)}
+    assert sorted(text) == ["N10", "N8"]
+    for nid, wording in text.items():
+        assert ln.NOTICE_BY_ID[nid].text == wording, nid
+    for m in re.finditer(r"^\| (N\d+) \| ([^|]+) \| (warning|info) \|", md, re.M):
+        nid, finding, severity = m.groups()
+        assert ln.NOTICE_BY_ID[nid].severity == severity and ln.NOTICE_BY_ID[nid].finding == finding.strip(), nid
+
+
+def test_n8_needs_qbi_on_and_a_business():
+    assert "N8" not in _ids(_base_config(qbi_elig=False, entity="s_corp"), [_row()])
+    assert "N8" not in _ids(_base_config(qbi_elig=True, entity="none"), [_row()])
+
+
+def test_n10_wording_does_not_say_every_non_ilit_policy_is_in_the_estate():
+    text = ln.NOTICE_BY_ID["N10"].text.lower()
+    assert "depends on who owns" in text and "ilit" not in text
 
 
 def test_severities_match_approved_table():
@@ -216,7 +240,7 @@ def test_every_notice_records_removal_triggers_as_data():
     for n in ln.NOTICES:
         assert n.triggers, n.id
         for t in n.triggers:
-            assert re.fullmatch(r"WI-\d{3}[a-z]?", t.work_item), (n.id, t.work_item)
+            assert re.fullmatch(r"(WI-\d{3}[a-z]?|W\d-\d{2})", t.work_item), (n.id, t.work_item)
             assert t.effect in {"remove", "update_wording", "update_status"}
 
 

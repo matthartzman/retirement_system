@@ -3,7 +3,9 @@ from __future__ import annotations
 import math, re
 from .plan_data_registry import client_data_csv_files
 from . import plan_dates as _plan_dates
+from . import money as _money
 PLAN_FILES = [*client_data_csv_files(), 'target_allocation.csv']
+MONEY_TYPES = frozenset({'number', 'currency', 'dollars', 'decimal'})
 
 def schema_key(row: dict) -> tuple[str,str,str]:
     return ((row.get('section') or '').strip(), (row.get('subsection') or '').strip(), (row.get('label') or '').strip())
@@ -13,9 +15,12 @@ def load_schema() -> dict[tuple[str,str,str], dict]:
     from .stores.ref_getters.schema_fields import schema_fields
     return schema_fields()
 
-def validate_value(value: str, spec: dict) -> list[str]:
+def validate_value(value: str, spec: dict, *, check_required: bool = True) -> list[str]:
+    """Format and range errors for one cell. ``check_required=False`` is for grid saves
+    (QA-002): a plan is filled in field by field, and 'required value missing' is
+    enforced by the build preflight, which is blocking."""
     errors=[]; typ=(spec.get('type') or '').lower(); val=str(value or '').strip()
-    if str(spec.get('required','')).upper()=='TRUE' and not val:
+    if check_required and str(spec.get('required','')).upper()=='TRUE' and not val:
         errors.append('required value missing')
     if not val: return errors
     if typ in {'percent','pct'} and not val.endswith('%'):
@@ -23,12 +28,19 @@ def validate_value(value: str, spec: dict) -> list[str]:
     if typ in {'integer','year'}:
         try: int(float(val.replace(',','').replace('$','').strip()))
         except Exception: errors.append('expected integer/year')
-    if typ in {'number','currency'}:
-        try: float(val.replace('$','').replace(',','').replace('%',''))
-        except Exception: errors.append('expected numeric/currency value')
+    # QA-003: 'dollars' and 'decimal' are money types too; every one uses the single
+    # strict grammar (money.parse_strict_number) the parser and the import path use.
+    if typ in MONEY_TYPES:
+        try: _money.parse_strict_number(val, percent_as_fraction=False)
+        except ValueError: errors.append('expected numeric/currency value')
+    # QA-001: an unreadable dollar or rate value is a validation error, not a value
+    # the parser silently replaces with a default.
+    if typ in {'percent','pct'} and val.endswith('%'):
+        try: float(val[:-1].replace(',','').strip())
+        except Exception: errors.append('expected numeric percentage')
     # WI-401: NaN/inf parse as floats and every min/max comparison against
     # NaN is False, so a non-finite value used to pass every numeric check.
-    if typ in {'integer','year','number','currency','percent','pct'}:
+    if typ in {'integer','year','percent','pct'} | MONEY_TYPES:
         _x = _numeric_value(val, typ)
         if _x is not None and not math.isfinite(_x):
             errors.append('expected a finite number')
@@ -63,16 +75,18 @@ def _numeric_value(value: str, typ: str = '') -> float | None:
     if not val:
         return None
     try:
-        x = float(val.replace('$','').replace(',','').replace('%',''))
-        if (typ or '').lower() in {'percent','pct'} or val.endswith('%'):
-            # Schema min/max for percent fields is stored as human percent units.
-            return x
-        return x
+        # Schema min/max for percent fields is stored as human percent units, so a
+        # trailing % is not divided by 100.
+        return float(_money.parse_strict_number(val, percent_as_fraction=False))
+    except ValueError:
+        pass
+    try:
+        return float(val.replace('$','').replace(',','').replace('%',''))
     except Exception:
         return None
 
 
-def validate_rows(rows: list[dict]) -> list[str]:
+def validate_rows(rows: list[dict], *, check_required: bool = True) -> list[str]:
     schema = load_schema()
     errors: list[str] = []
     index: dict[tuple[str,str,str], str] = {}
@@ -85,7 +99,7 @@ def validate_rows(rows: list[dict]) -> list[str]:
         spec = schema.get(key)
         if not spec:
             continue
-        for msg in validate_value(val, spec):
+        for msg in validate_value(val, spec, check_required=check_required):
             errors.append(f"{key}: {msg}; got {val!r}")
     def _num(key, default=None):
         spec = schema.get(key, {})

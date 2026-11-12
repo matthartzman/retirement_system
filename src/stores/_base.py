@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as _dt
+import logging
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -9,6 +10,12 @@ from typing import Callable, Iterator, Sequence, TypeVar
 
 from . import db
 from .errors import IntegrityError, NotFoundError, SchemaVersionError, StoreError
+
+_LOG = logging.getLogger("retirement_system.stores")
+
+# A store that opts in (``PRE_UPGRADE_BACKUP``) leaves one consistent copy of the file in its
+# backups folder before an in-place schema upgrade; this many of the newest are kept.
+PRE_UPGRADE_KEEP = 5
 
 Clock = Callable[[], str]
 S = TypeVar("S", bound="_SqliteStore")
@@ -43,6 +50,7 @@ class _SqliteStore:
     """
 
     KIND: str = "store"
+    PRE_UPGRADE_BACKUP: bool = False
     APPLICATION_ID: int = 0
     MIGRATIONS: Sequence[str] = ()
 
@@ -110,7 +118,38 @@ class _SqliteStore:
                     f"{cls.KIND} schema v{version} needs an upgrade to v{current}; open it writable first"
                 )
             return
+        if 0 < version < current and cls.PRE_UPGRADE_BACKUP:
+            cls._pre_upgrade_copy(con, target, version)
         db.migrate(con, cls.MIGRATIONS)
+
+    @classmethod
+    def _pre_upgrade_dir(cls, target: str) -> Path:
+        """Where the pre-upgrade copy of ``target`` goes (subclasses that opt in override this)."""
+        raise NotImplementedError
+
+    @classmethod
+    def _pre_upgrade_copy(cls, con: sqlite3.Connection, target: str, version: int) -> None:
+        """ARC-004: one consistent copy of the file as it was before an in-place upgrade, made
+        with the SQLite backup API (so it holds every committed row, WAL included). Skips
+        ``:memory:``; a failure is logged loudly and does not block the upgrade, because the
+        upgrade is forward-only and refusing to open would lock the user out of the plan."""
+        if target == db.MEMORY or not Path(target).is_file():
+            return
+        try:
+            bdir = cls._pre_upgrade_dir(target)
+            bdir.mkdir(parents=True, exist_ok=True)
+            stamp = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+            dest = bdir / f"{Path(target).stem}.pre_upgrade_v{version}_{stamp}{Path(target).suffix}"
+            dst = sqlite3.connect(str(dest))
+            try:
+                con.backup(dst)
+            finally:
+                dst.close()
+            old = sorted(bdir.glob(f"{Path(target).stem}.pre_upgrade_v*"), key=lambda p: p.name)
+            for stale in old[:-PRE_UPGRADE_KEEP]:
+                stale.unlink(missing_ok=True)
+        except Exception:  # noqa: BLE001 - never block an upgrade on its safety copy
+            _LOG.exception("pre-upgrade backup of %s (schema v%s) failed; upgrading without it", target, version)
 
     def close(self) -> None:
         """Close the connection (idempotent). Rolls back an unfinished transaction."""

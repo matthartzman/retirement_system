@@ -5,12 +5,12 @@ const YE_STATE = { done: "Done", open: "Open", na: "Not applicable" };
 const YE_CONFIRM = { personal_numbers: "I have reviewed these", tie_1099b: "I have tied each 1099-B" };
 let yeData = null, yeError = "";
 export function yeHtml(data) {
-  if (!data) return `<h2>Year-End Transition</h2><p class="muted">${yeError ? "" : "Loading…"}</p>${yeError ? `<p role="alert" class="error">${esc(yeError)}</p>` : ""}`;
+  if (!data) return `<h2>Year-End Transition</h2><p class="muted">${yeError ? "" : "Loading…"}</p>${panelMsgHtml("ye", yeError && { text: yeError, error: true }, "error")}`;
   const items = data.steps.map((s, i) => `<li data-step="${esc(s.id)}" data-state="${esc(s.state)}"><b>${i + 1}. ${esc(s.title)}</b> <span class="muted">${esc(YE_STATE[s.state] || s.state)}</span><br>` +
     `${esc(s.detail)} <a href="#" onclick="${s.hash ? `yeGo(${esc(JSON.stringify(s.link))}, ${esc(JSON.stringify(s.hash))})` : `setStep(${esc(JSON.stringify(s.link))})`};return false">Go to this step</a>` +
     (YE_CONFIRM[s.id] && s.state !== "na" && !(s.id === "tie_1099b" && s.state === "done" && s.count_known === true) ? ` <button class="btn" type="button" onclick="yeConfirm(${data.year}, ${s.state === "done" ? "false" : "true"}${s.id === "personal_numbers" ? "" : `, ${esc(JSON.stringify(s.id))}`})">${s.state === "done" ? "Undo confirmation" : YE_CONFIRM[s.id]}</button>` : "") + `</li>`).join("");
   return `<h2>Year-End Transition</h2><p>Closing ${esc(String(data.year))}${data.closed ? " (cash year closed)" : ""}. Each step's state comes from your data; nothing here changes the plan's tax numbers.</p>` +
-    `${yeError ? `<p role="alert" class="error">${esc(yeError)}</p>` : ""}<ol class="ye-steps">${items}</ol>` +
+    `${panelMsgHtml("ye", yeError && { text: yeError, error: true }, "error")}<ol class="ye-steps">${items}</ol>` +
     (window.renderCashInvestment ? `<h3>Investment cash, ${esc(String(data.year))}</h3>${window.renderCashInvestment(data.year)}` : "");
 }
 // A step with a deep link sets the hash first (the Sales Ledger reads tab/section from it); location may not exist (node tests).

@@ -73,7 +73,7 @@ export function renderActualSpendingWorkspace(tabs) {
     body = ytdOn ? window.renderSpendingDashboardOrLoad() : window.featureGatedNote('spending_tracker_ytd', { title: 'Spending Analysis' });
   else
     body = ytdOn ? window.renderYtdTransactionsStep() : window.featureGatedNote('spending_tracker_ytd', { title: 'Actual Spending' });
-  return '<div class="tabbed-workspace spending-workspace">' + spendingDivergenceNoteHtml() + window.renderStrategyTabs('actual_spending', tabs, tab) + '<div class="workspace-tab-body">' + body + '</div></div>';
+  return '<div class="tabbed-workspace spending-workspace">' + spendingDivergenceNoteHtml() + window.renderStrategyTabs('actual_spending', tabs, tab) + window.tabPanelHtml('actual_spending', window.tabSlug(tab), body, 'workspace-tab-body') + '</div>';
 }
 window.renderActualSpendingWorkspace = renderActualSpendingWorkspace;
 

@@ -6,6 +6,7 @@ from .. import core as _aa  # consolidated from account_access
 from .. import core as _ar  # consolidated from account_registry
 from .. import engine_kernels as _legacy_pe
 from ..engine_kernels import EvDeath, EvTransfer
+from .life_insurance_proceeds import apply_life_insurance_proceeds
 
 
 class Stage1Result(NamedTuple):
@@ -187,6 +188,10 @@ def apply_spousal_rollover_and_cst_funding(
             emit(EvTransfer(year, tr.from_acct, tr.to_acct, tr.amount, tr.reason))
             _add_account_flow(account_transfers_out, tr.from_acct, tr.amount)
             _add_account_flow(account_transfers_in, tr.to_acct, tr.amount)
+        # FIN-005: in-force life-insurance death benefits (module switch gated inside).
+        # Paid before CST funding so a funded bypass trust can draw on them like any taxable balance.
+        apply_life_insurance_proceeds(c, year=year, inher=inher, bal=bal,
+                                      account_transfers_in=account_transfers_in)
 
     cst_funded_yr = 0.0
     if spousal_rollover and inher.survivor_owner_idx is not None and c.get('cs_enabled', False):

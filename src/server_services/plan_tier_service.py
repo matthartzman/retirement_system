@@ -17,29 +17,10 @@ from typing import Any, Callable
 
 from .. import module_catalog as mc
 from .. import plan_interview
+from ..feature_entry_counts import entered_rows, entered_value  # noqa: F401  (re-exported: ARC-002)
 
 JsonDict = dict[str, Any]
 AuditFn = Callable[[str, dict[str, Any] | None], None]
-
-
-def entered_value(value: Any) -> bool:
-    """A plan value that counts as entered data: non-blank and not a bare off switch.
-    The rule the Plan Features page's ``enteredRowCount`` applies."""
-    v = str(value if value is not None else "").strip()
-    return bool(v) and v.upper() not in ("NO", "FALSE", "0")
-
-
-def entered_rows(store: Any, key: str) -> int | None:
-    """Rows of entered data behind feature ``key``, or None when the catalog declares no data
-    location for it (only modules that gate input sections, ``csv_sections``, have one, plus
-    Rental Properties, whose rows are its typed tables; a module owning a whole page is counted
-    by the page from its own rows)."""
-    if key == "rental_property_income":  # typed rental tables (WP12.4), not plan rows
-        return store.rental.count()
-    sections = mc.CATALOG[key].csv_sections
-    if not sections:
-        return None
-    return sum(1 for s in sections for r in store.rows(s) if entered_value(r["value"]))
 
 
 def tier_presets_payload() -> JsonDict:

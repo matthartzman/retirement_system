@@ -187,6 +187,21 @@ def test_reference_data_is_informational(jan_2027):
     assert steps()[1]["reference_data"]["state"] == "done"
 
 
+def test_reference_data_warns_when_the_new_plan_year_has_no_dated_rows(jan_2027):
+    """FIN-011: closing 2026 with no dated 2027 federal rows must say so, not carry 2026 forward silently."""
+    _, by = steps(reference_missing=["federal tax brackets", "the standard deduction"])
+    step = by["reference_data"]
+    assert step["state"] == "open"
+    assert "No dated 2027 reference rows for: federal tax brackets, the standard deduction" in step["detail"]
+    assert "carried forward" in step["detail"]
+
+
+def test_reference_rows_missing_reads_the_shipped_dataset():
+    assert year_end.reference_rows_missing(2026) == []          # dated 2026 rows ship
+    missing = year_end.reference_rows_missing(2027)             # until the IRS and CMS 2027 figures are added
+    assert "federal tax brackets" in missing or not missing     # becomes [] once W2-10's rows ship
+
+
 def test_default_year_is_the_year_in_progress_from_july_and_the_previous_year_before(monkeypatch):
     monkeypatch.setattr(year_end, "today", lambda: date(2026, 12, 20))
     assert year_end.default_year() == 2026

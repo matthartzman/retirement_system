@@ -22,8 +22,8 @@ from src.housing.plan_variant import (
     _apply_candidate,
     _purchase_price_for_location,
     _purchase_step,
-    _years_out,
 )
+from src.housing.pricing import years_out_from as _years_out
 from src.housing.zip_screen.schema import ZipRecord
 from src.housing.zip_screen.screen import ScreenRequest, run_screen
 

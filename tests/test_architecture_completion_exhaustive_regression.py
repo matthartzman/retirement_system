@@ -26,7 +26,9 @@ def test_projection_public_project_is_thin_and_stage_module_owns_math():
     assert "run_deterministic_projection_stage" in src
     assert len(src.splitlines()) <= 30
     stage_src = inspect.getsource(run_deterministic_projection_stage)
-    assert "def _spending_factor(year):" in stage_src
+    # ARC-001: the spending factor is lifted into projection_stages/year_factors.py; the stage only binds it.
+    assert "_year_factors.spending_factor" in stage_src
+    assert "def _spending_factor(year):" not in stage_src
     assert "create_initial_year_state" in stage_src
 
 

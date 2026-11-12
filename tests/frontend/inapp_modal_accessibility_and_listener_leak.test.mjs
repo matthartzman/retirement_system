@@ -1,6 +1,6 @@
 // Finding UX-105 (system review 2026-09-07, Wave 5 item W5-7): the
 // dynamically-built in-app confirm dialogs (showInAppConfirm,
-// showSaveDiscardStayModal in dashboard_decomp_row_model.js, and the
+// showSaveDiscardStayModal in dashboard_decomp_inapp_modals.js, and the
 // YTD-choice modal in dashboard_decomp_checklist_closeout.js) lacked
 // role="dialog"/aria-modal, had no focus trap or focus restore, and leaked
 // a `keydown` listener on every non-Escape close (removeEventListener was
@@ -122,7 +122,7 @@ function loadModuleExports(filename) {
 
 describe("showInAppConfirm has dialog semantics and does not leak keydown listeners", () => {
   test("dialog markup declares role=dialog and aria-modal=true", async () => {
-    const { sandbox, getLastOverlay } = loadModuleExports("dashboard_decomp_row_model.js");
+    const { sandbox, getLastOverlay } = loadModuleExports("dashboard_decomp_inapp_modals.js");
     const { showInAppConfirm } = sandbox;
     const p = showInAppConfirm("Are you sure?");
     const overlay = getLastOverlay();
@@ -133,7 +133,7 @@ describe("showInAppConfirm has dialog semantics and does not leak keydown listen
   });
 
   test("repeated open+close via Confirm/Cancel/backdrop never leaves a dangling keydown listener", async () => {
-    const { sandbox, getLastOverlay, getListenerBalance } = loadModuleExports("dashboard_decomp_row_model.js");
+    const { sandbox, getLastOverlay, getListenerBalance } = loadModuleExports("dashboard_decomp_inapp_modals.js");
     const { showInAppConfirm } = sandbox;
     for (let i = 0; i < 5; i++) {
       const p = showInAppConfirm("Are you sure?");
@@ -153,7 +153,7 @@ describe("showInAppConfirm has dialog semantics and does not leak keydown listen
   });
 
   test("closing restores focus to whatever was focused before the dialog opened", async () => {
-    const { sandbox, getLastOverlay, getPreviouslyFocusedStub } = loadModuleExports("dashboard_decomp_row_model.js");
+    const { sandbox, getLastOverlay, getPreviouslyFocusedStub } = loadModuleExports("dashboard_decomp_inapp_modals.js");
     const { showInAppConfirm } = sandbox;
     const before = getPreviouslyFocusedStub();
     assert.equal(before.focusCalls, 0);
@@ -170,7 +170,7 @@ describe("showInAppConfirm has dialog semantics and does not leak keydown listen
 
 describe("showSaveDiscardStayModal has dialog semantics and does not leak keydown listeners", () => {
   test("dialog markup declares role=dialog and aria-modal=true", async () => {
-    const { sandbox, getLastOverlay } = loadModuleExports("dashboard_decomp_row_model.js");
+    const { sandbox, getLastOverlay } = loadModuleExports("dashboard_decomp_inapp_modals.js");
     const { showSaveDiscardStayModal } = sandbox;
     const p = showSaveDiscardStayModal("Unsaved changes");
     const overlay = getLastOverlay();
@@ -181,7 +181,7 @@ describe("showSaveDiscardStayModal has dialog semantics and does not leak keydow
   });
 
   test("repeated open+close via Save/Discard/Stay never leaves a dangling keydown listener", async () => {
-    const { sandbox, getLastOverlay, getListenerBalance } = loadModuleExports("dashboard_decomp_row_model.js");
+    const { sandbox, getLastOverlay, getListenerBalance } = loadModuleExports("dashboard_decomp_inapp_modals.js");
       const { showSaveDiscardStayModal } = sandbox;
     for (let i = 0; i < 5; i++) {
       const p = showSaveDiscardStayModal("Unsaved changes");
@@ -198,7 +198,7 @@ describe("showSaveDiscardStayModal has dialog semantics and does not leak keydow
   });
 
   test("closing restores focus to whatever was focused before the dialog opened", async () => {
-    const { sandbox, getLastOverlay, getPreviouslyFocusedStub } = loadModuleExports("dashboard_decomp_row_model.js");
+    const { sandbox, getLastOverlay, getPreviouslyFocusedStub } = loadModuleExports("dashboard_decomp_inapp_modals.js");
     const { showSaveDiscardStayModal } = sandbox;
     const before = getPreviouslyFocusedStub();
     const p = showSaveDiscardStayModal("Unsaved changes");
@@ -260,7 +260,7 @@ describe("showYtdBlendChoiceModal has dialog semantics and does not leak keydown
 // choices mode so enumerated values (state, trust type) are chosen rather than typed.
 describe("showInAppPrompt has dialog semantics, restores focus and supports choices", () => {
   test("dialog markup declares role=dialog, aria-modal and a labelled control", async () => {
-    const { sandbox, getLastOverlay } = loadModuleExports("dashboard_decomp_row_model.js");
+    const { sandbox, getLastOverlay } = loadModuleExports("dashboard_decomp_inapp_modals.js");
     const p = sandbox.showInAppPrompt("Trust account name:", "", { title: "Add Trust Account" });
     const overlay = getLastOverlay();
     const html = overlay.innerHTML;
@@ -274,7 +274,7 @@ describe("showInAppPrompt has dialog semantics, restores focus and supports choi
   });
 
   test("repeated open+close never leaves a dangling keydown listener and focus is restored", async () => {
-    const { sandbox, getLastOverlay, getListenerBalance, getPreviouslyFocusedStub } = loadModuleExports("dashboard_decomp_row_model.js");
+    const { sandbox, getLastOverlay, getListenerBalance, getPreviouslyFocusedStub } = loadModuleExports("dashboard_decomp_inapp_modals.js");
     for (let i = 0; i < 4; i++) {
       const p = sandbox.showInAppPrompt("Name:", "x", { title: "Name" });
       const overlay = getLastOverlay();
@@ -288,7 +288,7 @@ describe("showInAppPrompt has dialog semantics, restores focus and supports choi
   });
 
   test("OK returns the typed text, empty text returns null, Escape cancels, Enter accepts", async () => {
-    const { sandbox, getLastOverlay, getKeydownHandlers, documentStub } = loadModuleExports("dashboard_decomp_row_model.js");
+    const { sandbox, getLastOverlay, getKeydownHandlers, documentStub } = loadModuleExports("dashboard_decomp_inapp_modals.js");
     let p = sandbox.showInAppPrompt("Name:", "", { title: "Name" });
     let overlay = getLastOverlay();
     overlay.querySelector(".inapp-modal-input").value = "  My Trust ";
@@ -316,7 +316,7 @@ describe("showInAppPrompt has dialog semantics, restores focus and supports choi
   });
 
   test("choices mode renders a select with the options and returns the chosen value", async () => {
-    const { sandbox, getLastOverlay } = loadModuleExports("dashboard_decomp_row_model.js");
+    const { sandbox, getLastOverlay } = loadModuleExports("dashboard_decomp_inapp_modals.js");
     const p = sandbox.showInAppPrompt("Trust type:", "Revocable", { title: "Trust Type", choices: ["Revocable", "Irrevocable", { value: "QTIP", label: "QTIP trust" }] });
     const overlay = getLastOverlay();
     const html = overlay.innerHTML;

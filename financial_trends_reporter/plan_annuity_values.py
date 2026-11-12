@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Annuity and pension accounts valued at the plan's figure, not Monarch's hand-typed balance.
 
-Design: documentation/future/superpowers/plans/2026-10-29-annuity-plan-values-design.md.
+Design: documentation/archive/superpowers/plans/2026-10-29-annuity-plan-values-design.md.
 
 The match is the one the user already configured: Monarch account -> plan account (Trends registry
 ``app_account`` or the Planner reconcile page, see ``live_snapshot.saved_setup_aliases``) -> that Accounts &

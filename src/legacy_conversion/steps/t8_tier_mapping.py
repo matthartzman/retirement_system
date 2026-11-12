@@ -117,7 +117,7 @@ def map_tier(features: Mapping[str, FeatureState]) -> TierMapping:
 
 
 def _entered(store: Any, key: str) -> int | None:
-    from ...server_services.plan_tier_service import entered_rows, entered_value  # noqa: PLC0415
+    from ...feature_entry_counts import entered_rows, entered_value  # noqa: PLC0415
 
     if key in _SECTION_PROBES:
         return sum(1 for s in _SECTION_PROBES[key] for r in store.rows(s) if entered_value(r["value"]))

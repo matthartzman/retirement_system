@@ -1,0 +1,161 @@
+{
+  "pass": "tests-docs-data-config",
+  "generated_by": "recon:tests-docs-data-config",
+  "date": "2026-11-10",
+  "reviewed_ref": "fix-401k-hsa-agi-and-cash @ e75d6ac159210dc5127e8c42f5a71b41689f8a1f (local checkout, working tree dirty, branch unpushed)",
+  "ci_statement": "CI was intentionally excluded from this review.",
+  "nature": "Map only. No findings. Every item below carries an inspection status; 'mapped' means located and characterised from files opened in this run, not judged healthy.",
+  "method": "git ls-files counts by directory; file-name classification of tests; direct reads of pyproject.toml, requirements*.txt, package.json, playwright.config.js, .gitignore, .gitattributes, data/prefs.json, .claude/settings.json (first 60 lines), tools/fast_gates.py (lines 1-90 grep + 25-58), tests/golden_fixture_provenance.py, tests/conftest.py (grep), conftest.py:1-30, DOCUMENTATION_INDEX.md, BACKLOG.md:1-20, release_notes/index.md:1-20, SYSTEM_ARCHITECTURE_DIAGRAM.md:1-12, GOLDEN_MASTER_CHANGELOG.md (headings + top entry), the dirty-tree diff, tests/test_frontend_size_ratchet.py (grep), reference_src headers. A canonical JSON digest of one fixture was computed with python -I (read-only hash; no tests, builds or app were run). Documentation-status inventory is reused from manifest-inventory.json rather than redone.",
+  "tests": {
+    "status": "mapped",
+    "totals": {
+      "tracked_files_under_tests": 966,
+      "python_files_top_level_tests": 738,
+      "python_test_files_by_suffix": {"unit": 215, "functional": 196, "regression": 188, "contract": 23, "integration": 6, "smoke": 1, "no_type_suffix_test_files": 92, "helper_modules_non_test": 17},
+      "frontend_node_tests": "142 *.test.mjs + tests/frontend/load_dashboard.mjs sandbox loader",
+      "e2e_playwright_specs": "27 *.spec.js + fixtures.js, helpers.js, baselines/wi015-navigation-baseline.json",
+      "fixtures_files": 55
+    },
+    "layers": [
+      {"layer": "Python pytest (repo root, pythonpath='.')", "evidence": "pyproject.toml:1-45 — [tool.pytest.ini_options] — testpaths=tests, markers slow/unit/integration/golden_master/contract/e2e/requires_live_input/nightly; comment states markers were NOT retrofitted across all files"},
+      {"layer": "Frontend unit (node --test in vm sandbox)", "evidence": "package.json:6-9 — scripts.test — 'node --test tests/frontend/**/*.test.mjs'"},
+      {"layer": "Browser E2E (Playwright, chromium only, 1600x900)", "evidence": "playwright.config.js:18-49 — defineConfig — per-worker isolated server via tests/e2e/fixtures.js; single desktop project, no mobile/narrow project (narrow-window-drawer.spec.js exists as a spec)"},
+      {"layer": "Pre-push static gate", "evidence": "tools/fast_gates.py:25-58 — ALWAYS / static_test_files — runs non-engine-importing test files plus 6 always-run guards with -m 'not slow and not nightly'"}
+    ],
+    "test_harness_and_seams": [
+      {"path": "tests/conftest.py", "evidence": "tests/conftest.py:23-29,122,220-244 — FROZEN_TAX_REFERENCE_YEAR='2026', FROZEN_PLAN_TODAY='2026-08-04', requires_live_input collection hook — tests are pinned to tax year 2026 and a frozen 'today'; live-input tests self-skip when gitignored input/ CSVs are absent"},
+      {"path": "conftest.py (root)", "evidence": "conftest.py:1-7 — module docstring — tells new tests not to read 'the git-tracked output/retirement_plan.xlsx'; .gitignore:104-105 ignores output/ and no output/ path is tracked (git ls-files top-level listing)"},
+      {"path": "tests/golden_fixture_provenance.py", "evidence": "tests/golden_fixture_provenance.py:25-41 — fixture_digest — synthetic and full-row snapshot fixtures are bound to a sha256 marker in GOLDEN_MASTER_CHANGELOG.md over canonical JSON"}
+    ],
+    "golden_masters_and_baselines": [
+      {"item": "Frozen sample-plan pins", "path": "tests/test_frozen_sample_plan_golden_master_regression.py", "evidence": "working-tree diff lines 188-193 — PINNED_TERMINAL_NW / PINNED_LIFETIME_TAX — uncommitted change 5,322,999.38 -> 5,241,080.84 and 1,252,241.40 -> 1,235,134.66"},
+      {"item": "Phase golden baseline", "path": "tests/fixtures/golden_phase_baseline/{demo,sample_frozen}.json", "evidence": "git diff --stat — uncommitted rewrite of ~10,000 lines across both files; consumers tests/test_phase_golden_equality_regression.py and tools/golden_compare.py (grep)"},
+      {"item": "Full-row snapshot", "path": "tests/fixtures/deterministic_engine_full_row_snapshot_cases.json", "evidence": "git show --stat HEAD — +128 lines in commit e75d6ac1; canonical digest computed this run = 23b68bc8...602, matching the marker at GOLDEN_MASTER_CHANGELOG.md:4 (uncommitted entry)"},
+      {"item": "Synthetic golden master", "path": "tests/fixtures/synthetic_golden_master_cases.json + tests/test_synthetic_golden_master.py", "evidence": "git ls-files — present; not opened"},
+      {"item": "Reference-data goldens", "path": "tests/fixtures/reference_golden/*.json (15 files) + tests/test_reference_golden_regression.py", "evidence": "git ls-files — one golden per reference_src slice; not opened"},
+      {"item": "Navigation baseline", "path": "tests/e2e/baselines/wi015-navigation-baseline.json", "evidence": "baseline JSON head — stepCount 30, per-step heading/hasContent/errors"},
+      {"item": "Frontend source-grep freeze list", "path": "tests/fixtures/frontend_source_grep_baseline.json", "evidence": "file head — 88 quoted entries naming legacy test files allowed to grep frontend source"},
+      {"item": "Golden changelog", "path": "documentation/reference/GOLDEN_MASTER_CHANGELOG.md", "evidence": "grep '^## ' — 114 entries, 21 dated 2026-10/11; top entry dated 2026-11-10 (uncommitted) explains the 401(k)/HSA AGI change with a hand-checked AGI delta of -31,575"}
+    ],
+    "usability_relevant_tests": {
+      "status": "mapped (names only; bodies not opened)",
+      "frontend_node": ["admin_accessibility", "annualize_toggle_accessibility", "error_message_persistence_and_announcement", "field_control_accessible_names", "field_help_icon_coverage", "focus_token_contrast", "help_panel_follow_focus", "inapp_modal_accessibility_and_listener_leak", "keyboard_field_advance_scope", "selected_state_aria", "static_dialog_focus_management", "ui_prose_guard", "plain_english_help", "no_internal_keys_on_screen", "wi018_save_before_structural_change", "wi019_build_overlay_honesty", "wi020_field_level_validation", "wi021_keyboard_navigation_accessibility", "nav_search_typing", "nav_features_popover", "trends_reporter_chart_escaping_and_accessibility"],
+      "e2e": ["contextual-help-panel", "focus-restoration-holdings", "focus-restoration-ytd-category-filter", "focus-restoration-ytd-search", "nav-integrity", "narrow-window-drawer", "wi015-navigation-baseline", "wi020-field-level-validation", "wi021-keyboard-and-navigation", "workbook-format-tab-focus", "new-plan-creation", "field-save-persist", "build-failure"],
+      "python": ["test_main_content_skip_link_accessibility_regression.py", "test_roadmap_usability_surfaces_regression.py", "test_ui_prose_inventory_closeout_regression.py", "test_help_text_no_html_entities_regression.py", "test_glossary_single_source_of_truth.py", "test_educational_helper_copy_functional.py", "test_admin_nav_structure_functional.py", "test_nav_feature_host_map_regression.py"],
+      "note": "No automated contrast/axe-style audit tool appears in package.json devDependencies (package.json:17-21 lists only @babel/parser, @playwright/test, jscodeshift). Whether any test exercises a screen reader, zoom/reflow or task-completion timing is unknown from names alone."
+    },
+    "naming_ratchets": [
+      {"evidence": "tests/test_test_file_suffix_shape_functional.py:42 — LEGACY_NO_SUFFIX_CEILING = 92 — count of unsuffixed test_*.py files derived this run is also 92 (at the ceiling)"},
+      {"evidence": "tests/test_monte_carlo_per_account_returns_wave35.py — file name — carries a 'wave35' tracking token as a suffix; project rule names prefix forms only (CLAUDE.md naming section)"},
+      {"evidence": "tests/frontend/wi018_*.test.mjs .. wi021_*, tests/e2e/wi015-*, wi018-021 — file names — tracking ids in non-Python test names"}
+    ]
+  },
+  "fixtures_and_canonical_data": {
+    "status": "mapped",
+    "items": [
+      {"path": "input/demo/*.csv (24 files) + input/README_*.md + input/ytd_transactions_sample.csv", "role": "Fictional demo plan shipped with the app", "evidence": ".gitignore:41-55 — /input/* ignored except demo, two READMEs and the sample — real plan data is untracked by design; tests/test_demo_plan_data_is_fictional.py exists (not opened)"},
+      {"path": "tests/fixtures/csv_exchange/sample_plan_frozen/*.csv (24 files)", "role": "Frozen golden plan staged by tests/conftest.py", "evidence": "tests/conftest.py:28,96-106 — _FROZEN_PLAN_DIR staging; git ls-files shows no client_hsa_schedule.csv in the frozen fixture while input/demo/client_hsa_schedule.csv exists (added by commit c504c919 'register client_hsa_schedule.csv as a flat plan-data table')"},
+      {"path": "src/reference/demo_seed.rpx", "role": "Committed binary demo seed plan (schema v24 per commit e5018864 subject)", "evidence": ".gitignore:21-22 — '!src/reference/demo_seed.rpx' — the only tracked .rpx"},
+      {"path": "src/reference/reference.db", "role": "Committed binary SQLite reference DB built from reference_src/", "evidence": ".gitignore:28-31 and .gitattributes:16-18 — built by tools/build_reference_db.py; treated as binary"},
+      {"path": "reference_src/ (15 files)", "role": "Canonical reference sources: tax law, state tax, CMA, correlations, mortality, real-loss, security master, schema, field tiers, template layout, top cities, zip metrics (gz), Monarch field map, tax update dashboard", "evidence": "wc -l reference_src/*.csv — schema.csv 572, field_tiers.csv 575, state_tax.csv 14 (13 states: IL FL TX TN NC AZ CO NV CA NY IN SD WY)"},
+      {"path": "reference_src/tax_law_v10.json", "role": "Dated tax-law values and brackets", "evidence": "parsed this run — brackets cover effective_year 2025 and 2026 only (28 rows each); values span 1986-2030 with 112 rows for 2026"},
+      {"path": "reference_src/tax_update_dashboard.csv", "role": "Tax-constant freshness register", "evidence": "reference_src/tax_update_dashboard.csv:1-3 — rows last_reviewed 2026-09-29 status CURRENT_WITHIN_POLICY; source text cites 'reference_data/tax_law_v10.json'"},
+      {"path": "reference_src/generated_schema_coverage.csv", "role": "Generated (tools/generate_schema_coverage.py)", "evidence": "reference_src/generated_schema_coverage.csv:1-4 — only 3 data rows (Forced Actions / Roth Conversion 1); choice text 'Husband_IRA | Husband_401k | Wife_IRA'"},
+      {"path": "tests/fixtures/*.json other", "role": "IRS-style examples, projection columns, results_model_v10 contract, rental and workbook snapshot expectations, cross-tool reconciliation CSV, zip metrics sample", "evidence": "git ls-files tests/fixtures — present; not opened"},
+      {"path": "data/prefs.json", "role": "Tracked UI preferences (rpAutoLoad, rpTextSize=100)", "evidence": "data/prefs.json:1-4"},
+      {"path": "financial_trends_reporter/data/", "role": "Runtime PII log store, untracked except .gitkeep", "evidence": ".gitignore:33-39"}
+    ],
+    "plan_data_store_note": "Plan data is DB-canonical (local_state/*.db, *.rpx); CSV/JSON in input/ is a materialized mirror per .gitignore:41-50 comment. Store-layer boundary is enforced by tests/test_no_data_file_io_enforcing_regression.py (listed in tools/fast_gates.py:31-38; not opened)."
+  },
+  "documentation": {
+    "status": "mapped (status scan reused from manifest-inventory.json; bodies largely unread)",
+    "totals": {"tracked": 260, "archive": 136, "future": 46, "reference": 77, "root": 1},
+    "layout_rule": "documentation/DOCUMENTATION_INDEX.md:3-8 — reference/ living, future/ planned not built, archive/ historical; Status: line required in future/ and dated archive/superpowers files",
+    "key_living_docs": [
+      "documentation/reference/readme/README.md (61 lines; end-user README)",
+      "documentation/reference/Retirement_Planner_Concepts_Guide.docx (binary; not opened)",
+      "documentation/reference/FUNCTIONAL_SPEC.md, CURRENT_SYSTEM_DESIGN_SPEC.md, API_CONTRACTS.md, NAV_FEATURE_MAP.md",
+      "documentation/reference/GOLDEN_MASTER_CHANGELOG.md (2,816 lines), GOLDEN_MASTER_RECOVERY_RUNBOOK.md, ANNUAL_MAINTENANCE_RUNBOOK.md, REFERENCE_DB_SLICES.md, PLAN_ROWS_MODEL.md",
+      "documentation/reference/TEST_RUN_GUIDE.md (33 lines), TESTING_REFACTOR_RECOMMENDATIONS.md, HAPPY_PATH_E2E_TEST_PLAN.md",
+      "documentation/reference/BACKLOG.md (26 lines; the only work tracker — BACKLOG.md:3-5 says the repo has no GitHub issue tracker)",
+      "documentation/reference/release_notes/ (8 dated notes + index.md)",
+      "documentation/reference/wp5_screens/, wp12_screens/ (PNG screenshot sets, desktop+mobile; not opened)",
+      "documentation/reference/CLAUDE.md (274 lines) alongside tracked .claude/claude.md (80 lines)"
+    ],
+    "usability_inputs": "documentation/future/Contextual Help Panel Design and Implementation plan.md, WI-033_plain_english_help_review.md, page_help_review.md, page_help_drafts.json, page_help_sources.json, ui_prose_inventory.csv, future/superpowers/mockups/sales-ledger-v2.html and v3.html; frontend/js/help_registry.js; reference_src/field_tiers.csv",
+    "carried_from_inventory": "status_summary in manifest-inventory.json: 35 status-uncertain, 58 living, 8 approved, 3 planned, 2 draft; future/ holds docs whose Status says implemented; nine reference/ docs unindexed."
+  },
+  "configuration": {
+    "status": "mapped",
+    "items": [
+      {"path": "pyproject.toml", "evidence": "pyproject.toml:47-60 — [project] version 10.0.0, requires-python >=3.11, deps numpy/scipy/lxml/openpyxl/pywebview/keyring with upper bounds; ruff E/F/W at line-length 120"},
+      {"path": "requirements.txt / requirements-dev.txt", "evidence": "requirements.txt:8-21 mirrors pyproject deps; requirements-dev.txt:24-36 pytest, pytest-cov, pytest-xdist, pytest-timeout, ruff, mypy"},
+      {"path": "package.json", "evidence": "package.json:1-22 — version 10.0.0, type module, devDeps @babel/parser, @playwright/test ^1.62.1, jscodeshift"},
+      {"path": "playwright.config.js", "evidence": "playwright.config.js:18-49 — chromium only at 1600x900; timeout 120s"},
+      {"path": ".gitattributes", "evidence": ".gitattributes:6,14,17 — *.csv eol=lf, .claude/workflows/*.js eol=lf, *.db binary; no rule for *.json fixtures (handled by canonical digest in tests/golden_fixture_provenance.py:11-12)"},
+      {"path": ".gitignore", "evidence": ".gitignore:1-126 — ignores output/, local_state/, *.rpx except demo seed, *.db except reference.db, real input/, trends data, Monarch Extractor runtime dirs, .env, settings.local.json; comment at :57-59 says only monarch_extract.py and run_monarch.ps1 are Monarch Extractor source while monarch_balances.py and register_monarch_extract_task.ps1 are also tracked"},
+      {"path": ".claude/settings.json + .claude/hooks/*.py", "evidence": ".claude/settings.json:1-60 — allow-list incl. git add/commit/push; 'ask' on regen_golden_master regen; PreToolUse pre_push_fast_gates and large_file_guard; PostToolUse text hygiene"},
+      {"path": "retirement_planner.spec, build.py, launchers/, tools/launchers/, financial_trends_reporter/launchers/", "evidence": "git ls-files — PyInstaller spec and Windows/macOS/Linux launch scripts; not opened"},
+      {"path": "src/module_catalog.py", "evidence": "wc -l — 2,568 lines (feature/module registry; owned by engine/UI passes)"}
+    ],
+    "version_surfaces": "pyproject.toml:49 and package.json:3 both say 10.0.0; repository folder is 'Version 12'; tax_law schema 'v10'; tools/check_version_surfaces.py exists (not opened). manifest-inventory notes version strings differ across surfaces."
+  },
+  "generated_files": {
+    "status": "mapped",
+    "items": [
+      {"path": "documentation/reference/SYSTEM_ARCHITECTURE_DIAGRAM.md", "evidence": "SYSTEM_ARCHITECTURE_DIAGRAM.md:1-7 — header — auto-generated by tools/generate_system_diagram.py; 323 Python files under src/, 72 JS files under frontend/ scanned; freshness enforced by test"},
+      {"path": "reference_src/generated_schema_coverage.csv", "evidence": "see fixtures section"},
+      {"path": "src/reference/reference.db, src/reference/demo_seed.rpx", "evidence": "built by tools/build_reference_db.py and tools/build_demo_seed.py; committed binaries"},
+      {"path": "tests/fixtures/golden_phase_baseline/*.json, full-row snapshot, synthetic golden, reference_golden/*.json", "evidence": "regenerated by tools/golden_compare.py, regen_full_row_snapshot.py, regen_synthetic_golden_master.py, capture_reference_golden.py, regen_golden_master.py (git ls-files tools)"},
+      {"path": "tests/e2e/baselines/wi015-navigation-baseline.json", "evidence": "re-recorded with WI015_RECORD=1 (project CLAUDE.md)"},
+      {"path": "tools/js_codemod/*.json reports, batch_*.txt, headers/*.txt", "evidence": "git ls-files — committed codemod census/cluster/dead-function reports; not opened; freshness unknown"},
+      {"path": "output/ (js, css, index.html, workbook)", "evidence": ".gitignore:9-15,104-105 — generated copy of frontend/, never tracked"}
+    ]
+  },
+  "ratchets_and_guards_in_area": [
+    {"evidence": "tests/test_frontend_size_ratchet.py:186 — DASHBOARD_JS_MAX_LINES = 6_477; wc -l frontend/js/dashboard.js = 6,474"},
+    {"evidence": "tests/test_frontend_size_ratchet.py:695 — TOTAL_JS_MAX_LINES = 43_777; cat frontend/js/*.js | wc -l = 43,763"},
+    {"evidence": "tools/fast_gates.py:31-38 — ALWAYS — documentation status/layout, diagram freshness, frontend size ratchet, freeze frontend source grep, no data-file I/O, text hygiene"}
+  ],
+  "known_risks": [
+    {"id": "R-TDC-01", "area": "golden masters", "summary": "Reviewed working tree carries uncommitted golden-master regeneration (pins, ~10k-line phase golden rewrite, changelog entry) on top of an engine commit; the review reads values that are not committed anywhere.", "evidence": "git status --short; git diff --stat; tests/test_frozen_sample_plan_golden_master_regression.py diff lines 188-193"},
+    {"id": "R-TDC-02", "area": "golden masters", "summary": "High regeneration cadence: 21 changelog entries dated Oct-Nov 2026; project guidance warns regen loops can hide wrong rates. Only the top entry's hand check (AGI -31,575) is stated; independent verification not done in recon.", "evidence": "GOLDEN_MASTER_CHANGELOG.md:1-17 and heading count"},
+    {"id": "R-TDC-03", "area": "fixtures", "summary": "Frozen golden plan fixture has no client_hsa_schedule.csv while the demo plan does; the HEAD commit changes HSA cash/AGI behaviour, so frozen coverage of the HSA schedule path is unclear.", "evidence": "git ls-files tests/fixtures/csv_exchange/sample_plan_frozen vs input/demo; git log c504c919"},
+    {"id": "R-TDC-04", "area": "docs/config drift", "summary": "Project CLAUDE.md 'Verified line counts' table is stale for every listed file (e.g. module_catalog.py 916 vs 2,568; dashboard.js 7,287 vs 6,474; row_model 5,188 vs 5,974).", "evidence": "wc -l output this run vs project CLAUDE.md large-file table"},
+    {"id": "R-TDC-05", "area": "canonical data / user-facing text", "summary": "Code and data refer to a 'reference_data/' directory that is not tracked; user-visible error strings point users to add rows to reference_data/state_tax.csv.", "evidence": "src/core.py:956,985,1011; src/reporting/sheets_strategy.py:1709; src/module_catalog.py:178; reference_src/tax_update_dashboard.csv:2-3; git ls-files count for reference_data/ = 0"},
+    {"id": "R-TDC-06", "area": "canonical data", "summary": "Tax brackets exist only for 2025-2026 and state tax covers 13 states; freshness relies on an annual manual process.", "evidence": "reference_src/tax_law_v10.json parsed; reference_src/state_tax.csv column 1; reference_src/tax_update_dashboard.csv:2"},
+    {"id": "R-TDC-07", "area": "terminology / usability", "summary": "Generated schema coverage and schema choices use gendered role labels ('Husband_IRA', 'Wife_IRA').", "evidence": "reference_src/generated_schema_coverage.csv:2"},
+    {"id": "R-TDC-08", "area": "usability test coverage", "summary": "E2E runs one desktop chromium viewport (1600x900); no automated accessibility audit dependency; usability tests are component/behaviour checks, with no evidence (from names) of task-level or comprehension testing.", "evidence": "playwright.config.js:44-49; package.json:17-21"},
+    {"id": "R-TDC-09", "area": "test taxonomy", "summary": "Unsuffixed test files sit exactly at the ratchet ceiling (92); markers not retrofitted, so -m tiering covers only part of the suite.", "evidence": "tests/test_test_file_suffix_shape_functional.py:42; pyproject.toml:7-18 comment"},
+    {"id": "R-TDC-10", "area": "docs", "summary": "Two agent-guidance files (.claude/claude.md 80 lines, documentation/reference/CLAUDE.md 274 lines) and a root conftest docstring referencing a no-longer-tracked output/retirement_plan.xlsx suggest guidance drift.", "evidence": "wc -l; conftest.py:3-5; .gitignore:104-105"},
+    {"id": "R-TDC-11", "area": "work tracking", "summary": "No GitHub issues exist; deferred work lives in a 26-line BACKLOG.md with an acknowledged item-number/PR-number collision.", "evidence": "documentation/reference/BACKLOG.md:3-15; manifest-github.json open_issues=0"}
+  ],
+  "github_work_items_touching_area": {
+    "source": "manifest-github.json (context, not proof)",
+    "items": [
+      {"ref": "local commit e75d6ac1 (unpushed, no PR)", "touch": "adds tests/test_*pretax_payroll_contributions_agi_functional.py, edits tests/test_cash_tax_floor_unit.py, tests/test_cash_flow_chart_series_compaction.py, full-row snapshot fixture"},
+      {"ref": "PR #419", "touch": "Roth bracket change; 2026-11-09 full-row snapshot + phase golden re-record (GOLDEN_MASTER_CHANGELOG.md:18)"},
+      {"ref": "PR #418 / #388", "touch": "Sales Ledger v3/v2 redesign; many tests/frontend/sales_* tests, mockups under documentation/future/superpowers/mockups"},
+      {"ref": "PR #390, #387, #385", "touch": "Left-nav redesign/search; wi015 navigation baseline, nav_* frontend tests, NAV_FEATURE_MAP.md"},
+      {"ref": "PR #366", "touch": "Year-End Transition page; tests/frontend/year_end_page.test.mjs"},
+      {"ref": "PRs #259, #267, #268", "touch": "Contextual help panel; ui_prose_guard, help_panel_follow_focus, contextual-help-panel.spec.js, ui_prose_inventory.csv"},
+      {"ref": "PRs #233, #234, #235", "touch": "WI-010..WI-021 a11y/notices and WI-017 end-user docs; wi018-wi021 tests and e2e specs"},
+      {"ref": "commit 2c293e62", "touch": "lowered TOTAL_JS_MAX_LINES to 43,777"},
+      {"ref": "commit e5018864", "touch": "rebuilt src/reference/demo_seed.rpx at schema v24"}
+    ]
+  },
+  "explicit_exclusions": [
+    "CI was intentionally excluded from this review.",
+    ".github/workflows/* and documentation/reference/CI_SETUP.md not opened"
+  ],
+  "gaps": [
+    "No test was run; nothing here asserts any test passes or fails.",
+    "Test bodies were not opened; usability-test classification is by file name only.",
+    "Binary assets (reference.db, demo_seed.rpx, Concepts_Guide.docx, PNG screenshot sets, zip_metrics.csv.gz) were not opened.",
+    "Phase golden baseline diff (~10k lines) was not inspected value-by-value; only stat and the changelog narrative were read.",
+    "Synthetic golden master digest was not recomputed; only the full-row snapshot digest was.",
+    "tools/js_codemod committed reports and tools/*.py were listed, not read; their freshness is unknown.",
+    "Document-status inventory relies on manifest-inventory.json (first-20-line scan), not re-verified.",
+    "GitHub metadata is partial (30 of 108 scope PRs; reviewed branch unpushed)."
+  ]
+}

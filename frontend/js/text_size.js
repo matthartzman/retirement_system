@@ -1,8 +1,8 @@
-// In-app text-size preference (100/115/130%). Independent of WebView zoom
+// In-app text-size preference (100/115/130/150/200%). Independent of WebView zoom
 // settings so low-vision users can enlarge the UI in desktop mode.
 // Persisted server-side via /api/prefs (key rpTextSize) and mirrored in
 // localStorage for a flash-free first paint.
-export const TEXT_SIZE_OPTIONS = [100, 115, 130];
+export const TEXT_SIZE_OPTIONS = [100, 115, 130, 150, 200];
 
 export function normalizeTextSize(v) {
   const n = parseInt(v, 10);

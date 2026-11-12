@@ -47,13 +47,11 @@ export function slTabBarHtml(active, markers = {}) {
     const tone = mk && mk.tone === "bad" ? "bad" : "warn";
     const badge = mk && mk.count > 0 ? ` <span class="sl-tab-badge ${tone}"><span aria-hidden="true">${Number(mk.count)}</span><span class="sr-only">${Number(mk.count)} ${Number(mk.count) === 1 ? "item needs" : "items need"} attention</span></span>`
       : mk && mk.attn ? ` <span class="sl-tab-badge ${tone}"><span aria-hidden="true">!</span><span class="sr-only"> needs attention</span></span>` : "";
-    const on = id === active;
-    return `<button type="button" role="tab" id="sl-t-${id}" class="workspace-tab${on ? " active" : ""}" aria-selected="${on}" aria-controls="sl-p-${id}" tabindex="${on ? 0 : -1}" onclick="slSetTab('${id}')" onkeydown="slTabKeydown(event)">${label}${badge}</button>`;
-  }).join("");
-  return `<div class="workspace-tabs sl-tabbar" role="tablist" aria-label="Sales ledger sections">${tabs}</div>`;
+    return [id, `${label}${badge}`];
+  });
+  return window.tabBarHtml("sl", tabs, active, "slSetTab", "Sales ledger sections", "workspace-tabs sl-tabbar");
 }
-export const slTabPanelHtml = (id, bodyHtml, active) =>
-  `<div class="sl-tab" role="tabpanel" id="sl-p-${id}" aria-labelledby="sl-t-${id}"${id === active ? "" : " hidden"}>${bodyHtml}</div>`;
+export const slTabPanelHtml = (id, bodyHtml, active) => window.tabPanelHtml("sl", id, bodyHtml, "sl-tab", id !== active);
 // The active tab is kept in memory once chosen, so it survives repaints when storage is off; storage (or a deep link) only
 // gives the initial value. It is bound to the store it was chosen under: a different store starts from storage again.
 let slCurTab = null;
@@ -98,15 +96,6 @@ export function slSetTab(id, opts = {}) {
   if (id === "tax" && globalThis.window && globalThis.window.stOnShown) globalThis.window.stOnShown();
   if (opts.focus) { const b = doc.getElementById(`sl-t-${id}`); if (b) b.focus(); }
 }
-export function slTabKeydown(event) {
-  const ids = SL_TABS.map((t) => t[0]);
-  const cur = ids.indexOf(String(event.target && event.target.id).replace("sl-t-", ""));
-  if (cur < 0) return;
-  const next = { ArrowRight: (cur + 1) % ids.length, ArrowLeft: (cur + ids.length - 1) % ids.length, Home: 0, End: ids.length - 1 }[event.key];
-  if (next === undefined) return;
-  event.preventDefault();
-  slSetTab(ids[next], { focus: true });
-}
 // Panel summaries: each panel publishes {count, tone, text} under its spec key; the page shell subscribes.
 const slSums = {};
 const slSubs = new Set();
@@ -137,11 +126,8 @@ export function slMarkers(summaries) {
   for (const m of Object.values(out)) if (m.count === 0) m.attn = true; // an alert with no count still needs a text marker
   return out;
 }
-export const slLiveHtml = () => '<div id="slLive" class="sr-only" aria-live="polite" aria-atomic="true"></div><div id="slAlert" class="sr-only" role="alert"></div>';
-export function slAnnounce(text, assertive = false) {
-  const el = globalThis.document && globalThis.document.getElementById(assertive ? "slAlert" : "slLive");
-  if (el) el.textContent = String(text);
-}
+export const slLiveHtml = () => ""; // the live regions are persistent (index.html); this page used to inject its own
+export const slAnnounce = (text, assertive = false) => announce(text, { error: assertive });
 const SL_SEC_META = { queue: ["Sales waiting for lots", false], health: ["Log health", false], ledger: ["Sales", true], wash: ["Wash sales", true], tax: ["Tax year", true], cf: ["Carryforward", false], b1099: ["Import a 1099-B", false] };
 const SL_TAB_SECS = { fix: ["queue", "health", "wash"], ledger: ["ledger"], tax: ["tax", "cf", "b1099"] };
 // Only real alerts (same predicate as the strip) count; informational counts such as row totals never open or pin a section.
@@ -255,4 +241,4 @@ export function slNextStepHtml(result) {
   const items = [result.wash ? link("tax", "wash", "Review changed lots / re-run wash check") : "", q > 0 ? link("fix", "queue", `${q} sale${q === 1 ? "" : "s"} waiting → Fix lots`) : ""].filter(Boolean);
   return items.length ? `<p class="sl-next">Next: ${items.join(" · ")}</p>` : "";
 }
-Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSecHtml, slAlertCountOf, slSecAlert, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecSetState, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slCurrentTab, slSetCurrentTab, slTabKeydown, slHeadControlState, slHeadSync, slNextStepHtml });
+Object.assign(window, { slStripHtml, slMarkers, slLiveHtml, slAnnounce, slGo, slPublish, slOnSummary, slSummaries, SL_TABS, slUiLoad, slUiSave, slUiSetTab, slUiRecordToggle, slParseHash, slSecOpen, slSecHtml, slAlertCountOf, slSecAlert, slSecWantOpen, slOnSummaryClick, slSecUpdate, slSecSetState, slSecAll, slTabBarHtml, slTabPanelHtml, slSetTab, slCurrentTab, slSetCurrentTab, slHeadControlState, slHeadSync, slNextStepHtml });
