@@ -35,6 +35,17 @@ The **Year-End Transition** page (Track & Reconcile) lists these steps in order,
    that projected that year (build a report in December so one exists). It feeds no
    tax number; a late broker file later shows "Changed since close", and **Reopen**
    lets you close again. Nothing closes a year automatically.
+5. **Illinois pass-through entity (PTE) election.** The election is annual and is
+   made on the timely entity return (April 15). Decide it each January with the
+   CPA: the plan assumes it is not elected for 2026 or 2027 (register rows A8 and
+   L23), so a changed decision means changing the plan and re-recording the
+   decision there.
+6. **Business-income deduction (QBI) review.** If the household has self-employment
+   income, confirm `qbi_sstb` (Cashflow > Self-Employment) is set correctly: TRUE
+   when the business is a specified service trade or business. The CPA confirmed
+   the business is one, but the field defaults to FALSE and must be set in the plan
+   itself (see `NOTICE_WORDING_2026-11_WAVE2.md`, notice N8). Also review
+   `qbi_ubia` and the QBI thresholds after the new Revenue Procedure.
 
 ## Tax-year checklist (maintainer-level, ~30-60 minutes, do in mid-to-late January after the IRS Revenue Procedure for the new year is published)
 
@@ -59,51 +70,15 @@ place mislabels its value year and silently mis-indexes every later year.
    table) with the new `effective_year`, a `source` naming the document, and
    `status` set to reflect whether the value is verified or an assumption, for
    **every value family the file holds**, for every filing status the family
-   already has:
-   - `standard_deduction` and `standard_deduction_over65`
-   - `ordinary` brackets (`brackets` array; one full table per `effective_year`)
-   - `ltcg_0pct_top` and `ltcg_15pct_top`
-   - `niit_threshold` (statutory, not indexed -- re-confirm it is unchanged)
-   - IRMAA: `irmaa_tier1..5_threshold`, `irmaa_tier1..5_part_b_surcharge_monthly`
-     and `irmaa_tier1..5_part_d_surcharge_monthly`
-   - `part_b_base_premium_monthly` and `part_d_base_premium_monthly`
-   - `ss_wage_base`
-   - AMT (WI-027): `amt_exemption`, `amt_phaseout_start`, `amt_phaseout_rate`, `amt_rate_break`
-     (Rev. Proc. sec. 4.10; add one row per filing status MFJ, Single, MFS)
-   - `qlac_premium_limit` and `qcd_annual_limit` (IRS annual cost-of-living notice; the QLAC limit
-     can stay unchanged from one year to the next)
-   - `student_loan_interest_phaseout_start`, `student_loan_interest_phaseout_end` (MFJ and Single;
-     Rev. Proc. sec. 4.29) and `student_loan_interest_max_deduction` (statutory $2,500)
-   - `nonitemizer_charitable_cap` (IRC 170(p), 2026 on: $1,000 / $2,000 joint, fixed; confirm no change each year)
-   - QBI (IRC 199A, W3-02): `qbi_threshold` (indexed; Rev. Proc. sec. 4.26, MFJ and Single), `qbi_phasein_width` (statutory
-     $100,000 / $50,000 before 2026, $150,000 / $75,000 from 2026), `qbi_min_deduction` and `qbi_min_income` ($400 and
-     $1,000 from 2026, indexed after 2026 by the Rev. Proc.)
-   - Social Security earnings test (WI-040): `ss_earnings_test_annual_limit`,
-     `ss_earnings_test_fra_year_limit`, `ss_earnings_test_rate`, `ss_earnings_test_fra_year_rate`
-     (SSA COLA fact sheet each autumn; add a new dated row, never overwrite)
-   - `early_distribution_additional_tax_rate` (WI-039; statutory 10% under IRC 72(t), not indexed: confirm
-     no change each year)
-   - `federal_estate_basic_exclusion` (per person; Rev. Proc. estate section)
-   - `salt_cap`, `salt_phasedown_threshold`, `salt_phasedown_growth` (the cap is
-     keyed to absolute statutory years -- extend the schedule when law changes)
-   - ACA premium tax credit (WI-307): `aca_enhanced_subsidies_through_year`
-     (default used only when a plan leaves the field blank), the original
-     IRC 36B applicable-percentage table `aca_applicable_pct_original_band1..6_*`
-     (`_fpl_floor`, `_initial`, `_final`) plus `aca_applicable_pct_original_max_fpl`
-     and `aca_applicable_pct_original_credit_above_max` (from the year's IRS
-     Rev. Proc.), and the enhanced table `aca_applicable_pct_enhanced_band1..5_*`
-     plus `aca_applicable_pct_enhanced_max_fpl`,
-     `aca_applicable_pct_enhanced_credit_above_max` and
-     `aca_applicable_pct_enhanced_above_max_pct`. A year after the latest dated
-     table uses that table. The rows first entered for 2026 are recalled,
-     unverified assumptions -- verify them against Rev. Proc. 2025-25 and the
-     current enhanced-credit status.
-   - Rental properties (WP12.1, statutory, not indexed -- re-confirm only when
-     law changes; rules in `RENTAL_TAX_RULES.md`): `residential_rental_recovery_years`,
-     `passive_rental_special_allowance`, `passive_rental_phaseout_start`,
-     `passive_rental_phaseout_rate`, `passive_rental_special_allowance_mfs_not_living_apart`,
-     `unrecaptured_1250_max_rate`, `section_121_exclusion`, `section_121_required_days`
-     and `section_121_lookback_years`.
+   already has. The file itself is the list of families (open
+   `reference_src/tax_law_v10.json` and add a row for each `family` it holds,
+   including any added since this runbook was written), and section L of
+   `PLANNING_ASSUMPTIONS_AND_EXPERT_DECISIONS_REGISTER.md` records, per law, what
+   the system assumes, how it is sourced and whether it is indexed or fixed
+   by statute. Keep one source: do not copy the family list back into this file.
+   Families that are statutory and not indexed (the NIIT threshold, the
+   student-loan statutory cap, the early-distribution rate, the rental rules in
+   `RENTAL_TAX_RULES.md`) still need their value re-confirmed each year.
    Leave the previous rows in place: the lookup uses them for earlier years.
 3. Update `reference_src/tax_update_dashboard.csv`: for each family you just
    refreshed, set `year` to the new value year and `last_reviewed` to today.
@@ -126,13 +101,13 @@ place mislabels its value year and silently mis-indexes every later year.
    than a custom override, update them there too -- these are separate,
    per-household fields and are **not** auto-populated from the JSON dataset
    (see "Known gaps" below).
-7. Confirm `reference_src/state_tax.csv` (rebuild `reference.db` after editing) for your household's state (and any
+8. Confirm `reference_src/state_tax.csv` (rebuild `reference.db` after editing) for your household's state (and any
    comparison state under consideration) -- state legislative sessions run on
    their own schedule, not a fixed month, so re-check this row whenever state
    tax law changes, not just annually.
-8. Update `documentation/reference/PLANNING_ASSUMPTIONS_AND_EXPERT_DECISIONS_REGISTER.md`: section L (laws, guidance and rates) gets
+9. Update `documentation/reference/PLANNING_ASSUMPTIONS_AND_EXPERT_DECISIONS_REGISTER.md`: section L (laws, guidance and rates) gets
    the new values, last-reviewed dates and next expected update; scan sections A to D and R for rows still marked TBA.
-9. Measure before you regenerate anything: run
+10. Measure before you regenerate anything: run
    `python tools/regen_golden_master.py measure`, confirm the movement in
    terminal net worth and lifetime tax is in the direction and size the new
    values imply, then follow `GOLDEN_MASTER_RECOVERY_RUNBOOK.md` to re-pin and
