@@ -473,7 +473,7 @@ by `frontend/js/admin.js` rather than the dashboard scripts.
 This is not a bundler-based SPA. Dozens of `dashboard_decomp_*.js` files plus
 `dashboard.js` itself (several thousand lines) are loaded as a mix of classic
 `<script>` and ES `type="module"` tags. `dashboard.js` remains the core: it
-owns the `STEPS` catalog (about 30 guided steps with id/group/title/help), the
+owns the `STEPS` catalog (32 guided steps with id/group/title/help), the
 large `renderMain()` string-template switch, and dozens of module-level `let`
 globals (`rows`, `activeStep`, `planLoaded`, `holdingsChanged`, etc.). Each
 `dashboard_decomp_*` file is a mechanically extracted slice of that
@@ -504,6 +504,39 @@ navigation, with hand-rolled focus/selection/`<details>`-open-state
 preservation across the replace. Server communication is plain `fetch`/
 `api()` with CSRF tokens; there is no client-side router beyond `setStep(id)`.
 
+**Render hooks.** `frontend/js/render_hooks.js` defines `window.RPHooks`
+(`after(point, fn, order)` and `run(point, ...args)`), which replaced a chain of
+monkey-patched `renderMain` / `showStepHelp` wrappers. The base `renderMain()`
+and `showStepHelp(id)` in `dashboard.js` call `RPHooks.run(...)` after their own
+work. Hooks run in ascending numeric `order`, so the sequence is explicit rather
+than an accident of `<script>` order; a throwing hook is logged and does not stop
+later hooks. Modules register with `window.RPHooks?.after(...)`, so search for
+`RPHooks?.after` (not `RPHooks.after(`). The current registrations are:
+
+| Point | Order | Module | Hook |
+|---|---|---|---|
+| `renderMain` | 10 | `dashboard_decomp_tax_assumptions.js` | `taxInsertCard` |
+| `renderMain` | 20 | `dashboard_decomp_roth_guardrails.js` | `rgInsert` |
+| `renderMain` | 30 | `dashboard_source_truth_banners.js` | `applyEnhancements` |
+| `renderMain` | 40 | `dashboard_batch_assumption_edit.js` | `insertPanels` |
+| `showStepHelp` | 30 | `dashboard_source_truth_banners.js` | glossary decoration |
+
+`tests/frontend/wi015_script_order_wrapper_guard.test.mjs` fails if a module
+wraps `renderMain` outside `dashboard.js`, if two hook orders collide, or if the
+registry loads after a registrant. `renderMain` and `showStepHelp` stay `let`
+with a get+set `window` accessor only as a node-test stubbing seam
+(`tools/js_codemod/census.mjs`, `SETTABLE_TEST_SEAMS`); no production code
+assigns them.
+
+**Bundling decision: not now.** `frontend/index.html` loads 87 module scripts
+with hand-bumped `?v=` queries and window-global coupling. A bundler (for example
+esbuild) would add a Node build step to the PyInstaller release, and the node
+tests and several Python harnesses evaluate `dashboard.js` and the
+`dashboard_decomp_*` files as concatenated classic scripts. Load time and request
+count were not measured, so there is no evidence the local requests matter for a
+local-only app. Revisit if measured startup latency, CSP adoption (needs inline
+`onclick` removal) or cache-busting errors become a problem. Owner decision.
+
 ### 7.3 Navigation model
 
 Guided steps are grouped (in `STEPS`, `frontend/js/dashboard.js`): Plan
@@ -517,6 +550,8 @@ residency in Strategy → Optimize → Next Housing Move. Optional-module-gated
 steps show an explanatory placeholder when their module is off rather than
 being removed from navigation. Settings → Plan Features
 (`optional_functions`) is the one place optional modules are switched.
+
+Two nav aids sit on top of the groups (`frontend/js/dashboard_decomp_nav_features.js`, design `documentation/archive/superpowers/specs/2026-11-04-left-nav-redesign-design.md`). A **Set up | Maintain** switch changes emphasis only: Maintain lifts Track & Reconcile to the top, hides step numbers, opens Track & Reconcile by default, uses the Actual Spending to Reconciliation to Sales Ledger to Build & Results suggested-next chain and shows items needing attention instead of percent complete. The default is automatic (Set up while a required item is missing, otherwise Maintain) and a pick is remembered in browser storage. A per-heading **Features** icon opens a popover with Not enabled, Enabled and Always on sections. Each feature is listed under the group of the page where its inputs appear (`FEATURE_HOST`; a test fails when a catalog feature has no host), with its catalog domain as a topic tag. Its switch writes through the same setter as Plan Features (`setPlanFeatureSwitch`), and turning a feature off only hides it: saved entries are kept.
 
 #### 7.3.1 Housing optimizer and Next Housing Move
 
@@ -550,8 +585,6 @@ into one dated row per year and never annualizes.
 
 ## 8. Reporting/output architecture
 
-
-Two nav aids sit on top of the groups (`frontend/js/dashboard_decomp_nav_features.js`, design `documentation/archive/superpowers/specs/2026-11-04-left-nav-redesign-design.md`). A **Set up | Maintain** switch changes emphasis only: Maintain lifts Track & Reconcile to the top, hides step numbers, opens Track & Reconcile by default, uses the Actual Spending to Reconciliation to Sales Ledger to Build & Results suggested-next chain and shows items needing attention instead of percent complete. The default is automatic (Set up while a required item is missing, otherwise Maintain) and a pick is remembered in browser storage. A per-heading **Features** icon opens a popover with Not enabled, Enabled and Always on sections. Each feature is listed under the group of the page where its inputs appear (`FEATURE_HOST`; a test fails when a catalog feature has no host), with its catalog domain as a topic tag. Its switch writes through the same setter as Plan Features (`setPlanFeatureSwitch`), and turning a feature off only hides it: saved entries are kept.
 ### 8.1 Orchestration
 
 Entry point: `src/reporting/workbook_builder.py::main()`. Flow: load active

@@ -32,7 +32,7 @@ plan in `future/` and in `archive/superpowers/` dated 2026-09-16 or later carrie
 | `reference/NAV_FEATURE_MAP.md` | Left-nav inventory: gating, switches, current state, order |
 | `reference/CAPITAL_GAINS_IN_AGI.md`, `archive/reference/H1_BEFORE_AFTER_FIXTURES.txt` | How sale gains enter AGI, MAGI and IRMAA MAGI, with the before and after fixture values |
 | `reference/RENTAL_TAX_RULES.md` | Rental-property tax constants and the preparer's verification note |
-| `reference/FRONTEND_HOOK_REGISTRY.md` | The `RPHooks` render-hook registry that replaced the monkey-patch chain |
+| `archive/reference/FRONTEND_HOOK_REGISTRY.md` | Former hook registry note, now folded into the design spec section 7.2 |
 | `reference/TRENDS_REMOTE_ACCESS_RUNBOOK.md` | How Financial Insight is reached from outside the home network |
 | `reference/NOTICE_WORDING_2026-11_WAVE2.md`, `reference/PROFESSIONAL_REVIEW_ENGAGEMENT_NOTES_2026-11.md` | Limitation-notice wording and the CPA and attorney engagement notes from the 2026-11-10 system review |
 | `reference/PLANNING_ASSUMPTIONS_AND_EXPERT_DECISIONS_REGISTER.md` | Living register: expert decisions, laws and rates with update schedules, and other assumptions needing review (maintenance rules inside) |
