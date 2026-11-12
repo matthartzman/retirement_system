@@ -8,7 +8,7 @@ One list of every decision, direction and assumption in the system that a person
 - **Part 2, laws, guidance and rates (section L):** each federal and state law, guidance document and rate the engine depends on, with its update frequency, the next expected update and where the update comes from.
 - **Part 3, other assumptions needing review (section R):** modeling shortcuts, defaults and data sets that are not law but still need a person to look at them on a schedule.
 
-**Last updated:** 2026-11-11 (first version).
+**Last updated:** 2026-11-12 (added section N, limitation notices).
 
 ## Keeping this document current
 
@@ -29,7 +29,7 @@ This file is only useful if it is maintained. The rules:
 - **Owner-reported** means the owner told Claude, and the proof (a table, an email) is kept outside the repository. Nothing is invented: where a sign-off is not on file, the row says TBA.
 - **Frequency**: *Annual* (each tax year), *Law change* (re-check only when statute or a published notice changes), *Once* (decide and record), *Per plan* (a household fact), *Per release*.
 - **Impact**: High moves projected net worth, tax or estate tax in a way a user would act on; Medium moves numbers or disclosures a reader could rely on; Low is wording, workflow or housekeeping.
-- Related ids point to other rows in this file. `FIN-`, `QA-`, `ARC-`, `W-` ids point to `SYSTEM_REVIEW_2026-11-10.md`; `N1`-`N10` are the limitation notices in `src/limitation_notices.py`.
+- Related ids point to other rows in this file. `FIN-`, `QA-`, `ARC-`, `W-` ids point to `SYSTEM_REVIEW_2026-11-10.md`; `N1`-`N10` are the limitation notices in `src/limitation_notices.py`, listed in section N below.
 
 ## Coverage and limits (read before relying on this)
 
@@ -193,6 +193,24 @@ Not law and not a single expert's decision: modeling shortcuts, defaults and dat
 | R18 | Estate-tax objective mode and heir assumptions inside the Roth optimizer | schema (`estate_tax_objective_mode`, `heir_*`) | Conversion size near estate-tax range | Planner; estate attorney | TBA | Annual | Estate near the exclusion | Medium | B9 | |
 | R19 | Frozen sample plan and frozen holdings prices used for golden tests | `tests/fixtures/` | A drift means engine change | Owner | Standing | Per release | Any engine output change | Medium | D8 | Do not point scripts at the live plan |
 
+## N. Limitation notices (what the "Related" column means by N1 to N10)
+
+The notices are the in-product disclosures defined in `src/limitation_notices.py` (`NOTICES`), shown in preflight, the Tax Assumptions page, the workbook and the advisor report. This section lists them so a Related id can be looked up here. The code is the source for the exact wording and the removal conditions; wording for N1 to N7 is row D1 and for N8 and N10 row D2. N9 (Illinois estate tax, FIN-004 method) was removed once the attorney confirmed the method (row B1). Status is as of 2026-11-12.
+
+| Id | Finding | Severity | Shown when | What it tells the reader | Status | Related rows |
+|---|---|---|---|---|---|---|
+| N1 | FIN-001 | warning | Plan sells taxable holdings at a gain | Gains from taxable sales were not counted in IRMAA, NIIT, ACA and Social Security taxation | Both removal triggers (WI-024 phases 1 and 2) are marked shipped, so the notice is retired | A15, D1 |
+| N2 | FIN-003 | info | Plan has taxable equity holdings | Qualified dividends taxed at ordinary rates (conservative) | Retired: the stacking fix (WI-023) shipped | A21, R11, D1 |
+| N3 | FIN-004 | warning | Pre-tax draws before age 59½ | The 10% early-distribution tax was not included | Retired: modeled (WI-039) | A13, D1 |
+| N4 | FIN-010 | info | Joint taxable accounts | The survivor's step-up on a spouse's joint account was not modeled | Retired: symmetric step-up shipped (WI-025) | D1 |
+| N5 | FIN-007 | warning | Claim before full retirement age with wages | The Social Security earnings test was not modeled | Retired: modeled (WI-040) | D1 |
+| N6 | FIN-009 | warning | One-person household with a couple-sized estate exemption | Estate tax may be understated | Active until saved plans no longer carry an explicit couple-sized exemption (a blank exemption is already derived from the household) | B3, D1 |
+| N7 | FIN-005, FIN-006 | info | Always | Reference data status by family: verified, assumption or unreviewed | Always on; the status changes as data families are verified | A16, C6, D1 |
+| N8 | FIN-001 | warning | QBI on and the plan has an S-corp or sole-proprietor business | QBI treats the business as one business; `qbi_sstb` and `qbi_ubia` come from Plan Data | Active: the CPA's answer is recorded (A1), but `qbi_sstb` is still to be set in the live plan, so the notice stays (see `NOTICE_WORDING_2026-11_WAVE2.md`) | A1, A2, D2 |
+| N10 | FIN-005 | info | The Existing Life Insurance module has a policy | Policies are an inventory only; proceeds do not reach the survivor or the estate | Active until policy proceeds are integrated (W4-04) | B5, D2 |
+
+Rows retire their notice only when every "remove" trigger in the code is marked shipped (`Notice.retired`). Check the code before relying on the Status column above, which was read from it on the date given.
+
 ## E. Engagement status
 
 | Engagement | Status |
@@ -216,3 +234,4 @@ The question wording for the professionals, the original per-finding questions a
 ## Change log
 
 - 2026-11-11: first version (sections A to F), then split into three parts and added sections L and R, the maintenance rules and this log.
+- 2026-11-12: added section N (limitation notices N1 to N10), which the Related column already referred to.
