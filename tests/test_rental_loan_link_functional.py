@@ -1,4 +1,4 @@
-"""H2: a rental property uses an existing Liabilities row as its loan (RENTAL_TAX_RULES.md section 9)."""
+"""H2: a rental property uses an existing Liabilities row as its loan (documentation/archive/superpowers/specs/2026-10-13-rental-property-h2-h6-extensions-design.md section 9)."""
 from __future__ import annotations
 
 import copy

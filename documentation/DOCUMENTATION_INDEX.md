@@ -22,17 +22,16 @@ plan in `future/` and in `archive/superpowers/` dated 2026-09-16 or later carrie
 | `reference/GOLDEN_MASTER_CHANGELOG.md`, `reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md` | Golden-master pins and how to recover them |
 | `reference/ANNUAL_MAINTENANCE_RUNBOOK.md` | Yearly tax-table and data refresh |
 | `reference/REFERENCE_DB_SLICES.md` | How to move a reference dataset into the shipped `reference.db` (build tool, getters, golden fixtures) |
-| `reference/PLAN_ROWS_MODEL.md` | The `plan_rows` model in the plan file: keys, order, CSV import rules, switch and tier rows, old CSV file to sections |
-| `reference/CONVERSION_REHEARSAL.md` | Owner steps (PowerShell) to rehearse the whole one-time conversion on a copy of a workspace with `tools/rehearse_conversion.py`; privacy-safe report |
-| `reference/CONVERSION_SAFEGUARD.md` | The conversion's verification and safeguard (WP10.3): what is checked, what blocks, the backup, what is never deleted, rollback |
+| `archive/reference/PLAN_ROWS_MODEL.md` | Work-package history of the plan rows model; the current model is in the design spec section 4.6 |
+| `reference/LEGACY_CONVERSION.md` | The one-time conversion: what is verified, what blocks, the backup and rollback, and the owner steps (PowerShell) to rehearse it on a copy of a workspace |
 | `reference/release_notes/` | Plain-language record of changes that move results |
 | `reference/BACKLOG.md` | Deferred work tracker |
-| `reference/CI_SETUP.md`, `reference/TEST_RUN_GUIDE.md`, `archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md`, `reference/HAPPY_PATH_E2E_TEST_PLAN.md` | CI and testing |
+| `reference/TESTING_AND_CI.md`, `archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md`, `reference/HAPPY_PATH_E2E_TEST_PLAN.md` | CI and testing |
 | `archive/reference/OPTIMIZATION_DOCS_INDEX.md`, `archive/reference/OPTIMIZATION_REFACTOR_STATUS.md`, `reference/roth_conversion_modeling_guide.md` | Optimization documents |
 | `reference/NAV_FEATURE_MAP.md` | Left-nav inventory: gating, switches, current state, order |
 | `reference/CAPITAL_GAINS_IN_AGI.md`, `archive/reference/H1_BEFORE_AFTER_FIXTURES.txt` | How sale gains enter AGI, MAGI and IRMAA MAGI, with the before and after fixture values |
 | `reference/RENTAL_TAX_RULES.md` | Rental-property tax constants and the preparer's verification note |
-| `reference/FRONTEND_HOOK_REGISTRY.md` | The `RPHooks` render-hook registry that replaced the monkey-patch chain |
+| `archive/reference/FRONTEND_HOOK_REGISTRY.md` | Former hook registry note, now folded into the design spec section 7.2 |
 | `reference/TRENDS_REMOTE_ACCESS_RUNBOOK.md` | How Financial Insight is reached from outside the home network |
 | `reference/NOTICE_WORDING_2026-11_WAVE2.md`, `reference/PROFESSIONAL_REVIEW_ENGAGEMENT_NOTES_2026-11.md` | Limitation-notice wording and the CPA and attorney engagement notes from the 2026-11-10 system review |
 | `reference/PLANNING_ASSUMPTIONS_AND_EXPERT_DECISIONS_REGISTER.md` | Living register: expert decisions, laws and rates with update schedules, and other assumptions needing review (maintenance rules inside) |

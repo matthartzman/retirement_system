@@ -2086,7 +2086,7 @@ def _own_switch_entry(key) -> OutputModule:
 # ── WP4.1: the switch and the tier as ordinary plan_rows settings ───────────
 #
 # Where each stored switch lives in ``plan_rows`` (documentation/reference/
-# PLAN_ROWS_MODEL.md). They are the rows the plan CSV set already carried, so the
+# CURRENT_SYSTEM_DESIGN_SPEC.md section 4.6). They are the rows the plan CSV set already carried, so the
 # importer and conversion step C3 need no backfill. ``_read_switch`` / ``_write_switch``
 # read and write these keys when handed a ``PlanStore`` (WP4.5).
 MODULE_TOGGLE_SECTION = "Optional Functions"   # subsection "", label = feature key

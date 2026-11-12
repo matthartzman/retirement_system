@@ -1,4 +1,4 @@
-"""H4: rental sale proceeds follow ownership (RENTAL_TAX_RULES.md section 11)."""
+"""H4: rental sale proceeds follow ownership (documentation/archive/superpowers/specs/2026-10-13-rental-property-h2-h6-extensions-design.md section 11)."""
 from __future__ import annotations
 
 import pytest

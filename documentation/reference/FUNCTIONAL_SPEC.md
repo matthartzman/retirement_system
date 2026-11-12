@@ -1,6 +1,6 @@
 # Retirement Planning System — Functional Spec
 
-Generated: 2026-08-29, updated 2026-09-07 (Wave 5 item W4-8, finding DOC-201:
+Generated: 2026-08-29, updated 2026-11-12 (PDF claims removed; no PDF output exists), 2026-09-07 (Wave 5 item W4-8, finding DOC-201:
 backfilled QLAC, the Monarch Money auto-import module, the Financial Insight
 companion app, phase-varying Roth conversions, and the adoptable
 Guyton-Klinger/floor-ceiling spending policy -- all shipped after the
@@ -17,7 +17,7 @@ A local desktop application that turns one household's financial facts
 (income, spending, assets, liabilities, holdings, insurance, estate plan) into
 a year-by-year retirement projection, a set of optimization recommendations
 (what to change), a set of stress tests (what could go wrong), and an
-advisor-grade report package (Excel workbook, PDF, offline HTML dashboard, and
+advisor-grade report package (Excel workbook, offline HTML dashboard, and
 an in-app results browser). It runs for one household at a time, on the
 household's or advisor's own machine, with no server-side multi-tenant
 component.
@@ -247,7 +247,7 @@ household owns a business.
 Build a full report package on demand; watch build progress; review a
 "Build Impact" diff of what admin/system assumptions changed since the last
 build; browse every workbook sheet in-app (Results Explorer) without opening
-Excel; download the Excel workbook and PDF; review a plan-data summary;
+Excel; download the Excel workbook; review a plan-data summary;
 review Spending Analysis (actual vs. budget, annualized run rate, portfolio
 growth vs. prior year, reconciliation back into the 30-year model). Monarch
 Reconciliation compares each account number in the app with Monarch's daily
@@ -426,13 +426,12 @@ spending reserve and the next build's starting values.
 
 ## 5. Outputs and their audiences
 
-Every build produces four artifacts from one projection run, so they cannot
+Every build produces three artifacts from one projection run, so they cannot
 disagree with each other:
 
 | Artifact | Audience | What it contains |
 |---|---|---|
-| **Excel workbook** (`retirement_plan.xlsx`) | Advisor/QC review; detailed client inspection | ~35+ tabs across four numbered areas — Overview/Projection, Optimization/Strategy, Risk & Stress Tests, Reference/Diagnostics. The canonical, most detailed artifact; every other output is derived from it. |
-| **PDF** (`retirement_plan.pdf`) | Print/share-friendly advisor report | Every visible workbook sheet rendered directly from the saved workbook (not a hand-picked subset), so it can never drift from the Excel version. Includes a generated table of contents. |
+| **Excel workbook** (`retirement_plan.xlsx`) | Advisor/QC review; detailed client inspection | ~35+ tabs across four numbered areas — Overview/Projection, Optimization/Strategy, Risk & Stress Tests, Reference/Diagnostics. The canonical, most detailed artifact; every other output is derived from it. There is no PDF output; the Plan Data Summary page has a browser Print / Save PDF button, which is the browser's own print dialog. |
 | **Offline HTML dashboard** (`retirement_dashboard.html`) | Lightweight client-facing snapshot, no Excel required | Self-contained single file: KPI masthead, inline charts (net worth, income, spending/tax), holdings-by-account grid. |
 | **Results Explorer (JSON model)** | The app's own in-browser report viewer | A renderer-neutral semantic model of the workbook's sections/tables/charts, letting the UI show report content without downloading Excel. |
 
@@ -479,7 +478,7 @@ results in the plan file, which the UI reads for quick status).
   report's income chart, and the Stress sheet's pension line, which also
   gives the net when a withholding is entered. A **net** amount carries an
   explicit "(net)" label, as *Rental Cash (net)* already does. Example: the
-  Member 2 pension pays $397.73 gross and $282.58 net a month, a $115.15
+  pension pays $400.00 gross and $280.00 net a month, a $120.00
   withholding. Bank deposits from Monarch or YTD transactions are net, so
   compare them to the net field, not the gross one.
 

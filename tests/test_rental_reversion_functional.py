@@ -1,4 +1,4 @@
-"""H3: a converted home the household moves back into (RENTAL_TAX_RULES.md section 10)."""
+"""H3: a converted home the household moves back into (documentation/archive/superpowers/specs/2026-10-13-rental-property-h2-h6-extensions-design.md section 10)."""
 from __future__ import annotations
 
 from datetime import date

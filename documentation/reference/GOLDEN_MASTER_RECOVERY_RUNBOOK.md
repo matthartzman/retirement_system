@@ -13,8 +13,9 @@ specifically to route around both traps that cost time there.
 
 ## 0. Environment invariants (check these before anything else)
 
-- **Interpreter**: use `py -3.14`, not plain `python` (that's 3.12 here and
-  lacks pytest in this environment).
+- **Interpreter**: use `py -3.14`, the version CI runs (plain `python` is 3.12
+  on this machine; it does have pytest, but it is not the CI interpreter, so
+  use 3.14 to match CI's figures).
 - **Price-provider env var is REQUIRED**:
   `RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS=1`. Without it, live price
   providers make dollar figures drift between runs on the same commit, and

@@ -1,6 +1,6 @@
 """PlanStore: the access layer over ``plan.db`` (the ``.rpx`` plan file). WP2.2 / P1.2.
 
-WP4.1 finalised the row model (``documentation/reference/PLAN_ROWS_MODEL.md``): the
+WP4.1 finalised the row model (``documentation/reference/CURRENT_SYSTEM_DESIGN_SPEC.md section 4.6``): the
 plan CSV importer (``src/csv_exchange``) and conversion step C3 (``src/legacy_conversion``)
 write it; the product read and write paths move onto it in WP4.2-WP4.5.
 

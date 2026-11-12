@@ -1,4 +1,4 @@
-"""H5: death handling (RENTAL_TAX_RULES.md section 12): step-up, depreciation restart, 469(g)(2) release."""
+"""H5: death handling (documentation/archive/superpowers/specs/2026-10-13-rental-property-h2-h6-extensions-design.md section 12): step-up, depreciation restart, 469(g)(2) release."""
 from __future__ import annotations
 
 import pytest
