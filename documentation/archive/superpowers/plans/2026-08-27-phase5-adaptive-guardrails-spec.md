@@ -1,6 +1,6 @@
 # Phase 5 — Adaptive Policy Guardrails — Spec
 
-Next item in `documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md`'s "Not done"
+Next item in `documentation/archive/reference/OPTIMIZATION_REFACTOR_STATUS.md`'s "Not done"
 list, after Phase 4 (LCV feasibility gate and scoring, PR #76, awaiting
 review). Phase 6 (expanded stress scenarios) remains after this one.
 

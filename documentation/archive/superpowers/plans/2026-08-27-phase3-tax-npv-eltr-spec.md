@@ -1,6 +1,6 @@
 # Phase 3 — Tax NPV / ELTR State-Contingent Tax Modeling — Spec
 
-Next item named in `documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md`'s "Not
+Next item named in `documentation/archive/reference/OPTIMIZATION_REFACTOR_STATUS.md`'s "Not
 done" list, and the last one before Phases 4-6 (LCV feasibility gate,
 adaptive guardrails, expanded stress scenarios), all of which the doc
 itself calls "entirely unimplemented."

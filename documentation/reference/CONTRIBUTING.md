@@ -19,50 +19,28 @@ python main.py --mode server  # browser/server mode, stdlib HTTP on port 5050
 ## Running tests
 
 ```
-pytest tests/                 # full suite (also runs from repo root with no PYTHONPATH needed)
-pytest -m "not slow"          # skip the build-pipeline smoke test for a faster loop
+pytest -m "not slow"            # fast loop
 pytest tests/test_x.py -k name  # a single test
+npm test                        # frontend JS unit tests (Node 22)
+python tools/fast_gates.py      # cheap CI gates, before every push
 ```
 
-Run the full suite after any non-trivial change and resolve every new
-failure before considering a change complete. A handful of pre-existing
-failures are environment-specific (missing optional `lxml`, a stale Plan
-Data manifest checksum, and one tax-aware-rebalance edge case) — see
-`documentation/archive/legacy/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md` Section 1 if a fresh
-clone shows failures beyond what you introduced.
+Which tier to run for which change, the markers, the test naming rules, and
+what CI actually runs (Windows, Python 3.14, fast gate plus nightly) are in
+`documentation/reference/TESTING_AND_CI.md`. Run the fast tier after any
+non-trivial change and resolve every new failure before calling it done.
+`tests/frontend/load_dashboard.mjs` explains why frontend unit coverage is
+limited to the helpers that can be loaded in a vm sandbox.
 
-## Running frontend JS tests
-
-```
-node --test "tests/frontend/**/*.test.mjs"
-```
-
-Requires Node 18+ (built-in test runner, no new dependency). Coverage is
-currently limited to the pure/stateless helper functions in
-`frontend/js/dashboard.js` — see `tests/frontend/load_dashboard.mjs` for why
-(most of the file's ~810 functions are tightly coupled to shared UI state and
-aren't yet safely unit-testable in isolation).
-
-## Linting
+## Linting and type checking
 
 ```
-ruff check .
-```
-
-Currently scoped to syntax errors and undefined names (`E9`, `F821`) — see
-the comment in `pyproject.toml` for why the broader ruleset isn't a CI gate
-yet.
-
-## Type checking
-
-```
+ruff check src/ tests/
 mypy src/ --ignore-missing-imports
 ```
 
-Runs in CI informationally (doesn't fail the build yet) — there's a ~264-error
-pre-existing backlog, over a third of it false positives from this codebase's
-`from .app_core import *` wildcard-import pattern. See the comment in
-`pyproject.toml`'s `[tool.mypy]` section for the breakdown.
+Ruff is a merge gate and mypy is informational; the rules and the reasons are
+in `pyproject.toml` (`[tool.ruff.lint]`, `[tool.mypy]`).
 
 ## Building the desktop package
 
@@ -77,17 +55,17 @@ python build.py --no-backup  # build only, skip the backup step
 - `frontend/` — the browser UI (vanilla JS/CSS, no bundler). This is the
   single source of truth; `output/js`, `output/css`, and `output/index.html`
   are generated copies for offline workbook bundles and are gitignored.
-- `tests/` — pytest suite. Files are numbered by the feature/patch that
-  added them rather than by module under test; grep by module name to find
-  related coverage (e.g. `grep -l "from src.optimization" tests/*.py`).
+- `tests/` — pytest suite. Files are named `test_<scope>_<type>.py` (naming
+  rules in `TESTING_AND_CI.md`); grep by module name to find related coverage
+  (e.g. `grep -l "from src.optimization" tests/*.py`).
 - `tools/` — build, packaging, and maintenance scripts. `tools/build_workbook.py`
   is the CLI entry point for generating the workbook/report artifacts.
 - `documentation/` — three tiers, see "Documentation layout" below; start
   from `documentation/DOCUMENTATION_INDEX.md`.
 
-See `documentation/reference/CLAUDE.md` for the fuller architecture and testing-discipline
-notes originally written for AI-assisted development sessions — most of it
-applies equally to a human contributor.
+See `documentation/reference/CLAUDE.md` for the fuller architecture notes
+originally written for AI-assisted development sessions — most of it applies
+equally to a human contributor.
 
 ## Documentation layout
 
@@ -97,7 +75,7 @@ document *is*, not by when it was written:
 
 | Tier | Holds | Rule |
 |---|---|---|
-| `documentation/reference/` | Living documents that describe the system as it is today: README, runbooks, functional/design specs, API contracts, this file, changelogs. | Must be kept true. If code changes behavior a reference doc describes, update the doc in the same change. Nothing historical, no prompts, no one-off reports. |
+| `documentation/reference/` | Living documents that describe the system as it is today: runbooks, functional/design specs, API contracts, this file, changelogs. | Must be kept true. If code changes behavior a reference doc describes, update the doc in the same change. Nothing historical, no prompts, no one-off reports. |
 | `documentation/future/` | Plans and specs for work that is not yet implemented (`future/superpowers/{plans,specs}`). | Move the file to `archive/` when the work ships, and record what shipped. |
 | `documentation/archive/` | Implemented, superseded or obsolete material, including dated system reviews (`archive/reports/`), shipped specs/plans (`archive/superpowers/`) and legacy notes (`archive/legacy/`). | Never cited as "current". Do not edit except to fix links. |
 

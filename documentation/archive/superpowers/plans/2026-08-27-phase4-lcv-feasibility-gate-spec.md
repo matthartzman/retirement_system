@@ -1,6 +1,6 @@
 # Phase 4 — LCV Feasibility Gate and Scoring — Spec
 
-Next item in `documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md`'s "Not done"
+Next item in `documentation/archive/reference/OPTIMIZATION_REFACTOR_STATUS.md`'s "Not done"
 list, following Phase 3 (tax NPV / ELTR, PR #75). Phases 5-6 (adaptive
 policy guardrails, expanded stress scenarios) remain after this one.
 

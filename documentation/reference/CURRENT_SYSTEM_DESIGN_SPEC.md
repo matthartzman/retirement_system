@@ -1,6 +1,6 @@
 # Retirement Planning System — Current System Design Spec
 
-Generated: 2026-08-29, updated 2026-09-30 (§7.3 nav model, housing optimizer,
+Generated: 2026-08-29, updated 2026-11-12 (PDF claims removed; no PDF output exists), 2026-09-30 (§7.3 nav model, housing optimizer,
 Spending Adjustments; WI-703), and 2026-10-12 for WP11 (file-free storage: plan
 data in the plan file, per-install state in `app.db`, CSV only through
 `csv_exchange`). This describes the system as implemented in the
@@ -30,7 +30,7 @@ flowchart LR
     Runtime --> BuildProc["Build subprocess\n(tools/build_workbook.py)"]
     BuildProc --> Engine["Projection engine\n(src/projection_pipeline.py → src/projection_stages)"]
     Engine --> Reporting["Reporting layer (src/reporting/)"]
-    Reporting --> Outputs["output/plans/PLAN_ID/: xlsx, pdf, html dashboard\n(build results are rows of the plan file)"]
+    Reporting --> Outputs["output/plans/PLAN_ID/: xlsx, html dashboard\n(build results are rows of the plan file)"]
     Outputs --> UI
 ```
 
@@ -82,17 +82,16 @@ arrive over a real socket or an in-process test client.
 
 Routes are registered as decorator side effects at import time. `src/server/
 __init__.py` imports `base_routes`, `workbook_routes`, `plan_routes`,
-`admin_routes` — in that order, purely for their `@app.route(...)`
+`import_export_routes`, `admin_routes` — in that order, purely for their `@app.route(...)`
 registration side effects. Each of those files does `from .app_core import *`
 (plus `from .security_audit import *`, re-exported through `app_core`) to
 share the `app` object, helper functions, and constants — a single shared
 namespace, not separately-scoped modules.
 
-`src/server/route_manifest.py` and the stub files under `src/server/
-features/` are **not route modules** — every actual `@app.route` call lives
-in the four files above. `route_manifest.py` is a hand-maintained ownership
-manifest used for documentation/introspection tooling only; a reader should
-not infer route-level modularity from `features/`'s existence.
+`src/server/route_manifest.py` is **not a route module** — every actual
+`@app.route` call lives in the five route files above (`plan_routes.py` holds
+the large majority). `route_manifest.py` is a hand-maintained ownership
+manifest used for documentation/introspection tooling only.
 
 `src/server_services/*.py` hold the business logic behind most routes,
 deliberately HTTP-framework-agnostic: they take plain dicts/paths/callables
@@ -102,31 +101,21 @@ else. Current service modules: `base_service`, `admin_service`,
 `build_service`, `build_job_service`, `blank_plan_service`, `config_service`,
 `conversion_service`, `demo_plan_service`, `holdings_service`,
 `plan_file_service`, `plan_forms_service`, `plan_tier_service`,
-`portfolio_service`, `pricing_service`, `report_service`, `secret_service`,
+`portfolio_service`, `pricing_service`, `rental_service`, `report_service`, `secret_service`,
 `spending_service`, `strategy_asset_service`, `ytd_service`.
 
-### 3.4 Route → service map
+### 3.4 Route groups
 
-| Route group | Representative routes | Backing module |
-|---|---|---|
-| Build/results | `/api/build/start`, `/api/build/preflight`, `/api/build/status`, `/api/detailed-results`, `/api/report-package`, `/api/history`, `/api/xlsx`, `/files/<path>` | `workbook_routes.py` → `build_service.py`, `build_job_service.py`, `report_service.py` |
-| Blank plan and CSV import/export | `/api/plan/blank`, `/api/import/preview`, `/api/import/commit`, `/api/export/plan-set`, `/api/export/<dataset>` | `workbook_routes.py` → `blank_plan_service.py`; `import_export_routes.py` → `csv_exchange` |
-| Plan forms (plan file) | `/api/plan/forms`, `/api/plan/forms/<path>` | `base_routes.py`/`workbook_routes.py` → `plan_forms_service.py` → `active_plan.py` |
-| Plan file lifecycle | `/api/plan/save-as`, `/api/plan/load-file`, `/api/plan/exit-snapshot`, `/api/plan/snapshot/compare`, `/api/plan/snapshot/restore` | `plan_routes.py` → `plan_file_service.py` |
-| Config/rows | `/api/config/backends`, `/api/config/rows`, `/api/allocation-preview`, `/api/daf/recommendation` | `plan_routes.py` → `config_service.py` |
-| Pricing | `/api/prices/refresh`, `/api/prices/snapshots`, `/api/prices/freeze`, `/api/prices/test-symbol[/start\|/status]` | `plan_routes.py` → `pricing_service.py` + `portfolio_analytics.py` |
-| Spending | `/api/spending/dashboard`, `/api/spending/budget*`, `/api/spending/taxonomy*`, `/api/spending/rules*`, `/api/spending/alias*` | `plan_routes.py`/`workbook_routes.py` → `spending_service.py` |
-| YTD | `/api/ytd/status`, `/api/ytd/transactions*`, `/api/ytd/account-setup*` | `plan_routes.py` → `ytd_service.py` |
-| Strategy/assets/estate | `/api/holdings*`, `/api/liabilities`, `/api/large-discretionary-expenses`, `/api/forced-roth-conversions`, `/api/insurance-policy*`, `/api/trust-account/add`, `/api/housing/*`, `/api/capital-market/*` | `plan_routes.py`/`workbook_routes.py` → `strategy_asset_service.py`, `holdings_service.py` |
-| Portfolio | `/api/portfolio/drift` | `plan_routes.py` → `portfolio_service.py` → `portfolio_analytics.py` |
-| Secrets | `/api/secrets` (POST only) | `plan_routes.py` → `secret_service.py` → `secrets_store.py` |
-| Admin | `/admin`, `/api/admin/diagnostics`, `/api/admin/system-config`, `/api/admin/csv-backup` (plan-set CSV export zip), `/api/admin/server*` | `admin_routes.py` → `admin_service.py` |
-| Base/runtime | `/`, `/api/ping`, `/api/runtime`, `/api/prefs`, `/api/contracts`, `/api/glossary`, `/api/auth/*`, `/login` | `base_routes.py` |
-| Demo plan / plan registry | `/api/plan/demo-status`, `/api/plan/open-demo`, `/api/plan/exit-demo`, `/api/plan/reset-demo`, `/api/plans`, `/api/plans/switch`, `/api/plans/rename`, `/api/plans/forget` | `plan_routes.py` → `demo_plan_service.py`, `plan_registry.py` |
-
-`documentation/reference/API_CONTRACTS.md` documents a curated subset of "stable"
-contracts, not the full route inventory — treat this table and the route
-files as the source of truth for completeness.
+The route inventory is not repeated here, because a hand-kept table drifts.
+`src/server/route_manifest.py` (`ROUTE_MODULES`) lists every route by group
+(build/results, app shell, runtime, plan data, rental, plan config, pricing,
+spending, YTD, strategy/assets, portfolio, secrets, admin and so on), and
+`documentation/reference/API_CONTRACTS.md` documents the curated subset of
+stable contracts. Each group is served by one of the route files in section
+3.3 and delegates to the matching `src/server_services/*_service.py` module
+(for example the build routes to `build_service.py`, `build_job_service.py` and
+`report_service.py`; the plan-file lifecycle routes to `plan_file_service.py`;
+the rental routes to `rental_service.py`).
 
 ### 3.5 Workspace and paths
 
@@ -156,14 +145,20 @@ plan (`src/reference/demo_seed.rpx`) and the read-only reference database
    the only store of plan data. It holds the sectioned plan data (`plan_rows`:
    household, income, spending, assets, policy, switches and tier); the flat
    datasets as tables (`holdings_lots`, `liabilities`, `hsa_schedule`,
-   `target_allocation`, the `spending_*` tables and the `ytd_*` tables);
-   `build_results` (the KPI summary, Results Explorer model, report package,
-   build snapshot and pricing diagnostics of the last 5 builds); and
-   `plan_revisions`, `revision_rows` and `plan_meta`. The active plan is found
+   `target_allocation`, the `spending_*` tables and the `ytd_*` tables); the
+   typed tables of later features (`rental_*`, the broker, realized-sales,
+   wash-sale and tax-statement tables, `transactions` and its lot and account
+   tables, and the Monarch balance and reconciliation tables); `build_results`
+   (the KPI summary, Results Explorer model, report package, build snapshot and
+   pricing diagnostics of the last 5 builds); and `plan_revisions`,
+   `revision_rows`, `revision_datasets` and `plan_meta`. A saved `.rpx` is the
+   whole file, so it carries all of these, flat datasets included (the demo seed
+   `src/reference/demo_seed.rpx` has 41 tables at schema version 24;
+   `PLAN_SCHEMA_VERSION` in `src/stores/plan_store.py` is the migration count). The active plan is found
    by `src/active_plan.py` (`RETIREMENT_SYSTEM_PLAN_DB` or the plan registry).
    Readers use `active_plan_data()` / `load_active_config()`; every writer
    edits through `active_plan.edit_active_plan()` in one transaction. No CSV,
-   JSON or YAML file mirrors it. See `documentation/reference/PLAN_ROWS_MODEL.md`.
+   JSON or YAML file mirrors it. The row model is in section 4.6.
 1. **`<workspace>/local_state/app.db`** (`AppStore`, `src/app_state.py`;
    `RETIREMENT_SYSTEM_APP_DB` overrides the path) — per-install state that
    survives plan switches: `settings` (runtime settings, preferences, backup
@@ -238,7 +233,7 @@ The compare and restore endpoints in §3.4 use both.
   coverage backfill) into a `(section, subsection, label) → spec`
   map, used for validation, UI type inference, and `/api/config/rows`
   metadata.
-- `src/plan_data_migration.py` — a versioned (`PLAN_DATA_SCHEMA_VERSION = 5`)
+- `src/plan_data_migration.py` — a versioned (`PLAN_DATA_SCHEMA_VERSION = 6`)
   idempotent at-rest **label-rename** migration (e.g. `husband_*` →
   `member_1_*`), applied to the plan file's rows (in place,
   one transaction with rollback on error), run once at startup by `main.py`.
@@ -257,6 +252,88 @@ The compare and restore endpoints in §3.4 use both.
 Most plan facts use a six-column logical row: `section`, `subsection`,
 `label`, `value`, `units`, `notes` — used by the `csv_exchange` text form, the schema
 registry, UI rendering, and reporting inputs.
+
+### 4.6 Plan row model
+
+This is the current-state summary of the model behind `plan_rows`; the
+work-package history that produced it (WP4.1 to WP4.5, the removed CSV bridge
+and mirrors, the per-endpoint conversions) is archived in
+`documentation/archive/reference/PLAN_ROWS_MODEL.md`.
+
+**Keys and order.** A field is addressed by `(section, subsection, label)`.
+The key is unique in a plan, and `row_id` is stable for the life of the file and
+never reused after a delete (it is the grid's `row_index`). Rows inside a
+section are ordered by `(sort_order, row_id)`, and sections by creation (lowest
+`row_id`). `PlanStore.sectioned_data()` is the engine view
+`{section: {subsection: {label: value}}}`. Writes go through
+`set_value(section, subsection, label, value)` (update the row or append one) or,
+for the grid, `get_row` / `set_row` / `insert_row` / `delete_row` by `row_id`,
+inside `transaction()`; `revision()` changes on every edit and marks the last
+build stale.
+
+**Writers.** Every row writer (the grid, `/api/plan/forms`, the strategy and
+policy endpoints, the UI-row backfill, a blank plan) edits through
+`active_plan.edit_active_plan()`: one transaction on the plan file under its
+write lock. `/api/plan/forms` upserts by key (a posted key keeps its row and id;
+`replace: true` removes the keys of a named section that the payload omits).
+Block-shaped rows (`extra_N_*`, `buffer_N_*`, forced conversions, the residency
+schedule, spending adjustments) are replaced by key, so an existing row keeps its
+id and notes. After every row edit `roth_ui_build_guard.canonicalize_roth_rows`
+makes the Roth and IRMAA control rows canonical.
+
+**CSV is an exchange format only.** `src/csv_exchange` reads the plan CSV set
+(`client_data.csv` plus part files) into an empty plan in one transaction. Columns
+are found by header name (any order; `unit`/`type` and `note` accepted), cells are
+stripped, year-stamped labels are stored under their canonical name, and a record
+with a section but no label (or the reverse) is skipped and listed in the report.
+A repeated key collapses to one row, which keeps the first occurrence's position
+and takes the last occurrence's value, units and notes. A `#` comment directly
+above a data row is appended to that row's notes; an opening comment block and
+`====` lines are dropped and counted. Rows do not record the old part file they
+came from; for export `csv_exchange.part_file_for_section()` gives a section's
+primary file. Conversion step C3 (`src/legacy_conversion/steps/c3_plan_rows.py`)
+does this import for an old workspace, then applies the `plan_data_migration`
+renames, drops retired labels and writes the marker
+`plan_meta['legacy_conversion.c3']` (see `LEGACY_CONVERSION.md`).
+
+**Settings, switches and tier are ordinary rows.**
+
+| What | Row `(section / subsection / label)` | Values | No row means |
+|---|---|---|---|
+| Module toggle | `Optional Functions / "" / <feature key>` | `TRUE`/`FALSE` (`YES`, `1` read as on) | the module's `default_on` |
+| Plan flag | its `gate_ref`, e.g. `HELOC / Setup / heloc_enabled` | `TRUE`/`FALSE` | off |
+| Plan tier | `Plan Settings / Profile / plan_tier` | `simple`, `standard`, `advanced`, `expert` | `expert` |
+| "(customized)" | not stored: derived when the stored switches differ from the tier preset | | |
+
+`module_catalog.feature_row_key(key)` names a feature's row; `set_feature()` and
+`feature_enabled()` read and write these rows when given an open `PlanStore`.
+`module_catalog.tier_preset(tier)` is the cumulative set of switchable features
+at or below a tier, and `apply_tier(store, tier)` writes the tier row plus every
+switch that differs from the preset in one transaction, never touching entered
+data. A plan with no tier row reads as Expert and nothing is written until a tier
+is picked. Override rows over the read-only reference data live in the sections
+`Custom Capital Market`, `Custom Correlations` and `Custom Real Loss Curves`
+(`src/plan_overrides.py`).
+
+**Which old CSV sections went where.** For orientation when reading old exports:
+`client_household` held Household, Economic Assumptions, Payroll Tax, Wellness,
+Social Security and State Comparison; `client_income` held Earned Income,
+Retirement Contributions, S-Corp, Self-Employment and Income Streams;
+`client_spending` held Spending, Mortgage, Post-House-Sale Rent, Large
+Discretionary Expenses and Housing; `client_assets` held Other Assets, Liquidity
+Buffer, HSA Policy, Education Funding, Note Receivable, DAF, Hybrid LTC and
+Positions; `client_policy` held Account Policy, HELOC, Asset Allocation Policy,
+Asset Class Assumptions, Model Constants, Withdrawal Policy, Forced Actions,
+Scenarios and Reporting; `client_insurance_estate` held Annuity Death Benefits,
+Estate Planning, Insurance In Force and Equity Compensation;
+`client_business` held Business Succession; `client_optional_functions` held
+Optional Functions. Sections split across files are merged in the plan rows.
+
+Tests: `tests/test_plan_rows_fixture_equivalence_regression.py` (the key
+invariant), `test_csv_exchange_plan_csv_unit.py`,
+`test_plan_rows_feature_storage_unit.py`, `test_legacy_conversion_c3_unit.py`,
+`test_stores_plan_store_unit.py`. `tests/plan_fixture.make_plan` builds a plan
+file for a test workspace.
 
 ## 5. Build pipeline
 
@@ -311,7 +388,6 @@ flowchart TD
     MC --> Sheets["Build workbook sheets"]
     Sheets --> Structure["Merge/rename/reorder final sheet layout"]
     Structure --> Save["Save .xlsx"]
-    Save --> PDF["Render PDF from saved workbook"]
     Save --> HTML["Build offline HTML dashboard"]
     Save --> JSON["Store Results Explorer model in build_results"]
     Save --> Summary["Store summary, snapshot and report package in build_results"]
@@ -319,7 +395,7 @@ flowchart TD
 
 Output files land in `output/plans/<plan_id>/` (per plan; the shared `output/`
 folder is read only as a fallback for pre-WP7 builds): `retirement_plan.xlsx`,
-`retirement_plan.pdf`, `retirement_dashboard.html` and
+`retirement_dashboard.html` and
 `plan_database_snapshot.rpx`. The build's JSON parts (KPI summary, Results
 Explorer model, report package, build snapshot, pricing diagnostics) are
 columns of the plan file's `build_results` row, not files. The last build,
@@ -474,7 +550,7 @@ alimony/support modeling), and a stackable Combined Stress Test.
 ### 7.1 Shell
 
 `frontend/index.html` — a single-page shell: header with global actions
-(Save, Download Workbook/PDF, Exit), a left guided-steps navigator
+(Save Changes, Download Workbook, Exit), a left guided-steps navigator
 (`#sideNav`), a center pane (`#mainPane`, replaced wholesale on every
 render), and a right contextual-help pane. `frontend/admin.html` is a
 structurally parallel, separately-rooted shell for the admin console, driven
@@ -485,7 +561,7 @@ by `frontend/js/admin.js` rather than the dashboard scripts.
 This is not a bundler-based SPA. Dozens of `dashboard_decomp_*.js` files plus
 `dashboard.js` itself (several thousand lines) are loaded as a mix of classic
 `<script>` and ES `type="module"` tags. `dashboard.js` remains the core: it
-owns the `STEPS` catalog (about 30 guided steps with id/group/title/help), the
+owns the `STEPS` catalog (32 guided steps with id/group/title/help), the
 large `renderMain()` string-template switch, and dozens of module-level `let`
 globals (`rows`, `activeStep`, `planLoaded`, `holdingsChanged`, etc.). Each
 `dashboard_decomp_*` file is a mechanically extracted slice of that
@@ -516,6 +592,39 @@ navigation, with hand-rolled focus/selection/`<details>`-open-state
 preservation across the replace. Server communication is plain `fetch`/
 `api()` with CSRF tokens; there is no client-side router beyond `setStep(id)`.
 
+**Render hooks.** `frontend/js/render_hooks.js` defines `window.RPHooks`
+(`after(point, fn, order)` and `run(point, ...args)`), which replaced a chain of
+monkey-patched `renderMain` / `showStepHelp` wrappers. The base `renderMain()`
+and `showStepHelp(id)` in `dashboard.js` call `RPHooks.run(...)` after their own
+work. Hooks run in ascending numeric `order`, so the sequence is explicit rather
+than an accident of `<script>` order; a throwing hook is logged and does not stop
+later hooks. Modules register with `window.RPHooks?.after(...)`, so search for
+`RPHooks?.after` (not `RPHooks.after(`). The current registrations are:
+
+| Point | Order | Module | Hook |
+|---|---|---|---|
+| `renderMain` | 10 | `dashboard_decomp_tax_assumptions.js` | `taxInsertCard` |
+| `renderMain` | 20 | `dashboard_decomp_roth_guardrails.js` | `rgInsert` |
+| `renderMain` | 30 | `dashboard_source_truth_banners.js` | `applyEnhancements` |
+| `renderMain` | 40 | `dashboard_batch_assumption_edit.js` | `insertPanels` |
+| `showStepHelp` | 30 | `dashboard_source_truth_banners.js` | glossary decoration |
+
+`tests/frontend/wi015_script_order_wrapper_guard.test.mjs` fails if a module
+wraps `renderMain` outside `dashboard.js`, if two hook orders collide, or if the
+registry loads after a registrant. `renderMain` and `showStepHelp` stay `let`
+with a get+set `window` accessor only as a node-test stubbing seam
+(`tools/js_codemod/census.mjs`, `SETTABLE_TEST_SEAMS`); no production code
+assigns them.
+
+**Bundling decision: not now.** `frontend/index.html` loads 87 module scripts
+with hand-bumped `?v=` queries and window-global coupling. A bundler (for example
+esbuild) would add a Node build step to the PyInstaller release, and the node
+tests and several Python harnesses evaluate `dashboard.js` and the
+`dashboard_decomp_*` files as concatenated classic scripts. Load time and request
+count were not measured, so there is no evidence the local requests matter for a
+local-only app. Revisit if measured startup latency, CSP adoption (needs inline
+`onclick` removal) or cache-busting errors become a problem. Owner decision.
+
 ### 7.3 Navigation model
 
 Guided steps are grouped (in `STEPS`, `frontend/js/dashboard.js`): Plan
@@ -529,6 +638,8 @@ residency in Strategy → Optimize → Next Housing Move. Optional-module-gated
 steps show an explanatory placeholder when their module is off rather than
 being removed from navigation. Settings → Plan Features
 (`optional_functions`) is the one place optional modules are switched.
+
+Two nav aids sit on top of the groups (`frontend/js/dashboard_decomp_nav_features.js`, design `documentation/archive/superpowers/specs/2026-11-04-left-nav-redesign-design.md`). A **Set up | Maintain** switch changes emphasis only: Maintain lifts Track & Reconcile to the top, hides step numbers, opens Track & Reconcile by default, uses the Actual Spending to Reconciliation to Sales Ledger to Build & Results suggested-next chain and shows items needing attention instead of percent complete. The default is automatic (Set up while a required item is missing, otherwise Maintain) and a pick is remembered in browser storage. A per-heading **Features** icon opens a popover with Not enabled, Enabled and Always on sections. Each feature is listed under the group of the page where its inputs appear (`FEATURE_HOST`; a test fails when a catalog feature has no host), with its catalog domain as a topic tag. Its switch writes through the same setter as Plan Features (`setPlanFeatureSwitch`), and turning a feature off only hides it: saved entries are kept.
 
 #### 7.3.1 Housing optimizer and Next Housing Move
 
@@ -562,8 +673,6 @@ into one dated row per year and never annualizes.
 
 ## 8. Reporting/output architecture
 
-
-Two nav aids sit on top of the groups (`frontend/js/dashboard_decomp_nav_features.js`, design `documentation/archive/superpowers/specs/2026-11-04-left-nav-redesign-design.md`). A **Set up | Maintain** switch changes emphasis only: Maintain lifts Track & Reconcile to the top, hides step numbers, opens Track & Reconcile by default, uses the Actual Spending to Reconciliation to Sales Ledger to Build & Results suggested-next chain and shows items needing attention instead of percent complete. The default is automatic (Set up while a required item is missing, otherwise Maintain) and a pick is remembered in browser storage. A per-heading **Features** icon opens a popover with Not enabled, Enabled and Always on sections. Each feature is listed under the group of the page where its inputs appear (`FEATURE_HOST`; a test fails when a catalog feature has no host), with its catalog domain as a topic tag. Its switch writes through the same setter as Plan Features (`setPlanFeatureSwitch`), and turning a feature off only hides it: saved entries are kept.
 ### 8.1 Orchestration
 
 Entry point: `src/reporting/workbook_builder.py::main()`. Flow: load active
@@ -575,8 +684,7 @@ workbook sheet function-by-function into an `openpyxl.Workbook` →
 `apply_final_workbook_structure()` (merge/rename/reorder legacy build-time
 sheet names into final numbered tabs) → layout/format passes (column-width
 overrides, numeric centering, template layout, row-height minimization) →
-save `.xlsx` → post-save XML patch (chart title fonts) → generate PDF from
-the same saved workbook object → generate the HTML dashboard from the
+save `.xlsx` → post-save XML patch (chart title fonts) → generate the HTML dashboard from the
 workbook → store the Results Explorer model, KPI summary, build snapshot and
 report package in the build's `build_results` row.
 
@@ -598,12 +706,10 @@ openpyxl dependency. `src/dashboard_ui/builder.py` copies
 `frontend/` into `output/` so a built workbook bundle can open the offline
 dashboard without a running server.
 
-### 8.2 Four artifacts, one source of truth
+### 8.2 Three artifacts, one source of truth
 
 See `documentation/reference/FUNCTIONAL_SPEC.md` §5 for the audience-facing summary.
-Architecturally: the Excel workbook is canonical; the PDF renders every
-visible sheet of the *already-built* workbook object directly (not a
-separately maintained subset) so it cannot drift from Excel; the HTML
+Architecturally: the Excel workbook is canonical (there is no PDF output); the HTML
 dashboard re-opens the saved `.xlsx` with `data_only=True` and reads a
 hidden `_Chart Dashboard Data` helper sheet (falling back to deriving series
 from projection rows if the Charts module is off); the Results Explorer JSON
@@ -613,7 +719,7 @@ into a renderer-neutral semantic model (`ReportSpec`/`ReportPage`/
 `src/report_spec.py`), capped for browser performance
 (`DETAILED_RESULTS_SAFE_MAX_ROWS=260`, `CHART_MAX_POINTS=45`).
 
-`src/report_package.py` ties the four together: per-artifact existence/
+`src/report_package.py` ties the artifacts together: per-artifact existence/
 size/sha256/mtime, contract/schema versions, required-vs-optional status,
 and renderer roles — a QC/integrity layer, not a user-facing document.
 
@@ -680,7 +786,7 @@ as **present but inert**, not as enforced access control:
   to exact-scalar (§6.3); treat differences between the two as expected
   until a tolerance-bounded parity check exists.
 - `route_manifest.py` describes route *ownership* for tooling, not actual
-  route module boundaries (§3.3) — the four route files remain a single
+  route module boundaries (§3.3) — the five route files remain a single
   shared namespace.
 - Multi-tenant identifiers (`workspace_id`, `client_id`) persist throughout
   the codebase but are hardcoded to `"local"` everywhere they resolve

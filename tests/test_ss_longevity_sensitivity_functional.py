@@ -43,7 +43,7 @@ def _run():
 
 # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
 # check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# documentation/archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
 # triggered by an ordinary UI/config change, so it moved off the PR fast
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
@@ -59,7 +59,7 @@ def test_scores_three_longevity_variants_for_the_top_three_pairs():
 
 # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
 # check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# documentation/archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
 # triggered by an ordinary UI/config change, so it moved off the PR fast
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
@@ -84,7 +84,7 @@ def test_longevity_variants_actually_change_the_score():
 
 # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
 # check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# documentation/archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
 # triggered by an ordinary UI/config change, so it moved off the PR fast
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
@@ -104,7 +104,7 @@ def test_configured_variant_matches_the_scenarios_already_computed():
 
 # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
 # check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# documentation/archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
 # triggered by an ordinary UI/config change, so it moved off the PR fast
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
@@ -115,7 +115,7 @@ def test_flags_whether_the_recommendation_is_stable_across_longevity():
 
 # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
 # check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# documentation/archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
 # triggered by an ordinary UI/config change, so it moved off the PR fast
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly

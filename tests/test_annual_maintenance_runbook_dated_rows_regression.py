@@ -16,19 +16,12 @@ def test_runbook_states_the_dated_row_rule():
     assert "tax_law_v10.json" in RUNBOOK
 
 
-def test_runbook_names_every_value_family_in_the_dataset():
-    names = {r["name"] for r in json.loads((ROOT / "reference_src/tax_law_v10.json").read_text(encoding="utf-8"))["values"]}
-    # IRMAA/SALT families are listed in the runbook by prefix or range.
-    def covered(n):
-        if n.startswith("irmaa_tier"):
-            return "irmaa_tier1..5" in RUNBOOK
-        # ACA applicable-percentage band rows are listed by band range (WI-307).
-        for regime in ("original", "enhanced"):
-            if n.startswith(f"aca_applicable_pct_{regime}_band"):
-                return f"aca_applicable_pct_{regime}_band1.." in RUNBOOK
-        return n in RUNBOOK
-    missing = sorted(n for n in names if not covered(n))
-    assert not missing, f"runbook omits value families in tax_law_v10.json: {missing}"
+def test_runbook_points_at_the_dataset_and_register_instead_of_copying_the_family_list():
+    # One source: the dataset itself is the list of value families, and the
+    # register's section L records what each law assumes. The runbook must say so.
+    assert "tax_law_v10.json" in RUNBOOK
+    assert "PLANNING_ASSUMPTIONS_AND_EXPERT_DECISIONS_REGISTER.md" in RUNBOOK
+    assert "section L" in RUNBOOK
 
 
 def test_runbook_says_tax_constants_csv_is_gone_and_limits_are_plan_data():

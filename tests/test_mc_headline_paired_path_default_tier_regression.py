@@ -1,6 +1,6 @@
 """WI-036: default-tier guard on the vectorized replay headline vs the exact scalar engine.
 
-Small-n version of the study in documentation/reference/MC_PARITY_MEASUREMENT_WI036.md
+Small-n version of the study in documentation/archive/reference/MC_PARITY_MEASUREMENT_WI036.md
 (n=1000, three seeds). Paired paths remove sampling noise, so the bounds below are
 the measured gaps widened for n=40 granularity (one path is 2.5pp).
 

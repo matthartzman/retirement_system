@@ -104,7 +104,7 @@ before any item with a genuine product/architecture judgment call, not just a fi
   as the fifth — `F0_F1_F2_COMPLETION_SUMMARY.md` and/or `REMAINING_WORK_EXECUTION_PLAYBOOK.md` (a related but
   distinct F0-F5 phase-tracking pair). Rather than guess which is "superseded" and risk mischaracterizing a
   document, this item is purely additive: create one short index
-  (`documentation/reference/OPTIMIZATION_DOCS_INDEX.md`) listing every doc in this cluster with its actual date, one-line
+  (`documentation/archive/reference/OPTIMIZATION_DOCS_INDEX.md`) listing every doc in this cluster with its actual date, one-line
   purpose (read from its own status line/opening paragraph), and — only where the document's own content
   already says it supersedes or tracks another (e.g. `OPTIMIZATION_REFACTOR_STATUS.md` explicitly tracks the
   "Latest" plan) — that relationship. No existing document is deleted, renamed, or edited beyond an optional

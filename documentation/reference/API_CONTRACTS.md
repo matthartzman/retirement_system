@@ -1,6 +1,6 @@
 # API Contracts
 
-Generated: 2026-06-29 (partially updated 2026-09-30)
+Generated: 2026-06-29; edited piecemeal since, last content edit 2026-10-16, checked for stale claims 2026-11-12. Not a full route inventory (see the scope note).
 
 Scope note: this document covers the high-value contracts only. The authoritative list of every registered route is `src/server/route_manifest.py` (served at `/api/contracts`), which `tests/test_api_contracts_and_route_manifest_contract.py` keeps equal to the registered routes.
 
@@ -223,7 +223,7 @@ Response schema:
 - `schema_errors`, `schema_error_count`.
 - `row_count`.
 - `db`: plan file metadata.
-- `artifacts`: workbook/PDF/dashboard/results/summary/snapshot/pricing metadata.
+- `artifacts`: workbook/dashboard/results/summary/snapshot/pricing metadata.
 - `summary`: the build's KPI summary (`build_results` row) when available.
 - `snapshot`: parsed `build_snapshot_v1` when available.
 - `snapshot_schema`.
@@ -324,7 +324,7 @@ Response:
 - `schema`: `report_package_v1`.
 - `build_id`: build identifier shared with the build's `build_results` row (summary and snapshot parts) when available.
 - `contracts`: component schema names, including `results_model_v10` and `build_snapshot_v1`.
-- `artifacts`: workbook, PDF, dashboard, Results Explorer model, summary, snapshot, and pricing artifact metadata with hashes when files exist.
+- `artifacts`: workbook, dashboard, Results Explorer model, summary, snapshot, and pricing artifact metadata with hashes when files exist.
 - `components`: concise component summaries for the semantic results model and build snapshot.
 - `summary`: copied KPI summary from the build's `build_results` row.
 
@@ -333,7 +333,7 @@ Failure:
 
 Build behavior:
 - Successful builds store the report package in the build's `build_results` row, after the Results Explorer model, KPI summary, and build snapshot are produced.
-- The package treats Excel/PDF/HTML as renderers of the advisor report bundle, while `results_model_v10` remains the canonical semantic report model.
+- The package treats Excel/HTML as renderers of the advisor report bundle, while `results_model_v10` remains the canonical semantic report model.
 
 ## `/api/plan/backups`
 

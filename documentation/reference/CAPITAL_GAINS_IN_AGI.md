@@ -1,6 +1,6 @@
 # Capital gains from sales in AGI, MAGI and IRMAA MAGI (H1)
 
-Status (WI-024 phase 1, 2026-10-20): **investment-sale gains now count in IRMAA MAGI** (net realized brokerage gain after loss usage, read by the two-year lookback; see section 7). Phase 2 (WI-024, 2026-10-20) is also done: brokerage gains now count in NIIT MAGI (inside the cascade fixed-point loop), ACA MAGI and Social Security taxation. Plain-language summary: `release_notes/2026-10-engine-tax-correctness.md`.
+Status (WI-024 phase 1, 2026-10-20): **investment-sale gains now count in IRMAA MAGI** (net realized brokerage gain after loss usage, read by the two-year lookback; see section 6). Phase 2 (WI-024, 2026-10-20) is also done: brokerage gains now count in NIIT MAGI (inside the cascade fixed-point loop), ACA MAGI and Social Security taxation. Plain-language summary: `documentation/reference/release_notes/2026-10-engine-tax-correctness.md`.
 
 Status: **approved 2026-10-13** (scope: home and rental sales only; other AGI-keyed rules stay as they are; sale-year vs lookback confirmed) and implemented. No golden value moved (no sale in any golden).
 Rental constants were verified against 2025 rules by the household's tax preparer on 2026-10-13; this note
@@ -75,14 +75,16 @@ Frozen sample plan and demo plan: **no sale in either plan (home_sale_year 0, re
 | rental_sale_recapture (rental sold 2035) | 7 agi, 21 total_tax | AGI 381,675 to 546,094 | 2037 tier 2 to 4, surcharge 9,806 to 21,595 |
 | owner_shaped (converted home sold 2029 + rental sold 2035) | 25 agi, 28 total_tax | both sale years as above | 2031 tier 1 to 4; 2037 tier 2 to 4 |
 
-Every moved cell for the fixtures is listed by scenario, year and column in `H1_BEFORE_AFTER_FIXTURES.txt`
-beside this note (columns: agi, irmaa_magi_current, irmaa_magi_used, irmaa_tier, irmaa, niit, fed_tax,
+Every moved cell for the fixtures is listed by scenario, year and column in `documentation/archive/reference/H1_BEFORE_AFTER_FIXTURES.txt`
+(archived; columns: agi, irmaa_magi_current, irmaa_magi_used, irmaa_tier, irmaa, niit, fed_tax,
 state_tax, ltcg_gain, total_tax, taxable_inc). Later-year changes of a few hundred dollars come from the
 optimizer re-sizing conversions and withdrawals once the sale-year MAGI is higher.
-After approval the same counts will be produced for the golden workbook sheets and recorded in
-`GOLDEN_MASTER_CHANGELOG`; for the owner's real plan only counts and column names will be reported.
+The same counts for the golden workbook sheets are recorded in
+`GOLDEN_MASTER_CHANGELOG.md`; for the owner's real plan only counts and column names were reported.
 
 ## 5. Decisions (answered 2026-10-13: 1 home and rental sales only, 2 stay as they are, 3 confirmed)
+
+The questions below are kept as asked; the answers are in the heading and in sections 6 and 7. Where an item says "Proposed" or "Recommendation", read it as the question that was put to the owner.
 
 1. **Scope.** Proposed: home sales and rental sales (the owner's decision). The same gap exists for LTCG
    realised by selling investments in taxable accounts (the cascade's `ltcg_gain`): that gain is also missing
@@ -100,7 +102,7 @@ After approval the same counts will be produced for the golden workbook sheets a
 
 Not in scope: section 121 partial exclusions, installment sales, gifts, deaths (H5).
 
-## 7. WI-024 phase 1: brokerage gains in IRMAA MAGI (FIN-001)
+## 6. WI-024 phase 1: brokerage gains in IRMAA MAGI (FIN-001)
 
 The net gain realized by selling taxable holdings in the withdrawal cascade (cascade `ltcg_gain` less capital-loss usage against gains, less the home/rental sale gain already added in H1) is added to `irmaa_magi_current` after the cascade settles (`deterministic_engine.py`, after Priority 4b); recorded on the row as `brokerage_gain_in_irmaa_magi`. Reported AGI, NIIT MAGI, ACA MAGI and Social Security taxation are unchanged (phase 2). The lookback already uses the prior return's own filing status (`irmaa_lookback_magi_and_filing`).
 
@@ -108,7 +110,7 @@ Closed form (`tests/test_wi024_irmaa_magi_brokerage_gain_regression.py`): MFJ, 2
 
 Frozen sample plan: financial outputs do not move (terminal NW, lifetime tax, Roth conversions, lifetime IRMAA 86,777.60, every KPI and every IRMAA tier unchanged). Only 16 diagnostic cells per column change: `irmaa_magi_current`, `irmaa_magi_used` and the new `brokerage_gain_in_irmaa_magi` (largest shift +9,855 in 2027 into the 2029 lookback). The golden pins therefore hold; the phase-golden row baseline, which records those diagnostic cells, is stale for them.
 
-## 8. State income tax on capital gains (2026-10-29)
+## 7. State income tax on capital gains (2026-10-29)
 
 Decision 4 above left state tax "as today", and today was wrong: the stage-9 state base
 (`roth_conversion_and_agi_tax.py`, `investment_inc = note_int + portfolio_ordinary + portfolio_qualified`) never

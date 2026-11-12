@@ -1,4 +1,4 @@
-_See `documentation/reference/OPTIMIZATION_DOCS_INDEX.md` for how this document relates to the other optimization-planning docs in this directory._
+_See `documentation/archive/reference/OPTIMIZATION_DOCS_INDEX.md` for how this document relates to the other optimization-planning docs in this directory._
 
 # Optimization Refactor — Status
 

@@ -17,7 +17,7 @@ CANDIDATES = [
     "allow_csv_write", "clients_file", "build_queue_enabled", "server_side_path_roots",
     "secrets_store", "master_key", "config_backend",
 ]
-SKIP = ("docs/superpowers/", "documentation/archive/", "node_modules/", ".git/", "tools/wp11_reachability.py", "documentation/reference/WP11_REACHABILITY.md")
+SKIP = ("docs/superpowers/", "documentation/archive/", "node_modules/", ".git/", "tools/wp11_reachability.py", "documentation/archive/reference/WP11_REACHABILITY.md")
 
 
 def hits(name: str) -> list[str]:

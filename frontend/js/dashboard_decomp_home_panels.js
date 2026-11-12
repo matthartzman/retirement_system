@@ -7,7 +7,7 @@
 
 // WI-009: '+/-tol' only for Roth policies measured within tolerance, else
 // 'directional'. Mirrors MC_PARITY_DEMONSTRATED_POLICIES (planning_engines.py);
-// see documentation/reference/MC_PARITY_MEASUREMENT_WI009.md.
+// see documentation/archive/reference/MC_PARITY_MEASUREMENT_WI009.md.
 export const MC_TOLERANCE_DEMONSTRATED_POLICIES = ["none", "fill_to_bracket", "optimize_terminal_tax"];
 export function mcSuccessDisclosure(summary, rothPolicy) {
   let label = "Probability plan is fully funded (funded as asked)";

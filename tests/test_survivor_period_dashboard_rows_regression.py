@@ -65,7 +65,7 @@ def test_vectorized_batch_surfaces_survivor_period_probabilities_in_range():
 
 # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
 # check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# documentation/archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
 # triggered by an ordinary UI/config change, so it moved off the PR fast
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
@@ -93,7 +93,7 @@ def test_monte_carlo_output_carries_survivor_period_metrics_vectorized():
 
 # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
 # check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# documentation/archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
 # triggered by an ordinary UI/config change, so it moved off the PR fast
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly

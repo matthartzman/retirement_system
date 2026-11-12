@@ -232,7 +232,7 @@ def _scalar_mc_run_paths(st):
         # balance trajectory is a materially bigger and more consequential
         # decision than adding genuine tier-attribution reporting, and was
         # not part of what this increment's product decision covered. See
-        # documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md for the open
+        # documentation/archive/reference/OPTIMIZATION_REFACTOR_STATUS.md for the open
         # question this leaves: the vectorized engine's headline success
         # rate DOES already reflect genuine redirection (its unfunded/
         # success computation and its tier cascade share one recursion), so
@@ -931,7 +931,7 @@ def _mc_headline_result(st):
         # WI-036: the replay headline re-uses the deterministic engine's per-bucket
         # draws, so a base plan that already runs into a shortfall is not
         # re-funded in full on each sampled path and the headline is optimistic
-        # by 6 to 65pp (documentation/reference/MC_PARITY_MEASUREMENT_WI036.md).
+        # by 6 to 65pp (documentation/archive/reference/MC_PARITY_MEASUREMENT_WI036.md).
         # The +/-tolerance holds only when the base plan is fully funded.
         'mc_base_plan_shortfall': base_plan_shortfall,
         'mc_approximation_status': 'BASE_PLAN_SHORTFALL' if base_plan_shortfall else 'TOLERANCE_BOUNDED',

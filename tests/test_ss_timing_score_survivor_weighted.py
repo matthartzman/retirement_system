@@ -39,7 +39,7 @@ def _run(config_overrides=None):
 
 # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
 # check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# documentation/archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
 # triggered by an ordinary UI/config change, so it moved off the PR fast
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
@@ -65,7 +65,7 @@ def test_score_is_lcv_score_plus_weighted_survivor_period_ss_income():
 
 # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
 # check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# documentation/archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
 # triggered by an ordinary UI/config change, so it moved off the PR fast
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
@@ -88,7 +88,7 @@ def test_survivor_years_reflects_fixed_mortality_not_claim_timing_mismatch():
 
 # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
 # check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# documentation/archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
 # triggered by an ordinary UI/config change, so it moved off the PR fast
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
@@ -105,7 +105,7 @@ def test_survivor_period_ss_income_varies_meaningfully_across_claim_age_pairs():
 
 # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
 # check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# documentation/archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
 # triggered by an ordinary UI/config change, so it moved off the PR fast
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
@@ -123,7 +123,7 @@ def test_survivor_weight_is_load_bearing_not_a_no_op():
 
 # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
 # check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# documentation/archive/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
 # triggered by an ordinary UI/config change, so it moved off the PR fast
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly

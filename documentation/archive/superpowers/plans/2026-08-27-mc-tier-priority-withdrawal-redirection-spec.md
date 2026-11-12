@@ -1,6 +1,6 @@
 # Genuinely Redirecting Withdrawal Requests by Tier Priority — Spec
 
-Next increment named in `documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md`'s
+Next increment named in `documentation/archive/reference/OPTIMIZATION_REFACTOR_STATUS.md`'s
 "Not done" list: *"Genuinely redirecting withdrawal requests (not just
 reporting attribution) by tier priority inside the MC engines — which
 bucket (taxable/pretax/roth/cash/HSA) gets drawn down to fund which tier...

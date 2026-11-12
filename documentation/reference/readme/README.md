@@ -1,7 +1,7 @@
 # Retirement Planner
 
 A local-only retirement planning workspace. You enter your plan, the app saves
-it to a database on this computer, and it builds an Excel/PDF report package
+it to a database on this computer, and it builds an Excel and HTML report package
 you can review with an advisor.
 
 - **Where to start:** open the app and begin on **Plan Status** (the first item
@@ -26,7 +26,7 @@ ticker symbols of your holdings, and your IP address, are sent to those
 services. Choose **CACHE** or **OFFLINE** pricing mode to stop this (**Settings → Data & Backups → Open
 System Configuration Console**, then the **pricing_mode** setting): OFFLINE makes no outside calls
 at all and uses saved prices (or your cost basis when none exist). Use the
-in-app **Build & Results** page to generate the Excel/PDF report package once your
+in-app **Build & Results** page to generate the Excel and HTML report package once your
 Plan Data is complete.
 
 ## Optional features

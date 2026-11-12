@@ -2,7 +2,7 @@
 
 Optimization refactor, next increment after PR #64 (tier-priority MC
 spending-cut reporting). **Design only — no code in this document.**
-Picks up the "Not done" item in `documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md`:
+Picks up the "Not done" item in `documentation/archive/reference/OPTIMIZATION_REFACTOR_STATUS.md`:
 *"Contingent-liability funding rules."* That doc gives no further detail
 beyond the name — the plan itself never specified what a "funding rule"
 should mean, so this document works it out from the engine's current
