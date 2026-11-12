@@ -5585,6 +5585,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "dismissMessage",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_rental_properties.js",
       "kind": "call",

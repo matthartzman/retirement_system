@@ -13,11 +13,11 @@ npm ci
 
 `scipy` and `keyring` are core runtime requirements (`requirements.txt`), not optional: the solver and efficient-frontier tests need scipy and the secrets-store tests need keyring, so they are never skipped. The dashboard codemod tests and the Playwright suite need `node_modules` (`npm ci`). `pytest` runs from the repo root with no `PYTHONPATH` (`pythonpath` is set in `pyproject.toml`). Node 22 is needed for `node --test` glob patterns.
 
-## Which tier to run
+## What level of change needs what level of testing
 
 | Change | Minimum before moving on | Also before calling it done |
 |---|---|---|
-| Iterating on one function or file | Targeted: `pytest tests/test_x.py -v` (or `::test_name`) | Fast tier |
+| Iterating on one function or file | Targeted tier: `pytest tests/test_x.py -v` (or `::test_name`) | Fast tier |
 | Any other non-trivial change | Fast tier | none |
 | `workbook_builder.py`, `projection_pipeline.py`, anything under `src/reporting/`, or the build/report pipeline | Fast tier | Full suite |
 | A golden-master fixture or the frozen sample plan (`tests/fixtures/csv_exchange/sample_plan_frozen/`) | Fast tier | Full suite, after `python tools/regen_golden_master.py measure` (see `GOLDEN_MASTER_RECOVERY_RUNBOOK.md`) |
@@ -33,6 +33,7 @@ Docs-only changes (everything under `documentation/` or a `.md` file) skip CI en
 |---|---|
 | Fast loop | `pytest -m "not slow"` |
 | Fast gate (what the PR job runs) | `pytest tests/ -m "not slow and not nightly" -n auto --dist loadfile --max-worker-restart=0 --timeout=300 --timeout-method=thread -q` |
+| Full suite, parallel (local) | `pytest tests/ -n auto --tb=short -q` |
 | Full suite (what nightly runs) | `pytest tests/ -n auto --dist loadfile --timeout=600 --timeout-method=thread -q` |
 | Single test | `pytest tests/test_x.py::test_name -v` |
 | Serial re-run of failures | `pytest tests/ --lf -q` |
