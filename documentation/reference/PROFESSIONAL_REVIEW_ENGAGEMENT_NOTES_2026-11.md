@@ -43,6 +43,24 @@ Why we ask: the engine only needs a yes or no (`qbi_sstb`) plus the wage and pro
 
 > The Illinois pass-through entity tax election was not made for 2026. (a) Confirm that it therefore cannot apply to 2026. (b) For 2027, when and how must the election be made (on a timely filed entity return, or earlier by estimated payment), and what is the deadline? (c) Is the election annual, or does it carry forward until revoked? (d) Confirm the rate and that the owner's Illinois credit equals the tax paid.
 
+### Answers received 2026-11-11 (relayed by the plan owner, not yet in writing from the CPA)
+
+| # | Question | Answer |
+|---|---|---|
+| 1 | Business is an SSTB (and would anything make it one later) | "Yes" (reads as: SSTB. Confirm the owner meant this, not only the "later change" half) |
+| 2 | Does SSTB status change the deduction at projected income | No (income is below the threshold, so it does not bind today) |
+| 3 | Owner S-corp salary is the full W-2 wage base | Yes |
+| 4 | PTE election cannot apply to 2026 | Correct |
+| 5 | Election made on the timely-filed entity return; deadline | Yes, April 15 |
+| 6 | Election is annual, not carried forward | Annual |
+| 7 | 4.95% rate and owner credit equals tax paid | Yes |
+| 8 | Elect PTE for 2027 | No |
+| 9 | Non-itemizer charitable deduction (IRC 170(p)) as modeled | Yes |
+| 10 | SEHI iterative method differs materially / premiums out of itemized medical | "No" (ambiguous: confirm which half this answers) |
+| 11 | Wash-sale rule W1 | Yes |
+
+Consequences: `qbi_sstb` TRUE (pending the confirmation in row 1); `pte_election` stays off for the 2027 plan year, and the election is an annual choice, so the plan should treat it as made year by year, not carried forward.
+
 ## Status
 
 - [ ] CPA engaged (date, firm): ____
