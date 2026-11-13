@@ -153,6 +153,35 @@ def test_cache_fetched_at_reports_oldest_symbol():
     assert cache.age_seconds(["ITOT", "AVUV"]) == 10
 
 
+def test_stuck_provider_returns_last_quotes_instead_of_hanging():
+    import threading
+    release, calls, clock = threading.Event(), [], _Clock()
+
+    def fetch(symbols):
+        calls.append(sorted(symbols))
+        if len(calls) > 1:
+            release.wait(5)
+        return {s: {"symbol": s, "price": 10.0 + len(calls)} for s in symbols}
+
+    cache = ls.LiveQuoteCache(fetch=fetch, ttl=30, clock=clock, deadline=0.2)
+    assert cache.get(["ITOT"])["ITOT"]["price"] == 11.0
+    clock.t += 31
+    out = cache.get(["ITOT"])                      # provider stalls: the previous quote comes back at once
+    assert out["ITOT"]["price"] == 11.0 and cache.last_fetch_timed_out
+    cache.get(["ITOT"])                            # still waiting on the same fetch, not starting another
+    assert len(calls) == 2
+    release.set()
+    cache._pending[0].join(2)
+    assert cache.get(["ITOT"])["ITOT"]["price"] == 12.0 and not cache.last_fetch_timed_out
+
+
+def test_provider_error_still_propagates():
+    def boom(symbols):
+        raise RuntimeError("provider down")
+    with pytest.raises(RuntimeError, match="provider down"):
+        ls.LiveQuoteCache(fetch=boom).get(["ITOT"])
+
+
 # ---- year-end baseline prices ----
 
 def test_baseline_date_is_last_trading_day_of_prior_year():
