@@ -140,16 +140,46 @@ class LiveQuoteCache:
     """Per-symbol quotes kept ``ttl`` seconds and shared by every request, so several tabs or a
     Refresh-now click never multiply provider calls. One lock: concurrent requests wait for the
     fetch in flight instead of starting their own. ``force`` (Refresh now) still refetches at
-    most once per ``min_force_interval`` seconds."""
+    most once per ``min_force_interval`` seconds. A fetch that outlives ``deadline`` seconds (a slow or
+    stuck provider: the provider's own timeouts add up per symbol) is abandoned in the background and
+    the last known quotes are returned, so the page never hangs behind it."""
 
     def __init__(self, fetch: Callable[[Iterable[str]], dict] = _default_fetch, *, ttl: float = 30.0,
-                 min_force_interval: float = 10.0, clock: Callable[[], float] = time.monotonic):
+                 min_force_interval: float = 10.0, clock: Callable[[], float] = time.monotonic,
+                 deadline: float = 25.0):
         self._fetch = fetch
         self._ttl = ttl
         self._min_force_interval = min_force_interval
         self._clock = clock
+        self._deadline = deadline
         self._lock = threading.Lock()
         self._quotes: dict[str, tuple[float, dict[str, Any]]] = {}
+        self._pending: tuple[threading.Thread, dict[str, Any]] | None = None   # an abandoned, still-running fetch
+        self.last_fetch_timed_out = False
+
+    def _fetch_with_deadline(self, stale: list[str]) -> dict | None:
+        """Quotes for ``stale``, or None if the provider didn't answer in time (it keeps running; its
+        late answer is picked up by the next call instead of starting a second fetch on top of it)."""
+        if self._pending is None:
+            box: dict[str, Any] = {}
+
+            def work() -> None:
+                try:
+                    box["quotes"] = self._fetch(stale) or {}
+                except BaseException as exc:  # noqa: BLE001 - re-raised on the caller's thread
+                    box["error"] = exc
+
+            thread = threading.Thread(target=work, name="live-quote-fetch", daemon=True)
+            thread.start()
+            self._pending = (thread, box)
+        thread, box = self._pending
+        thread.join(self._deadline)
+        if thread.is_alive():
+            return None
+        self._pending = None
+        if "error" in box:
+            raise box["error"]
+        return box.get("quotes") or {}
 
     def get(self, symbols: Iterable[str], *, force: bool = False) -> dict[str, dict[str, Any]]:
         wanted = sorted({str(s).strip().upper() for s in symbols if str(s).strip()})
@@ -157,9 +187,14 @@ class LiveQuoteCache:
             now = self._clock()
             limit = self._min_force_interval if force else self._ttl
             stale = [s for s in wanted if s not in self._quotes or now - self._quotes[s][0] >= limit]
+            self.last_fetch_timed_out = False
             if stale:
-                for sym, quote in (self._fetch(stale) or {}).items():
-                    self._quotes[str(sym).upper()] = (now, quote)
+                fetched = self._fetch_with_deadline(stale)
+                if fetched is None:
+                    self.last_fetch_timed_out = True
+                else:
+                    for sym, quote in fetched.items():
+                        self._quotes[str(sym).upper()] = (now, quote)
             return {s: self._quotes[s][1] for s in wanted if s in self._quotes}
 
     def age_seconds(self, symbols: Iterable[str]) -> float | None:

@@ -192,6 +192,21 @@
   .chip.warn { display: inline-block; border: 1px solid #b45309; color: #b45309; border-radius: 999px; padding: 1px 8px; font-size: 12px; }
   .pos { color: #15803d; } .neg { color: #b42318; }
   @media (prefers-color-scheme: dark) { .pos { color: #4ade80; } .neg { color: #ff8a80; } .chip.warn { color: #fbbf24; border-color: #fbbf24; } }
+  .live-actions button.is-busy { cursor: progress; opacity: .75; background-image: linear-gradient(90deg, transparent, rgba(120,120,120,.25), transparent); background-size: 200% 100%; animation: rdShimmer 1.2s linear infinite; }
+  .live-stamp { font-size: 12px; }
+  @keyframes rdShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  .refresh-dlg { position: fixed; right: 20px; bottom: 20px; z-index: 1000; width: 320px; max-width: calc(100vw - 40px); background: #fff; color: #1a1a1a; border: 1px solid #ccc; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.22); padding: 12px 14px; font-size: 13px; }
+  .refresh-dlg[hidden] { display: none; }
+  .refresh-dlg[data-state="ok"] { border-color: #2e7d32; }
+  .refresh-dlg[data-state="err"] { border-color: #b42318; }
+  .refresh-dlg-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .refresh-dlg-x { border: 0; background: none; font-size: 20px; line-height: 1; cursor: pointer; color: inherit; padding: 0 4px; }
+  .refresh-bar { height: 6px; border-radius: 3px; background: rgba(128,128,128,.25); overflow: hidden; margin-bottom: 8px; }
+  .refresh-bar i { display: block; height: 100%; width: 35%; background: #2563eb; border-radius: 3px; animation: rdSlide 1.1s ease-in-out infinite; }
+  @keyframes rdSlide { from { margin-left: -35%; } to { margin-left: 100%; } }
+  .refresh-foot { margin-top: 8px; color: #666; }
+  .refresh-retry { border: 1px solid #ccc; border-radius: 6px; padding: 4px 12px; background: #fff; color: inherit; cursor: pointer; }
+  @media (prefers-color-scheme: dark) { .refresh-dlg { background: #1e2126; color: #e8e8ea; border-color: #3a3d44; } .refresh-foot { color: #a0a3aa; } .refresh-retry { background: #14161a; border-color: #3a3d44; } }
   .live-error { color: #b42318; font-size: 13px; }
   @media (prefers-color-scheme: dark) { .live-error { color: #ff8a80; } }
   .live-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
