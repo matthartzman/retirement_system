@@ -300,7 +300,12 @@ remote users, so it stays inside the minimum slice.
   Mandatory TOTP enrolment at first login. User account lifecycle runbook: create, disable, delete (account,
   profile, folder), password rotation.
 - Service wrapper, no-sleep policy, health page, log rotation.
-- Nightly encrypted backup of `data/users/` and `gateway.db` to a non-synced location, with a tested restore.
+- Nightly encrypted backup of `data/users/` and `gateway.db`, run by the gateway (always-on server), to a
+  **configurable destination** that defaults to a folder on the same server outside the synced and user-readable
+  trees; retention count configurable; a tested restore, including restoring one user without touching others.
+  The destination setting is admin-only and goes through the same path-confinement review as other stored
+  paths, since it is a server-side path (it is set by an admin, never by a user). The backup is encrypted with a
+  key kept separately from the backup folder, so copying the folder elsewhere later is safe.
 - **Upgrades:** an offline "migrate all users" command that backs up each user first and reports failures,
   because startup migration swallows failures by design (`src/bootstrap.py:141-147`) and each user would
   otherwise migrate lazily, possibly several versions late. Include a rollback procedure.
@@ -356,9 +361,14 @@ Settled by the owner (later the same day):
    Monarch sync) once token refresh is understood.
 10. The owner is the only admin now, but **a second admin must be possible**: see Phase 2.
 
-Still open:
-11. Where does the nightly encrypted backup go? It must be a non-synced location (not OneDrive), ideally on a
-    different disk or machine from the data.
+11. The nightly encrypted backup goes **on the same server for now, and the destination is configurable** (a
+    gateway setting, changeable without code changes). Same-server backups protect against deletion and bad
+    upgrades but not against disk failure, theft or ransomware; the plan keeps the setting so a second disk, a
+    network share or an off-site target can be pointed at later. Whatever the target, it must stay out of
+    synced folders such as OneDrive.
+
+Nothing is open at the decision level; the only unverified items are the Phase 0 checks (per-user accounts,
+Funnel, Monarch connector).
 
 ## Risks
 
