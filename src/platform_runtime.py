@@ -116,6 +116,8 @@ def seed_frozen_workspace() -> bool:
     root = workspace_root()
     if not is_frozen() or root == package_root():
         return False
+    if _env_flag("RETIREMENT_SYSTEM_REMOTE_MODE"):  # a remote worker is provisioned explicitly (src/remote_worker.py)
+        return False
     ensure_workspace_dirs()
     from .app_state import open_app_store  # noqa: PLC0415 - keep this module import-free at load time
     with open_app_store():
