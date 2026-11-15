@@ -739,7 +739,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/reconcile.py` | `portfolio_analytics` | — |
 | `src/reconcile_sale_hints.py` | — | — |
 | `src/remote_mode.py` | — | — |
-| `src/remote_worker.py` | `src`, `active_plan`, `blank_plan`, `bootstrap`, `http_runtime.host_guard`, `http_runtime.server`, `server`, `stores` | — |
+| `src/remote_worker.py` | `src`, `active_plan`, `blank_plan`, `bootstrap`, `http_runtime.host_guard`, `http_runtime.server`, `server` | — |
 | `src/rental_tax.py` | `tax_law` | — |
 | `src/report_compute.py` | `data_io`, `governance`, `limitation_notices`, `local_store`, `market_data`, `plan_config`, `planning_engines`, `projection_pipeline`, `report_spec`, `result_contract`, `results_model`, `workspace_context` | — |
 | `src/report_package.py` | `active_plan`, `build_snapshot`, `results_model`, `version` | — |
