@@ -75,12 +75,16 @@ def provision(workspace: Path, how: str) -> str:
         plan_file.with_name(plan_file.name + suffix).unlink(missing_ok=True)
     tmp.replace(plan_file)
     if how == "blank":
+        # Start New Plan on the fresh copy: the workspace plan is the active plan at this point
+        # (the registry bootstraps to it), and plan rows are edited only through active_plan.
+        from src import plan_registry  # noqa: PLC0415
+        from src.active_plan import active_plan_path, edit_active_plan  # noqa: PLC0415
         from src.blank_plan import blank_plan_rows  # noqa: PLC0415
-        from src.stores import PlanStore  # noqa: PLC0415
 
-        with PlanStore.open(plan_file, create=False) as store:
-            with store.transaction():
-                blank_plan_rows(store)
+        if not plan_registry.same_path(active_plan_path(), plan_file):
+            raise RuntimeError("blank provisioning needs the workspace plan to be the active plan")
+        with edit_active_plan(protect_values=False) as edit:
+            blank_plan_rows(edit.store)
     if not plan_file_has_rows(plan_file):
         raise RuntimeError("provisioning the workspace plan imported no rows")
     return how

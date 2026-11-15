@@ -22,6 +22,19 @@ from src.server import remote_allowlist
 TOKEN = "test-worker-token-0123456789"
 
 
+@pytest.fixture(autouse=True)
+def _live_workspace_constant(monkeypatch):
+    """``app_core.WORKSPACE_ROOT`` is frozen when ``app_core`` is first imported. A real worker
+    pins the workspace before that import; in a shared pytest worker another test may have
+    imported it under a different, monkeypatched workspace, and then the resolver (which checks
+    the live root) would rightly refuse every path built from the stale constant."""
+    from src.server import base_routes, plan_routes, workbook_routes
+
+    live = platform_runtime.workspace_root()
+    for module in (app_core, base_routes, plan_routes, workbook_routes):
+        monkeypatch.setattr(module, "WORKSPACE_ROOT", live, raising=False)
+
+
 @pytest.fixture
 def remote(monkeypatch):
     monkeypatch.setenv(remote_mode.REMOTE_MODE_ENV, "1")
