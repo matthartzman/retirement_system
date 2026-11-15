@@ -59,6 +59,8 @@ from .app_core import (
     workspace_output_dir,
 )
 from ..workspace_context import legacy_output_dir
+from .. import remote_mode
+from ..active_plan import plan_file_has_rows
 from ..http_runtime.wsgi_facade import Response
 from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
 
@@ -73,6 +75,26 @@ from ..active_plan import active_plan_path, clear_build_results, peek_plan_data,
 # Plan Data load/save materialization ensures current UI rows:
 # _ensure_user_ui_plan_data_rows()
 _BUILD_JOBS = build_job_service.BuildJobRegistry()
+
+EMPTY_PLAN_BUILD_MESSAGE = (
+    "This plan has no plan data yet, so there is nothing to build. Open the demo plan, start a new plan, "
+    "or upload a saved plan (.rpx) first."
+)
+
+
+def _legacy_output_fallback() -> Path | None:
+    """The pre-WP7.3 shared ``output/`` beside the package, read when a file is missing from the
+    plan's own output folder. Remote mode item 4: never in remote mode (the package root is the
+    install's shared folder)."""
+    return None if remote_mode.enabled() else legacy_output_dir(BASE_DIR)
+
+
+def _empty_plan_refusal():
+    """Remote mode: refuse a build on a plan with no rows with a clear message (Phase 0 found the
+    build otherwise fails about 2 s later with an unexplained error)."""
+    if remote_mode.enabled() and not plan_file_has_rows(active_plan_path()):
+        return jsonify({"success": False, "error": EMPTY_PLAN_BUILD_MESSAGE, "empty_plan": True}), 409
+    return None
 
 _CURRENT_BUILD_OUTPUT_FILES = [
     "retirement_plan.xlsx",
@@ -205,6 +227,9 @@ def build_start():
             "success": False,
             "error": "Direct CSV payloads are no longer accepted by the build endpoint. Edit the plan in the app, then build outputs from the saved plan.",
         }), 400
+    refused = _empty_plan_refusal()
+    if refused:
+        return refused
 
     # QA-001: never start a build while preflight reports blockers (blank required values,
     # schema validation issues); the build would otherwise run on parser fallbacks.
@@ -237,7 +262,7 @@ def build_start():
     # exactly the condition that triggers this.
     output_dir = _workspace_output()
     output_dir.mkdir(parents=True, exist_ok=True)
-    env = os.environ.copy()
+    env = remote_mode.subprocess_env()  # remote mode item 4: scrubbed; a plain copy otherwise
     app_db_env(env)  # WP8.1: the build reads this server's runtime settings (app.db)
     env["PYTHONIOENCODING"] = env.get("PYTHONIOENCODING", "utf-8:replace")
     env["PYTHONUNBUFFERED"] = "1"
@@ -356,7 +381,7 @@ def build():
         }), 400
 
     # Local-only package builds from the saved SQLite-backed working copy; input/ files are import/export adapters.
-    env = os.environ.copy()
+    env = remote_mode.subprocess_env()
     app_db_env(env)  # WP8.1: the build reads this server's runtime settings (app.db)
     env["PYTHONIOENCODING"] = env.get("PYTHONIOENCODING", "utf-8:replace")
     env["PYTHONUNBUFFERED"] = "1"
@@ -408,7 +433,7 @@ def _download_file(name: str, download_name: str | None = None):
         return denied
     if not _runtime_config().allow_downloads:
         return jsonify({"success": False, "error": "Downloads are disabled"}), 403
-    fallback = legacy_output_dir(BASE_DIR)
+    fallback = _legacy_output_fallback()
     payload, status = report_service.downloadable_artifact(name, _workspace_output(), fallback)
     if status == 200:
         _audit("file_downloaded", {"file": name})
@@ -424,7 +449,7 @@ def get_detailed_results():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    fallback = legacy_output_dir(BASE_DIR)
+    fallback = _legacy_output_fallback()
     mode = "index" if request.args.get("index") in {"1", "true", "yes"} else ("sheet" if request.args.get("sheet") is not None else "full")
     payload, status = report_service.detailed_results_payload(
         output_dir=_workspace_output(),
@@ -463,6 +488,9 @@ def save_workbook_download_settings():
     if denied:
         return denied
     body = request.get_json(silent=True) or {}
+    if remote_mode.enabled() and str(body.get("desktop_download_folder") or "").strip():
+        # A server-side folder (remote mode item 3); the browser saves downloads itself.
+        return jsonify({"success": False, "error": "The download folder is chosen by your browser, not set here."}), 400
     payload, status = report_service.save_workbook_download_settings(body)
     if status == 200:
         _audit("workbook_download_settings_saved", body)

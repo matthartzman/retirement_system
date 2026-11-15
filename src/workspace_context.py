@@ -108,6 +108,8 @@ def workspace_output_dir(workspace_id: Optional[str] = None, root: Optional[Path
     override = getattr(cfg, "output_dir", "")
     base = root / "output"
     if override:
-        p = Path(override)
-        base = p if p.is_absolute() else root / p
+        from . import remote_mode  # noqa: PLC0415
+
+        # Runtime/output_dir (or the pinned env value): inside the workspace in remote mode.
+        base = remote_mode.confine_path(override, root=root, what="output folder")
     return base / "plans" / active_plan_id(workspace_id, root)

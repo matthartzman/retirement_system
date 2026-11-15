@@ -88,8 +88,10 @@ def resolve_backup_dir(base_dir: str | Path, policy: dict[str, Any] | BackupPoli
         raw = policy.backup_dir
     elif isinstance(policy, dict):
         raw = str(policy.get("backup_dir") or DEFAULT_BACKUP_DIR)
-    p = Path(raw).expanduser()
-    return p if p.is_absolute() else Path(base_dir) / p
+    from . import remote_mode  # noqa: PLC0415
+
+    # A stored setting: in remote mode it must stay inside the workspace (remote mode item 3).
+    return remote_mode.confine_path(raw, root=base_dir, what="backup folder")
 
 
 def normalize_policy(data: dict[str, Any] | None = None) -> BackupPolicy:

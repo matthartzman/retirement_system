@@ -21,6 +21,7 @@ from .app_core import (
     send_file,
     send_from_directory,
 )
+from .. import remote_mode
 from ..version import VERSION
 from ..server_services import base_service
 # RELEASE_GATE_EXPECTED_VERSION_LITERAL: "version": "9"
@@ -36,7 +37,11 @@ def _package_instance_payload() -> dict:
 
 @app.route("/api/ping", methods=["GET", "OPTIONS"])
 def ping():
-    return jsonify(base_service.ping_payload(version=VERSION, app_mode=_runtime_config().app_mode, base_dir=BASE_DIR))
+    payload = base_service.ping_payload(version=VERSION, app_mode=_runtime_config().app_mode, base_dir=BASE_DIR)
+    if remote_mode.enabled():  # Remote mode item 5: the install path is not a remote user's business
+        payload.pop("package_root", None)
+        payload["remote_mode"] = True
+    return jsonify(payload)
 
 
 @app.route("/login")
@@ -73,7 +78,8 @@ def index():
         p = out / name
         if p.exists():
             return send_file(str(p))
-    for name in UI_NAMES:
+    # The package's own output/ is the install's shared folder: never served in remote mode.
+    for name in ([] if remote_mode.enabled() else UI_NAMES):
         p = BASE_DIR / "output" / name
         if p.exists():
             return send_file(str(p))

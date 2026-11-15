@@ -2,8 +2,10 @@
 
 ``src/server`` (HTTP routes) and ``src/server_services`` (request-shaped services) sit above the
 domain. A domain module that imports them inverts the layering and drags the HTTP stack into the
-engine. Only the desktop adapter (``desktop_api.py``) may reach up, and ``src`` must not import the
-separate ``financial_trends_reporter`` app at all.
+engine. Only the two process adapters may reach up: the desktop bridge (``desktop_api.py``) and the
+headless remote worker's entry point (``remote_worker.py``, which must sit outside ``src/server`` so
+it can pin the workspace before ``src.server`` is imported). ``src`` must not import the separate
+``financial_trends_reporter`` app at all.
 """
 from __future__ import annotations
 
@@ -13,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 UPPER_LAYERS = ("server", "server_services", "http_runtime")
-ALLOWED_ADAPTERS = {"desktop_api.py"}
+ALLOWED_ADAPTERS = {"desktop_api.py", "remote_worker.py"}
 FORBIDDEN_APPS = ("financial_trends_reporter",)
 
 

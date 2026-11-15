@@ -24,7 +24,9 @@ def drift_payload(
     max_build_seconds: int | float,
 ) -> dict[str, Any]:
     """Run the local portfolio drift analyzer and return its JSON rows."""
-    env = os.environ.copy()
+    from .. import remote_mode  # noqa: PLC0415
+
+    env = remote_mode.subprocess_env()  # scrubbed in remote mode; a plain copy otherwise
     env["RETIREMENT_SYSTEM_APP_DB"] = str(app_db)  # app_state.APP_DB_ENV: the runtime settings
     env["PYTHONIOENCODING"] = env.get("PYTHONIOENCODING", "utf-8:replace")
     result = subprocess.run(
