@@ -70,6 +70,8 @@ except ImportError:
     )
 from ..active_plan import active_plan_path, peek_plan_data
 from .. import plan_registry
+from .. import remote_mode
+from ..http_runtime.wsgi_facade import Response as _Response
 from ..version import VERSION
 from ..server_services import base_service, config_service, conversion_service, demo_plan_service, plan_tier_service, pricing_service, rental_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
 from ..portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
@@ -169,6 +171,8 @@ def _server_path_requires_allowlist():
     # live: a locally-run server whose dashboard_host is configured to
     # something other than loopback (e.g. exposed on a home LAN) still
     # requires the allowlist below.
+    if remote_mode.enabled():  # remote mode: a loopback worker is not the owner's own desktop
+        return True
     cfg = _runtime_config()
     host = str(getattr(cfg, "dashboard_host", "127.0.0.1") or "127.0.0.1").strip().lower()
     return host not in {"127.0.0.1", "localhost", "::1"}
@@ -177,6 +181,9 @@ def _server_path_requires_allowlist():
 def _server_path_allowed(folder: Path):
     # System review 4.5: the `app_mode == "SAAS"` early-reject here could
     # never fire for the same reason -- removed as dead code.
+    if remote_mode.enabled():
+        # Remote mode item 3: the one resolver, not the configured roots (a stored setting).
+        return (True, "") if remote_mode.is_inside_workspace(folder) else (False, "That folder is outside your workspace.")
     if not _server_path_requires_allowlist():
         return True, ""
     roots = _path_roots_from_config()
@@ -2294,6 +2301,42 @@ def plan_load_file():
         return jsonify({"success": False, "error": str(exc)})
 
 
+@app.route("/api/plan/download", methods=["GET"])
+def plan_download():
+    """The active plan file as an ``.rpx`` download (browser-side Save As; remote mode item 6)."""
+    denied = _require("download")
+    if denied:
+        return denied
+    if not _runtime_config().allow_downloads:
+        return jsonify({"success": False, "error": "Downloads are disabled"}), 403
+    try:
+        data, filename = _plan_file_feature_service().download_active()
+    except FileNotFoundError:
+        return jsonify({"success": False, "error": "No active plan file found"}), 404
+    _audit("plan_downloaded", {"bytes": len(data)})
+    return _Response(data, status=200, content_type="application/octet-stream",
+                     headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "no-store"})
+
+
+@app.route("/api/plan/upload", methods=["POST"])
+def plan_upload():
+    """A plan file from the browser (browser-side Load Saved Plan; remote mode item 6).
+
+    Body: ``{"content_base64": ..., "filename": "x.rpx", "name": optional, "mode": "open"|"restore"}``.
+    Base64 inside JSON, not multipart: the worker's CSRF/Content-Type gate (``app_core
+    ._csrf_and_origin_gate``) accepts only JSON or text bodies and is left as it is, the
+    stdlib server has no multipart parser, and the 64 MiB body cap still bounds an upload
+    (about 48 MiB of plan file after the base64 overhead). A plan file is a few MB.
+    """
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    payload, status = _plan_file_feature_service().upload(request.get_json(silent=True) or {})
+    return jsonify(payload), status
+
+
 # ---------------------------------------------------------------- plan registry (WP8.4)
 def _plan_registry_result(fn):
     try:
@@ -2410,10 +2453,19 @@ def plans_forget():
 # DemoPlanService owns Open demo / Exit demo / Reset demo (#240, WP8.4): the demo is its own plan
 # file (demo.rpx, built from the input/demo seed once) beside the user's plan, one active at a
 # time through the plan registry. No plan file is swapped, copied over or restored.
+def _demo_csv_dir() -> Path:
+    """The ``input/demo`` CSV seed beside the package (source runs only, when the shipped
+    ``demo_seed.rpx`` is missing). Remote mode item 4: never read in remote mode; the demo comes
+    from the shipped seed plan file alone."""
+    if remote_mode.enabled():
+        raise remote_mode.RemoteModeError("The demo seed plan file is missing from this install.")
+    return platform_runtime.package_root() / "input" / "demo"
+
+
 def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
     return demo_plan_service.DemoPlanService(
         demo_plan_service.DemoPlanServiceContext(
-            demo_dir=lambda: platform_runtime.package_root() / "input" / "demo",  # CSV seed (source runs)
+            demo_dir=_demo_csv_dir,  # CSV seed (source runs)
             demo_seed=platform_runtime.demo_seed_path,  # the shipped seed plan file
             audit=_audit,
             after_switch=_after_plan_switch,

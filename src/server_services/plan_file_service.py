@@ -15,14 +15,19 @@ validate-then-swap path (validated copy, ``before_load`` backup, atomic replace)
 snapshot still keeps a versioned copy of the plan file and of the legacy database.
 """
 
+import base64
+import binascii
+import os
+import re
 import shutil
 import sqlite3
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from .. import plan_registry
+from .. import plan_registry, platform_runtime, remote_mode
 from ..plan_db_replace import PLAN_FILE_TABLES, copy_sqlite_file, remove_sidecars, replace_active_db, validate_plan_file
 from ..active_plan import read_build_results
 from ..app_state import app_store_path
@@ -138,7 +143,9 @@ class PlanFileService:
         if not src.exists():
             return {"success": False, "error": "No active plan file found"}
         dest = Path(dest_path).expanduser()
-        if not dest.is_absolute():
+        if remote_mode.enabled():  # defence in depth: the route itself is refused in remote mode
+            dest = remote_mode.confine_path(dest, what="save location")
+        elif not dest.is_absolute():
             dest = Path.cwd() / dest
         same = plan_registry.same_path(src, dest)
         if not same:
@@ -163,7 +170,7 @@ class PlanFileService:
         src_raw = str(body.get("path", "")).strip()
         if not src_raw:
             return {"success": False, "error": "No path provided"}
-        src = Path(src_raw).expanduser()
+        src = remote_mode.confine_path(src_raw, what="plan file") if remote_mode.enabled() else Path(src_raw).expanduser()
         if not src.exists() or not src.is_file():
             return {"success": False, "error": "Saved plan file not found"}
         if str(body.get("mode") or "open").strip().lower() == "restore":
@@ -195,6 +202,76 @@ class PlanFileService:
             {"source": str(src), "backup": backup_name if backup.exists() else None, "sidecars_removed": result.get("sidecars_removed", 0), "pruned": pruned},
         )
         return {"success": True, "backup": backup_name if backup.exists() else None}
+
+    # ------------------------------------------- browser upload and download (remote mode item 6)
+    def download_active(self) -> tuple[bytes, str]:
+        """The active plan file as one consistent, self-contained ``.rpx`` (WAL folded in through
+        the SQLite backup API) and a download name taken from the plan's registry name."""
+        src = self.ctx.plan_db()
+        if not src.exists():
+            raise FileNotFoundError("No active plan file found")
+        tmp_dir = Path(tempfile.mkdtemp(prefix="plan_download_", dir=str(src.parent)))
+        try:
+            copy = tmp_dir / "plan.rpx"
+            copy_sqlite_file(src, copy)
+            data = copy.read_bytes()
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        try:
+            name = str(plan_registry.active_record().get("name") or "")
+        except Exception:  # noqa: BLE001 - the name only labels the download
+            name = ""
+        return data, f"{_safe_stem(name or src.stem)}.rpx"
+
+    def upload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
+        """Take a plan file from the browser as base64 inside a JSON body (the worker's CSRF and
+        Content-Type gate accepts only JSON or text bodies; the route's docstring says why that
+        gate is kept).
+
+        ``mode: "open"`` (default) stores it as ``<workspace>/saved_plans/<name>.rpx`` (a fresh
+        name, never over another file), registers it and makes it the active plan, like Load
+        Saved Plan. ``mode: "restore"`` replaces the active plan file's contents with it (validated
+        first, the current plan backed up), like Load Saved Plan's restore. Nothing is registered
+        or replaced until the upload has validated as a plan file."""
+        mode = str(body.get("mode") or "open").strip().lower()
+        if mode not in {"open", "restore"}:
+            return {"success": False, "error": "mode must be open or restore"}, 400
+        raw = body.get("content_base64")
+        if not isinstance(raw, str) or not raw.strip():
+            return {"success": False, "error": "content_base64 is required"}, 400
+        try:
+            data = base64.b64decode(raw.strip(), validate=True)
+        except (binascii.Error, ValueError):
+            return {"success": False, "error": "content_base64 is not valid base64"}, 400
+        if not data.startswith(b"SQLite format 3\x00"):
+            return {"success": False, "error": "That file is not a plan file (.rpx)."}, 400
+        saved_dir = platform_runtime.workspace_root() / "saved_plans"
+        saved_dir.mkdir(parents=True, exist_ok=True)
+        fd, tmp_name = tempfile.mkstemp(prefix="upload_", suffix=".rpx.tmp", dir=str(saved_dir))
+        tmp = Path(tmp_name)
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(data)
+            if plan_registry.check_plan_file(tmp):
+                return {"success": False, "error": "That file is not a usable plan file."}, 400
+            if mode == "restore":
+                result = self._restore_into_active(tmp)
+                return result, 200 if result.get("success") else 400
+            label = str(body.get("name") or "").strip()
+            stem = _safe_stem(label or Path(str(body.get("filename") or "").replace("\\", "/")).stem or "Uploaded plan")
+            dest = _free_path(saved_dir, stem)
+            remove_sidecars(tmp)
+            os.replace(str(tmp), str(dest))
+            rec = plan_registry.register_plan_file(dest, name=label or stem)
+            try:
+                rec = self._switch_to(rec["plan_id"])
+            except plan_registry.PlanRegistryError as exc:
+                return {"success": False, "error": str(exc)}, 400
+            self.ctx.audit("plan_uploaded", {"plan_id": rec["plan_id"], "bytes": len(data)})
+            return {"success": True, "plan": self._plan_view(rec)}, 200
+        finally:
+            tmp.unlink(missing_ok=True)
+            remove_sidecars(tmp)
 
     def _prune_backups(self, directory: Path, pattern: str) -> int:
         """Keep only the most recent retention_count snapshots matching pattern.
@@ -232,3 +309,20 @@ class PlanFileService:
             self.ctx.audit("plan_snapshot_restored", {"build_id": payload.get("restored_from"), "backup_database": payload.get("backup_database")})
             return payload, 200
         return payload, 400
+
+
+def _safe_stem(text: str) -> str:
+    """A file-name stem from user text: no folders, no reserved characters, at most 80 long."""
+    stem = Path(str(text or "").replace("\\", "/")).name
+    stem = re.sub(r"[^A-Za-z0-9 ._-]+", "_", stem).strip(" ._")[:80]
+    return stem or "plan"
+
+
+def _free_path(folder: Path, stem: str) -> Path:
+    """``folder/<stem>.rpx``, or ``<stem> (2).rpx`` and so on when that name is taken."""
+    candidate = folder / f"{stem}.rpx"
+    n = 2
+    while candidate.exists():
+        candidate = folder / f"{stem} ({n}).rpx"
+        n += 1
+    return candidate

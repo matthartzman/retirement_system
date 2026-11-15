@@ -42,6 +42,8 @@ ALLOWLIST: dict[str, str] = {
     "src/server_services/admin_service.py": "CSV text for the Admin raw-file view and export of the legacy system files",
     "src/server_services/spending_service.py": "reads/writes a spending upload the user picked (import source)",
     "src/server_services/ytd_service.py": "reads the YTD file the user picked (import source)",
+    "src/server_services/plan_file_service.py": "reads a consistent copy of the whole .rpx as bytes for the browser download (remote mode)",
+    "src/remote_worker.py": "writes the worker's chosen port to the supervisor's port file; not plan data",
 }
 
 
