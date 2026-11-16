@@ -184,6 +184,13 @@ def _redact_url(url: str) -> str:
     return url
 
 
+def _redact_exception(exc: BaseException) -> str:
+    """``repr(exc)`` with provider keys masked: connection errors quote the whole request URL, key included."""
+    from .security import redact_text  # noqa: PLC0415
+
+    return redact_text(repr(exc))[:500]
+
+
 def _quote_headers(accept: str = "application/json,*/*") -> Dict[str, str]:
     return {
         "User-Agent": QUOTE_BROWSER_USER_AGENT,
@@ -913,7 +920,7 @@ class MarketDataProvider:
                     "ok": False,
                     "elapsed_ms": elapsed_ms,
                     "cause": last_cause,
-                    "exception": repr(exc)[:500],
+                    "exception": _redact_exception(exc),
                 })
 
         started = _now()
