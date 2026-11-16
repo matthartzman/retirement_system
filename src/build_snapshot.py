@@ -158,6 +158,12 @@ def restore_sqlite_database_from_snapshot(snapshot: dict[str, Any] | None, activ
     db_copy = Path(str(snap_record.get("path") or out_dir / SNAPSHOT_DB_FILENAME))
     if not db_copy.is_absolute():
         db_copy = out_dir / db_copy
+    from . import remote_mode  # noqa: PLC0415
+
+    if remote_mode.enabled() and not remote_mode.is_inside_workspace(db_copy):
+        # The snapshot record comes from the plan file, which a remote user can upload: it must not name a
+        # plan file of another user (or of the owner) for the restore to copy in.
+        return {"success": False, "error": "Snapshot database copy is outside your workspace."}
     if not db_copy.exists() or not db_copy.is_file():
         return {"success": False, "error": "Snapshot database copy is missing.", "snapshot_database_path": str(db_copy)}
     expected_hash = str(snap_record.get("sha256") or "")
