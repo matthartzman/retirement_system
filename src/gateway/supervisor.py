@@ -22,7 +22,7 @@ from typing import Callable, Protocol
 
 from . import winapi
 from .build_queue import BuildQueue
-from .launchers import LaunchSpec, WorkerLauncher, WorkerProcess
+from .launchers import DEDICATED_ACCOUNT_ENV, LaunchSpec, WorkerLauncher, WorkerProcess
 
 LOG = logging.getLogger("retirement.gateway.supervisor")
 ROOT = Path(__file__).resolve().parents[2]
@@ -33,7 +33,29 @@ POOL_ENV = "RETIREMENT_SYSTEM_BUILD_POOL_MAX"
 PROVISIONS = ("demo", "blank")
 # Never handed to a worker, whatever extra_env says: they would redirect it outside its workspace.
 FORBIDDEN_ENV = frozenset({"RETIREMENT_SYSTEM_BASE_DIR", "RETIREMENT_SYSTEM_WORKSPACE_ROOT", "PYTHONPATH", "PYTHONHOME",
-                           "PYTHONSTARTUP", TOKEN_ENV})
+                           "PYTHONSTARTUP", TOKEN_ENV, DEDICATED_ACCOUNT_ENV})
+
+
+MAPPING_SEED_RELPATH = Path("local_state") / "monarch_mapping_seed.csv"  # same as src/monarch_upload.py
+MAPPING_CSV_MAX_BYTES = 1024 * 1024
+MAPPING_CSV_COLUMNS = ("Monarch", "App Location", "App Field")
+
+
+def check_mapping_csv(path: Path) -> None:
+    """Refuse a mapping CSV the worker's seeder could not use (the gateway starts only with a good one)."""
+    if not path.is_file():
+        raise ValueError(f"--monarch-mapping-csv {path} is not a file")
+    data = path.read_bytes()
+    if len(data) > MAPPING_CSV_MAX_BYTES:
+        raise ValueError("--monarch-mapping-csv is larger than 1 MiB")
+    try:
+        first = data.decode("utf-8-sig").splitlines()[0] if data.strip() else ""
+    except UnicodeDecodeError:
+        raise ValueError("--monarch-mapping-csv is not UTF-8 text") from None
+    header = [h.strip().strip('"') for h in first.split(",")]
+    missing = [c for c in MAPPING_CSV_COLUMNS if c not in header]
+    if missing:
+        raise ValueError(f"--monarch-mapping-csv is missing the column(s) {', '.join(missing)}")
 
 
 class WorkerUnavailable(RuntimeError):
@@ -60,6 +82,7 @@ class SupervisorConfig:
     active_process_limit: int | None = 64
     build_pool_max: int | None = 4
     extra_env: dict[str, str] = field(default_factory=dict)
+    monarch_mapping_csv: Path | None = None  # copied into each new workspace (MAPPING_SEED_RELPATH)
     max_crashes: int = 3
     crash_window: float = 600.0
     crash_cooldown: float = 600.0
@@ -74,6 +97,9 @@ class SupervisorConfig:
         bad = sorted(k for k in self.extra_env if k.upper() in FORBIDDEN_ENV)
         if bad:
             raise ValueError(f"these variables may not be passed to workers: {', '.join(bad)}")
+        if self.monarch_mapping_csv is not None:
+            self.monarch_mapping_csv = Path(self.monarch_mapping_csv)
+            check_mapping_csv(self.monarch_mapping_csv)
 
 
 class AccountHooks(Protocol):
@@ -394,6 +420,10 @@ class Supervisor:
         workspace.mkdir(parents=True, exist_ok=True)
         if self.accounts is not None:
             self.accounts.ensure(user_id, workspace)
+        if self.config.monarch_mapping_csv is not None:  # after ensure, so the copy inherits the workspace ACL
+            target = workspace / MAPPING_SEED_RELPATH
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(self.config.monarch_mapping_csv, target)
 
     def user_disabled(self, user_id: int, disabled: bool) -> None:
         if disabled:

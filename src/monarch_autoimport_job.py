@@ -81,6 +81,9 @@ def run(base_dir: str | Path, *, force: bool = False) -> dict[str, Any]:
     account balances. Each is switched by its own policy checkbox and records its own
     status; one failing never stops or fails the other. ``force`` ignores only the
     master enabled flag (the "Import now" button)."""
+    from . import remote_mode
+    if remote_mode.enabled():  # the extractor outbox and its launcher are the desktop's; remote users upload CSVs
+        return {"success": False, "skipped": True, "skip_reason": "remote_mode", "error": remote_mode.DISABLED_FEATURE}
     policy = mau.load_policy(base_dir)["policy"]
     if not policy["enabled"] and not force:
         return {"success": True, "skipped": True, "skip_reason": "disabled"}

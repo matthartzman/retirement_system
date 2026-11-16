@@ -97,6 +97,9 @@ def _clean_secret(value: object) -> Optional[str]:
 def _secret_fingerprint(value: Optional[str]) -> Optional[str]:
     if not value:
         return None
+    from . import remote_mode
+    if remote_mode.enabled():  # the shared provider key is the gateway's: not even a stable identifier leaves
+        return None
     try:
         import hashlib
         return hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]

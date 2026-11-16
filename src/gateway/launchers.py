@@ -29,6 +29,11 @@ OS_ENV_KEYS = (
 )
 
 
+# Set only by the per-account launcher: tells the worker its Credential Manager is its own user's, not shared
+# (``src/secrets_store.py:_remote_mode_guard``). The supervisor refuses it in --worker-env so it cannot be faked.
+DEDICATED_ACCOUNT_ENV = "RETIREMENT_SYSTEM_DEDICATED_ACCOUNT"
+
+
 def os_env(source: dict[str, str]) -> dict[str, str]:
     wanted = set(OS_ENV_KEYS)
     return {k: v for k, v in source.items() if k.upper() in wanted}
@@ -147,7 +152,7 @@ class PerAccountLauncher:
         job = None
         try:
             profile = winapi.load_profile(token, username)
-            env = {**os_env(winapi.environment_block(token)), **spec.env}
+            env = {**os_env(winapi.environment_block(token)), **spec.env, DEDICATED_ACCOUNT_ENV: "1"}
             started = winapi.create_process_as(token, subprocess.list2cmdline(spec.argv), cwd=str(spec.cwd), env=env)
             job = _new_job(spec)
             assert job is not None

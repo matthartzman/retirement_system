@@ -16,12 +16,16 @@ and surface the warning; set paths surface the error to the user.
 and only offers to delete that file after every key has been read back from the credential store.
 """
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 from .platform_runtime import workspace_root
 
 SERVICE_NAME = "RetirementSystem"
+# Set by the gateway's per-account launcher only (src/gateway/launchers.py); see _remote_mode_guard.
+DEDICATED_ACCOUNT_ENV = "RETIREMENT_SYSTEM_DEDICATED_ACCOUNT"
+_REMOTE_BACKENDS = frozenset({"keyring.backends.Windows.WinVaultKeyring"})
 NAMES_KEY = "secrets.names"
 LEGACY_FILE_NAME = "secrets.local.json"
 
@@ -59,7 +63,29 @@ def _keyring():
         raise SecretStoreUnavailable(f"No credential store backend could be selected ({exc}). {_UNAVAILABLE_HELP}") from exc
     if isinstance(backend, fail.Keyring):
         raise SecretStoreUnavailable(f"No usable credential store backend was found. {_UNAVAILABLE_HELP}")
+    _remote_mode_guard(backend)
     return keyring, backend
+
+
+def _remote_mode_guard(backend) -> None:
+    """In remote mode the store is used only when it is provably this user's own (multi-user Phase 4).
+
+    A worker started by the gateway's per-account launcher runs as its own Windows account with its profile
+    loaded, so the Windows Credential Manager is private to that user; the launcher marks such a worker with
+    ``DEDICATED_ACCOUNT_ENV``. A same-account worker (development, CI) would share the gateway account's
+    store with every other user, and any other backend (a ``keyrings.alt`` file, an override) could live in a
+    shared place, so both are refused. No-op outside remote mode.
+    """
+    from . import remote_mode
+    if not remote_mode.enabled():
+        return
+    if (os.environ.get(DEDICATED_ACCOUNT_ENV) or "").strip() != "1":
+        raise SecretStoreUnavailable("Stored keys are not available: this server worker does not run as its own "
+                                     "Windows account, so its credential store would be shared.")
+    kind = f"{type(backend).__module__}.{type(backend).__name__}"
+    if kind not in _REMOTE_BACKENDS:
+        raise SecretStoreUnavailable("Stored keys are not available: only the Windows Credential Manager of this "
+                                     "user's own account is used on the server.")
 
 
 def _call(op: str, fn, *args):

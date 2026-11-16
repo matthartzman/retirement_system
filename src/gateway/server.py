@@ -31,6 +31,11 @@ from .app import GatewayConfig, GatewayListener, create_gateway_app
 from .store import GatewayStore
 
 READY_PREFIX = "RETIREMENT_GATEWAY_READY"
+# The shared price-provider key names (``src/remote_mode._PROVIDER_KEYS``): --pass-env only, never --worker-env.
+PROVIDER_KEY_NAMES = frozenset({
+    "RETIREMENT_SYSTEM_FMP_API_KEY", "FMP_API_KEY", "FINANCIAL_MODELING_PREP_API_KEY",
+    "RETIREMENT_SYSTEM_ALPHA_VANTAGE_API_KEY", "ALPHA_VANTAGE_API_KEY",
+})
 LOG = logging.getLogger("retirement.gateway.server")
 CLIENT_SOCKET_TIMEOUT = 60.0
 
@@ -67,6 +72,9 @@ def _env_pair(value: str) -> tuple[str, str]:
     key, sep, val = value.partition("=")
     if not sep or not key.strip():
         raise argparse.ArgumentTypeError("--worker-env takes NAME=VALUE")
+    if key.strip().upper() in PROVIDER_KEY_NAMES:
+        raise argparse.ArgumentTypeError(f"{key.strip()} is a provider key: keep it in the gateway's environment and "
+                                         "pass it with --pass-env, never on the command line")
     return key.strip(), val
 
 
@@ -98,7 +106,9 @@ def _parser() -> argparse.ArgumentParser:
                    help="NAME=VALUE passed to every worker (never a secret: use --pass-env)")
     w.add_argument("--pass-env", action="append", default=[],
                    help="copy this variable from the gateway's environment to workers (the shared provider key)")
-    w.add_argument("--backup-dir", help="scheduled per-user backups go here (default: no scheduled backups)")
+    w.add_argument("--monarch-mapping-csv",
+                   help="admin-curated Monarch account mapping CSV copied into each new user's workspace")
+    w.add_argument("--backup-dir",help="scheduled per-user backups go here (default: no scheduled backups)")
     w.add_argument("--backup-hours", type=float, default=24.0)
     w.add_argument("--backup-keep", type=int, default=14)
     return p
@@ -123,7 +133,8 @@ class _Runtime:
             data_root=data_root, install_dir=Path(args.install_dir), python=args.python, provision=args.provision,
             idle_seconds=args.idle_minutes * 60, start_timeout=args.worker_start_timeout,
             memory_limit_mb=args.worker_memory_mb or None, build_pool_max=args.build_pool_max or None,
-            extra_env=extra_env)
+            extra_env=extra_env,
+            monarch_mapping_csv=Path(args.monarch_mapping_csv).resolve() if args.monarch_mapping_csv else None)
         if args.launcher == "per-account":
             accounts = WindowsAccountManager(store, data_root, prefix=args.account_prefix,
                                              rotate_days=args.account_rotate_days)

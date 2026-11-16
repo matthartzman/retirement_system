@@ -331,6 +331,9 @@ def register_scheduled_task(base_dir: str | Path, enabled: bool, run_time: str =
     PowerShell, insufficient privilege) must not block saving the setting
     itself -- the caller surfaces {"attempted", "success", "error"} to the UI.
     """
+    from . import remote_mode
+    if remote_mode.enabled():  # a machine-wide task name; refused even if a route is ever re-allowed
+        return {"attempted": False, "success": False, "error": remote_mode.DISABLED_FEATURE}
     if sys.platform != "win32":
         return {"attempted": False, "success": False, "error": "Not running on Windows; scheduled-task registration skipped."}
     action = "Register" if enabled else "Unregister"
