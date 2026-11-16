@@ -39,6 +39,9 @@ PROVIDER_KEY_NAMES = frozenset({
     "RETIREMENT_SYSTEM_ALPHA_VANTAGE_API_KEY", "ALPHA_VANTAGE_API_KEY",
 })
 LOG = logging.getLogger("retirement.gateway.server")
+# Turns on the worker's Monarch MCP connector (``src/monarch_connector.ENABLE_ENV``). Same-account workers still
+# cannot connect: they have no private credential store (``src/secrets_store._remote_mode_guard``).
+MONARCH_CONNECTOR_ENV = "RETIREMENT_SYSTEM_MONARCH_CONNECTOR"
 CLIENT_SOCKET_TIMEOUT = 60.0
 
 
@@ -114,6 +117,8 @@ def _parser() -> argparse.ArgumentParser:
                    "the ProgramData/RetirementPlannerGateway/backups folder). Never a synced or user-readable folder")
     w.add_argument("--backup-key-file", help="the backup encryption key (create it with 'ops backup-key create'); "
                    "backups are enabled only when this is given. Kept outside the backup folder")
+    w.add_argument("--monarch-connector", action="store_true",
+                   help="let users connect Monarch's read-only MCP connector (needs --launcher per-account)")
     w.add_argument("--backup-hours", type=float, default=24.0)
     w.add_argument("--backup-keep", type=int, default=14)
     return p
@@ -134,6 +139,8 @@ class _Runtime:
         for name in args.pass_env:
             if name in os.environ:
                 extra_env[name] = os.environ[name]
+        if args.monarch_connector:
+            extra_env[MONARCH_CONNECTOR_ENV] = "1"  # src/monarch_connector.py ENABLE_ENV
         cfg = SupervisorConfig(
             data_root=data_root, install_dir=Path(args.install_dir), python=args.python, provision=args.provision,
             idle_seconds=args.idle_minutes * 60, start_timeout=args.worker_start_timeout,

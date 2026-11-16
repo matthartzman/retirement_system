@@ -126,6 +126,7 @@ owner's shell settings) are dropped. Call sites: `src/server/workbook_routes.py`
 | `run_monarch.ps1` targeting the repo root | `Monarch Extractor/run_monarch.ps1:3-4,24` | Operator tool; not started by a worker. |
 | Scheduled-task registration and the extractor import job, if ever called | `src/monarch_autoupdate.py:register_scheduled_task`, `src/monarch_autoimport_job.py:run` | Phase 4: both refuse in remote mode (defence in depth behind the refused routes). |
 | Replacement for remote users | `POST /api/monarch/upload` (`src/monarch_upload.py`) | **per user**: Monarch's own CSV exports uploaded from the browser into the user's own plan; nothing written outside the plan store. Admin mapping CSV (`--monarch-mapping-csv`) copied into each new workspace (`local_state/monarch_mapping_seed.csv`). |
+| Monarch MCP connector tokens and client id | `src/monarch_connector.py` (`monarch.*` secrets) | **per user**, optional (gateway `--monarch-connector`): kept only in the worker account's own Credential Manager, so the same-account refusal above applies (a same-account worker cannot connect; gate-tested) and profile deletion removes them. The PKCE verifier and state live only in the worker's memory. |
 
 ## 10. Request-borne and settings-borne paths (the resolver's coverage)
 
@@ -149,5 +150,6 @@ owner's shell settings) are dropped. Call sites: `src/server/workbook_routes.py`
 - Phase 3: per-user Windows accounts (unproven in Phase 0), Job Objects, the build queue and pool
   cap, `RETIREMENT_SYSTEM_BASE_DIR` never set, read-only install.
 - Phase 4 (done, `multi-user-server-monarch-secrets-design.md`): per-user secrets guard, Monarch CSV upload,
-  mapping seed. Still open: the elevated credential-rotation test and the Monarch connector probe (owner).
+  mapping seed, optional Monarch MCP connector (probed with the owner 2026-11-16). Still open: the elevated
+  credential-rotation test (owner).
 - Phase 6: Funnel target check extended to the gateway and workers.

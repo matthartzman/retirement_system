@@ -98,9 +98,9 @@
     const box = (kind, label, help) => '<div data-monarch-upload="' + kind + '"><b>' + label + '</b><p class="small" data-kind="state">' + help + '</p>' +
       '<button class="btn" type="button" onclick="event.stopPropagation();chooseMonarchUpload(\'' + kind + '\')">Choose ' + label.toLowerCase() + ' file</button>' +
       '<div id="monarchUpload_' + kind + '">' + shown[kind] + '</div></div>';
-    return '<div class="feature-card monarch-upload-card" tabindex="0"><h3>Monarch import</h3><p class="small" data-kind="state">Each file is checked first; nothing imports until you confirm.</p>' +
-      box('transactions', 'Transactions', 'Monarch: Transactions, Download CSV.') +
-      box('balances', 'Balances', 'Monarch: balance history export.') +
+    return '<div class="feature-card monarch-upload-card" tabindex="0"><h3>Third-party import</h3><p class="small" data-kind="state">Each file is checked first; nothing imports until you confirm.</p>' +
+      box('transactions', 'Transactions', 'Transactions export (CSV).') +
+      box('balances', 'Balances', 'Balance history export (CSV).') +
       '<!-- SEAM: Connect Monarch button goes here once the connector exists. --></div>';
   }
   function show(kind, html) {
@@ -132,7 +132,7 @@
       const out = await send(kind, false);
       pending[kind] = null;
       show(kind, resultHtml(kind, out));
-      msg('Monarch ' + kind + ' imported.', 'success');
+      msg('Import of ' + kind + ' finished.', 'success');
       if (global.markBuildStale) global.markBuildStale();
     } catch (e) { show(kind, '<p class="small" role="alert" data-kind="warn">' + esc(e.message) + '</p>'); }
   }

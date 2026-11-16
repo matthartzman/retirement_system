@@ -144,6 +144,7 @@ def gateway(tmp_path_factory):
     cmd = [sys.executable, "-m", "src.gateway", "--db", str(db), "--local-port", "0", "--funnel-port", "0",
            "--public-origin", PUBLIC_ORIGIN, "--no-tailscale-check", "--data-root", str(data_root), "--provision", "demo",
            "--ready-file", str(ready_file), "--build-concurrency", "1", "--pass-env", SHARED_KEY_ENV,
+           "--monarch-connector",
            "--worker-env", "RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS=1",
            "--worker-env", "RETIREMENT_SYSTEM_FROZEN_TODAY=2026-08-04"]
     log = (base / "gateway.log").open("w", encoding="utf-8")
@@ -329,6 +330,16 @@ def test_the_secret_store_ui_is_refused_and_a_same_account_worker_stores_nothing
         assert status == 403, body
         status, body = signed_in[name].json("GET", "/api/status")
         assert status == 200 and body.get("encryption", {}).get("store_active") is not True, body.get("encryption")
+
+
+def test_the_monarch_connector_never_signs_in_on_a_same_account_worker(signed_in):
+    """--monarch-connector is on, but these workers share the gateway's credential store: no tokens may go there."""
+    for name in ("alice", "bob"):
+        status, body = signed_in[name].json("GET", "/api/monarch/connector")
+        assert status == 200 and body["available"] is False and body["connected"] is False, body
+        assert "own Windows account" in body["reason"], body
+        status, body = signed_in[name].json("POST", "/api/monarch/connector/start", {})
+        assert status == 403 and "authorize_url" not in body, body
 
 
 def test_the_shared_provider_key_reaches_workers_but_never_a_response_or_a_workspace(gateway, signed_in):

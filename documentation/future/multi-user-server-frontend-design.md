@@ -1,6 +1,6 @@
 # Multi-user server: frontend (Phase 5)
 
-Status: implemented
+Status: draft
 
 Plan: `multi-user-server-plan.md`, Phase 5. Code: `frontend/js/remote_mode.js`, `frontend/js/remote_files.js`.
 
