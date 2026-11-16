@@ -23,6 +23,8 @@ from ctypes import wintypes as w
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import fsguard
+
 SYSTEM = "S-1-5-18"
 ADMINISTRATORS = "S-1-5-32-544"
 USERS = "S-1-5-32-545"
@@ -140,6 +142,7 @@ def _lock(path: Path, grants: list[str]) -> None:
     p = _guard(path)
     p.mkdir(parents=True, exist_ok=True)
     if any(p.iterdir()):
+        fsguard.remove_reparse_points(p)  # icacls /T follows links a worker may have planted
         _icacls(str(p / "*"), "/reset", "/T", "/C", "/Q")  # children inherit from the folder only
     _icacls(str(p), "/inheritance:r", "/grant:r", *grants, "/C", "/Q")
 

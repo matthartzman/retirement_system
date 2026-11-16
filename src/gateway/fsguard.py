@@ -41,3 +41,25 @@ def has_reparse_point(path: Path | str, root: Path | str) -> bool:
         if _is_link(cur):
             return True
     return False
+
+
+def remove_reparse_points(root: Path | str) -> list[str]:
+    """Delete every link (junction or symlink) under ``root``, never following one; returns what was removed.
+
+    Run before an elevated ``icacls /reset /T`` over a worker-writable tree: that command follows links and would
+    rewrite the permissions of whatever a worker pointed one at. Removing a link deletes the link only.
+    """
+    removed: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
+        for name in list(dirnames) + list(filenames):
+            p = Path(dirpath) / name
+            if not _is_link(p):
+                continue
+            try:
+                os.rmdir(p) if (p.is_dir() or name in dirnames) else os.unlink(p)
+            except OSError:
+                os.unlink(p)
+            removed.append(str(p))
+            if name in dirnames:
+                dirnames.remove(name)
+    return removed
