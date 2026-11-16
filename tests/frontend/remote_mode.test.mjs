@@ -221,3 +221,40 @@ test("the 127.0.0.1:5050 fallback is skipped once remote mode is on", async () =
   await sb.checkAppStatus(false);
   assert.deepEqual(urls, ["/api/ping", "http://127.0.0.1:5050/api/ping"]);
 });
+
+// ---- optional connector panel ----
+test("the connector panel appears only when the server says it is available, and walks start, paste, sync", async () => {
+  const win = withFiles();
+  const slot = { innerHTML: "" };
+  win.document.getElementById = (id) => (id === "monarchConnector" ? slot : null);
+  const opened = [];
+  win.open = (u) => opened.push(u);
+  let status = { success: true, available: false, reason: "Not enabled on this server." };
+  const seen = [];
+  win.RetirementApiClient = { request: async (p, o) => {
+    seen.push(p + (o && o.body ? " " + o.body : ""));
+    if (p.endsWith("/start")) return { success: true, authorize_url: "https://auth.example/x", expires_in: 600 };
+    if (p.endsWith("/complete")) return { success: true, available: true, connected: true };
+    if (p.endsWith("/sync")) return { success: true, accounts_seen: 3, hidden_by_monarch: 2, transactions: { added: 5 }, balances: { rows: 7 } };
+    return status;
+  } };
+  win.RetirementRemote.monarchUploadCardHtml();
+  await settle();
+  assert.match(slot.innerHTML, /Not enabled on this server/);
+  assert.doesNotMatch(slot.innerHTML, /Connect<\/button>/);
+  status = { success: true, available: true, connected: false, sign_in_pending: false };
+  win.RetirementRemote.monarchUploadCardHtml();
+  await settle();
+  assert.match(slot.innerHTML, /monarchConnectorStart/);
+  await win.monarchConnectorStart();
+  assert.deepEqual([...opened], ["https://auth.example/x"]);
+  assert.match(slot.innerHTML, /Finish connecting/);
+  win.document.getElementById = (id) => (id === "monarchConnector" ? slot : id === "monarchCallback" ? { value: "http://127.0.0.1/callback?code=abc" } : null);
+  await win.monarchConnectorFinish();
+  assert.ok(seen.some((s) => s.includes('/complete {"callback_url":"http://127.0.0.1/callback?code=abc"}')));
+  assert.match(slot.innerHTML, /Sync now/);
+  status = { success: true, available: true, connected: true };
+  await win.monarchConnectorSync();
+  assert.match(slot.innerHTML, /2 hidden by the provider/);
+  assert.match(slot.innerHTML, /5 transactions added, 7 balance rows/);
+});
