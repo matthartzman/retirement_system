@@ -44,7 +44,10 @@ ALLOWLIST: dict[str, str] = {
     "src/server_services/ytd_service.py": "reads the YTD file the user picked (import source)",
     "src/server_services/plan_file_service.py": "reads a consistent copy of the whole .rpx as bytes for the browser download (remote mode)",
     "src/gateway/app.py": "serves the gateway's own login, two-factor and Users pages from src/gateway/pages; not plan data",
-    "src/remote_worker.py":"writes the worker's chosen port to the supervisor's port file; not plan data",
+    "src/remote_worker.py":"writes the worker's chosen port to the supervisor's port file and its own console log; not plan data",
+    "src/gateway/supervisor.py": "reads a worker's port file (port and pid); not plan data",
+    "src/gateway/server.py": "writes the gateway's READY JSON to --ready-file for the Windows service; not plan data",
+    "src/gateway/service.py": "reads the gateway service's own JSON config (its command line); not plan data",
 }
 
 

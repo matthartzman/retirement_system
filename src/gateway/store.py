@@ -21,7 +21,7 @@ from src.access_core import LOCK_SECONDS, MAX_FAILED_BEFORE_LOCK  # noqa: F401 -
 
 from . import totp
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 ROLES = ("admin", "user")
 MIN_PASSWORD_LENGTH = 12
 MAX_PASSWORD_LENGTH = 1024
@@ -79,6 +79,20 @@ _MIGRATIONS: list[tuple[int, list[str]]] = [
             details TEXT NOT NULL DEFAULT '',
             client_ip TEXT NOT NULL DEFAULT '',
             listener TEXT NOT NULL DEFAULT ''
+        )""",
+    ]),
+    # Phase 3: one Windows account per user. No foreign key: the row must outlive the gateway user so a
+    # failed account cleanup can be retried. ``secret`` is the account password, DPAPI-protected for the
+    # gateway's own account; it is never returned by any route or written to a log.
+    (2, [
+        """CREATE TABLE worker_accounts (
+            user_id INTEGER PRIMARY KEY,
+            account_name TEXT NOT NULL UNIQUE,
+            sid TEXT NOT NULL DEFAULT '',
+            secret BLOB NOT NULL,
+            state TEXT NOT NULL DEFAULT 'active' CHECK (state IN ('active', 'disabled', 'removing')),
+            created_at REAL NOT NULL,
+            rotated_at REAL NOT NULL
         )""",
     ]),
 ]
@@ -472,6 +486,45 @@ class GatewayStore:
             sql += " AND stage=?"
             params.append(stage)
         conn.execute(sql, tuple(params))
+
+    def count_user_sessions(self, user_id: int, now: float) -> int:
+        """Active, unexpired sessions the user still has (the supervisor stops a worker after the last)."""
+        rows = self._read("SELECT COUNT(*) FROM sessions WHERE user_id=? AND stage='active' AND expires_at>? AND ?-last_seen<?",
+                          (int(user_id), now, now, IDLE_SECONDS))
+        return int(rows[0][0])
+
+    def user_ids(self) -> set[int]:
+        return {int(r[0]) for r in self._read("SELECT id FROM users")}
+
+    # ---- worker accounts (Phase 3) ----
+    def put_worker_account(self, user_id: int, account_name: str, sid: str, secret: bytes, now: float) -> None:
+        with self._tx() as conn:
+            conn.execute("INSERT INTO worker_accounts(user_id, account_name, sid, secret, state, created_at, rotated_at)"
+                         " VALUES (?,?,?,?, 'active', ?, ?)", (int(user_id), account_name, sid, secret, now, now))
+
+    def get_worker_account(self, user_id: int) -> dict | None:
+        rows = self._read("SELECT * FROM worker_accounts WHERE user_id=?", (int(user_id),))
+        return dict(rows[0]) if rows else None
+
+    def list_worker_accounts(self) -> list[dict]:
+        return [dict(r) for r in self._read("SELECT user_id, account_name, sid, state, created_at, rotated_at"
+                                            " FROM worker_accounts ORDER BY user_id")]
+
+    def update_worker_account(self, user_id: int, *, sid: str | None = None, secret: bytes | None = None,
+                              state: str | None = None, rotated_at: float | None = None) -> None:
+        sets, params = [], []
+        for col, val in (("sid", sid), ("secret", secret), ("state", state), ("rotated_at", rotated_at)):
+            if val is not None:
+                sets.append(f"{col}=?")
+                params.append(val)
+        if not sets:
+            return
+        with self._tx() as conn:
+            conn.execute(f"UPDATE worker_accounts SET {', '.join(sets)} WHERE user_id=?", (*params, int(user_id)))
+
+    def delete_worker_account(self, user_id: int) -> None:
+        with self._tx() as conn:
+            conn.execute("DELETE FROM worker_accounts WHERE user_id=?", (int(user_id),))
 
     def end_user_sessions(self, user_id: int) -> None:
         with self._tx() as conn:

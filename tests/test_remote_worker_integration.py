@@ -183,3 +183,25 @@ def test_worker_exits_when_its_parent_dies(tmp_path):
         if parent.poll() is None:
             parent.kill()
         _stop(proc)
+
+
+def test_worker_writes_its_console_to_a_log_inside_the_workspace(tmp_path):
+    workspace = tmp_path / "user_f"
+    port_file = workspace.parent / "user_f.port.json"
+    log = workspace / "local_state" / "logs" / "worker_console.log"
+    cmd = [sys.executable, "-m", "src.remote_worker", "--workspace", str(workspace), "--provision", "none",
+           "--port-file", str(port_file), "--console-log", str(log)]
+    proc = subprocess.Popen(cmd, cwd=str(ROOT), env=_worker_env(workspace), stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, text=True)
+    try:
+        info = _wait_port(proc, port_file)
+        assert info["port"] > 0
+        deadline = time.time() + 20
+        while time.time() < deadline and "RETIREMENT_WORKER_READY" not in (log.read_text(encoding="utf-8") if log.exists() else ""):
+            time.sleep(0.1)
+        assert "RETIREMENT_WORKER_READY" in log.read_text(encoding="utf-8")
+    finally:
+        _stop(proc)
+    outside = subprocess.run(cmd[:-1] + [str(tmp_path / "elsewhere.log")], cwd=str(ROOT), env=_worker_env(workspace),
+                             capture_output=True, text=True, timeout=60)
+    assert outside.returncode == 2 and "inside the workspace" in outside.stderr
