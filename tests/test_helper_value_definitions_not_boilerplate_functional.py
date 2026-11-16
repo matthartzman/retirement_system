@@ -21,7 +21,7 @@ def test_user_field_helper_no_longer_uses_label_equals_value_boilerplate():
 
 
 def test_admin_setting_helper_has_meaningful_default_definitions():
-    js = (ROOT / "frontend/js/admin.js").read_text(encoding="utf-8")
+    js = (ROOT / "frontend/js/admin.js").read_text(encoding="utf-8") + (ROOT / "frontend/js/settings_renderer.js").read_text(encoding="utf-8")
     assert "adminDefaultMeaning" in js
     assert "Controls how market values are obtained or reused" in js
     assert "Identifies a local file or adapter location" in js

@@ -6,7 +6,7 @@ ADMIN_JS = ROOT / "frontend" / "js" / "admin.js"
 
 
 def test_admin_system_config_uses_compact_table_editor():
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     assert "Compact table view" in html
     assert "buildConfigTable" in html
     assert "showSettingHelp" in html
@@ -17,7 +17,7 @@ def test_admin_system_config_uses_compact_table_editor():
 
 
 def test_admin_system_config_has_pricing_and_optimizer_helper_notes():
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     assert "LIVE tries quote providers first" in html
     assert "CACHE uses cached prices" in html
     assert "GLOBAL_TAX_AWARE solves household-level drift/tax/location tradeoffs" in html

@@ -704,7 +704,7 @@ DASHBOARD_JS_MAX_LINES = 6_436
 # 2026-11-11 W4-06: lowered 43,703 -> 43,685 to the measured total (row helpers, step stats, KPI/history, step gating extracted).
 # 2026-11-16 multi-user Phase 5: ceiling unchanged at 43,685, now fully used. remote_mode.js and remote_files.js (about 280 lines) were paid for
 # by deleting dead code (system-config batch editor, 12 unreferenced functions) and condensing duplicated comments.
-TOTAL_JS_MAX_LINES = 43_685
+TOTAL_JS_MAX_LINES = 43_673
 
 
 
@@ -773,7 +773,8 @@ def test_ratchet_target_exists(name):
 PER_FILE_CAP_MIN_LINES = 1_100
 
 PER_FILE_CAPS = {
-    "admin.js": 2_048,
+    "admin.js": 795,
+    "settings_renderer.js": 1_239,
     "dashboard.js": 6_477,
     "dashboard_decomp_allocation_optimizer.js": 1_456,
     "dashboard_decomp_checklist_closeout.js": 1_399,
@@ -810,6 +811,8 @@ PER_FILE_CAP_LOG = [
     ("2026-11-11", "dashboard_decomp_row_model.js", 2_512, 1_982, "lowered: field guidance and allocation policy extracted (W4-06)"),
     ("2026-11-11", "dashboard_decomp_row_model.js", 1_982, 1_720, "lowered: nav context and detailed results extracted (W4-06)"),
     ("2026-11-11", "dashboard_decomp_row_model.js", 1_720, 822, "lowered: row helpers, step stats, KPI/history, step gating extracted (W4-06)"),
+    ("2026-11-16", "admin.js", 2_048, 795, "lowered: settings renderer extracted to settings_renderer.js (admin app phase 5a)"),
+    ("2026-11-16", "settings_renderer.js", None, 1_239, "new shared module, moved from admin.js with no net growth (admin app phase 5a)"),
 ]
 
 

@@ -9,7 +9,7 @@ ADMIN_JS = ROOT / "frontend" / "js" / "admin.js"
 
 def test_admin_accordion_uses_disclosure_triangles_and_help_buttons():
     """Disclosure triangles (▶▼) for section collapse, help buttons with data attributes."""
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     assert '.cfg-section>summary::before{content:"▶"' in html
     assert '.cfg-section[open]>summary::before{content:"▼"' in html
     assert 'class="section-help-btn"' in html
@@ -20,7 +20,7 @@ def test_admin_accordion_uses_disclosure_triangles_and_help_buttons():
 
 def test_admin_left_nav_has_non_clickable_intuitive_groups():
     """Left navigation uses group labels (non-clickable headers) with semantic names."""
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     assert 'nav-group-label' in html
     for group in [
         'System configuration',
@@ -33,7 +33,7 @@ def test_admin_left_nav_has_non_clickable_intuitive_groups():
 
 def test_admin_click_handlers_still_have_backing_functions_after_refinement():
     """All onclick handlers have declared functions or are allowed builtins."""
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     functions = set(re.findall(r"\b(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(", html))
     functions.update(re.findall(r"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>", html))
     allowed = {"location", "document", "querySelectorAll", "forEach", "Math", "JSON", "encodeURIComponent", "esc"}
@@ -49,7 +49,7 @@ def test_admin_click_handlers_still_have_backing_functions_after_refinement():
 
 def test_system_config_pages_split_into_left_nav_with_correct_labels():
     """System configuration is split into left nav pages, specific labels present."""
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     assert "SYSTEM_CONFIG_PAGES" in html
     for label in [
         "Runtime & files",
@@ -65,7 +65,7 @@ def test_system_config_pages_split_into_left_nav_with_correct_labels():
 
 def test_collapsible_headings_closed_by_default_with_subsection_split():
     """Collapsible section headings grouped by subsection, closed by default, split to left nav."""
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     assert "collapseBySubsection" in html
     assert "headingIndex === 0" not in html  # not starting with first index open
     assert "single-section" in html
@@ -79,7 +79,7 @@ def test_collapsible_headings_closed_by_default_with_subsection_split():
 
 def test_save_bar_fixed_and_pricing_page_has_no_diagnostics_shortcut():
     """Save/cancel buttons fixed at bottom; pricing page excludes diagnostic links."""
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     assert ".cfg-actions{position:fixed" in html
     pricing_block = html.split("async function openPricingControls", 1)[1].split("async function showDiagnostics", 1)[0]
     assert "showDiagnostics()" not in pricing_block
@@ -89,7 +89,7 @@ def test_save_bar_fixed_and_pricing_page_has_no_diagnostics_shortcut():
 
 def test_admin_left_nav_matches_user_ui_step_model_without_top_level_groups():
     """Left nav uses step navigation model (adminSteps) matching main dashboard."""
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     assert 'placeholder="Search navigation' in html and 'id="adminSteps"' in html
     assert '<div class="nav-section-title">' not in html
     assert 'function adminNavItems' in html
@@ -98,7 +98,7 @@ def test_admin_left_nav_matches_user_ui_step_model_without_top_level_groups():
 
 def test_focused_pages_use_left_step_navigation_not_nested_card_nav():
     """Page navigation uses left adminSteps list, not nested card/accordion nav."""
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     assert 'id="adminSteps"' in html
     assert "function adminNavItems" in html
     assert "openPricingControls" in html
@@ -108,7 +108,7 @@ def test_focused_pages_use_left_step_navigation_not_nested_card_nav():
 
 def test_admin_title_case_preserves_common_acronyms():
     """Field labels preserve uppercase for financial acronyms (LTCG, STCG, IRA, RMD, HSA, etc.)."""
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     for acronym in ["LTCG", "STCG", "PDIA", "ETF", "NIIT", "IRA", "RMD", "HSA", "CMA"]:
         assert acronym in html
     for mixed in ["Ltcg", "Stcg", "Pdia", "Niit", "Etf", "Ira", "Rmd", "Hsa", "Cma"]:
@@ -117,7 +117,7 @@ def test_admin_title_case_preserves_common_acronyms():
 
 def test_system_config_compact_editor_uses_syscfg_prefix():
     """System config fields use syscfg_ namespace/prefix."""
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     assert "syscfg_" in html
 
 
@@ -129,7 +129,7 @@ def _nav_groups():
 
     node = shutil.which("node")
     assert node, "node is required"
-    src = ADMIN_JS.read_text(encoding="utf-8")
+    src = ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     pages_start = src.index("const SYSTEM_CONFIG_PAGES = [")
     nav_end = src.index("function renderAdminNav()")
     code = src[pages_start:nav_end] + "\nconsole.log(JSON.stringify(adminNavItems().map(i=>[i.group,i.title,i.id])));"
