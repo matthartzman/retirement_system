@@ -19,6 +19,8 @@ account name and message in a response or log line is masked (:func:`mask_names`
 
 import base64
 import binascii
+import csv
+import io
 import logging
 import math
 import re
@@ -96,16 +98,27 @@ def decode_upload(body: Any) -> tuple[str, str, bool]:
 
 
 def _rows(text: str) -> tuple[list[str], list[list[str]]]:
-    all_rows = _tcsv.list_rows(text.lstrip(_BOM))
-    header = all_rows[0] if all_rows else []
-    rows = []
-    for row in all_rows[1:]:
-        if not row or not any(cell.strip() for cell in row):
-            continue
-        rows.append(row)
-        if len(rows) > MAX_ROWS:
-            raise _refuse(f"The file has more than {MAX_ROWS:,} rows.")
-    return [h.strip() for h in header], rows
+    """Header and non-blank rows. Streams the reader and counts every physical row, blank ones too, so a file
+    of newlines cannot build a huge list; a malformed field (too large, NUL) is a refusal, not a server error."""
+    header: list[str] | None = None
+    rows: list[list[str]] = []
+    physical = 0
+    try:
+        for row in csv.reader(io.StringIO(text.lstrip(_BOM))):
+            physical += 1
+            if physical > 2 * MAX_ROWS:
+                raise _refuse(f"The file has more than {MAX_ROWS:,} rows.")
+            if header is None:
+                header = row
+                continue
+            if not row or not any(cell.strip() for cell in row):
+                continue
+            rows.append(row)
+            if len(rows) > MAX_ROWS:
+                raise _refuse(f"The file has more than {MAX_ROWS:,} rows.")
+    except csv.Error:
+        raise _refuse("The file is not valid CSV (a field is too large or malformed).") from None
+    return [h.strip() for h in (header or [])], rows
 
 
 # ---------------------------------------------------------------- transactions (monarch_extract parity)
