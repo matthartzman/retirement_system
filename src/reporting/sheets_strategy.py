@@ -59,6 +59,19 @@ _WORKER_STRIPPED_CONFIG_KEYS = frozenset(_SCENARIO_IRRELEVANT_KEYS) | {
 # bound -- its only job is to make sure one wedged worker degrades the build
 # to the serial path instead of hanging it forever.
 _PAIR_RESULT_TIMEOUT_S = 120.0
+
+# Multi-user server: the gateway caps each build's process pool through this variable so several
+# users' builds do not oversubscribe the CPUs. Unset or invalid means today's cpu_count - 1.
+BUILD_POOL_MAX_ENV = 'RETIREMENT_SYSTEM_BUILD_POOL_MAX'
+
+
+def _pool_size_cap():
+    default = max(1, (os.cpu_count() or 2) - 1)
+    try:
+        cap = int(str(os.environ.get(BUILD_POOL_MAX_ENV, '') or '').strip())
+    except ValueError:
+        return default
+    return max(1, min(cap, default)) if cap > 0 else default
 def build_sheet9(ws, c, rows):
     """Retirement Strategy"""
     ws.sheet_view.showGridLines = False
@@ -441,7 +454,7 @@ def build_sheet10(ws, c, rows):
             pool = None
             try:
                 from concurrent.futures import ProcessPoolExecutor
-                workers = min(len(pending), max(1, (os.cpu_count() or 2) - 1))
+                workers = min(len(pending), _pool_size_cap())
                 # Strip derived outputs and per-run memos before the config is
                 # pickled once per submit; see _WORKER_STRIPPED_CONFIG_KEYS.
                 _worker_config = {

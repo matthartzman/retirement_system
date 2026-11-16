@@ -349,11 +349,13 @@ def build_event_snapshot(job_id):
 @app.route("/api/build/status", methods=["GET"])
 def build_status():
     """Return whether the last build artifacts are current (db unchanged since build)."""
+    running = _BUILD_JOBS.has_running()  # read by the multi-user supervisor before reaping an idle worker
     try:
-        payload = _build_preflight_payload()
-        return jsonify(payload)
+        payload = dict(_build_preflight_payload())
     except Exception:
-        return jsonify({"success": True, "current": False})
+        payload = {"success": True, "current": False}
+    payload["build_running"] = running
+    return jsonify(payload)
 
 
 @app.route("/api/build/preflight", methods=["GET"])

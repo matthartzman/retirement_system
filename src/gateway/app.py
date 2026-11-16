@@ -14,7 +14,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Protocol
 from urllib.parse import quote
 
 import segno
@@ -51,6 +51,16 @@ class GatewayConfig:
     ip_max_delay: float = 300.0
     global_free_failures: int = 50
     global_max_delay: float = 60.0
+
+
+class GatewayLifecycle(Protocol):
+    """Told about account changes after the store change succeeded (Phase 3: the supervisor, which
+    starts and stops workers and manages each user's Windows account)."""
+
+    def user_created(self, user_id: int) -> None: ...
+    def user_disabled(self, user_id: int, disabled: bool) -> None: ...
+    def user_deleted(self, user_id: int) -> None: ...
+    def signed_out(self, user_id: int, sessions_left: int) -> None: ...
 
 
 class GatewayListener:
@@ -117,13 +127,26 @@ def _is_gateway_path(path: str) -> bool:
 
 
 def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = None, upstream: Upstream | None = None,
-                       clock: Callable[[], float] = time.time) -> Flask:
+                       clock: Callable[[], float] = time.time, lifecycle: GatewayLifecycle | None = None) -> Flask:
     cfg = config or GatewayConfig()
     up: Upstream = upstream or PlaceholderUpstream()
     app = Flask("retirement_gateway")
     ip_throttle = KeyedThrottle(cfg.throttle_window, cfg.ip_free_failures, cfg.ip_max_delay)
     global_throttle = FailureThrottle(cfg.throttle_window, cfg.global_free_failures, cfg.global_max_delay)
     page_cache: dict[str, str] = {}
+
+    def _notify(event: str, user_id: int, *args) -> str | None:
+        """Run a lifecycle hook; a failure is logged and audited, never shown with details."""
+        if lifecycle is None:
+            return None
+        try:
+            getattr(lifecycle, event)(user_id, *args)
+        except Exception:
+            LOG.exception("lifecycle hook %s failed for user %s", event, user_id)
+            store.audit("worker cleanup failed" if event == "user_deleted" else f"{event.replace('_', ' ')} hook failed",
+                        now=clock(), actor=_actor(), target_user_id=user_id)
+            return "The account change was saved, but the server could not finish preparing or cleaning up the user's workspace."
+        return None
 
     def _page(name: str) -> Response:
         if name not in page_cache:
@@ -174,6 +197,9 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
                 if ctype not in BODY_TYPES:
                     return _refused("unsupported Content-Type")
         now = clock()
+        if str(request.headers.get("Cookie", "") or "").count(COOKIE_NAME + "=") > 1:
+            # Two session cookies: the cookie parser would silently pick one. Refuse instead of guessing.
+            return _refused("more than one session cookie", 400)
         token = request.cookies.get(COOKIE_NAME)
         sess = store.get_session(token, now) if token else None
         env["session"], env["session_token"] = sess, token if sess else None
@@ -364,6 +390,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         sess = request.environ["session"]
         store.end_session(request.environ["session_token"])
         store.audit("logout", now=clock(), actor=_actor(sess["user_id"], sess["username"]))
+        _notify("signed_out", sess["user_id"], store.count_user_sessions(sess["user_id"], clock()))
         resp = _json({"success": True, "logged_out": True})
         resp.headers["Set-Cookie"] = _clear_cookie()
         return resp
@@ -397,7 +424,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         return _json({"success": True})
 
     # ---- admin (the gate has already checked the role) ----
-    def _admin_call(fn: Callable[[], object]) -> Response:
+    def _admin_call(fn: Callable[[], object], after: Callable[[object], str | None] | None = None) -> Response:
         try:
             result = fn()
         except LastAdminError as exc:
@@ -406,7 +433,9 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
             return _refused("no such user", 404)
         except ValueError as exc:
             return _refused(str(exc), 400)
-        return _json({"success": True, **(result if isinstance(result, dict) else {})})
+        warning = after(result) if after is not None else None
+        extra = {"warning": warning} if warning else {}
+        return _json({"success": True, **(result if isinstance(result, dict) else {}), **extra})
 
     def _body() -> dict:
         body = request.get_json(silent=True)
@@ -421,7 +450,8 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         b = _body()
         return _admin_call(lambda: {"id": store.create_user(
             str(b.get("username") or ""), str(b.get("display_name") or ""), str(b.get("role") or "user"),
-            str(b.get("temp_password") or ""), now=clock(), actor=_actor(), must_change=True)})
+            str(b.get("temp_password") or ""), now=clock(), actor=_actor(), must_change=True)},
+            after=lambda r: _notify("user_created", r["id"]))
 
     @app.route("/api/auth/admin/users/<int:uid>/role", methods=["POST"])
     def admin_role(uid: int):
@@ -433,11 +463,13 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         disabled = _body().get("disabled")
         if not isinstance(disabled, bool):
             return _refused("disabled must be true or false", 400)
-        return _admin_call(lambda: store.set_disabled(uid, disabled, now=clock(), actor=_actor()))
+        return _admin_call(lambda: store.set_disabled(uid, disabled, now=clock(), actor=_actor()),
+                           after=lambda _r: _notify("user_disabled", uid, disabled))
 
     @app.route("/api/auth/admin/users/<int:uid>/delete", methods=["POST"])
     def admin_delete(uid: int):
-        return _admin_call(lambda: store.delete_user(uid, now=clock(), actor=_actor()))
+        return _admin_call(lambda: store.delete_user(uid, now=clock(), actor=_actor()),
+                           after=lambda _r: _notify("user_deleted", uid))
 
     @app.route("/api/auth/admin/users/<int:uid>/unlock", methods=["POST"])
     def admin_unlock(uid: int):

@@ -41,6 +41,7 @@ markers = [
     # catch still surfaces within 24h, just not on every push/PR. A cheap
     # vectorized-only (or, for the module sweep, all-on/all-off) assertion
     # for the same behavior stays in the PR tier in each affected file.
+    "elevated: changes this machine (Windows accounts, local security policy, ACLs outside a temp folder, services); skipped unless RETIREMENT_ELEVATED_TESTS=1 in an elevated shell",
     "nightly: expensive relative to how often it changes (engine-equivalence, sweep-breadth, or rarely-changing-registry sweep); PR tier skips it, the nightly workflow runs it",
 ]
 # Per-test timeouts are enforced by CI only (--timeout=300 --timeout-method=thread

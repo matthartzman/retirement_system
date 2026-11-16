@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 347 Python files under `src/`, 89 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 356 Python files under `src/`, 89 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (247 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (256 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (35 modules)"]
@@ -638,12 +638,21 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/gain_harvest.py` | `tlh` | — |
 | `src/gateway/__init__.py` | — | — |
 | `src/gateway/__main__.py` | `gateway.server` | — |
+| `src/gateway/accounts.py` | `gateway` | — |
+| `src/gateway/acl.py` | `gateway`, `gateway.store` | — |
 | `src/gateway/app.py` | `access_core`, `gateway`, `gateway.store`, `gateway.upstream`, `http_runtime.wsgi_facade` | `segno` |
+| `src/gateway/backups.py` | — | — |
+| `src/gateway/build_queue.py` | — | — |
 | `src/gateway/cli.py` | `access_core`, `gateway.store` | — |
-| `src/gateway/server.py` | `access_core`, `gateway.app`, `gateway.store`, `http_runtime.server` | — |
+| `src/gateway/launchers.py` | `gateway` | — |
+| `src/gateway/proxy.py` | `gateway.build_queue`, `gateway.supervisor`, `gateway.upstream`, `http_runtime.wsgi_facade` | — |
+| `src/gateway/server.py` | `access_core`, `gateway`, `gateway.accounts`, `gateway.app`, `gateway.backups`, `gateway.build_queue`, `gateway.launchers`, `gateway.proxy`, `gateway.store`, `gateway.supervisor`, `http_runtime.server` | — |
+| `src/gateway/service.py` | `gateway.server` | — |
 | `src/gateway/store.py` | `src`, `access_core`, `gateway` | — |
+| `src/gateway/supervisor.py` | `gateway`, `gateway.build_queue`, `gateway.launchers` | — |
 | `src/gateway/totp.py` | — | — |
 | `src/gateway/upstream.py` | `http_runtime.wsgi_facade` | — |
+| `src/gateway/winapi.py` | — | — |
 | `src/glossary.py` | `core`, `taxes` | — |
 | `src/governance.py` | `src`, `stores.ref_getters.tax_update_dashboard`, `version` | — |
 | `src/history_sales.py` | `broker_activity.normalized`, `core`, `platform_runtime`, `sales_confirm`, `sales_ledger` | — |
