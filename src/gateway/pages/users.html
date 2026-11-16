@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retirement Planner</title>
+<link rel="stylesheet" href="/gateway/static/gateway.css">
+<script src="/gateway/static/gateway.js" defer></script>
+</head>
+<body data-page="users">
+<header class="top">
+  <h1>Retirement Planner</h1>
+  <nav aria-label="Main">
+    <a href="/">Planner</a>
+    <a href="/gateway/account">My account</a>
+  </nav>
+</header>
+<main>
+  <p id="status" class="status" role="status" aria-live="polite"></p>
+  <section>
+    <h2>Users</h2>
+    <div class="wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Two-factor</th><th>Last sign-in</th><th>Actions</th></tr></thead>
+        <tbody id="users-body"></tbody>
+      </table>
+    </div>
+  </section>
+  <form id="create-form" class="card">
+    <h2>Create user</h2>
+    <div class="row">
+      <div><label for="c-username">Username</label>
+        <input id="c-username" type="text" autocomplete="off" autocapitalize="none" required></div>
+      <div><label for="c-display">Display name</label>
+        <input id="c-display" type="text" autocomplete="off" required></div>
+      <div><label for="c-role">Role</label>
+        <select id="c-role"><option value="user">user</option><option value="admin">admin</option></select></div>
+      <div><label for="c-temp">Temporary password (12+ characters)</label>
+        <input id="c-temp" type="password" autocomplete="new-password" minlength="12" required></div>
+    </div>
+    <button type="submit">Create user</button>
+  </form>
+  <section>
+    <h2>Audit log</h2>
+    <div class="wrap">
+      <table>
+        <thead><tr><th>Time</th><th>Who</th><th>Event</th><th>Target</th><th>Details</th><th>Address</th></tr></thead>
+        <tbody id="audit-body"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+</body>
+</html>

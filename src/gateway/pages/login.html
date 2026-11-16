@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retirement Planner</title>
+<link rel="stylesheet" href="/gateway/static/gateway.css">
+<script src="/gateway/static/gateway.js" defer></script>
+</head>
+<body data-page="login">
+<header class="top"><h1>Retirement Planner</h1></header>
+<main>
+  <form id="login-form" class="card" method="post" action="/login">
+    <h2>Sign in</h2>
+    <label for="username">Username</label>
+    <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    <button type="submit">Sign in</button>
+  </form>
+  <form id="code-form" class="card hidden">
+    <h2>Two-factor code</h2>
+    <p class="muted">Enter the 6-digit code from your authenticator app.</p>
+    <label for="code">Code</label>
+    <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required>
+    <button type="submit">Verify</button>
+  </form>
+  <p id="status" class="status" role="status" aria-live="polite"></p>
+</main>
+</body>
+</html>

@@ -4,9 +4,6 @@ Kept apart from the financial data. Passwords are never stored or logged in read
 """
 from __future__ import annotations
 
-import hashlib
-import hmac
-import secrets
 import sqlite3
 import threading
 import time
@@ -14,10 +11,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from src import access_core
+from src.access_core import LOCK_SECONDS, MAX_FAILED_BEFORE_LOCK, MIN_PASSWORD_LENGTH  # noqa: F401 - public names kept
+
 DB_FILENAME = "access.db"
-MIN_PASSWORD_LENGTH = 10
-MAX_FAILED_BEFORE_LOCK = 5
-LOCK_SECONDS = 15 * 60
 THROTTLE_WINDOW_SECONDS = 10 * 60
 THROTTLE_FREE_FAILURES = 20
 THROTTLE_MAX_DELAY_SECONDS = 60.0
@@ -69,7 +66,7 @@ class AccessStore:
         self.path = Path(path)
         self._n = scrypt_n
         self._lock = threading.RLock()
-        self._failures: list[float] = []
+        self._throttle = access_core.FailureThrottle(THROTTLE_WINDOW_SECONDS, THROTTLE_FREE_FAILURES, THROTTLE_MAX_DELAY_SECONDS)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self._lock:
             conn = self._conn()
@@ -106,12 +103,11 @@ class AccessStore:
 
     @staticmethod
     def _hash(password: str, salt: bytes, n: int) -> bytes:
-        return hashlib.scrypt(password.encode("utf-8"), salt=salt, n=n, r=8, p=1, maxmem=128 * 1024 * 1024, dklen=32)
+        return access_core.hash_password(password, salt, n)
 
     @staticmethod
     def _check_password(password: str) -> None:
-        if len(password or "") < MIN_PASSWORD_LENGTH:
-            raise ValueError(f"password must be at least {MIN_PASSWORD_LENGTH} characters")
+        access_core.check_password_policy(password)
 
     # ---- people ----
     def add_user(self, display_name: str, username: str, temp_password: str, now: float = 0.0, money_view: str = "percent") -> int:
@@ -120,7 +116,7 @@ class AccessStore:
             raise ValueError("name and username are required")
         self._check_password(temp_password)
         self._check_money_view(money_view)
-        salt = secrets.token_bytes(16)
+        salt = access_core.new_salt()
         try:
             cur = self._run(
                 "INSERT INTO users(display_name, username, pw_hash, pw_salt, scrypt_n, must_change, created_at, updated_at, money_view)"
@@ -161,7 +157,7 @@ class AccessStore:
     def set_password(self, user_id: int, new_password: str, must_change: bool, now: float = 0.0) -> None:
         """Set a password and clear any lockout (an owner reset or a person's own change)."""
         self._check_password(new_password)
-        salt = secrets.token_bytes(16)
+        salt = access_core.new_salt()
         self._run(
             "UPDATE users SET pw_hash=?, pw_salt=?, scrypt_n=?, must_change=?, updated_at=?, failed_count=0, locked_until=0 WHERE id=?",
             (self._hash(new_password, salt, self._n), salt, self._n, int(must_change), now, user_id),
@@ -174,8 +170,7 @@ class AccessStore:
         user = self.get_user(user_id)
         if not user:
             return False
-        digest = self._hash(password or "", user["pw_salt"], user["scrypt_n"])
-        return hmac.compare_digest(digest, user["pw_hash"])
+        return access_core.password_matches(password, user["pw_salt"], user["scrypt_n"], user["pw_hash"])
 
     # ---- sign-in ----
     def verify_login(self, username: str, password: str, now: float) -> LoginResult:
@@ -183,20 +178,17 @@ class AccessStore:
         with self._lock:
             rows = self._run("SELECT * FROM users WHERE username=?", (username,)).fetchall()
             if not rows:
-                self._hash(password or "", b"\0" * 16, self._n)  # same work as a real check
-                self._failures.append(now)
+                access_core.burn_password_check(password, self._n)  # same work as a real check
+                self._throttle.record(now)
                 return LoginResult(False, None, False, "bad")
             row = rows[0]
             if row["locked_until"] > now:
                 return LoginResult(False, row["id"], False, "locked")
-            digest = self._hash(password or "", row["pw_salt"], row["scrypt_n"])
-            if hmac.compare_digest(digest, row["pw_hash"]):
+            if access_core.password_matches(password, row["pw_salt"], row["scrypt_n"], row["pw_hash"]):
                 self._run("UPDATE users SET failed_count=0 WHERE id=?", (row["id"],))
                 return LoginResult(True, row["id"], bool(row["must_change"]), "ok")
-            self._failures.append(now)
-            failed, locked_until = row["failed_count"] + 1, 0.0
-            if failed >= MAX_FAILED_BEFORE_LOCK:
-                failed, locked_until = 0, now + LOCK_SECONDS
+            self._throttle.record(now)
+            failed, locked_until = access_core.failure_outcome(row["failed_count"], now)
             self._run("UPDATE users SET failed_count=?, locked_until=? WHERE id=?", (failed, locked_until, row["id"]))
             return LoginResult(False, row["id"], False, "locked" if locked_until else "bad")
 
@@ -225,16 +217,10 @@ class AccessStore:
 
     def global_delay(self, now: float) -> float:
         """Seconds sign-ins must be refused for: 0 until ~20 failures in 10 minutes, then growing."""
-        with self._lock:
-            self._failures = [t for t in self._failures if now - t < THROTTLE_WINDOW_SECONDS]
-            over = len(self._failures) - THROTTLE_FREE_FAILURES
-            if over <= 0:
-                return 0.0
-            return min(THROTTLE_MAX_DELAY_SECONDS, float(2 ** min(over, 10)))
+        return self._throttle.delay(now)
 
     def last_failure_at(self) -> float:
-        with self._lock:
-            return self._failures[-1] if self._failures else 0.0
+        return self._throttle.last_failure_at()
 
 
 class _Result:

@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 338 Python files under `src/`, 89 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 347 Python files under `src/`, 89 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (238 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (247 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (35 modules)"]
@@ -63,6 +63,7 @@ From `requirements.txt` (the authoritative declared list):
 - `openpyxl>=3.1,<4`
 - `pywebview>=4.0,<7`
 - `keyring>=24,<26`
+- `segno==1.6.6`
 
 Actual usage detected per layer (which layer imports which third-party package):
 
@@ -71,7 +72,7 @@ Actual usage detected per layer (which layer imports which third-party package):
 | HTTP Routes | _none (stdlib only)_ |
 | Server Services | _none (stdlib only)_ |
 | HTTP Runtime | _none (stdlib only)_ |
-| Core Engine & Domain | `keyring`, `numpy`, `openpyxl`, `pypdf`, `pywebview`, `requests`, `scipy` |
+| Core Engine & Domain | `keyring`, `numpy`, `openpyxl`, `pypdf`, `pywebview`, `requests`, `scipy`, `segno` |
 | Projection Stages | _none (stdlib only)_ |
 | Reporting / Workbook | `lxml`, `numpy`, `openpyxl`, `scipy` |
 | Dashboard UI Builder | _none (stdlib only)_ |
@@ -574,6 +575,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | Module | Internal imports | External imports |
 |---|---|---|
 | `src/__init__.py` | `version` | — |
+| `src/access_core.py` | — | — |
 | `src/account_numbers.py` | — | — |
 | `src/active_plan.py` | `csv_exchange`, `csv_exchange.flat_csv`, `roth_ui_build_guard`, `stores`, `stores.plan_store`, `workspace_context` | — |
 | `src/after_tax.py` | `core` | — |
@@ -634,6 +636,14 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/fallback_log.py` | — | — |
 | `src/feature_entry_counts.py` | — | — |
 | `src/gain_harvest.py` | `tlh` | — |
+| `src/gateway/__init__.py` | — | — |
+| `src/gateway/__main__.py` | `gateway.server` | — |
+| `src/gateway/app.py` | `access_core`, `gateway`, `gateway.store`, `gateway.upstream`, `http_runtime.wsgi_facade` | `segno` |
+| `src/gateway/cli.py` | `access_core`, `gateway.store` | — |
+| `src/gateway/server.py` | `access_core`, `gateway.app`, `gateway.store`, `http_runtime.server` | — |
+| `src/gateway/store.py` | `src`, `access_core`, `gateway` | — |
+| `src/gateway/totp.py` | — | — |
+| `src/gateway/upstream.py` | `http_runtime.wsgi_facade` | — |
 | `src/glossary.py` | `core`, `taxes` | — |
 | `src/governance.py` | `src`, `stores.ref_getters.tax_update_dashboard`, `version` | — |
 | `src/history_sales.py` | `broker_activity.normalized`, `core`, `platform_runtime`, `sales_confirm`, `sales_ledger` | — |
