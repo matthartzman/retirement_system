@@ -33,7 +33,7 @@ data folder or the install folder; the key is never inside the backup folder; `C
    ```powershell
    py -3.12 -m venv C:\RetirementPlanner\app\runtime
    $PY = "C:\RetirementPlanner\app\runtime\Scripts\python.exe"
-   & $PY -m pip install -r C:\RetirementPlanner\app\requirements.txt
+   & $PY -m pip install -r C:\RetirementPlanner\app\requirements.txt -r C:RetirementPlannerppequirements-gateway.txt
    Set-Location C:\RetirementPlanner\app
    ```
 2. **Folders.**
@@ -190,7 +190,7 @@ migrate lazily on their next sign-in.
 
 1. Tell users; stop the service: `& $PY -m src.gateway.service stop`.
 2. Full backup with the *old* code: `ops backup run ...` and keep its file name.
-3. Copy the new release over `C:\RetirementPlanner\app`, update the runtime (`pip install -r requirements.txt`), run
+3. Copy the new release over `C:\RetirementPlanner\app`, update the runtime (`pip install -r requirements.txt -r requirements-gateway.txt`), run
    `acl setup`/`check` as in step 3.
 4. Migrate everyone with the *new* code (it snapshots each user first, migrates in a fresh process per user, never
    stops at the first failure, and migrates `gateway.db` when it opens it):
