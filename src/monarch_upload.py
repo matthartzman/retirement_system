@@ -258,8 +258,10 @@ def _seed_counts(base: Path) -> dict[str, int] | None:
 
 def import_balance_rows_for_upload(base_dir: str | Path, rows: list[tuple[str, str, str, float]], *,
                                    dry_run: bool = False, today: date | None = None,
-                                   now: datetime | None = None) -> dict[str, Any]:
-    """Normalised balances -> the plan's Monarch tables through the extractor import's guards, then the seed."""
+                                   now: datetime | None = None, source: str = "browser upload",
+                                   compare_same_source: bool = False) -> dict[str, Any]:
+    """Normalised balances -> the plan's Monarch tables through the extractor import's guards, then the seed.
+    The connector seam uses this too (``source="monarch connector"``, ``compare_same_source=True``)."""
     from . import monarch_balances_import as mbi
 
     base = Path(base_dir)
@@ -271,7 +273,8 @@ def import_balance_rows_for_upload(base_dir: str | Path, rows: list[tuple[str, s
     }
     if dry_run:
         return {"success": True, "status": "dry_run", **summary}
-    out = mbi.import_balance_rows(base, rows, source="browser upload", today=today, now=now)
+    out = mbi.import_balance_rows(base, rows, source=source, today=today, now=now,
+                                  compare_same_source=compare_same_source)
     result = {**summary, "success": bool(out.get("success")), "status": out.get("status")}
     if out.get("status") != "ok":
         result["error"] = mask_names(out.get("error") or "rejected")
