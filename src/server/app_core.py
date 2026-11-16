@@ -121,9 +121,9 @@ except ImportError:
     from src import working_balances
 
 try:
-    from .. import platform_runtime
+    from .. import platform_runtime, remote_mode
 except ImportError:  # direct execution fallback
-    from src import platform_runtime
+    from src import platform_runtime, remote_mode
 
 # BASE_DIR is the code/package root: reference_data/, frontend static assets,
 # and tools/build_workbook.py live here. WORKSPACE_ROOT is
@@ -163,6 +163,15 @@ def _json_unhandled_error(exc):
         app.logger.exception("Unhandled API error", exc_info=exc)
     except Exception:
         pass
+    if remote_mode.enabled():
+        # Remote mode item 5: the exception text can carry server paths and internals; the
+        # remote user gets an id to report, the server log keeps the detail.
+        error_id = os.urandom(6).hex()
+        try:
+            app.logger.exception(f"Unhandled API error {error_id}", exc_info=exc)
+        except Exception:
+            pass
+        return jsonify({"success": False, "error": remote_mode.GENERIC_ERROR, "error_id": error_id}), 500
     message = f"{exc.__class__.__name__}: {exc}" if str(exc) else exc.__class__.__name__
     return jsonify({"success": False, "error": message}), 500
 
@@ -184,8 +193,8 @@ def _sqlite_db() -> Path:
     # against the stale, pre-redirect workspace while config_backend.resolve_path() (also a
     # fresh call) resolves against the current one.
     cfg = _runtime_config()
-    p = Path(cfg.sqlite_db or DEFAULT_DB)
-    return p if p.is_absolute() else platform_runtime.workspace_root() / p
+    # Remote mode item 3: a stored Runtime/sqlite_db setting cannot point outside the workspace.
+    return remote_mode.confine_path(cfg.sqlite_db or DEFAULT_DB, what="database path")
 
 
 
@@ -1168,8 +1177,53 @@ def _transport_gate():
     return None
 
 
+def _remote_mode_gate():
+    """Remote mode items 1-2: the worker token on every request (whatever the bind address,
+    ``/api/ping`` and OPTIONS included), then the deny-by-default route allow-list.
+
+    The token comes only from the environment the supervisor set (``remote_mode.worker_token``),
+    never from a stored setting. Routing is done here, before any handler runs, so an unknown
+    path is a 404 and a registered route that is not allowed is a 403 with no side effect.
+    """
+    from . import remote_allowlist  # noqa: PLC0415
+
+    expected = remote_mode.worker_token()
+    auth = str(request.headers.get("Authorization", "") or "").strip()
+    candidate = auth[7:].strip() if auth.lower().startswith("bearer ") else str(request.headers.get(remote_mode.TOKEN_HEADER, "") or "")
+    if not constant_time_token_ok(candidate.strip(), expected):
+        return jsonify({"success": False, "error": "Access token required"}), 401
+    route, _kwargs = app._match(request.path, request.method)
+    if route is None:
+        return jsonify({"success": False, "error": "Not found"}), 404
+    if not remote_allowlist.route_allowed(request.method, route.rule):
+        return jsonify({"success": False, "error": remote_mode.DISABLED_FEATURE, "remote_mode": True}), 403
+    return None
+
+
+@app.after_request
+def _remote_mode_scrub(response):
+    """Remote mode item 5: no server path leaves the worker in a JSON body (save responses,
+    status payloads, error texts). Desktop mode returns the response untouched."""
+    if not remote_mode.enabled() or response.mimetype != "application/json":
+        return response
+    try:
+        data = response.get_json()
+    except Exception:
+        return response
+    scrubbed = remote_mode.scrub(data)
+    if scrubbed == data:
+        return response
+    headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+    return Response(json.dumps(scrubbed, ensure_ascii=False), status=response.status_code, headers=headers,
+                    content_type="application/json")
+
+
 @app.before_request
 def _security_gate():
+    if remote_mode.enabled():
+        denied = _remote_mode_gate()
+        if denied:
+            return denied
     if not getattr(app, "_no_http_transport", False):
         denied = _transport_gate()
         if denied:

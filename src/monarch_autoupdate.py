@@ -206,7 +206,11 @@ def resolve_source_dir(base_dir: str | Path, policy: dict[str, Any] | AutoUpdate
         raw = policy.source_dir
     elif isinstance(policy, dict):
         raw = str(policy.get("source_dir") or "")
+    from . import remote_mode  # noqa: PLC0415
+
     p = Path(raw).expanduser() if raw else Path(default_source_dir(base_dir))
+    if remote_mode.enabled():  # a stored setting: confined to the workspace (remote mode item 3)
+        return remote_mode.confine_path(p, root=base_dir, what="Monarch source folder")
     return p if p.is_absolute() else (Path(base_dir) / p).resolve()
 
 

@@ -445,6 +445,11 @@ class Flask:
         return None
 
     def _exception_response(self, exc: BaseException) -> Response:
+        from .. import remote_mode  # noqa: PLC0415 - import-free module, read per call
+
+        if remote_mode.enabled():  # never echo exception text to a remote user
+            self.logger.exception("Unhandled error (no handler)", exc_info=exc)
+            return Response(json.dumps({"success": False, "error": remote_mode.GENERIC_ERROR}), status=500, content_type="application/json")
         message = f"{exc.__class__.__name__}: {exc}" if str(exc) else exc.__class__.__name__
         return Response(json.dumps({"success": False, "error": message}), status=500, content_type="application/json")
 

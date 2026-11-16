@@ -24,8 +24,9 @@ def app_store_path() -> Path:
     raw = str(os.environ.get(APP_DB_ENV, "") or "").strip()
     root = platform_runtime.workspace_root()
     if raw:
-        p = Path(raw).expanduser()
-        return p if p.is_absolute() else root / p
+        from . import remote_mode  # noqa: PLC0415 - import-free module
+
+        return remote_mode.confine_path(raw, root=root, what="app database")
     return root / "local_state" / APP_DB_FILE_NAME
 
 

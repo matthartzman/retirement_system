@@ -59,6 +59,15 @@ def _stamp(path: Path) -> tuple[Any, ...]:
     return tuple(out)
 
 
+def _require_inside_workspace(path: str | Path) -> None:
+    """Remote mode item 3: the registry holds absolute paths, so every path it is asked to
+    register, activate or serve as the active plan must lie inside the workspace."""
+    from . import remote_mode  # noqa: PLC0415 - import-free module
+
+    if remote_mode.enabled() and not remote_mode.is_inside_workspace(path):
+        raise PlanRegistryError("That plan file is outside your workspace.")
+
+
 def invalidate() -> None:
     with _LOCK:
         _CACHE.clear()
@@ -151,7 +160,9 @@ def active_record() -> dict[str, Any]:
 
 
 def active_plan_file() -> Path:
-    return Path(active_record()["path"])
+    path = Path(active_record()["path"])
+    _require_inside_workspace(path)  # fails closed on a record made before remote mode
+    return path
 
 
 def active_plan_id() -> str:
@@ -197,6 +208,7 @@ def register_plan_file(path: str | Path, *, name: str | None = None, kind: str =
                        plan_id: str | None = None) -> dict[str, Any]:
     """Register a plan file (the existing record when its path is already registered)."""
     p = Path(os.path.abspath(str(Path(path).expanduser())))
+    _require_inside_workspace(p)
     with _LOCK, app_state.open_app_store() as store:
         rec = _find(store, p)
         if rec is None:
@@ -212,6 +224,7 @@ def activate(plan_id: str, *, check: bool = True) -> dict[str, Any]:
     with _LOCK:
         current = active_record()
         rec = get_plan(plan_id)
+        _require_inside_workspace(rec["path"])
         if check:
             error = check_plan_file(rec["path"])
             if error:
