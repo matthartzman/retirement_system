@@ -68,7 +68,8 @@ def workbook_download_settings_payload(config_path: Path | str | None = None) ->
 def save_workbook_download_settings(body: dict[str, Any], config_path: Path | str | None = None) -> tuple[dict[str, Any], int]:
     path = Path(config_path) if config_path is not None else None  # an app.db; None = this install's
     if "filename_root" in body:
-        root = str(body.get("filename_root") or "").strip()
+        # The root goes into a Content-Disposition header: no control characters, quotes or separators.
+        root = "".join(c for c in str(body.get("filename_root") or "") if c.isprintable() and c not in '"\\/').strip()
         if not root:
             return {"success": False, "error": "filename_root cannot be blank"}, 400
         upsert_system_setting(path, "Downloads", "filename_root", root, units="text", notes="Root name for downloaded workbook files.")
