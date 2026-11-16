@@ -1,28 +1,11 @@
 // ── Plan Features (Settings → Plan Features) ────────────────────────────────
-// The switch surface for every optional workbook module: #330's "three
-// surfaces, one registry" (spec §5.1), of which this page is surface 1.
-//
-// Extracted from dashboard.js because dashboard.js sits on a size ratchet
-// (tests/test_frontend_size_ratchet.py) that may only move DOWN, and this page
-// grows substantially here. The ratchet's own docstring names this as the
-// supported way through: "a change that adds lines to dashboard.js must take
-// lines out of it somewhere else, or move the new code into its own module --
-// which is the point."
-//
-// Loaded AFTER dashboard.js (see frontend/index.html), the same position
-// dashboard_decomp_workbook_formatting.js occupies for the other extracted
-// Settings page: this module reads `searchText`, `boolishValue`, `rows` and
-// `moduleStatus` off dashboard.js's own window bridge, and dashboard.js calls
-// `renderOptionalFunctions()` back as a bare global from renderMain()'s
-// dispatch. Both directions resolve at call time, not at module-evaluation
-// time, so neither file needs the other to have finished evaluating.
-//
-// SHAPE: everything that decides *what* the page says is a pure function
-// taking its data as parameters; only `renderOptionalFunctions()` itself
-// reads shared mutable state. That is not stylistic — a module-scoped `let`
-// is a lexical binding the frontend tests' vm sandbox cannot reach, so a
-// helper that closes over page state is a helper that cannot be tested
-// (see tests/frontend/plan_features.test.mjs).
+// The switch surface for every optional workbook module: #330 "three surfaces, one registry" (spec §5.1),
+// surface 1. Its own module because dashboard.js sits on a size ratchet (tests/test_frontend_size_ratchet.py).
+// Loaded AFTER dashboard.js; it reads searchText, boolishValue, rows and moduleStatus off dashboard.js's window
+// bridge, and dashboard.js calls renderOptionalFunctions() back as a bare global (both resolve at call time).
+// SHAPE: what the page says is decided by pure functions taking data as parameters (a module-scoped `let` is
+// unreachable from the vm sandbox tests, see tests/frontend/plan_features.test.mjs); only
+// renderOptionalFunctions() reads shared state.
 
 // Which kind chip is active ("" = all), and which domain groups are expanded.
 // Per-render UI state only; nothing here is persisted or sent to the server.

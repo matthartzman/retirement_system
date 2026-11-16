@@ -1,22 +1,8 @@
-// dashboard_shared_helpers.js: the single copy of esc/escJs/fmtMoney/fmtPct and
-// the display-formatting helpers other frontend modules build on. Loaded first
-// (index.html) so it is available as plain globals to every script that
-// follows, and via window.RPDashboardUtils for callers that prefer that form.
-//
-// A13: these were previously reimplemented per-file (dashboard.js, reports_ui.js,
-// planning_workbench_ui.js, dashboard_batch_assumption_edit.js) with divergent
-// escJs behavior (only this version strips \n/\r, which the others didn't) —
-// a security-relevant drift for HTML-escaping code. One implementation now.
-//
-// system_review 2026-08-31 item 3.11: converted to type="module" (see
-// tests/test_dashboard_shared_helpers_load_order_regression.py for why that
-// was safe here specifically -- unlike pywebview_bridge.js, see
-// tests/test_pywebview_bridge_load_order_regression.py, which is not). Every
-// top-level function/const below stops being an implicit global the moment
-// this runs as a module, so the explicit window bridge below (mirroring the
-// convert_dashboard.mjs-generated bridges every other leaf module already
-// has) is what keeps esc(...), fmtMoney(...), etc. callable as bare
-// identifiers from every classic-or-module script that follows this one.
+// dashboard_shared_helpers.js: the single copy of esc/escJs/fmtMoney/fmtPct and the display-formatting helpers
+// other modules build on. Loaded first so they are plain globals, and via window.RPDashboardUtils.
+// A13: previously reimplemented per file with divergent escJs (only this one strips newlines), a security-relevant
+// drift. 3.11: a type="module" (see tests/test_dashboard_shared_helpers_load_order_regression.py), so the
+// explicit window bridge below keeps esc(...), fmtMoney(...) callable as bare identifiers.
 function esc(s) {
   return String(s ?? "").replace(
     /[&<>"']/g,

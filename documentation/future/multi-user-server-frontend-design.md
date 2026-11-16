@@ -49,8 +49,25 @@ No backend change was needed.
 
 Where the auto-update card lives (Settings, Data & Backups), `monarchUploadCardHtml()` shows a Transactions and a
 Balances upload. Each file is sent with `dry_run: true`, the result (counts, date range, masked account names as
-returned) is shown, and only "Import N rows" sends the real request. The function carries a comment marking where a
-future "Connect Monarch" button goes.
+returned) is shown, and only "Import N rows" sends the real request.
+
+### Optional connector panel
+
+Below the two uploads, `remote_files.js` calls `GET /api/monarch/connector` (design:
+`multi-user-server-monarch-secrets-design.md`). The connector is off unless the gateway runs with
+`--monarch-connector`, so when the answer is `available: false` the panel shows only the server's `reason` and the
+CSV uploads remain the way in. When available:
+
+1. **Connect** calls `POST .../start` and opens `authorize_url` in a new tab. The provider only accepts a loopback
+   redirect, so the browser ends on a `http://127.0.0.1/callback?code=...` page that does not load.
+2. The user copies that whole address into the panel (ten-minute limit) and presses **Finish connecting**, which
+   sends `{"callback_url": ...}` to `POST .../complete`.
+3. **Sync now** calls `POST .../sync` (up to about a minute) and shows counts. If `hidden_by_monarch` is above zero
+   the panel says that many accounts are hidden by the provider and to upload a file for them. **Disconnect** calls
+   `POST .../disconnect`.
+4. A 409 (not connected, or sign-in expired) reloads the status so Connect is offered again.
+
+The UI says "Third-party import", never the vendor name (`test_no_vendor_name_in_ui_strings_regression.py`).
 
 ## Queued builds
 
