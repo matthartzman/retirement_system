@@ -1,7 +1,7 @@
 /* Remote mode file flows (multi-user Phase 5): browser download/upload in place of desktop file dialogs.
    Plan files: GET /api/plan/download, POST /api/plan/upload. Monarch CSVs: POST /api/monarch/upload (dry run,
    then confirmed import; account names shown exactly as the API masks them). Reached only when
-   RetirementRemote.enabled. SEAM: a future "Connect Monarch" button belongs in monarchUploadCardHtml(). */
+   RetirementRemote.enabled. The optional connector panel (sign in once, then sync) is shown only when the server reports it available. */
 (function (global) {
   'use strict';
   const doc = global.document;
@@ -101,7 +101,7 @@
     return '<div class="feature-card monarch-upload-card" tabindex="0"><h3>Third-party import</h3><p class="small" data-kind="state">Each file is checked first; nothing imports until you confirm.</p>' +
       box('transactions', 'Transactions', 'Transactions export (CSV).') +
       box('balances', 'Balances', 'Balance history export (CSV).') +
-      '<!-- SEAM: Connect Monarch button goes here once the connector exists. --></div>';
+      '<div id="monarchConnector" data-kind="state"></div></div>';
   }
   function show(kind, html) {
     shown[kind] = html;
@@ -137,7 +137,54 @@
     } catch (e) { show(kind, '<p class="small" role="alert" data-kind="warn">' + esc(e.message) + '</p>'); }
   }
 
+  // ---- Optional connector: GET status; start (open sign-in), paste the callback address, sync, disconnect ----
+  let conn = null, connNote = '';
+  const cdone = (html) => { connNote = html || ''; drawConn(); };
+  async function cx(path, body) {
+    return client().request('/api/monarch/connector' + path, body ? { method: 'POST', body: JSON.stringify(body) } : {});
+  }
+  function drawConn() {
+    const el = doc.getElementById('monarchConnector');
+    if (!el || !conn) return;
+    const b = (fn, label, cls) => '<button class="btn ' + (cls || '') + '" type="button" onclick="event.stopPropagation();' + fn + '">' + label + '</button>';
+    let h = '<b>Connect your account</b>';
+    if (!conn.available) h += '<p class="small" data-kind="state">' + esc(conn.reason || 'Not available on this server. Use the files above.') + '</p>';
+    else if (conn.connected) h += '<p class="small" data-kind="state">Connected' + (conn.last_sync ? '; last sync ' + esc(conn.last_sync) : '') + '.</p>' + b('monarchConnectorSync()', 'Sync now', 'primary') + b('monarchConnectorDisconnect()', 'Disconnect');
+    else if (conn.sign_in_pending) h += '<p class="small" data-kind="state">After signing in, copy the whole address from the page that does not load and paste it here.</p><input id="monarchCallback" class="search" placeholder="http://127.0.0.1/callback?code=..." aria-label="Sign-in address">' + b('monarchConnectorFinish()', 'Finish connecting', 'primary') + b('monarchConnectorStart()', 'Start over');
+    else h += b('monarchConnectorStart()', 'Connect', 'primary');
+    el.innerHTML = h + connNote;
+  }
+  async function loadConnector() {
+    try { conn = await cx(''); } catch (_e) { return; }
+    drawConn();
+  }
+  async function connStep(fn) {
+    try { await fn(); } catch (e) {
+      if (e.status === 409) await loadConnector();
+      cdone('<p class="small" role="alert" data-kind="warn">' + esc(e.message) + '</p>');
+    }
+  }
+  const monarchConnectorStart = () => connStep(async () => {
+    const out = await cx('/start', {});
+    global.open(out.authorize_url, '_blank', 'noopener');
+    conn.sign_in_pending = true;
+    cdone('<p class="small" data-kind="state">Sign-in opened in a new tab; you have 10 minutes.</p>');
+  });
+  const monarchConnectorFinish = () => connStep(async () => {
+    conn = await cx('/complete', { callback_url: (doc.getElementById('monarchCallback') || {}).value || '' });
+    cdone('');
+  });
+  const monarchConnectorSync = () => connStep(async () => {
+    cdone('<p class="small" data-kind="state">Syncing; this can take a minute...</p>');
+    const o = await cx('/sync', { dry_run: false, full: false }), t = o.transactions || {}, bal = o.balances || {};
+    conn = await cx('');
+    cdone('<p class="small" role="status" data-kind="state">Synced ' + esc(o.accounts_seen) + ' accounts: ' + esc(t.added || 0) + ' transactions added, ' + esc(bal.rows || 0) + ' balance rows.' +
+      (o.hidden_by_monarch > 0 ? ' ' + esc(o.hidden_by_monarch) + ' hidden by the provider; upload a file.' : '') + '</p>');
+    if (global.markBuildStale) global.markBuildStale();
+  });
+  const monarchConnectorDisconnect = () => connStep(async () => { conn = await cx('/disconnect', {}); cdone(''); });
+
   const R = global.RetirementRemote || (global.RetirementRemote = {});
-  Object.assign(R, { downloadPlan, uploadPlan, monarchUploadCardHtml });
-  Object.assign(global, { chooseMonarchUpload, confirmMonarchUpload });
+  Object.assign(R, { downloadPlan, uploadPlan, monarchUploadCardHtml: () => { setTimeout(loadConnector, 0); return monarchUploadCardHtml(); } });
+  Object.assign(global, { chooseMonarchUpload, confirmMonarchUpload, monarchConnectorStart, monarchConnectorFinish, monarchConnectorSync, monarchConnectorDisconnect });
 })(window);
