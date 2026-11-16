@@ -48,6 +48,9 @@ client -> gateway gate (Phase 2: Host, Origin, CSRF, session, TOTP, role)
 - **Retries:** a connection failure on `GET`/`HEAD` restarts the worker once and retries; unsafe methods are never
   retried (no double writes), they get 502.
 - The gateway's own listeners get a 60 s socket timeout (a slow client cannot pin a thread forever).
+- The gate refuses (400) a request carrying the session cookie twice: the cookie parser would silently pick
+  one, so a second user's cookie next to the first would decide whose worker answers. The isolation gate found
+  this.
 
 ## Build queue
 
@@ -153,7 +156,9 @@ gets the gateway-only ACL. Encryption, restore and a configurable remote destina
 
 `python -m src.gateway.service install --config <gateway.json> [--name RetirementGateway]` registers a real
 Windows service (LocalSystem, automatic start, restart on failure) whose command runs
-`python -m src.gateway.service run --config ...`; `run` hands control to the service control dispatcher and
+`python -E -s <install>\src\gateway\service.py run --config ...` (a script path, because the service control
+manager starts services in System32 where `-m src...` cannot resolve); `run` moves to the install root, hands
+control to the service control dispatcher and
 runs the gateway in a thread, answering stop and shutdown. `remove`, `start`, `stop` and `status` are included,
 and `--config` holds the same settings as the gateway's command line.
 
