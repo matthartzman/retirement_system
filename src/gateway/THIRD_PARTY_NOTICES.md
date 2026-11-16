@@ -37,3 +37,9 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
+## cryptography
+
+- Use: AES-256-GCM and HKDF-SHA256 for the encrypted backup archives (`src/gateway/backup_crypto.py`).
+- Source: https://github.com/pyca/cryptography (PyPI `cryptography`, `>=42,<46` in `requirements-gateway.txt`, server only).
+- Licence: Apache-2.0 OR BSD-3-Clause (dual); wheels bundle OpenSSL (Apache-2.0).

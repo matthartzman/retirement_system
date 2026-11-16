@@ -68,6 +68,8 @@ def test_dropped_packages_are_not_imported_anywhere_in_project_code():
                   if not {".venv", "site-packages"} & set(f.relative_to(ROOT).parts)]
     offenders = []
     for f in files:
+        if f.relative_to(ROOT).as_posix() == "src/gateway/backup_crypto.py":
+            continue  # server-only (requirements-gateway.txt), never bundled in the frozen exe
         tree = ast.parse(f.read_text(encoding="utf-8", errors="replace"))
         for n in ast.walk(tree):
             names = []

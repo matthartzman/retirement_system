@@ -273,6 +273,11 @@ class Supervisor:
         slot = self._slots.get(int(user_id))
         return bool(slot and slot.process is not None and slot.process.poll() is None)
 
+    def running_count(self) -> int:
+        with self._slots_lock:
+            slots = list(self._slots.values())
+        return sum(1 for s in slots if s.process is not None and s.process.poll() is None)
+
     def current_endpoint(self, user_id: int) -> Endpoint | None:
         slot = self._slots.get(int(user_id))
         return slot.endpoint if slot and slot.process is not None and slot.process.poll() is None else None
