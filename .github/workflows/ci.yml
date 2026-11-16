@@ -47,7 +47,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt -r requirements-dev.txt
+        pip install -r requirements.txt -r requirements-gateway.txt -r requirements-dev.txt
 
     # A handful of the source-text-only files below (test_dashboard_codemod_*,
     # test_dashboard_extract_module_tool, test_dashboard_js_module_bridge_*)
@@ -118,7 +118,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt -r requirements-dev.txt
+        pip install -r requirements.txt -r requirements-gateway.txt -r requirements-dev.txt
 
     # Several pytest tests shell out to the tools/js_codemod/*.mjs codemods
     # (tests/test_dashboard_codemod_census_report_regression.py,

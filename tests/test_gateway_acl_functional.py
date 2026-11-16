@@ -98,3 +98,20 @@ def test_the_check_command_fails_loudly(layout, capsys):
     code = acl.main(["check", "--data-root", str(root), "--gateway-sid", me])
     err = capsys.readouterr().err
     assert code == 1 and "FAILED" in err and "Everyone has access" in err
+
+
+def test_an_owner_rights_ace_is_benign_only_while_the_owner_is_trusted(tmp_path):
+    """CI runners add an OWNER RIGHTS ACE to folders; it reaches only the owner, so it must not be flagged
+    while the owner is the gateway/Administrators, but must be once some other account owns the object."""
+    me = winapi.current_user_sid()
+    inst = tmp_path / "install"
+    inst.mkdir()
+    acl.lock_install_readonly(inst, gateway_sid=me)
+    subprocess.run(["icacls", str(inst), "/grant", f"*{acl.OWNER_RIGHTS}:(OI)(CI)F"], check=True, capture_output=True)
+    dacl = acl.read_dacl(inst)
+    assert acl.OWNER_RIGHTS in {a.sid for a in dacl.aces} and dacl.owner
+    trusted = {acl.SYSTEM, acl.ADMINISTRATORS, me, dacl.owner}
+    assert acl.check_readonly(inst, writers=trusted, workers={}, what="install") == []
+    # Owned by an account outside the trusted set, the same ACE is a real grant to that account.
+    assert acl.check_readonly(inst, writers={acl.SYSTEM, acl.ADMINISTRATORS}, workers={}, what="install")
+    subprocess.run(["icacls", str(tmp_path), "/reset", "/T", "/C", "/Q"], capture_output=True)

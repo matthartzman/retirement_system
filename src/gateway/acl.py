@@ -28,6 +28,7 @@ from . import fsguard
 SYSTEM = "S-1-5-18"
 ADMINISTRATORS = "S-1-5-32-544"
 USERS = "S-1-5-32-545"
+OWNER_RIGHTS = "S-1-3-4"
 TRUSTED_INSTALLER = "S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464"
 # Groups every worker account's token carries (or may carry): a grant to one of them reaches all workers.
 BROAD_SIDS = {
@@ -66,6 +67,13 @@ class Ace:
 class Dacl:
     protected: bool
     aces: tuple[Ace, ...] | None  # None: a NULL DACL (everyone has full access)
+    owner: str | None = None  # SID of the object's owner
+
+    def effective(self, allowed: set[str]) -> tuple[Ace, ...]:
+        """The ACEs that matter: OWNER RIGHTS only grants to whoever owns the object, so while the owner is
+        one of the ``allowed`` SIDs it widens nothing (CI runners add such an ACE). Owned by anyone else, it
+        reaches that account and is kept."""
+        return tuple(a for a in self.aces or () if not (a.sid == OWNER_RIGHTS and self.owner in allowed))
 
 
 # ---- reading -------------------------------------------------------------------------------------
@@ -76,21 +84,22 @@ def read_dacl(path: Path) -> Dacl:
     from . import winapi  # noqa: PLC0415
 
     a = ctypes.WinDLL("advapi32", use_last_error=True)
-    a.GetNamedSecurityInfoW.argtypes = [w.LPCWSTR, ctypes.c_int, w.DWORD, ctypes.c_void_p, ctypes.c_void_p,
+    a.GetNamedSecurityInfoW.argtypes = [w.LPCWSTR, ctypes.c_int, w.DWORD, ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p,
                                         ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
     a.GetNamedSecurityInfoW.restype = w.DWORD
     a.GetSecurityDescriptorControl.argtypes = [ctypes.c_void_p, ctypes.POINTER(w.WORD), ctypes.POINTER(w.DWORD)]
     a.GetAce.argtypes = [ctypes.c_void_p, w.DWORD, ctypes.POINTER(ctypes.c_void_p)]
-    dacl, sd = ctypes.c_void_p(), ctypes.c_void_p()
-    rc = a.GetNamedSecurityInfoW(str(path), 1, 0x4, None, None, ctypes.byref(dacl), None, ctypes.byref(sd))
+    dacl, sd, owner_sid = ctypes.c_void_p(), ctypes.c_void_p(), ctypes.c_void_p()
+    rc = a.GetNamedSecurityInfoW(str(path), 1, 0x4 | 0x1, ctypes.byref(owner_sid), None, ctypes.byref(dacl), None, ctypes.byref(sd))
     if rc:
         raise OSError(rc, f"GetNamedSecurityInfoW failed for a folder (error {rc})", None, rc)
     try:
         control, rev = w.WORD(), w.DWORD()
         a.GetSecurityDescriptorControl(sd, ctypes.byref(control), ctypes.byref(rev))
         protected = bool(control.value & 0x1000)  # SE_DACL_PROTECTED
+        owner = winapi.sid_to_string(owner_sid) if owner_sid.value else None
         if not dacl.value:
-            return Dacl(protected, None)
+            return Dacl(protected, None, owner)
         count = ctypes.c_uint16.from_address(dacl.value + 4).value  # ACL.AceCount
         aces = []
         for i in range(count):
@@ -104,7 +113,7 @@ def read_dacl(path: Path) -> Dacl:
             mask = ctypes.c_uint32.from_address(pace.value + 4).value
             sid = winapi.sid_to_string(ctypes.c_void_p(pace.value + 8))
             aces.append(Ace(sid, ace_type == 0, mask, bool(flags & 0x08)))
-        return Dacl(protected, tuple(aces))
+        return Dacl(protected, tuple(aces), owner)
     finally:
         ctypes.windll.kernel32.LocalFree(sd)
 
@@ -196,7 +205,7 @@ def check_private(path: Path, *, allowed: set[str], workers: dict[str, str], wha
             continue
         if entry == path and entry.is_dir() and not dacl.protected:  # files inherit from their folder
             findings.append(f"{what}: still inherits permissions from its parent folder")
-        for ace in dacl.aces:
+        for ace in dacl.effective(allowed):
             if ace.allow and ace.sid not in allowed and (ace.reads or ace.writes):
                 findings.append(f"{where}: {_label(ace.sid, workers)} has access")
     return findings
@@ -213,7 +222,7 @@ def check_readonly(path: Path, *, writers: set[str], workers: dict[str, str], wh
         return [f"{what}: cannot read permissions ({exc.errno})"]
     if dacl.aces is None:
         return [f"{what}: has no access list at all (everyone can write)"]
-    for ace in dacl.aces:
+    for ace in dacl.effective(writers):
         if ace.allow and ace.sid not in writers and ace.writes:
             findings.append(f"{what}: {_label(ace.sid, workers)} can write")
     return findings
