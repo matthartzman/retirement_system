@@ -6,11 +6,10 @@ get their own ``ListenerApp`` wrapper that tags requests, and nothing infers it 
 """
 from __future__ import annotations
 
-import json
-import re
 import subprocess
 from typing import Any, Literal
 
+from src.access_core import has_proxy_headers, is_loopback_host, tailscale_serves_port  # noqa: F401 - re-exported
 from src.http_runtime.wsgi_facade import HeaderMap, LocalRequest, request
 
 Listener = Literal["local", "remote"]
@@ -33,38 +32,12 @@ def current_listener() -> str:
     return str(request.environ.get("listener") or "local")
 
 
-def has_proxy_headers(headers: dict) -> bool:
-    for key in headers:
-        k = str(key).lower()
-        if k == "x-forwarded-for" or k.startswith("tailscale-"):
-            return True
-    return False
-
-
-def is_loopback_host(host_header: str) -> bool:
-    host = (host_header or "").strip().lower()
-    if host.startswith("["):
-        name = host.split("]", 1)[0] + "]"
-    else:
-        name = host.rsplit(":", 1)[0] if ":" in host else host
-    return name in {"127.0.0.1", "localhost", "[::1]"}
-
-
 def check_funnel_target(local_port: int = 5057, run=subprocess.run) -> str | None:
     """A message when Tailscale serves or funnels the local port (a misconfiguration), else None.
 
     Skipped (None) when the ``tailscale`` command is unavailable or its output is unreadable.
     """
-    try:
-        out = run(["tailscale", "serve", "status", "--json"], capture_output=True, text=True, timeout=10)
-    except (OSError, subprocess.SubprocessError):
-        return None
-    text = getattr(out, "stdout", "") or ""
-    try:
-        json.loads(text)
-    except ValueError:
-        return None
-    if re.search(rf"[:/]{local_port}\b", text):
+    if tailscale_serves_port(local_port, run=run):
         return (f"Tailscale is configured to serve port {local_port}, which has no sign-in. "
                 "Run 'tailscale funnel reset' and point Funnel at the remote port only.")
     return None
