@@ -3,9 +3,6 @@
   const SCHEMA = "batch_assumption_edit_v1";
   const MAX_PREVIEW = 250;
   let planPreview = [];
-  let systemRows = [];
-  let systemPreview = [];
-  let systemLoadedAt = "";
 
   // esc lives in dashboard_shared_helpers.js (A13), loaded first.
   function byId(id) {
@@ -176,7 +173,7 @@
   function buildPreview(rowList, opts, kind) {
     const preview = [];
     rowList.forEach(function (row, idx) {
-      const before = String(kind === "system" ? row.value : rowValue(row));
+      const before = String(rowValue(row));
       const after = computeAfter(before, opts);
       if (after == null) return;
       if (String(after) === String(before)) return;
@@ -300,7 +297,7 @@
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
   function downloadPreviewCsv(kind) {
-    const preview = kind === "system" ? systemPreview : planPreview;
+    const preview = planPreview;
     if (!preview.length) {
       show("Preview rows first.", "error");
       return;
@@ -319,125 +316,12 @@
     });
     try {
       downloadBlob(
-        (kind === "system" ? "system_config" : "plan_assumptions") +
+        "plan_assumptions" +
           "_batch_preview.csv",
         lines.join("\n"),
       );
     } catch (_e) {
       show("Could not download preview CSV.", "error");
-    }
-  }
-
-  async function loadSystemConfigRows(silent) {
-    try {
-      const out = await api("/api/admin/system-config");
-      systemRows = Array.isArray(out.rows) ? out.rows : [];
-      systemLoadedAt = new Date().toLocaleString();
-      if (!silent)
-        show("System Configuration rows loaded for batch preview.", "success");
-      const status = byId("batchSystemStatus");
-      if (status)
-        status.textContent =
-          systemRows.length + " rows loaded · " + systemLoadedAt;
-      return systemRows;
-    } catch (e) {
-      show(
-        "Could not load System Configuration rows: " +
-          (e && e.message ? e.message : e),
-        "error",
-      );
-      return [];
-    }
-  }
-  async function previewSystemBatchEdit() {
-    if (!systemRows.length) await loadSystemConfigRows(true);
-    const candidates = filterRows(systemRows, "batchSystem", true);
-    const opts = optionsFrom("batchSystem");
-    if (opts.operation === "find_replace" && !opts.findText) {
-      show("Enter text to find before previewing.", "error");
-      return;
-    }
-    systemPreview = buildPreview(candidates, opts, "system");
-    const box = byId("batchSystemPreview");
-    if (box)
-      box.innerHTML = previewTableHtml(
-        systemPreview,
-        "No System Configuration values would change.",
-      );
-    const apply = byId("batchSystemApply");
-    if (apply) apply.disabled = !systemPreview.length;
-    const dl = byId("batchSystemDownload");
-    if (dl) dl.disabled = !systemPreview.length;
-    const status = byId("batchSystemStatus");
-    if (status)
-      status.textContent =
-        (systemRows.length || 0) +
-        " rows loaded · " +
-        (systemPreview.length || 0) +
-        " changed rows in preview";
-  }
-  async function applySystemBatchEdit() {
-    if (!systemPreview.length) {
-      show("Preview System Configuration edits before applying them.", "error");
-      return;
-    }
-    if (
-      !(await showInAppConfirm(
-        systemPreview.length +
-          " System Configuration edit" +
-          (systemPreview.length === 1 ? "" : "s") +
-          " will be saved to the system configuration immediately.",
-        {
-          title: "Apply System Config",
-          confirmLabel: "Apply Now",
-          variant: "warn",
-        },
-      ))
-    )
-      return;
-    const keyFor = function (r) {
-      return [r.section || "", r.subsection || "", r.label || ""].join(
-        "\u001f",
-      );
-    };
-    const updates = {};
-    systemPreview.forEach(function (p) {
-      updates[keyFor(p.row)] = p.after;
-    });
-    const next = systemRows.map(function (r) {
-      const cp = Object.assign({}, r);
-      const k = keyFor(cp);
-      if (Object.prototype.hasOwnProperty.call(updates, k))
-        cp.value = updates[k];
-      return cp;
-    });
-    try {
-      const out = await api("/api/admin/system-config", {
-        method: "POST",
-        body: JSON.stringify({ rows: next }),
-      });
-      systemRows = next;
-      systemPreview = [];
-      const box = byId("batchSystemPreview");
-      if (box)
-        box.innerHTML =
-          '<div class="batch-preview-empty" data-kind="state">System Configuration batch edit applied. Rebuild outputs before relying on reports.</div>';
-      const apply = byId("batchSystemApply");
-      if (apply) apply.disabled = true;
-      const dl = byId("batchSystemDownload");
-      if (dl) dl.disabled = true;
-      show(
-        "System Configuration batch edit saved. Change count: " +
-          ((out.change_event && out.change_event.change_count) || "unknown") +
-          ".",
-        "success",
-      );
-    } catch (e) {
-      show(
-        "System Configuration batch edit failed: " +
-          (e && e.message ? e.message : e),
-        "error",
-      );
     }
   }
 
@@ -476,12 +360,6 @@
       '<div class="table-actions"><button class="btn" type="button" onclick="window.RPDashboardRoadmap12.previewPlanBatchEdit()">Preview batch</button><button class="btn primary" type="button" id="batchPlanApply" onclick="window.RPDashboardRoadmap12.applyPlanBatchEdit()" disabled>Apply preview to staged edits</button><button class="btn" type="button" id="batchPlanDownload" onclick="window.RPDashboardRoadmap12.downloadPreviewCsv(\'plan\')" disabled>Download preview CSV</button></div><div id="batchPlanPreview" class="batch-preview-empty" data-kind="state">No preview yet.</div></div>'
     );
   }
-  function systemBatchPanelHtml() {
-    // Item 180: the system-config batch editor was removed from the Settings
-    // page. Raw system_config.csv edits belong in the System Configuration
-    // Console, not a batch tool on the everyday Settings page.
-    return "";
-  }
   function insertPanels() {
     const pane = mainPane();
     if (!pane) return;
@@ -500,9 +378,6 @@
     previewPlanBatchEdit: previewPlanBatchEdit,
     applyPlanBatchEdit: applyPlanBatchEdit,
     downloadPreviewCsv: downloadPreviewCsv,
-    loadSystemConfigRows: loadSystemConfigRows,
-    previewSystemBatchEdit: previewSystemBatchEdit,
-    applySystemBatchEdit: applySystemBatchEdit,
   };
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", insertPanels);

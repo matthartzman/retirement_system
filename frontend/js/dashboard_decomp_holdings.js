@@ -148,15 +148,6 @@ export function addHoldingLot(account = "") {
     if (f) f.focus();
   }, 0);
 }
-export async function addHoldingAccount() {
-  const name = await showInAppPrompt("New account name:", "", {
-    title: "Add Account",
-    placeholder: "e.g. Fidelity IRA",
-  });
-  if (!name) return;
-  window.currentHoldingAccount = name.trim();
-  addHoldingLot(window.currentHoldingAccount);
-}
 export async function deleteHoldingLot(i) {
   if (
     !(await showInAppConfirm("This cannot be undone.", {
@@ -167,32 +158,6 @@ export async function deleteHoldingLot(i) {
   )
     return;
   ensureHoldingRows().data.splice(i, 1);
-  markHoldingsDirty();
-  renderMain();
-}
-export async function deleteHoldingAccount() {
-  if (window.currentHoldingAccount === "ALL") {
-    showMessage("Choose an account first.", "warn");
-    return;
-  }
-  if (
-    !(await showInAppConfirm(
-      "All lots in " +
-        accountDisplayLabel(window.currentHoldingAccount) +
-        " will be permanently removed.",
-      {
-        title: "Delete Account",
-        confirmLabel: "Delete All Lots",
-        variant: "danger",
-      },
-    ))
-  )
-    return;
-  const h = ensureHoldingRows();
-  h.data = h.data.filter(
-    (r) => String(r.account || "") !== window.currentHoldingAccount,
-  );
-  window.currentHoldingAccount = "ALL";
   markHoldingsDirty();
   renderMain();
 }
@@ -392,25 +357,6 @@ export function compareHoldingLots(a, b) {
   }
   return a.i - b.i;
 }
-export function insertHoldingLotLike(i) {
-  const h = ensureHoldingRows();
-  const src = h.data[i] || {};
-  const row = {};
-  h.header.forEach((c) => (row[c] = ""));
-  row.account = src.account || "";
-  row.symbol = src.symbol || "";
-  row.lot_type = src.lot_type || "buy";
-  h.data.push(row);
-  window.focusHoldingIdx = h.data.length - 1;
-  markHoldingsDirty();
-  renderMain();
-  setTimeout(() => {
-    const f = document.querySelector(
-      `.lot-table tr[data-hidx="${window.focusHoldingIdx}"] input[data-hcol="purchase_date"]`,
-    );
-    if (f) f.focus();
-  }, 0);
-}
 // Accounts whose holdings the transaction log writes (schema v22). Their rows are read-only here: edit them in the log.
 window.managedHoldingAccounts = window.managedHoldingAccounts || null;
 export function isManagedHoldingAccount(account) {
@@ -571,10 +517,7 @@ Object.assign(window, {
   holdingAccounts,
   updateHolding,
   addHoldingLot,
-  insertHoldingLotLike,
-  addHoldingAccount,
   deleteHoldingLot,
-  deleteHoldingAccount,
   setHoldingAccount,
   holdingsImportPreviewMessage,
   handleHoldingsCsvImport,

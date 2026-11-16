@@ -22,37 +22,12 @@ window.spendingDivergencePct = 0;
 export function getSpendingDivergencePct() { return window.spendingDivergencePct || 0 }
 window.getSpendingDivergencePct = getSpendingDivergencePct;
 
-// Wave 6.2 (system review 2026-08-04, finding `ui-spending-domain-fragmentation`):
-// same shape as the tabbed workspaces the ticket 323 Strategy redesign later
-// adopted (Optimize/Stress Test/Scenarios). Each tab still calls the
-// same render function its old standalone step used, so behavior (including
-// the Wave 1.4 jump-to-field fix inside renderLifestyleSpending()'s accordions)
-// is unchanged -- only the navigation surface merges Spending Model, Actual
-// Spending (YTD), and Spending Analysis into one workspace. Other Spending's
-// former tab is gone too, but not by merging navigation surfaces -- its
-// content (renderLifestyleSpending()) is now folded directly into the
-// Spending Model tab's own output (renderCoreSpendingUnified(),
-// dashboard_decomp_spending_taxonomy.js), since it belongs there, not beside
-// it as a separate stop.
-// Lives here (not dashboard.js) to keep dashboard.js under its size ratchet --
-// this module runs after dashboard.js's own top-level code, so its globals
-// (getStrategyTab, renderStrategyTabs, renderYtdTransactionsStep, etc.) are
-// already attached to window by the time a user triggers a render.
-// #330 §3.3/§5.2 (W12, inherited from W9's own triage: "hiding the YTD tab
-// within spending_core... belongs to W12's own scope"). Actual Spending
-// (YTD) and Spending Analysis are both views over ytd_transactions data via
-// the Spending Tracker / YTD bundle (spending_tracker_ytd, gating
-// spending_summary + account_reconciliation as one switch, #330 §3.3/W8b);
-// neither can compute without it. Collapsed-with-a-note, not removed from
-// the tab strip -- the tab stays reachable and switchable in place, matching
-// every other module-owned section that lives inside a page which stays
-// visible (§5.2). No entered-row count: spending_tracker_ytd owns no
-// dashboard_step/csv_sections rows of its own (its inputs are imported
-// transactions, not typed plan rows), the same reason Plan Features shows no
-// "N items entered" for it either.
-// #338 W-C: these two tabs are the Actual Spending step under Reports &
-// Review now (ytd_transactions + spending_dashboard merged), not tabs of
-// Spending Model.
+// Wave 6.2 (finding `ui-spending-domain-fragmentation`): Spending Model, Actual Spending (YTD) and Spending
+// Analysis share one tabbed workspace; each tab still calls its old render function. Other Spending is folded
+// into the Spending Model tab (renderCoreSpendingUnified(), dashboard_decomp_spending_taxonomy.js).
+// Lives here, not dashboard.js, to keep dashboard.js under its size ratchet; runs after its top-level code.
+// #330 §3.3/§5.2: the YTD and Analysis views need the spending_tracker_ytd bundle, so without it they are
+// collapsed with a note (still reachable), not removed. #338 W-C: they are the Actual Spending step now.
 // Explains the "! >3%" left-nav badge (same 3% threshold as stepButton): all
 // spending Tracking Types, annualized, vs. the annual budget for those same types.
 export function spendingDivergenceNoteHtml() {

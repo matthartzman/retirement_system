@@ -110,9 +110,6 @@ export function parseCsvTable(text) {
   return rows;
 }
 
-export function serializeCsvTable(rows) {
-  return rows.map((r) => r.map(csvEscape).join(",")).join("\n") + "\n";
-}
 
 export function serializeLiabilities() {
   const h = ensureLiabilityRows();
@@ -1117,7 +1114,6 @@ Object.assign(window, {
   openCachedChart,
   csvEscape,
   parseCsvTable,
-  serializeCsvTable,
   serializeLiabilities,
   saveLiabilities,
   ytdMoney,

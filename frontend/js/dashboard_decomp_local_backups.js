@@ -1,33 +1,9 @@
 // ── Local backups (Settings → System Configuration → Local backups card) ────
-// Opt-in .rpx database backup status, policy controls, and manual/automatic
-// trigger points. Extracted from dashboard.js verbatim (first modularization
-// increment).
-//
-// system_review 2026-08-31 item 3.11: converted to type="module". Wave 6.4
-// had deliberately kept this classic because dashboard.js's own synchronous
-// top-level boot chain (checkAppStatus(true).then(...)) calls
-// refreshLocalBackupStatus() -- a deferred module would have executed it
-// AFTER dashboard.js's classic-script code instead of before, reversing the
-// load-order guarantee test_dashboard_startup_race_and_script_order.py
-// exists to protect (a real 2026-07-22 outage where this exact function was
-// undefined when the boot chain called it).
-//
-// That boot chain now reaches this file through a dynamic import
-// (`await import('./dashboard_decomp_local_backups.js')`) instead of a bare
-// global reference -- see dashboard.js, right before the
-// refreshLocalBackupStatus(true) call. Dynamic import resolves the module's
-// module-record from the cache (already fetched via the <script
-// type="module"> tag below; re-importing the same specifier does not
-// re-run this file's top-level code) and only then proceeds, which is
-// correct regardless of script-tag order, unlike relying on "classic always
-// beats module" or "document order among modules" positioning. Every other
-// caller (the onclick handlers in this file's own HTML, and
-// localBackupControlsHtml()/maybeRunLocalBackup() called from
-// dashboard_decomp_checklist_closeout.js / dashboard_decomp_row_model.js)
-// still reaches these functions as bare globals via the window bridge below
-// -- those call sites all run from later event handlers/rendering, well
-// after every module has finished evaluating, so they don't need the
-// dynamic-import treatment the boot chain does.
+// Opt-in .rpx database backup status, policy controls, and manual/automatic trigger points.
+// A type="module" file: dashboard.js's boot chain reaches refreshLocalBackupStatus() through a dynamic
+// import (see dashboard.js), so the window bridge below is installed before the first call. Every other
+// caller (onclick handlers, localBackupControlsHtml()/maybeRunLocalBackup() from later modules) runs after
+// all modules have evaluated and uses the bare global.
 let localBackupStatus = null;
 function localBackupStatusLine() {
   const s = localBackupStatus || {};

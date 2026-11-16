@@ -1599,10 +1599,6 @@ export function housingOptMoveAcquisitionWindow(moveIndex) {
 
 // The reference year the budget filter priced against: the window midpoint.
 // Mirrors src/housing/api.py's _budget_basis, floor division included.
-export function housingOptReferenceYear(window) {
-  if (!window) return 0;
-  return Math.floor((Number(window[0]) + Number(window[1])) / 2);
-}
 
 // Which moves step 1 screens and step 2 costs.
 function housingOptEnabledMoves() {
@@ -2812,7 +2808,6 @@ Object.assign(window, {
   renderHousingOptimizePanelHtml,
   housingOptMoveSearchBody,
   housingOptMoveAcquisitionWindow,
-  housingOptReferenceYear,
   previewHousingZipShortlist,
   findHousingOptCandidates,
   renderHousingOptSelection,
