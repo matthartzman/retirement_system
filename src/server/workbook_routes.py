@@ -843,6 +843,9 @@ def run_plan_from_json():
     except ValueError as exc:
         return jsonify(status="error", error=str(exc)), 422
     except Exception as exc:
+        if remote_mode.enabled():
+            app.logger.exception("forecast failed", exc_info=exc)
+            return jsonify(status="error", error=remote_mode.GENERIC_ERROR), 500
         return jsonify(status="error", error=str(exc), trace=traceback.format_exc()), 500
 
 
