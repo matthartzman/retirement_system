@@ -195,3 +195,14 @@ def test_create_admin_cli_refuses_mismatch_short_and_duplicate(tmp_path):
     assert cli.main(args, read_password=lambda _p: next(ok)) == 0
     again = iter([PW, PW])
     assert cli.main(args, read_password=lambda _p: next(again)) == 1
+
+
+def test_reset_totp_removes_the_factor_and_ends_sessions(tmp_path):
+    store = IdentityStore(tmp_path / "identity.db", scrypt_n=2**4)
+    uid = store.add_user("Ann", "ann", "correct horse")
+    assert store.reset_totp(uid) is False
+    store._run("INSERT INTO totp(user_id, secret, enrolled_at) VALUES (?, ?, 1)", (uid, b"x"))
+    epoch = store.session_epoch(uid)
+    assert store.reset_totp(uid) is True
+    assert store._run("SELECT COUNT(*) AS n FROM totp").fetchall()[0]["n"] == 0
+    assert store.session_epoch(uid) > epoch

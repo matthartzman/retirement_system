@@ -296,6 +296,12 @@ class IdentityStore:
         self._run("UPDATE users SET session_epoch=session_epoch+1 WHERE id=?", (user_id,))
         return self.session_epoch(user_id) or 0
 
+    def reset_totp(self, user_id: int) -> bool:
+        """Remove a person's second factor (they enrol again) and end their sessions. True if one was enrolled."""
+        had = bool(self._run("DELETE FROM totp WHERE user_id=?", (user_id,)).rowcount)
+        self.end_sessions(user_id)
+        return had
+
     def session_epoch(self, user_id: int) -> int | None:
         rows = self._run("SELECT session_epoch FROM users WHERE id=?", (user_id,)).fetchall()
         return int(rows[0]["session_epoch"]) if rows else None
