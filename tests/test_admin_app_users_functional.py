@@ -194,7 +194,7 @@ def test_every_write_is_audited_with_the_admin_name(rig):
 
 def test_activity_filters_by_app_person_and_range_and_masks_account_numbers(rig):
     rig.store.log_event("Ann", "remote", "signed in", "", "1.2.3.4", now=100.0, app="insights")
-    rig.store.log_event("Ann", "local", "plan opened", "account 123456789012", now=200.0, app="planner")
+    rig.store.log_event("Ann", "local", "plan opened", "account 123456789012", now=200.0, app="planner")  # acct-scan: ok (synthetic number)
     rig.store.log_event("Bob", "remote", "signed in", "", "", now=300.0, app="insights")
     events = lambda q="": rig.get("/api/activity" + q)[1]["events"]
     assert len(events()) == 3
