@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retirement Planner</title>
+<link rel="stylesheet" href="/gateway/static/gateway.css">
+<script src="/gateway/static/gateway.js" defer></script>
+</head>
+<body data-page="account">
+<header class="top">
+  <h1>Retirement Planner</h1>
+  <nav aria-label="Account">
+    <a href="/">Back to planner</a>
+    <a id="users-link" href="/gateway/users" class="hidden">Users</a>
+    <button id="logout" type="button" class="secondary small">Sign out</button>
+  </nav>
+</header>
+<main>
+  <section>
+    <h2>My account</h2>
+    <dl>
+      <dt>Name</dt><dd id="who-name"></dd>
+      <dt>Username</dt><dd id="who-user"></dd>
+      <dt>Role</dt><dd id="who-role"></dd>
+    </dl>
+  </section>
+  <form id="pw-form" class="card">
+    <h2>Change password</h2>
+    <p id="must" class="notice hidden">You must choose a new password before continuing.</p>
+    <label for="current">Current password</label>
+    <input id="current" type="password" autocomplete="current-password" required>
+    <label for="new">New password (12 characters or more)</label>
+    <input id="new" type="password" autocomplete="new-password" minlength="12" required>
+    <label for="confirm">Confirm new password</label>
+    <input id="confirm" type="password" autocomplete="new-password" minlength="12" required>
+    <button type="submit">Change password</button>
+  </form>
+  <p id="status" class="status" role="status" aria-live="polite"></p>
+</main>
+</body>
+</html>
