@@ -33,7 +33,7 @@ data folder or the install folder; the key is never inside the backup folder; `C
    ```powershell
    py -3.12 -m venv C:\RetirementPlanner\app\runtime
    $PY = "C:\RetirementPlanner\app\runtime\Scripts\python.exe"
-   & $PY -m pip install -r C:\RetirementPlanner\app\requirements.txt -r C:RetirementPlannerppequirements-gateway.txt
+   & $PY -m pip install -r C:\RetirementPlanner\app\requirements.txt -r C:\RetirementPlanner\app\requirements-gateway.txt
    Set-Location C:\RetirementPlanner\app
    ```
 2. **Folders.**
