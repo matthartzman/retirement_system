@@ -1,23 +1,10 @@
 // ── Plan tiers (Settings → Plan Features, WP5.1) ─────────────────────────────
-// The tier picker at the top of Plan Features (design 2026-10-04 §2-§4, P4): four
-// starting sets of switches (Simple, Standard, Advanced, Expert), the plan's
-// current tier with "(customized)" when its switches differ from the preset, a
-// "Reset to <tier> preset" action, and a confirm dialog that previews what a
-// pick turns on and off before anything is written. Every switch below the
-// picker stays individually overridable; a row whose switch differs from the
-// preset carries a small badge (planTierDiffBadgeHtml).
-//
-// Its own module because dashboard.js sits on a size ratchet
-// (tests/test_frontend_size_ratchet.py) and Plan Features already has one
-// (dashboard_decomp_plan_features.js); loaded right after that one. The server
-// decides everything that is a rule -- the presets (module_catalog.tier_preset),
-// the profile (plan_profile) and what a pick changes (POST /api/plan/tier with
-// preview) -- so this module only assembles strings and makes the two calls.
-//
-// SHAPE: as in dashboard_decomp_plan_features.js, everything that decides what
-// the picker says is a pure function taking its data as parameters (tested in
-// tests/frontend/plan_tiers.test.mjs); only the planTier* wrappers read the
-// shared state below.
+// The tier picker at the top of Plan Features (design 2026-10-04 §2-§4, P4): four starting sets of switches
+// (Simple, Standard, Advanced, Expert), "(customized)" when switches differ from the preset, "Reset to <tier>
+// preset", and a confirm dialog previewing what a pick changes. Rows that differ carry planTierDiffBadgeHtml.
+// Its own module (size ratchet); loaded right after dashboard_decomp_plan_features.js. The server decides every
+// rule (module_catalog.tier_preset, plan_profile, POST /api/plan/tier with preview). SHAPE: pure functions take
+// their data as parameters (tests/frontend/plan_tiers.test.mjs); only the planTier* wrappers read shared state.
 
 // The plan profile and tier presets from the last /api/config/rows read
 // (loadAll() hands the payload to setPlanTierPayload). Per-load, never sent back.
