@@ -18,10 +18,10 @@ workspace was a temp directory; the repo root and the owner's real data were nev
 | Question | Call |
 |---|---|
 | Option A (worker process per user) | **GO** on resources and process model: a worker is about 64 MB idle, starts in about 1-2.5 s; a build tree peaks near 1 GB. |
-| Per-user Windows accounts | **UNPROVEN, not a no-go.** The account test needs elevation and the UAC prompt was not approved, so it was not run. Treat as the gating item for Phase 3; the script is ready (see item 5). |
+| Per-user Windows accounts | **GO, with conditions.** Launching a worker as a separate account with its profile loaded works from both an admin session and LocalSystem; folder separation and the read-only runtime work. Conditions: explicit ACLs on every data folder (the owner's repo folder was readable by the test accounts), `SeBatchLogonRight` granted and re-tested with the deny-interactive right, and `keyring` separation still to be measured. |
 | Funnel or Cloudflare | **Funnel confirmed** as workable: the node is a running automatic service, port 8443 works from the public internet. Real external bandwidth and reboot survival are not measured. |
 | Monarch connector or CSV upload | **Build the CSV upload fallback first; keep the connector as an optional add-on.** The connector is live and supports third-party OAuth clients, but Monarch states it does not return Mastercard Connect (Finicity) accounts, which "may particularly affect brokerage accounts through Fidelity". The live tool list and data coverage were not tested (needs the owner's login). |
-| `pywin32` or `ctypes` | **`ctypes`** (provisional; not live-tested): no new dependency, `pywin32` is not installed here, and only a handful of calls are needed. |
+| `pywin32` or `ctypes` | **`ctypes`**: worked live for both launch paths and Job Objects; no new dependency. |
 
 ## 1. Headless worker: cold start and memory
 
@@ -108,43 +108,62 @@ The test process was launched from the Claude desktop app's shell; nested Job Ob
 (`AssignProcessToJobObject` returned success). Re-test if the gateway runs as a service, where the parent may
 already be in a job.
 
-## 5. Per-user Windows accounts: NOT MEASURED
+## 5. Per-user Windows accounts
 
-The owner approved the test, but it needs an elevated shell and the UAC prompt was cancelled/not approved both
-times (this session cannot see the secure desktop). **No account, profile, folder or scheduled task was created**;
-nothing needs cleaning up. Confirmed beforehand: the session was not elevated.
+Method: an elevated PowerShell script (UAC approved by the owner) created two throwaway standard local accounts
+(`p0test_a`, `p0test_b`, group Users only, random 24-character passwords held in an admin-only folder), copied a
+readable Python runtime to `C:\p0test\py`, set per-user folder ACLs, and launched a probe as each account. Two launch
+mechanisms were used, both with the profile loaded (`ctypes` calls only; no `pywin32`):
+(1) `CreateProcessWithLogonW` with `LOGON_WITH_PROFILE` from the elevated admin session (the "ordinary service
+account" case); (2) `LogonUser` + `LoadUserProfile` + `CreateEnvironmentBlock` + `CreateProcessAsUser` from a
+one-shot scheduled task running as `SYSTEM` (the LocalSystem case). The script went through four elevated runs: the
+first two failed on my own bugs (command quoting, then a file ACL); run 3 gave the results below; run 4 (added to fix
+the `keyring` copy) **hung** and was stopped by the owner. All accounts, profiles, `C:\p0test` and the task were
+then removed by a separate cleanup script and verified gone (`net user`, `C:\Users`, folder check).
 
-A ready script exists in the shared notes folder: `phase0-scripts/acct/run_elevated.ps1` plus
-`launch_as.py` and `probe_user.py`. To run it, open an elevated PowerShell 7 and run:
+**Measured (run 3)**
 
-```
-pwsh -NoProfile -ExecutionPolicy Bypass -File "<notes folder>\phase0-scripts\acct\run_elevated.ps1"
-```
+| Check | Result |
+|---|---|
+| Launch as another account with profile loaded, `CreateProcessWithLogonW` from an admin session | **Works.** `USERPROFILE` and `APPDATA` pointed at the new account's profile. |
+| Launch with `LogonUser` + `CreateProcessAsUser` from LocalSystem | **Works with logon type 2 (interactive).** Logon type 4 (batch) **failed with error 1385** because standard accounts do not have "log on as a batch job" by default. |
+| Account A reads its own folder | Yes. |
+| Account A reads account B's folder / file | **Denied** (and B cannot read A). |
+| Account reads an admin-only "gateway" folder / `gateway.db` stand-in | **Denied.** |
+| Account reads the owner's profile `C:\Users\MattHartzman` | **Denied.** |
+| Account writes into the shared runtime folder | **Denied** (read-only runtime works). |
+| Account runs the owner's own Python (under `C:\Users\MattHartzman\AppData`) | **Access denied.** A shared install location is required (confirms Decision 7). |
+| **Account reads the repo `C:\RetirementPlanning\Version 12` (owner's real data, `plan.rpx`, `input/`)** | **READABLE.** Both standard accounts could list it, because a folder created under `C:\` inherits read access for all users. |
 
-(edit the `$S` path on its second line first). It creates `p0test_a` and `p0test_b` with random passwords held in an
-admin-only folder, copies a readable Python runtime to `C:\p0test\py`, then:
+The last row is the main finding: **being a separate account does not protect anything that sits in an ordinary
+folder on this volume.** The data volume needs explicit ACLs: `data/users/<id>/` granted only to its account and the
+gateway, and the install directory, backups, `gateway.db` and the owner's existing data folder stripped of inherited
+user access, before any real user account exists. Phase 3 should test this by running the same probe against the
+real data root.
 
-1. Part 1: `CreateProcessWithLogonW` with `LOGON_WITH_PROFILE` from the elevated session, running a probe as each
-   user in the order A set, B get (expect `None`), B set, A get (expect A's own value), to show Credential Manager
-   separation via `keyring` and `cmdkey /list`.
-2. Part 2: `LogonUser` (batch, then interactive) + `LoadUserProfile` + `CreateEnvironmentBlock` +
-   `CreateProcessAsUser` from a one-shot scheduled task as `SYSTEM`, which is the LocalSystem case.
-3. The probe tries to read the other account's folder, an admin-only "gateway" folder, the owner's profile and the
-   repo, and tries to write to the runtime folder.
-4. A `finally` block deletes both accounts, their profiles, `C:\p0test` and the task, and prints what remains.
+**Not established**
 
-Known gaps even when it runs: it does not set the "deny interactive/remote logon" and "log on as a batch job" rights
-(that is a local security policy change and was not authorized); the plan's "deny interactive logon" and the
-logon type that `CreateProcessWithLogonW` uses (interactive) may conflict, so Phase 3 must test a batch-logon design
-after granting `SeBatchLogonRight`. Also note: the owner's Python lives under `C:\Users\MattHartzman\AppData\...`,
-which other accounts cannot read, so the script copies it; this confirms Decision 7 (a frozen build in a shared
-read-only folder such as `C:\Program Files\...`) is required, not optional.
+- **`keyring` and Credential Manager separation: NOT MEASURED.** In run 3 my copy of the `keyring` package was
+  incomplete (`keyring.get_keyring` missing), so no secret was stored; `cmdkey /list` showed no entries for any
+  account, which is only the empty state. Run 4 used a corrected copy and hung before producing output; the cause
+  is unknown (possibly a probe blocking on Credential Manager or a launched process not exiting), and it was not
+  investigated further. To measure: run the probe by hand as each account (`runas /user:p0test_a`) with the
+  complete `keyring` package, setting a value as A, reading as B (expect none), and checking that the value survives
+  a new logon.
+- **Deny-interactive-logon and batch-logon rights.** Not changed (local security policy was not authorized). Because
+  type 4 failed and type 2 worked, Phase 3 must grant `SeBatchLogonRight` to the worker accounts and then test
+  `LogonUser` type 4 with the deny-interactive and deny-remote-interactive rights set, since
+  `CreateProcessWithLogonW` itself logs on interactively and would be blocked by the deny right.
+- Account deletion while its worker runs, password rotation, and Job Object assignment of a process started as
+  another user (the Job Object test in item 4 used the same account).
 
-`pywin32` vs `ctypes` (provisional, from reading and from the Job Object tests above): choose **`ctypes`**.
-`pywin32` is not installed in this environment (only `pywin32-ctypes`, a keyring dependency); the Job Object code
-worked first time with `ctypes`; `launch_as.py` shows the account-launch calls are about 6 functions. Revisit only if
-the live test finds a call that is awkward to bind (for example `LsaAddAccountRights`), in which case `pywin32` or a
-`net`/`secedit` subprocess is the alternative.
+The script (`phase0-scripts/acct/run_elevated.ps1`, `launch_as.py`, `probe_user.py`, `cleanup.ps1`) is in the shared
+notes folder.
+
+**`pywin32` vs `ctypes`: choose `ctypes`.** Both launch paths and the Job Object calls worked through `ctypes`;
+`pywin32` is not installed here (only `pywin32-ctypes`, a keyring dependency). The calls needed are about ten
+functions. Revisit only if a later step needs something awkward to bind (for example `LsaAddAccountRights` for the
+batch-logon right, where `secedit` or `ntrights` from a setup script is an alternative).
 
 ## 6. Tailscale Funnel
 
@@ -227,9 +246,11 @@ as a separate follow-on of about 3-4 days.
 3. **Phase 3, Job Objects:** kill-on-close works and is required (orphaned builds outlive a killed worker for several
    seconds in this test). Add a job memory limit of roughly 1.5-2 GB per user; a build that exceeds it fails cleanly
    without taking the worker down.
-4. **Phase 3, accounts:** run `run_elevated.ps1` before committing to the design; until it passes, per-user accounts
-   are unproven. Install the runtime in a shared read-only location (the owner's current Python is under a user
-   profile that other accounts cannot read). Test the logon type against the "deny interactive logon" requirement.
+4. **Phase 3, accounts:** lock down the data volume first: standard accounts could read the owner's repo folder under
+   `C:\`. Use explicit ACLs with inheritance removed for `data/users/`, the install dir, backups and `gateway.db`.
+   Install the runtime in a shared read-only location (the owner's Python is under a profile other accounts
+   cannot run). Grant `SeBatchLogonRight` and use `LogonUser` type 4, because type 2 conflicts with deny-interactive
+   logon; re-test with the deny rights set. Measure `keyring` separation (not done).
 5. **Phase 4:** CSV upload first; connector second and only for non-Finicity accounts; confirm redirect-URI
    registration with the Funnel name; request `mcp:read` only. Use dynamic client registration with PKCE.
 6. **Phase 6:** the gateway listens on Funnel 8443 (443 belongs to the trends reporter); extend
@@ -237,7 +258,7 @@ as a separate follow-on of about 3-4 days.
 
 ## What was not measured, in one list
 
-- Per-user Windows account creation, launch, folder separation, Credential Manager separation, keyring (needs UAC).
+- `keyring` / Credential Manager separation between accounts; batch logon with the deny-interactive right set.
 - Real external Funnel bandwidth; Tailscale/Funnel after reboot; port 10000.
 - Monarch live tool list, data coverage, paging, token lifetime/refresh, redirect-URI acceptance (needs the owner's
   Monarch login in their browser).
