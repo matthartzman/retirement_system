@@ -122,10 +122,10 @@ class Client:
         self.csrf = body["csrf_token"]
 
 
-def _enrolled_user(store: GatewayStore, username: str) -> tuple[int, str]:
+def _enrolled_user(store: GatewayStore, username: str, role: str = "user") -> tuple[int, str]:
     actor = Actor(None, "isolation-test")
     now = time.time()
-    uid = store.create_user(username, username.title(), "user", PW, now=now, actor=actor, must_change=False)
+    uid = store.create_user(username, username.title(), role, PW, now=now, actor=actor, must_change=False)
     secret = store.begin_totp_enrolment(uid, now - 3600)
     assert store.confirm_totp(uid, totp.code_at(secret, int((now - 3600) // 30)), now - 3600)
     return uid, secret
@@ -133,10 +133,14 @@ def _enrolled_user(store: GatewayStore, username: str) -> tuple[int, str]:
 
 @pytest.fixture(scope="module")
 def gateway(tmp_path_factory):
-    base = tmp_path_factory.mktemp("isolation")
+    yield from launch_gateway(tmp_path_factory.mktemp("isolation"), {"alice": "user", "bob": "user"})
+
+
+def launch_gateway(base: Path, roles: dict[str, str]):
+    """Start the gateway (and through it the workers) with these enrolled users; yields the info dict, then stops it."""
     db = base / "gateway.db"
     store = GatewayStore(db, scrypt_n=2**12)
-    users = {name: _enrolled_user(store, name) for name in ("alice", "bob")}
+    users = {name: _enrolled_user(store, name, role) for name, role in roles.items()}
     data_root = base / "data"
     ready_file = base / "ready.json"
     env = {k: v for k, v in os.environ.items() if not k.startswith("RETIREMENT_SYSTEM_")}
@@ -157,7 +161,8 @@ def gateway(tmp_path_factory):
         time.sleep(0.1)
     ready = json.loads(ready_file.read_text(encoding="utf-8"))
     assert ready["workers"] is True
-    info = {"proc": proc, "ready": ready, "users": users, "data_root": data_root, "base": base, "store": store}
+    info = {"proc": proc, "ready": ready, "users": users, "data_root": data_root, "base": base, "store": store,
+            "log": base / "gateway.log"}
     try:
         yield info
     finally:

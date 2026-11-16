@@ -16,6 +16,11 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 QUEUED_PREFIX = "queued-"
+
+
+class AlreadyQueued(RuntimeError):
+    """The user already has a build running or waiting."""
+
 FINAL_STATUSES = frozenset({"done", "failed", "cancelled"})
 
 
@@ -110,6 +115,13 @@ class BuildQueue:
                 self._aliases[queued_id].failure = failure or {"error": "The build could not be started."}
 
     # ---- queued starts ----
+    def enqueue_unique(self, user_id: int, body: bytes, content_type: str) -> tuple[str, int]:
+        """``enqueue`` for one user at most, checked and added under one lock (parallel starts race otherwise)."""
+        with self._lock:
+            if user_id in self._running or any(w.user_id == user_id for w in self._waiting):
+                raise AlreadyQueued("a build is already running or waiting for this user")
+            return self.enqueue(user_id, body, content_type)
+
     def enqueue(self, user_id: int, body: bytes, content_type: str) -> tuple[str, int]:
         with self._lock:
             qid = QUEUED_PREFIX + secrets.token_hex(8)

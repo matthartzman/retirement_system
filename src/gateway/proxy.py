@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 from src.http_runtime.wsgi_facade import HeaderMap, LocalRequest, Response
 
-from .build_queue import FINAL_STATUSES, BuildQueue
+from .build_queue import FINAL_STATUSES, AlreadyQueued, BuildQueue
 from .supervisor import Endpoint, Supervisor, WorkerUnavailable, call_worker
 from .upstream import HOP_BY_HOP, Identity, upstream_headers
 
@@ -154,7 +154,11 @@ class WorkerProxy:
                 self.queue.abandon(uid)
             return resp
         ctype = str(req.headers.get("Content-Type", "") or "application/json")
-        qid, position = self.queue.enqueue(uid, req.body or b"", ctype)
+        try:
+            qid, position = self.queue.enqueue_unique(uid, req.body or b"", ctype)
+        except AlreadyQueued:  # a parallel start from the same user got there first
+            return _json({"success": False, "build_in_progress": True,
+                          "error": "A build is already running or waiting for your plan."}, 409)
         self._wake.set()
         ahead = position - 1 + len(self.queue.running())
         return _json({"success": True, "queued": True, "job_id": qid, "position": position, "progress": 0,

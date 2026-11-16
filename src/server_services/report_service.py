@@ -68,7 +68,8 @@ def workbook_download_settings_payload(config_path: Path | str | None = None) ->
 def save_workbook_download_settings(body: dict[str, Any], config_path: Path | str | None = None) -> tuple[dict[str, Any], int]:
     path = Path(config_path) if config_path is not None else None  # an app.db; None = this install's
     if "filename_root" in body:
-        root = str(body.get("filename_root") or "").strip()
+        # The root goes into a Content-Disposition header: no control characters, quotes or separators.
+        root = "".join(c for c in str(body.get("filename_root") or "") if c.isprintable() and c not in '"\\/').strip()
         if not root:
             return {"success": False, "error": "filename_root cannot be blank"}, 400
         upsert_system_setting(path, "Downloads", "filename_root", root, units="text", notes="Root name for downloaded workbook files.")
@@ -142,7 +143,10 @@ def append_history_payload(output_dir: Path, entry: Any, *, limit: int = 50) -> 
 def local_output_file_payload(output_dir: Path, filename: str) -> tuple[dict[str, Any], int]:
     """Validate that a requested file is inside output_dir and exists."""
     root = output_dir.resolve()
-    requested = (root / filename).resolve()
+    try:
+        requested = (root / filename).resolve()
+    except (OSError, ValueError):  # an embedded NUL or a name Windows cannot resolve
+        return {"success": False, "error": "Only local output files may be served"}, 400
     try:
         requested.relative_to(root)
     except Exception:

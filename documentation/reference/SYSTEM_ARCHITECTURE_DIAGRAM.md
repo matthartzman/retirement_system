@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 369 Python files under `src/`, 91 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 370 Python files under `src/`, 91 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (268 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (269 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (35 modules)"]
@@ -650,15 +650,16 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/gateway/app.py` | `access_core`, `gateway`, `gateway.store`, `gateway.upstream`, `http_runtime.wsgi_facade` | `segno` |
 | `src/gateway/backup_crypto.py` | — | `cryptography` |
 | `src/gateway/backup_dest.py` | — | — |
-| `src/gateway/backup_store.py` | `gateway.backup_crypto`, `remote_worker` | — |
+| `src/gateway/backup_store.py` | `gateway`, `gateway.backup_crypto`, `remote_worker` | — |
 | `src/gateway/backups.py` | — | — |
 | `src/gateway/build_queue.py` | — | — |
 | `src/gateway/cli.py` | `access_core`, `gateway.store` | — |
+| `src/gateway/fsguard.py` | — | — |
 | `src/gateway/health.py` | — | — |
 | `src/gateway/launchers.py` | `gateway` | — |
-| `src/gateway/logs.py` | — | — |
+| `src/gateway/logs.py` | `gateway` | — |
 | `src/gateway/migrate_all.py` | `gateway.backup_store`, `gateway.migrate_user` | — |
-| `src/gateway/migrate_user.py` | `src`, `active_plan`, `plan_data_migration`, `remote_worker` | — |
+| `src/gateway/migrate_user.py` | `src`, `active_plan`, `gateway`, `plan_data_migration`, `remote_worker` | — |
 | `src/gateway/ops.py` | `src`, `gateway`, `gateway.health`, `gateway.server`, `gateway.service`, `gateway.store` | — |
 | `src/gateway/power.py` | — | — |
 | `src/gateway/proxy.py` | `gateway.build_queue`, `gateway.supervisor`, `gateway.upstream`, `http_runtime.wsgi_facade` | — |
@@ -718,7 +719,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/limitation_notices.py` | `planning_engines`, `projection_stages.life_insurance_proceeds`, `stores.ref_getters.tax_law`, `stores.ref_getters.tax_update_dashboard`, `tax_law` | — |
 | `src/local_backup_scheduler.py` | `app_state`, `onedrive_guard`, `plan_db_replace` | — |
 | `src/local_store.py` | `app_state`, `sqlite_util` | — |
-| `src/market_data.py` | `app_state`, `platform_runtime`, `secrets_store`, `version` | `requests` |
+| `src/market_data.py` | `app_state`, `platform_runtime`, `secrets_store`, `security`, `version` | `requests` |
 | `src/module_catalog.py` | — | — |
 | `src/monarch_autoimport_job.py` | `monarch_balances_import` | — |
 | `src/monarch_autoupdate.py` | `app_state` | — |

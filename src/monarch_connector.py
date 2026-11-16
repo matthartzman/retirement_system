@@ -80,6 +80,17 @@ class ConnectorError(RuntimeError):
 
 # ---------------------------------------------------------------- transport (tests replace it)
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Monarch's API does not redirect; following one would send the Bearer token to a host the prefix check never saw."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001, ARG002
+        raise urllib.error.HTTPError(req.full_url, code, "redirects are not followed", headers, fp)
+
+
+def _urllib_opener() -> urllib.request.OpenerDirector:
+    return urllib.request.build_opener(_NoRedirect())
+
+
 def _urllib_transport(method: str, url: str, *, data: Any = None, headers: dict | None = None,
                       form: bool = False) -> tuple[int, dict, bytes]:
     if not url.startswith(ENDPOINT_PREFIX):
@@ -92,7 +103,7 @@ def _urllib_transport(method: str, url: str, *, data: Any = None, headers: dict 
     hdrs.update(headers or {})
     req = urllib.request.Request(url, data=body, method=method, headers=hdrs)
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 - https only, prefix checked above
+        with _urllib_opener().open(req, timeout=30) as resp:  # noqa: S310 - https only, prefix checked above
             return resp.status, dict(resp.headers), resp.read(MAX_RESPONSE_BYTES + 1)
     except urllib.error.HTTPError as exc:
         return exc.code, dict(exc.headers or {}), exc.read(MAX_RESPONSE_BYTES + 1)

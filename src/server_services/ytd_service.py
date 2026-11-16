@@ -142,6 +142,13 @@ class YtdService:
             else:
                 add_path(p)
 
+        from .. import remote_mode  # noqa: PLC0415
+
+        if remote_mode.enabled():
+            # Stored roots and the folders beside the install are not the user's own data: another install's
+            # account names and balances would be merged into this plan.
+            return sorted(candidates, key=lambda x: (x.get("score", 0), x.get("rows", 0)), reverse=True)
+
         for root in self.ctx.path_roots_from_config():
             add_path(root / "ytd_account_setup.csv")
             add_path(root / "input" / "ytd_account_setup.csv")

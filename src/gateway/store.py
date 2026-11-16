@@ -344,7 +344,8 @@ class GatewayStore:
         if user["disabled"]:
             return LoginCheck(False, user["id"], "disabled")
         if matches:
-            self.clear_failures(user["id"])
+            # Not cleared here: wrong second-factor codes keep counting until the sign-in completes
+            # (``touch_login``), so re-entering the password cannot reset an attacker's guess budget.
             return LoginCheck(True, user["id"], "ok")
         locked = self.record_failure(user["id"], now)
         return LoginCheck(False, user["id"], "locked" if locked else "bad")
@@ -352,9 +353,11 @@ class GatewayStore:
     def record_failure(self, user_id: int, now: float) -> bool:
         """Count one failed password or code; True when this failure locks the account."""
         with self._tx() as conn:
-            row = conn.execute("SELECT failed_count FROM users WHERE id=?", (int(user_id),)).fetchone()
+            row = conn.execute("SELECT failed_count, locked_until FROM users WHERE id=?", (int(user_id),)).fetchone()
             if row is None:
                 return False
+            if row["locked_until"] > now:
+                return True  # a failure that raced past the lock check must not erase the lock
             failed, locked_until = access_core.failure_outcome(row["failed_count"], now)
             conn.execute("UPDATE users SET failed_count=?, locked_until=? WHERE id=?", (failed, locked_until, int(user_id)))
             if locked_until:
@@ -371,7 +374,7 @@ class GatewayStore:
 
     def touch_login(self, user_id: int, now: float) -> None:
         with self._tx() as conn:
-            conn.execute("UPDATE users SET last_login_at=? WHERE id=?", (now, int(user_id)))
+            conn.execute("UPDATE users SET last_login_at=?, failed_count=0 WHERE id=?", (now, int(user_id)))
 
     # ---- TOTP ----
     def _totp_row(self, user_id: int) -> sqlite3.Row | None:

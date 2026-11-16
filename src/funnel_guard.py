@@ -44,13 +44,31 @@ class FunnelReport:
         return not self.problems and not self.unreadable
 
 
+_LOCAL_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
+_HOST_RE = re.compile(r"^(?:[a-z][a-z0-9+.-]*://)?(?:[^@/\s]*@)?(\[[^\]]+\]|[^:/\s]+)", re.I)
+
+
 def _target_port(text: str) -> int | None:
+    """The port of a ``Proxy`` target, or None when it is not a local ``host:port`` (another machine counts as
+    not local: a Funnel pointed at a LAN host publishes that host, which is neither the gateway nor the reporter)."""
     m = _PORT_RE.match(text.strip())
+    h = _HOST_RE.match(text.strip())
+    if m and h and h.group(1).lower() not in _LOCAL_HOSTS:
+        return None
     return int(m.group(1)) if m else None
 
 
 def parse_serve_status(data: dict) -> list[Exposure]:
-    """Every (external port, local target) in a ``tailscale serve status --json`` document."""
+    """Every (external port, local target) in a ``tailscale serve status --json`` document, including
+    foreground sessions (``tailscale serve``/``funnel`` without ``--bg``), which sit under ``Foreground``."""
+    found = _parse_one(data)
+    for session in (data.get("Foreground") or {}).values():
+        if isinstance(session, dict):
+            found.extend(_parse_one(session))
+    return found
+
+
+def _parse_one(data: dict) -> list[Exposure]:
     funnel_keys = {k for k, v in (data.get("AllowFunnel") or {}).items() if v}
     found: list[Exposure] = []
     for key, web in (data.get("Web") or {}).items():

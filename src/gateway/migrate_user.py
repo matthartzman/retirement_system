@@ -17,7 +17,14 @@ RESULT_PREFIX = "MIGRATE_RESULT "
 def migrate_workspace(workspace: Path) -> dict:
     from src.remote_worker import _pin_environment  # noqa: PLC0415
 
-    workspace = Path(workspace).resolve()
+    from . import fsguard  # noqa: PLC0415
+
+    workspace = Path(workspace)
+    for rel in ("", "plan.rpx", "input", "local_state", Path("local_state") / "app.db"):
+        if fsguard.has_reparse_point(workspace / rel, workspace):
+            return {"ok": False, "detail": "the workspace holds a link (junction or symlink); remove it first",
+                    "total_changed": 0}
+    workspace = workspace.resolve()
     _pin_environment(workspace)
     from src import platform_runtime  # noqa: PLC0415
     from src.active_plan import PLAN_FILE_NAME  # noqa: PLC0415
