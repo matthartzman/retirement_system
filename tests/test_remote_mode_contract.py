@@ -141,7 +141,7 @@ def test_every_route_is_classified_exactly_once():
 
 def test_contract_always_refused_routes_are_on_the_refused_list():
     must_refuse = {
-        ("POST", "/api/shutdown"), ("POST", "/api/admin/server/shutdown"), ("POST", "/api/admin/clear-webview-cache"),
+        ("POST", "/api/shutdown"), ("POST", "/api/admin/server/shutdown"),
         ("POST", "/api/plan/monarch-autoupdate/config"), ("POST", "/api/plan/monarch-autoupdate/run"),
         ("GET", "/api/conversion/status"), ("POST", "/api/conversion/check"), ("POST", "/api/conversion/run"),
         ("POST", "/api/secrets"),
@@ -154,9 +154,9 @@ def test_contract_always_refused_routes_are_on_the_refused_list():
 
 
 @pytest.mark.parametrize("method,path", [
-    ("POST", "/api/shutdown"), ("POST", "/api/admin/server/shutdown"), ("POST", "/api/admin/clear-webview-cache"),
+    ("POST", "/api/shutdown"), ("POST", "/api/admin/server/shutdown"),
     ("POST", "/api/plan/monarch-autoupdate/config"), ("POST", "/api/conversion/run"), ("POST", "/api/secrets"),
-    ("POST", "/api/plan/save-as"), ("POST", "/api/plan/load-file"), ("GET", "/api/admin/system-config"),
+    ("POST", "/api/plan/save-as"), ("POST", "/api/plan/load-file"), ("GET", "/api/plan/engine-assumptions"),
 ])
 def test_refused_routes_answer_403_and_do_nothing(remote, method, path):
     resp = remote.open(path, method=method, json={"path": "C:/Windows/evil.rpx"}, headers=_auth())

@@ -177,6 +177,7 @@
   // ---- routing ----
   const PAGES = { users: showUsers, activity: showActivity, audit: showAudit };
   function route() {
+    if (location.hash.startsWith("#sys-")) return;
     const name = PAGES[location.hash.slice(1)] ? location.hash.slice(1) : "users";
     document.querySelectorAll("nav a").forEach((a) => (a.dataset.page === name ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current")));
     PAGES[name]();

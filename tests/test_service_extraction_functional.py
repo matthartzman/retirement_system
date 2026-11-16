@@ -38,7 +38,7 @@ def test_feature_services_are_http_runtime_independent():
 def test_route_adapters_delegate_migrated_families_to_services():
     expected = {
         ROOT / "src" / "server" / "base_routes.py": ["base_service.ping_payload", "base_service.read_prefs", "base_service.runtime_payload"],
-        ROOT / "src" / "server" / "admin_routes.py": ["admin_service.build_csv_backup_zip", "admin_service.system_config_payload", "admin_service.diagnostics_payload"],
+        ROOT / "src" / "server" / "admin_routes.py": ["admin_service.build_csv_backup_zip", "admin_service.engine_assumptions_payload", "admin_service.diagnostics_payload"],
         ROOT / "src" / "server" / "workbook_routes.py": ["build_service.build_preflight_payload", "build_service.read_summary_payload", "plan_forms_service.get_forms_payload"],
     }
     missing = []
@@ -174,9 +174,9 @@ def test_stdlib_route_smoke_after_service_extraction():
     assert prefs.status_code == 200
     assert prefs.get_json()["success"] is True
 
-    server = client.get("/api/admin/server", headers={"X-User-Role": "admin"})
-    assert server.status_code == 200
-    assert server.get_json()["app_mode"] == "LOCAL"
+    engine = client.get("/api/plan/engine-assumptions", headers={"X-User-Role": "admin"})
+    assert engine.status_code == 200
+    assert engine.get_json()["rows"][0][:3] == ["section", "subsection", "label"]
 
 
 def test_auth_session_and_login_return_csrf_token():

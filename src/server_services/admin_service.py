@@ -129,6 +129,31 @@ def save_system_config(body: dict[str, Any], system_config_path: Path) -> tuple[
     return payload, 200, before_rows, after_rows
 
 
+def engine_assumptions_payload() -> dict[str, Any]:
+    """The engine knobs as editor rows (header first): the planner's Plan assumptions pages."""
+    rows = [["section", "subsection", "label", "value", "units", "notes"]]
+    rows += _engine_rows()
+    return {"success": True, "path": "active plan", "rows": rows, "csv_content": _rows_csv(rows)}
+
+
+def save_engine_assumptions(body: dict[str, Any]) -> tuple[dict[str, Any], int, list[list[str]], list[list[str]]]:
+    """Save engine rows to the active plan. Runtime (install-wide) rows are refused: they belong to the Admin app."""
+    content = body.get("csv_content") if isinstance(body, dict) else None
+    rows = body.get("rows") if isinstance(body, dict) else None
+    before_rows = engine_assumptions_payload()["rows"]
+    if content is None and not isinstance(rows, list):
+        return {"success": False, "error": "csv_content or rows required"}, 400, before_rows, before_rows
+    if content is not None:
+        rows = list(csv.reader(io.StringIO(str(content))))
+    rows = [list(r) for r in rows if isinstance(r, (list, tuple)) and r]
+    data_rows = [r for r in rows if str(r[0]).strip() and str(r[0]).strip().lower() != "section"]
+    foreign = [r for r in data_rows if str(r[0]).strip() not in ENGINE_SECTIONS]
+    if foreign:
+        return {"success": False, "error": "Only plan engine settings can be saved here; install-wide settings are in the Admin app."}, 400, before_rows, before_rows
+    _save_engine_rows(data_rows)
+    return {"success": True, "path": "active plan"}, 200, before_rows, engine_assumptions_payload()["rows"]
+
+
 def build_csv_backup_zip(base_dir: Path | None = None) -> tuple[bytes, str]:
     """The active plan's CSV set as one zip: the same bytes as ``GET /api/export/plan-set``."""
     from datetime import datetime, timezone

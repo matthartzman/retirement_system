@@ -486,7 +486,7 @@ Guardrails:
 - Restore writes a backup of the current database before copying the snapshot database into place.
 - UI callers should reload Plan Data and rebuild outputs after a restore.
 
-## `/api/admin/system-config`
+## `/api/plan/engine-assumptions`
 
 Purpose: Advanced Maintenance System Configuration batch-edit support.
 

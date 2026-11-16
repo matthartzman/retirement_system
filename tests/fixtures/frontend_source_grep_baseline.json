@@ -2,7 +2,6 @@
   "test_active_input_visibility_functional.py",
   "test_admin_all_compact_functional.py",
   "test_admin_build_progress_overlay_functional.py",
-  "test_admin_local_permissions_functional.py",
   "test_admin_nav_structure_functional.py",
   "test_admin_system_config_compact_functional.py",
   "test_admin_user_ui_model_functional.py",

@@ -67,9 +67,9 @@ ROUTE_MODULES = {
         "/api/daf/recommendation", "/api/qlac/recommendation", "/api/housing/top-cities", "/api/housing/zip-lookup", "/api/housing/zip-screen",
         "/api/hsa-schedule", "/api/liabilities", "/api/withdrawal-account-order",
     ],
-    "admin": ["/api/admin/diagnostics", "/api/admin/system-config", "/api/contracts", "/api/glossary",
-        "/api/admin/clear-webview-cache", "/api/admin/csv-backup", "/api/admin/mode",
-        "/api/admin/server", "/api/admin/server/shutdown",
+    "admin": ["/api/admin/diagnostics", "/api/workspace/diagnostics", "/api/plan/engine-assumptions", "/api/contracts", "/api/glossary",
+        "/api/admin/csv-backup", "/api/workspace/csv-backup",
+        "/api/admin/server/shutdown",
         "/api/admin/tax-law-dashboard",
     ],
 }
