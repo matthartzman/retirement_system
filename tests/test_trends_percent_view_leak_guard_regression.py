@@ -15,7 +15,7 @@ import pytest
 from financial_trends_reporter import balance_store as bs
 from financial_trends_reporter import live_snapshot as ls
 from financial_trends_reporter import spending_window as sw
-from financial_trends_reporter.access_routes import OWNER_ONLY_PREFIXES, PASS_THROUGH_FOR_PERCENT, WITHHELD_FOR_PERCENT
+from financial_trends_reporter.access_routes import LOCAL_ONLY_PREFIXES, PASS_THROUGH_FOR_PERCENT, WITHHELD_FOR_PERCENT
 from financial_trends_reporter.main import create_app
 from financial_trends_reporter.percent_view import find_money_leaks, scale_payload, strip_detail
 from financial_trends_reporter.trends_log import append_or_replace_entry
@@ -49,8 +49,8 @@ def test_every_api_route_is_classified(tmp_path):
         path = rule.rule
         if not path.startswith("/api/"):
             continue
-        owner_only = any(path == p or path.startswith(p + "/") for p in OWNER_ONLY_PREFIXES)
-        if not (owner_only or path in PASS_THROUGH_FOR_PERCENT or path in WITHHELD_FOR_PERCENT or path in KNOWN_SCALED):
+        local_only = any(path == p or path.startswith(p + "/") for p in LOCAL_ONLY_PREFIXES)
+        if not (local_only or path in PASS_THROUGH_FOR_PERCENT or path in WITHHELD_FOR_PERCENT or path in KNOWN_SCALED):
             unclassified.append(path)
     assert unclassified == [], f"classify these routes for the percent view: {unclassified}"
 
