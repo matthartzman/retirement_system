@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 358 Python files under `src/`, 91 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 368 Python files under `src/`, 91 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (257 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (267 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (35 modules)"]
@@ -64,6 +64,7 @@ From `requirements.txt` (the authoritative declared list):
 - `pywebview>=4.0,<7`
 - `keyring>=24,<26`
 - `segno==1.6.6`
+- `cryptography>=42,<46`
 
 Actual usage detected per layer (which layer imports which third-party package):
 
@@ -72,7 +73,7 @@ Actual usage detected per layer (which layer imports which third-party package):
 | HTTP Routes | _none (stdlib only)_ |
 | Server Services | _none (stdlib only)_ |
 | HTTP Runtime | _none (stdlib only)_ |
-| Core Engine & Domain | `keyring`, `numpy`, `openpyxl`, `pypdf`, `pywebview`, `requests`, `scipy`, `segno` |
+| Core Engine & Domain | `cryptography`, `keyring`, `numpy`, `openpyxl`, `pypdf`, `pywebview`, `requests`, `scipy`, `segno` |
 | Projection Stages | _none (stdlib only)_ |
 | Reporting / Workbook | `lxml`, `numpy`, `openpyxl`, `scipy` |
 | Dashboard UI Builder | _none (stdlib only)_ |
@@ -641,18 +642,28 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/equity_comp.py` | — | — |
 | `src/fallback_log.py` | — | — |
 | `src/feature_entry_counts.py` | — | — |
+| `src/funnel_guard.py` | — | — |
 | `src/gain_harvest.py` | `tlh` | — |
 | `src/gateway/__init__.py` | — | — |
 | `src/gateway/__main__.py` | `gateway.server` | — |
 | `src/gateway/accounts.py` | `gateway` | — |
 | `src/gateway/acl.py` | `gateway`, `gateway.store` | — |
 | `src/gateway/app.py` | `access_core`, `gateway`, `gateway.store`, `gateway.upstream`, `http_runtime.wsgi_facade` | `segno` |
+| `src/gateway/backup_crypto.py` | — | `cryptography` |
+| `src/gateway/backup_dest.py` | — | — |
+| `src/gateway/backup_store.py` | `gateway.backup_crypto`, `remote_worker` | — |
 | `src/gateway/backups.py` | — | — |
 | `src/gateway/build_queue.py` | — | — |
 | `src/gateway/cli.py` | `access_core`, `gateway.store` | — |
+| `src/gateway/health.py` | — | — |
 | `src/gateway/launchers.py` | `gateway` | — |
+| `src/gateway/logs.py` | — | — |
+| `src/gateway/migrate_all.py` | `gateway.backup_store`, `gateway.migrate_user` | — |
+| `src/gateway/migrate_user.py` | `src`, `active_plan`, `plan_data_migration`, `remote_worker`, `stores` | — |
+| `src/gateway/ops.py` | `src`, `gateway`, `gateway.health`, `gateway.server`, `gateway.service`, `gateway.store` | — |
+| `src/gateway/power.py` | — | — |
 | `src/gateway/proxy.py` | `gateway.build_queue`, `gateway.supervisor`, `gateway.upstream`, `http_runtime.wsgi_facade` | — |
-| `src/gateway/server.py` | `access_core`, `gateway`, `gateway.accounts`, `gateway.app`, `gateway.backups`, `gateway.build_queue`, `gateway.launchers`, `gateway.proxy`, `gateway.store`, `gateway.supervisor`, `http_runtime.server` | — |
+| `src/gateway/server.py` | `access_core`, `gateway`, `gateway.accounts`, `gateway.app`, `gateway.backup_crypto`, `gateway.backup_dest`, `gateway.backup_store`, `gateway.build_queue`, `gateway.health`, `gateway.launchers`, `gateway.logs`, `gateway.proxy`, `gateway.store`, `gateway.supervisor`, `http_runtime.server` | — |
 | `src/gateway/service.py` | `gateway.server` | — |
 | `src/gateway/store.py` | `src`, `access_core`, `gateway` | — |
 | `src/gateway/supervisor.py` | `gateway`, `gateway.build_queue`, `gateway.launchers` | — |

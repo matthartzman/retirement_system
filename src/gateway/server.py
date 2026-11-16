@@ -20,6 +20,7 @@ import os
 import socket
 import sys
 import threading
+import time
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -27,6 +28,7 @@ from urllib.parse import urlsplit
 from src.access_core import is_loopback_host, tailscale_serves_port
 from src.http_runtime.server import LocalHTTPServer, _Handler
 
+from .backup_crypto import BackupCryptoError
 from .app import GatewayConfig, GatewayListener, create_gateway_app
 from .store import GatewayStore
 
@@ -108,7 +110,10 @@ def _parser() -> argparse.ArgumentParser:
                    help="copy this variable from the gateway's environment to workers (the shared provider key)")
     w.add_argument("--monarch-mapping-csv",
                    help="admin-curated Monarch account mapping CSV copied into each new user's workspace")
-    w.add_argument("--backup-dir",help="scheduled per-user backups go here (default: no scheduled backups)")
+    w.add_argument("--backup-dir", help="encrypted backups go here; needs --backup-key-file (default "
+                   "the ProgramData/RetirementPlannerGateway/backups folder). Never a synced or user-readable folder")
+    w.add_argument("--backup-key-file", help="the backup encryption key (create it with 'ops backup-key create'); "
+                   "backups are enabled only when this is given. Kept outside the backup folder")
     w.add_argument("--backup-hours", type=float, default=24.0)
     w.add_argument("--backup-keep", type=int, default=14)
     return p
@@ -143,12 +148,27 @@ class _Runtime:
             accounts, launcher = NullAccountManager(), SameAccountLauncher()
         self.queue = BuildQueue(args.build_concurrency, max_build_seconds=args.max_build_minutes * 60)
         self.backups = None
-        if args.backup_dir:
-            from .backups import BackupScheduler  # noqa: PLC0415
+        self.backup_dir: Path | None = None
+        self.backup_interval = args.backup_hours * 3600
+        self.data_root, self.store, self.started_at = data_root, store, time.time()
+        if args.backup_key_file:
+            from .backup_crypto import read_key_file  # noqa: PLC0415
+            from .backup_dest import default_backup_dir, validate_backup_destination, validate_key_location  # noqa: PLC0415
+            from .backup_store import EncryptedBackupScheduler  # noqa: PLC0415
 
-            self.backups = BackupScheduler(data_root=data_root, gateway_db=Path(args.db), dest=Path(args.backup_dir),
-                                           user_ids=store.user_ids, interval_seconds=args.backup_hours * 3600,
-                                           keep=args.backup_keep, secure_dir=self._secure_dir(args))
+            install = Path(args.install_dir)
+            self.backup_dir = validate_backup_destination(args.backup_dir or default_backup_dir(), data_root=data_root,
+                                                          install_dir=install, key_file=Path(args.backup_key_file))
+            validate_key_location(Path(args.backup_key_file), backup_dir=self.backup_dir, data_root=data_root,
+                                  install_dir=install)
+            self.backups = EncryptedBackupScheduler(
+                data_root=data_root, gateway_db=Path(args.db), dest=self.backup_dir,
+                master=read_key_file(Path(args.backup_key_file)), user_ids=store.user_ids,
+                interval_seconds=self.backup_interval, keep=args.backup_keep, secure_dir=self._secure_dir(args))
+        elif args.backup_dir:
+            raise ValueError("--backup-dir needs --backup-key-file: the gateway writes only encrypted backups")
+        else:
+            LOG.warning("no backups are configured (give --backup-key-file); the health page will warn")
         self.supervisor = Supervisor(cfg, launcher, accounts=accounts, build_queue=self.queue, backups=self.backups)
         self.supervisor.known_user_ids = store.user_ids
         self.proxy = WorkerProxy(self.supervisor, self.queue)
@@ -163,13 +183,27 @@ class _Runtime:
         gateway_sid = winapi.current_user_sid()
         return lambda path: acl.lock_gateway_only(path, gateway_sid=gateway_sid)
 
+    def health(self) -> dict:
+        from .health import build_health  # noqa: PLC0415
+
+        return build_health(started_at=self.started_at, schema_version=self.store.schema_version(),
+                            workers_running=self.supervisor.running_count(), build_running=len(self.queue.running()),
+                            build_waiting=self.queue.waiting_count(), data_root=self.data_root,
+                            backup_dir=self.backup_dir, backups=self.backups, backup_interval=self.backup_interval)
+
     def start(self) -> None:
+        from .logs import start_housekeeping  # noqa: PLC0415
+
+        self._log_stop = threading.Event()
+        start_housekeeping(self.data_root, self.supervisor.is_running, self._log_stop)
         self.supervisor.start()
         self.proxy.start()
         if self.backups is not None:
             self.backups.start()
 
     def shutdown(self) -> None:
+        if getattr(self, "_log_stop", None) is not None:
+            self._log_stop.set()
         if self.backups is not None:
             self.backups.stop()
         self.proxy.shutdown()
@@ -206,10 +240,10 @@ def run_gateway(argv: list[str] | None, stop_event: threading.Event) -> int:
     runtime = None
     try:
         runtime = _Runtime(args, store) if args.data_root else None
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, BackupCryptoError) as exc:
         print(f"Cannot start the workers: {exc}", file=err)
         return 2
-    kwargs = {"upstream": runtime.proxy, "lifecycle": runtime.supervisor} if runtime else {}
+    kwargs = {"upstream": runtime.proxy, "lifecycle": runtime.supervisor, "health": runtime.health} if runtime else {}
     app = create_gateway_app(store, config=GatewayConfig(public_origins=origins), **kwargs)
     servers: dict[str, _GatewayHTTPServer] = {}
     for kind, port in (("funnel", args.funnel_port), ("local", args.local_port)):

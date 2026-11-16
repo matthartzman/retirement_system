@@ -127,7 +127,8 @@ def _is_gateway_path(path: str) -> bool:
 
 
 def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = None, upstream: Upstream | None = None,
-                       clock: Callable[[], float] = time.time, lifecycle: GatewayLifecycle | None = None) -> Flask:
+                       clock: Callable[[], float] = time.time, lifecycle: GatewayLifecycle | None = None,
+                       health: Callable[[], dict] | None = None) -> Flask:
     cfg = config or GatewayConfig()
     up: Upstream = upstream or PlaceholderUpstream()
     app = Flask("retirement_gateway")
@@ -484,6 +485,16 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
     @app.route("/api/auth/admin/users/<int:uid>/reset-totp", methods=["POST"])
     def admin_reset_totp(uid: int):
         return _admin_call(lambda: store.reset_totp(uid, now=clock(), actor=_actor()))
+
+    @app.route("/api/auth/admin/health", methods=["GET"])
+    def admin_health():
+        """Admin-only (the gate above): loopback proves nothing behind Funnel, and workers can reach loopback."""
+        try:
+            payload = health() if health is not None else {"status": "unknown", "warnings": ["health provider not connected"]}
+        except Exception:
+            LOG.exception("health report failed")
+            return _json({"success": False, "error": "the health report could not be built"}, 500)
+        return _json({"success": True, **payload})
 
     @app.route("/api/auth/admin/audit", methods=["GET"])
     def admin_audit():
