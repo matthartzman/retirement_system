@@ -19,8 +19,6 @@ account name and message in a response or log line is masked (:func:`mask_names`
 
 import base64
 import binascii
-import csv
-import io
 import logging
 import math
 import re
@@ -104,7 +102,7 @@ def _rows(text: str) -> tuple[list[str], list[list[str]]]:
     rows: list[list[str]] = []
     physical = 0
     try:
-        for row in csv.reader(io.StringIO(text.lstrip(_BOM))):
+        for row in _tcsv.iter_rows(text.lstrip(_BOM)):
             physical += 1
             if physical > 2 * MAX_ROWS:
                 raise _refuse(f"The file has more than {MAX_ROWS:,} rows.")
@@ -116,7 +114,7 @@ def _rows(text: str) -> tuple[list[str], list[list[str]]]:
             rows.append(row)
             if len(rows) > MAX_ROWS:
                 raise _refuse(f"The file has more than {MAX_ROWS:,} rows.")
-    except csv.Error:
+    except _tcsv.csv.Error:
         raise _refuse("The file is not valid CSV (a field is too large or malformed).") from None
     return [h.strip() for h in (header or [])], rows
 

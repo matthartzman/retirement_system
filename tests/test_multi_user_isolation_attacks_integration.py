@@ -184,7 +184,7 @@ def test_a_guessed_worker_port_refuses_every_token_shape(gateway, clients):
     shapes = [{}, {"X-API-Token": ""}, {"X-API-Token": " "}, {"X-API-Token": "A" * 20000}, {"Authorization": "Bearer "},
               {"Authorization": "Basic Ym9iOg=="}, {"X-API-Token": "a", "Cookie": clients["bob"].cookie}]
     for headers in shapes:
-        for path in ("/api/ping", "/api/config/rows", "/files/x", "/frontend/js/dashboard.js"):
+        for path in ("/api/ping", "/api/config/rows", "/files/x", "/frontend/probe"):
             conn = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
             try:
                 conn.request("GET", path + "?token=guess&api_token=guess", headers=headers)

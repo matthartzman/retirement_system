@@ -26,6 +26,11 @@ def list_rows(text: str | None) -> list[list[str]]:
     return list(csv.reader(io.StringIO(text or "")))
 
 
+def iter_rows(text: str | None):
+    """Rows of a CSV text one at a time (``csv.reader``): for callers that cap or count rows as they go."""
+    return csv.reader(io.StringIO(text or ""))
+
+
 def list_rows_stream(stream) -> list[list[str]]:
     return list(csv.reader(stream))
 

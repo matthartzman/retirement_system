@@ -171,8 +171,6 @@ def test_crafted_paths_never_serve_the_other_users_files(gateway, pair, prefix):
 
 
 def test_a_junction_inside_the_workspace_cannot_lead_to_the_other_users_folder(gateway, pair):
-    if os.name != "nt":
-        pytest.skip("junctions are Windows")
     import _winapi  # noqa: PLC0415
 
     alice, _bob = pair
