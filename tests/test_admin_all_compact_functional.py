@@ -7,7 +7,7 @@ ADMIN_ROUTES = ROOT / "src" / "server" / "admin_routes.py"
 
 
 def test_admin_console_exposes_governance_and_diagnostic_areas_only():
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     for label in [
         "Global rebalancing controls",
         "Pricing / market data",
@@ -22,7 +22,7 @@ def test_admin_console_exposes_governance_and_diagnostic_areas_only():
 
 
 def test_admin_compact_editors_exclude_client_plan_data_files():
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     assert "system_config.csv" in html
     for file_name in [  # WP9.4: the reference-file editors retired (reference data is reference.db)
         "security_master.csv",

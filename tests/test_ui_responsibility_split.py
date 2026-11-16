@@ -17,7 +17,7 @@ def test_navigation_search_exists_in_user_and_admin_ui():
     user_html = (ROOT/'frontend/index.html').read_text(encoding='utf-8')
     admin_html = (ROOT/'frontend/admin.html').read_text(encoding='utf-8')
     user_js = dashboard_js_text()
-    admin_js = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8')
+    admin_js = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8') + (ROOT/'frontend/js/settings_renderer.js').read_text(encoding='utf-8')
     assert 'placeholder="Search navigation' in user_html
     assert 'function setNavSearch' in user_js
     assert 'placeholder="Search navigation' in admin_html
@@ -26,14 +26,14 @@ def test_navigation_search_exists_in_user_and_admin_ui():
 
 def test_collapsible_sections_closed_by_default_and_single_section_not_forced_open():
     user_js = dashboard_js_text()
-    admin_js = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8')
+    admin_js = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8') + (ROOT/'frontend/js/settings_renderer.js').read_text(encoding='utf-8')
     assert "idx===0?'open'" not in user_js
     assert "opts.defaultOpen||isFirst" not in admin_js
     assert 'single-section' in admin_js
 
 
 def test_admin_no_longer_exposes_client_plan_data_editors():
-    admin_js = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8')
+    admin_js = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8') + (ROOT/'frontend/js/settings_renderer.js').read_text(encoding='utf-8')
     for name in CLIENT_PLAN_FILES:
         assert f"file:'{name}'" not in admin_js
     assert 'Client-specific Plan Data is read-only here' in admin_js

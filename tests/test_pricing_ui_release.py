@@ -30,7 +30,7 @@ class PricingUiReleaseTests(unittest.TestCase):
         self.assertEqual(p.sources['XYZ'], 'holdings_cost_basis_fallback')
 
     def test_admin_and_user_help_panels_are_purpose_impact_consider_not_boilerplate(self):
-        admin = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8')
+        admin = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8') + (ROOT/'frontend/js/settings_renderer.js').read_text(encoding='utf-8')
         user = dashboard_js_text()
         user += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
         self.assertIn('What this page controls', admin)

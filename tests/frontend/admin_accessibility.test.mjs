@@ -8,7 +8,7 @@ import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "frontend");
-const src = fs.readFileSync(path.join(ROOT, "js", "admin.js"), "utf8");
+const src = ["settings_renderer.js", "admin.js"].map((f) => fs.readFileSync(path.join(ROOT, "js", f), "utf8")).join("\n");
 const html = fs.readFileSync(path.join(ROOT, "admin.html"), "utf8");
 
 const noop = () => {};
