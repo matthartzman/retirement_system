@@ -77,7 +77,7 @@ The maintained description is `documentation/reference/CURRENT_SYSTEM_DESIGN_SPE
 
 ### Multi-user server (remote mode)
 
-Code: `src/remote_worker.py`, `src/server/remote_allowlist.py`, `src/gateway/*`, `frontend/js/remote_mode.js`, `remote_files.js`. Plan and phase docs: `documentation/future/multi-user-server-plan.md` and its siblings; the runbook is `multi-user-server-operations-runbook.md`; the verdict is in `multi-user-server-security-review.md` (NO-GO for real users until its conditions are met).
+Code: `src/remote_worker.py`, `src/server/remote_allowlist.py`, `src/gateway/*`, `frontend/js/remote_mode.js`, `remote_files.js` (with the optional Monarch connector panel). Plan and phase docs: `documentation/future/multi-user-server-plan.md` and its siblings; the runbook is `multi-user-server-operations-runbook.md`; the verdict is in `multi-user-server-security-review.md` (NO-GO for real users until its conditions are met).
 - Run: `python -m src.gateway.cli create-admin ...`, then `python -m src.gateway --db <gw>\gateway.db --funnel-port 5065 --public-origin <url> --data-root <data>`; operations: `python -m src.gateway.ops backup|restore|migrate-all|funnel|power|health`.
 - A new worker route needs a decision in `remote_allowlist.py` (`ALLOWED` or `REFUSED` with a reason); an unlisted route is a 404 in remote mode. Stored paths go through `confine_path`.
 - The gateway owns `/login`, `/gateway/*`, `/api/auth/*`. CSRF is the gateway's: requests carrying the worker token skip the worker's Origin check.
