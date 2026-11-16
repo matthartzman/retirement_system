@@ -49,7 +49,9 @@ Result (2026-11-16, owner, phone on cellular, Funnel 8443, 20 MB file): each dow
 4. Then log in locally and compare `tailscale funnel status` with step 1.
 5. Record: did both external addresses answer without a login, how long after boot, and anything missing.
 
-Result: **not measured**.
+Result: **in progress** (see below).
+
+Run started 2026-11-16 (owner approved; reboot issued from the Claude session, so that session ended). **Before:** Tailscale service Running, StartType Automatic; `serve status --json` shows only external 443 -> http://127.0.0.1:5058 with Funnel on; last boot 2026-11-10 14:53; console user AzureAD\MattHartzman (logged in). **After (owner to fill in):** do NOT log in at the PC; from the phone on cellular after 3 to 5 minutes open https://hartzmanpc72024.tail22bbfa.ts.net/ . A reporter page or a 502/bad-gateway both prove Funnel and Tailscale came back (a 502 only means the reporter app itself is not a boot service). Then log in and run `tailscale serve status --json` and compare with the Before line. Record: answered without login (yes/no), minutes after boot, differences.
 
 ### C. Port 10000 (optional)
 
