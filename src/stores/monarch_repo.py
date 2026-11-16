@@ -179,10 +179,18 @@ class MonarchRepo:
                 "VALUES (?,?,?,?,?,?,?)", (run_at, source_file, rows, accounts, latest_date, status, detail))
             return int(cur.lastrowid)
 
-    def last_import(self, *, ok_only: bool = False) -> dict[str, Any] | None:
-        sql = "SELECT * FROM monarch_balance_imports " + ("WHERE status = 'ok' " if ok_only else "") + "ORDER BY id DESC LIMIT 1"
+    def last_import(self, *, ok_only: bool = False, source: str | None = None) -> dict[str, Any] | None:
+        """The newest import record; ``source`` limits it to one ``source_file`` value."""
+        where, args = [], []
+        if ok_only:
+            where.append("status = 'ok'")
+        if source is not None:
+            where.append("source_file = ?")
+            args.append(source)
+        sql = ("SELECT * FROM monarch_balance_imports " + (f"WHERE {' AND '.join(where)} " if where else "")
+               + "ORDER BY id DESC LIMIT 1")
         with self._store._read() as con:
-            r = con.execute(sql).fetchone()
+            r = con.execute(sql, args).fetchone()
             return dict(r) if r else None
 
     # ------------------------------------------------------------------ account map

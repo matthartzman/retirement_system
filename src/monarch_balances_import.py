@@ -74,9 +74,13 @@ def import_balances(base_dir: str | Path, csv_path: str | Path | None = None, *,
 
 
 def import_balance_rows(base_dir: str | Path, rows: list[tuple[str, str, str, float]] | Exception, *, source: str,
-                        today: date | None = None, now: datetime | None = None) -> dict[str, Any]:
+                        today: date | None = None, now: datetime | None = None,
+                        compare_same_source: bool = False) -> dict[str, Any]:
     """The guarded upsert of already-parsed ``(date, account_key, account, balance)`` rows (an exception: the
-    parse failed and is recorded as the rejection). Used by :func:`import_balances` and the browser upload."""
+    parse failed and is recorded as the rejection). Used by :func:`import_balances`, the browser upload and the
+    Monarch connector. ``compare_same_source``: the account-drop guard compares only with earlier accepted
+    imports of this same ``source`` (the connector sees only open, connector-visible accounts, so comparing it
+    with a CSV export that lists closed accounts too would always fail)."""
     today = today or platform_runtime.today()
     now = now or datetime.now(timezone.utc)
     stamp = now.isoformat(timespec="seconds")
@@ -95,7 +99,7 @@ def import_balance_rows(base_dir: str | Path, rows: list[tuple[str, str, str, fl
         latest = max(r[0] for r in rows)
         if date.fromisoformat(latest) < today - timedelta(days=1):
             return reject(f"stale export: latest date {latest} is older than yesterday ({today - timedelta(days=1)})")
-        prev = repo.last_import(ok_only=True)
+        prev = repo.last_import(ok_only=True, source=source if compare_same_source else None)
         if prev and prev["accounts"] and len(keys) < prev["accounts"] * (1 - MAX_ACCOUNT_DROP):
             return reject(f"account count fell from {prev['accounts']} to {len(keys)} (more than {int(MAX_ACCOUNT_DROP * 100)}% drop)")
         with store.transaction():

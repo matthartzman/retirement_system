@@ -53,7 +53,9 @@ ROUTE_MODULES = {
         "/api/sales/history", "/api/sales/history/record", "/api/sales/history/dismiss",
         "/api/investment-income", "/api/investment-income.csv", "/api/investment-income/symbol-type"],
     "reconcile": ["/api/reconcile", "/api/reconcile/map", "/api/reconcile/preview", "/api/reconcile/apply", "/api/reconcile/undo", "/api/reconcile/log", "/api/reconcile/policy", "/api/reconcile/undo-auto", "/api/reconcile/seed"],
-    "monarch_upload": ["/api/monarch/upload"],
+    "monarch_upload": ["/api/monarch/upload", "/api/monarch/connector", "/api/monarch/connector/start",
+                       "/api/monarch/connector/complete", "/api/monarch/connector/sync",
+                       "/api/monarch/connector/disconnect"],
     "strategy_assets": [
         "/api/holdings", "/api/holdings/classes", "/api/holdings/preview", "/api/cash-accounts", "/api/cash-accounts/delete",
         "/api/large-discretionary-expenses", "/api/spending-adjustments", "/api/forced-roth-conversions", "/api/liquidity-buffers",
