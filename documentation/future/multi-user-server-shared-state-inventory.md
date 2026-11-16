@@ -39,10 +39,11 @@ No other code under `src/` registers a task.
 
 | Item | Evidence | Remote mode |
 |---|---|---|
-| Windows Credential Manager service `RetirementSystem` (via `keyring`) | `src/secrets_store.py:24` | **disabled** from the web (`POST /api/secrets` refused). It is per Windows account, so it becomes **per user** once each worker runs under its own account with its profile loaded (Phase 3; Phase 0 could not run the account test). Phase 4 decides per-user secrets. |
+| Windows Credential Manager service `RetirementSystem` (via `keyring`) | `src/secrets_store.py:24` | **disabled** from the web (`POST /api/secrets` refused). **Per user** under the per-account launcher (own account, profile loaded). Phase 4: in remote mode the store is used only when the worker carries `RETIREMENT_SYSTEM_DEDICATED_ACCOUNT=1` (set by the per-account launcher only; refused in `--worker-env`) and the backend is `WinVaultKeyring`; a same-account worker would share the gateway account's store and gets `SecretStoreUnavailable` instead. Deleted with the user's profile. |
+| Key fingerprints in pricing diagnostics (`/api/prices/test-symbol`) | `src/market_data.py:_secret_fingerprint` | Phase 4: `None` in remote mode (a stable identifier of the shared key). |
 | Secret-name index | `src/secrets_store.py` (`NAMES_KEY` in `app.db` settings) | **per user** (workspace `app.db`). |
 | `Security/secrets_store` setting (`local_state/secrets.db`) | `src/runtime_config.py:69,159` | Nothing in `src/` reads it; no file is created. No action. |
-| Price-provider keys read from the environment first | `src/market_data.py:270-312` | The shared key is a gateway-held environment variable passed only to workers that need it (plan decision 6). `remote_mode.subprocess_env` passes exactly the five provider-key names to build and tool subprocesses. |
+| Price-provider keys read from the environment first | `src/market_data.py:270-312` | The shared key is a gateway-held environment variable passed to workers with `--pass-env` only (plan decision 6); `--worker-env` refuses the five provider-key names, and a machine-scope value is not inherited (workers get only `launchers.OS_ENV_KEYS`). `remote_mode.subprocess_env` passes exactly the five names to build and tool subprocesses. The isolation gate checks a sentinel key never reaches a response or a workspace file. |
 
 ## 3. Environment keys
 
@@ -123,6 +124,8 @@ owner's shell settings) are dropped. Call sites: `src/server/workbook_routes.py`
 | Extractor output and raw folders inside the repo | `Monarch Extractor/monarch_extract.py:33-40` | **disabled**, as above. |
 | User-set absolute `source_dir` | `src/monarch_autoupdate.py:203-219` | **confined** (`resolve_source_dir`), and the routes that use it are **disabled**. |
 | `run_monarch.ps1` targeting the repo root | `Monarch Extractor/run_monarch.ps1:3-4,24` | Operator tool; not started by a worker. |
+| Scheduled-task registration and the extractor import job, if ever called | `src/monarch_autoupdate.py:register_scheduled_task`, `src/monarch_autoimport_job.py:run` | Phase 4: both refuse in remote mode (defence in depth behind the refused routes). |
+| Replacement for remote users | `POST /api/monarch/upload` (`src/monarch_upload.py`) | **per user**: Monarch's own CSV exports uploaded from the browser into the user's own plan; nothing written outside the plan store. Admin mapping CSV (`--monarch-mapping-csv`) copied into each new workspace (`local_state/monarch_mapping_seed.csv`). |
 
 ## 10. Request-borne and settings-borne paths (the resolver's coverage)
 
@@ -145,5 +148,6 @@ owner's shell settings) are dropped. Call sites: `src/server/workbook_routes.py`
   `/login` and `/api/auth/*` are refused.
 - Phase 3: per-user Windows accounts (unproven in Phase 0), Job Objects, the build queue and pool
   cap, `RETIREMENT_SYSTEM_BASE_DIR` never set, read-only install.
-- Phase 4: per-user secrets and Monarch.
+- Phase 4 (done, `multi-user-server-monarch-secrets-design.md`): per-user secrets guard, Monarch CSV upload,
+  mapping seed. Still open: the elevated credential-rotation test and the Monarch connector probe (owner).
 - Phase 6: Funnel target check extended to the gateway and workers.

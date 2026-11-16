@@ -30,6 +30,10 @@ PW = "isolation gate password 1"
 PUBLIC_ORIGIN = "https://node.example.ts.net:8443"
 PUBLIC_HOST = "node.example.ts.net:8443"
 HOME = ("Other Assets", "Home", "value_as_of_plan_start")
+SHARED_KEY_ENV = "RETIREMENT_SYSTEM_FMP_API_KEY"
+SHARED_KEY = "gate-shared-provider-key-5f1c0e"  # synthetic sentinel, not a real key
+ALICE_ACCOUNT = "Alice Sentinel Savings"
+ALICE_MERCHANT = "AliceSentinelMerchant"
 
 
 def _pid_alive(pid: int) -> bool:
@@ -136,9 +140,10 @@ def gateway(tmp_path_factory):
     data_root = base / "data"
     ready_file = base / "ready.json"
     env = {k: v for k, v in os.environ.items() if not k.startswith("RETIREMENT_SYSTEM_")}
+    env[SHARED_KEY_ENV] = SHARED_KEY  # the gateway holds the shared provider key; workers get it by --pass-env only
     cmd = [sys.executable, "-m", "src.gateway", "--db", str(db), "--local-port", "0", "--funnel-port", "0",
            "--public-origin", PUBLIC_ORIGIN, "--no-tailscale-check", "--data-root", str(data_root), "--provision", "demo",
-           "--ready-file", str(ready_file), "--build-concurrency", "1",
+           "--ready-file", str(ready_file), "--build-concurrency", "1", "--pass-env", SHARED_KEY_ENV,
            "--worker-env", "RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS=1",
            "--worker-env", "RETIREMENT_SYSTEM_FROZEN_TODAY=2026-08-04"]
     log = (base / "gateway.log").open("w", encoding="utf-8")
@@ -285,6 +290,62 @@ def test_worker_responses_set_no_cookie_and_build_status_reports_running_state(s
     status, headers, raw = signed_in["bob"].request("GET", "/api/build/status")
     assert status == 200 and "set-cookie" not in headers
     assert json.loads(raw)["build_running"] is False
+
+
+def _upload(client: Client, kind: str, text: str) -> tuple[int, dict]:
+    import base64  # noqa: PLC0415
+
+    return client.json("POST", "/api/monarch/upload", {"kind": kind, "filename": f"{kind}.csv",
+                                                        "content_base64": base64.b64encode(text.encode()).decode()})
+
+
+def _workspace_bytes(gateway, user: str) -> bytes:
+    """Every file under the user's workspace, concatenated (plan.rpx and app.db are SQLite: text is stored as is)."""
+    root = gateway["data_root"] / "users" / str(gateway["users"][user][0])
+    return b"".join(p.read_bytes() for p in root.rglob("*") if p.is_file())
+
+
+def test_one_users_monarch_upload_is_invisible_to_the_other(gateway, signed_in):
+    alice, bob = signed_in["alice"], signed_in["bob"]
+    status, body = _upload(alice, "transactions",
+                           f"Date,Merchant,Category,Account,Amount,Id\n2026-08-01,{ALICE_MERCHANT},Groceries,"
+                           f"{ALICE_ACCOUNT},-12.34,gate-tx-1\n")
+    assert status == 200 and body["added"] == 1, body
+    status, body = _upload(alice, "balances", f"Date,Balance,Account\n2026-08-03,100.00,{ALICE_ACCOUNT}\n"
+                                              f"2026-08-04,101.00,{ALICE_ACCOUNT}\n")
+    assert status == 200 and body["status"] == "ok", body
+    _s, _h, alice_view = alice.request("GET", "/api/reconcile")
+    _s, _h, bob_view = bob.request("GET", "/api/reconcile")
+    assert ALICE_ACCOUNT.encode() in alice_view
+    assert ALICE_ACCOUNT.encode() not in bob_view
+    assert ALICE_MERCHANT.encode() in _workspace_bytes(gateway, "alice")
+    bob_files = _workspace_bytes(gateway, "bob")
+    assert ALICE_MERCHANT.encode() not in bob_files and ALICE_ACCOUNT.encode() not in bob_files
+
+
+def test_the_secret_store_ui_is_refused_and_a_same_account_worker_stores_nothing(signed_in):
+    for name in ("alice", "bob"):
+        status, body = signed_in[name].json("POST", "/api/secrets", {"name": "fmp_api_key", "value": "user-key"})
+        assert status == 403, body
+        status, body = signed_in[name].json("GET", "/api/status")
+        assert status == 200 and body.get("encryption", {}).get("store_active") is not True, body.get("encryption")
+
+
+def test_the_shared_provider_key_reaches_workers_but_never_a_response_or_a_workspace(gateway, signed_in):
+    import hashlib  # noqa: PLC0415
+
+    needles = (SHARED_KEY.encode(), hashlib.sha256(SHARED_KEY.encode()).hexdigest()[:12].encode())
+    for name in ("alice", "bob"):
+        client = signed_in[name]
+        seen = b""
+        for method, path, body in (("GET", "/api/status", None), ("GET", "/api/runtime", None),
+                                   ("GET", "/api/ping", None),
+                                   ("POST", "/api/prices/test-symbol", {"symbol": "VTI"})):
+            status, _h, raw = client.request(method, path, body)
+            seen += raw
+            assert all(n not in raw for n in needles), (name, path)
+        assert SHARED_KEY_ENV.encode() in seen, "the worker did not receive the shared key by --pass-env"
+        assert all(n not in _workspace_bytes(gateway, name) for n in needles), name
 
 
 def test_logout_stops_the_users_worker_and_gateway_exit_stops_the_rest(gateway, signed_in):
