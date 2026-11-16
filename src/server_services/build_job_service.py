@@ -245,6 +245,11 @@ class BuildJobRegistry:
             except Exception:
                 pass
 
+    def has_running(self) -> bool:
+        """True while any job has not reached a final state (the supervisor never reaps such a worker)."""
+        with self._lock:
+            return any(j.get("status") not in ("done", "failed", "cancelled") for j in self._jobs.values())
+
     def find_latest_for_wait(self, timeout_seconds: float = 0.0) -> dict[str, Any]:
         deadline = time.time() + max(0.0, timeout_seconds)
         while True:

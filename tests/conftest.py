@@ -239,8 +239,21 @@ def _close_helper_opened_stores():
 _LIVE_INPUT_DIR = ROOT / "input"
 
 
+def _elevated_tests_allowed() -> bool:
+    """`elevated` tests change the machine (accounts, policy, ACLs, services): opt-in and admin only."""
+    if os.environ.get("RETIREMENT_ELEVATED_TESTS") != "1" or os.name != "nt":
+        return False
+    import ctypes  # noqa: PLC0415
+    try:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
 def pytest_collection_modifyitems(config, items):
     for item in items:
+        if item.get_closest_marker("elevated") is not None and not _elevated_tests_allowed():
+            item.add_marker(pytest.mark.skip(reason="elevated: set RETIREMENT_ELEVATED_TESTS=1 in an elevated shell (changes this machine)"))
         marker = item.get_closest_marker("requires_live_input")
         if marker is None:
             continue

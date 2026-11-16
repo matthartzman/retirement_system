@@ -152,6 +152,16 @@ def _exclusive_server_class():
     return ExclusiveLocalHTTPServer
 
 
+def _redirect_console(path: Path) -> None:
+    """Point stdout and stderr at ``path`` (appended, line-buffered), keeping the last run's log only."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    previous = path.with_name(path.name + ".1")
+    if path.is_file():
+        path.replace(previous)
+    stream = open(path, "a", encoding="utf-8", buffering=1)  # noqa: SIM115 - lives as long as the process
+    sys.stdout = sys.stderr = stream
+
+
 def _write_port_file(path: Path, info: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
@@ -166,10 +176,19 @@ def main(argv: list[str] | None = None) -> int:
                         help="demo: the shipped demo plan; blank: a new plan; none: as it is")
     parser.add_argument("--port-file", help="where to write the chosen port as JSON")
     parser.add_argument("--parent-pid", type=int, help="exit when this process ends")
+    parser.add_argument("--console-log", help="send stdout and stderr to this file inside the workspace (the "
+                                              "supervisor passes no handles to a worker running as another account)")
     args = parser.parse_args(argv)
 
     workspace = Path(args.workspace).expanduser().resolve()
     workspace.mkdir(parents=True, exist_ok=True)
+    if args.console_log:
+        log_path = Path(args.console_log).expanduser().resolve()
+        if not log_path.is_relative_to(workspace):
+            if sys.stderr:
+                sys.stderr.write("remote worker: --console-log must be inside the workspace\n")
+            return EXIT_REFUSED
+        _redirect_console(log_path)
     _pin_environment(workspace)
     if args.parent_pid:
         start_parent_watchdog(args.parent_pid)
