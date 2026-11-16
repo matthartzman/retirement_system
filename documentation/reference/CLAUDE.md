@@ -64,6 +64,7 @@ The maintained description is `documentation/reference/CURRENT_SYSTEM_DESIGN_SPE
 | Save As, Load Saved Plan, Start New Plan, backups and their naming | design spec section 4.3 |
 | Build pipeline and outputs | design spec sections 5 and 8 |
 | Frontend structure, render hooks, navigation | design spec section 7 |
+| Multi-user server (gateway, per-user workers, remote mode, ops) | design spec section 3.6; `documentation/future/multi-user-server-*.md` |
 | One-time conversion of an old install | `LEGACY_CONVERSION.md` |
 
 ### Rules that bite
@@ -73,6 +74,15 @@ The maintained description is `documentation/reference/CURRENT_SYSTEM_DESIGN_SPE
 - **Local server.** Routes are decorator side effects in the five files under `src/server/`, sharing one namespace through `from .app_core import *`. `route_manifest.py` is documentation only.
 - **Writable data in the frozen exe** is resolved from the exe path, not `BASE_DIR`.
 - **Backups** the app writes stay on the local drive (`plan.rpx.version_<ts>`, `before_load_`, `before_snapshot_restore_`, `before_blank_`); full-project zips go to OneDrive through `tools/backup_to_onedrive.py` on each `build.py` rebuild. `dist/`, `build/`, `output/` and `local_state/` are gitignored.
+
+### Multi-user server (remote mode)
+
+Code: `src/remote_worker.py`, `src/server/remote_allowlist.py`, `src/gateway/*`, `frontend/js/remote_mode.js`, `remote_files.js`. Plan and phase docs: `documentation/future/multi-user-server-plan.md` and its siblings; the runbook is `multi-user-server-operations-runbook.md`; the verdict is in `multi-user-server-security-review.md` (NO-GO for real users until its conditions are met).
+- Run: `python -m src.gateway.cli create-admin ...`, then `python -m src.gateway --db <gw>\gateway.db --funnel-port 5065 --public-origin <url> --data-root <data>`; operations: `python -m src.gateway.ops backup|restore|migrate-all|funnel|power|health`.
+- A new worker route needs a decision in `remote_allowlist.py` (`ALLOWED` or `REFUSED` with a reason); an unlisted route is a 404 in remote mode. Stored paths go through `confine_path`.
+- The gateway owns `/login`, `/gateway/*`, `/api/auth/*`. CSRF is the gateway's: requests carrying the worker token skip the worker's Origin check.
+- Never put a provider key on a command line or in `--worker-env`; use the gateway's environment and `--pass-env`.
+- Isolation tests that start workers are slow-tier and Windows-flaky; run them once per change. The elevated per-account tests are run by the owner.
 
 ### Frontend working tips (`frontend/`)
 
