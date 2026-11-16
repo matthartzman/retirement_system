@@ -7,19 +7,23 @@ from __future__ import annotations
 import sqlite3
 import threading
 import time
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
 
 from src import access_core
 from src.access_core import LOCK_SECONDS, MAX_FAILED_BEFORE_LOCK, MIN_PASSWORD_LENGTH  # noqa: F401 - public names kept
+# Shared with the identity store (src/identity/store.py): the sign-in result type, throttle numbers and money views.
+from src.identity.store import (  # noqa: F401 - re-exported
+    MONEY_VIEWS,
+    THROTTLE_FREE_FAILURES,
+    THROTTLE_MAX_DELAY_SECONDS,
+    THROTTLE_WINDOW_SECONDS,
+    LoginResult,
+)
 
+# Until Phase 3 of the Admin app plan FI keeps this legacy store on data/access.db (schema 2); identity.db is
+# not yet wired in, and the first start after that switch migrates access.db into it.
 DB_FILENAME = "access.db"
-THROTTLE_WINDOW_SECONDS = 10 * 60
-THROTTLE_FREE_FAILURES = 20
-THROTTLE_MAX_DELAY_SECONDS = 60.0
 SCHEMA_VERSION = 2
-MONEY_VIEWS = ("dollars", "percent", "both")
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -51,14 +55,6 @@ CREATE TABLE IF NOT EXISTS activity (
     source TEXT NOT NULL DEFAULT ''
 )
 """
-
-
-@dataclass(frozen=True)
-class LoginResult:
-    ok: bool
-    user_id: int | None
-    must_change: bool
-    reason: Literal["ok", "bad", "locked"]
 
 
 class AccessStore:
