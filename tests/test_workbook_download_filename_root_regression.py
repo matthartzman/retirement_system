@@ -10,7 +10,7 @@ def test_control_characters_and_quotes_are_stripped_from_the_filename_root(tmp_p
         {"filename_root": 'Plan"\r\nSet-Cookie: x=1\r\n\r\n<b>\/'}, cfg)
     assert status == 200
     root = payload["filename_root"]
-    assert not any(c in root for c in '\r\n"\/\x00') and root.strip()
+    assert not any(c in root for c in "\r\n\"\\/\x00") and root.strip()
 
 
 def test_a_root_that_is_only_control_characters_is_refused(tmp_path):
