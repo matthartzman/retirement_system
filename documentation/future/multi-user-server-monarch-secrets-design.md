@@ -101,50 +101,80 @@ machine-wide scheduled task), `POST .../run` (runs the extractor's mark-delivere
 the shared-state inventory and closed: the same-account Credential Manager (section 3), key fingerprints
 (section 3), provider keys on `--worker-env` (section 4).
 
-## 6. Monarch MCP connector: NOT BUILT
+## 6. Monarch MCP connector (built, optional, off by default)
 
-**Why:** the build was conditional on a live probe with the owner's Monarch login (tool list, data coverage,
-paging, token lifetime and refresh, redirect-address check). The owner chose not to run it on 2026-11-16, so
-nothing about the connector's data is known beyond Phase 0's discovery documents, and the Finicity gap
-(Fidelity brokerage accounts silently missing) still argues against depending on it. The CSV upload covers
-every account provider.
+**Probe, 2026-11-16, with the owner's own sign-in (Read only).** Scripts and logs are outside the repo, in the
+session notes folder (`phase4-monarch-probe/`); they print only shapes, counts and dates.
+- Server "Monarch Money" 3.3.1, 47 tools (19 read-only). Scopes offered `mcp:read`, `mcp:write`; only `mcp:read`
+  is requested. Every tool needs `intent` (an enum; the connector sends `financial_planning`). Results arrive as
+  `structuredContent: {"result": "<JSON string>"}`.
+- Tokens: access 1 hour, a refresh token with no stated lifetime; refresh works and **rotates** the refresh
+  token. Unattended refresh after a day is not yet measured (the probe's `refresh` command, run later).
+- **Redirects:** dynamic registration accepted `http://127.0.0.1/callback` and `http://127.0.0.1:<port>/callback`
+  and refused ("Redirect URI is not supported") `https://<node>.ts.net:8443/gateway/monarch/callback`,
+  `https://<node>.ts.net/gateway/monarch/callback`, and loopback addresses on that same path. Further probing of
+  which paths and hosts are accepted was stopped (each try registers a client). So a callback cannot reach the
+  server: the design below replaced the gateway callback with a paste-back step.
+- Data, compared in memory with the owner's own plan (counts only): `GetTransactions` pages of up to 100 with
+  `next_offset`, each row with a stable `id`, `date`, `merchant`, `amount`, `category`, `account`, `pending`;
+  6,794 listed (79 pages, 37 s) though `transaction_count` says 7,898 (the gap is not explained; hidden
+  transactions did not change the count). On the 5,591 ids also in the plan: amount 100% (same sign convention),
+  category 100%, date 99.98%, merchant 95% (Monarch-side renames since import), account 76% raw, 100% once
+  whitespace is normalised (one account: non-breaking and doubled spaces differ between the CSV export and the
+  connector). `GetAccounts` lists 28 accounts with id, name, type, balance; **one account is hidden** from
+  connectors by Monarch (`finicity_excluded.hidden_account_count`), the Finicity gap Phase 0 predicted.
+  `GetNetWorthHistory(accounts=[name], interval="day")` is a per-account daily history: for four accounts it
+  equalled the plan's imported CSV balances on every one of 653-661 days.
 
-**Design, for when it is built.** Optional, off by default (gateway setting `--monarch-connector`).
-- The seam: a connector produces the same two shapes the upload produces and calls
-  `monarch_upload.import_transaction_rows` (normalised rows with Monarch's `Id`) and
-  `monarch_upload.import_balance_rows_for_upload` (`(date, account_key, account, balance)`), so the import
-  guards, masking and mapping seed are shared and nothing in the importers changes.
-- OAuth is the gateway's (a worker is not reachable from the browser, and a callback must not be proxied):
-  `POST /gateway/monarch/connect` (CSRF-checked) registers the client once per gateway with dynamic client
-  registration (`https://api.monarch.com/oauth/register`, `token_endpoint_auth_method: none`), creates a PKCE
-  S256 verifier and a state bound to the session, stores both in `gateway.db` for ten minutes, and returns the
-  authorization address with `scope=mcp:read` and `resource=https://api.monarch.com/mcp`.
-  `GET /gateway/monarch/callback` on the public Funnel name (`https://<node>.ts.net:8443/gateway/monarch/callback`)
-  checks state and session, exchanges the code, and hands the tokens to the user's worker over the token-
-  authenticated loopback channel (`POST /api/monarch/connector/tokens`, refused unless the gateway token is
-  presented and never on the remote allow-list for browsers).
-- Tokens live in the worker account's Credential Manager (`secrets_store`, names `monarch.access_token`,
-  `monarch.refresh_token`), so the guard in section 3 applies and deletion goes with the profile. The gateway
-  keeps only "connected: yes/no, since, last sync".
-- Sync on login and on demand (`POST /api/monarch/connector/sync`): refresh the access token if needed, page
-  through accounts, balances and transactions, import. Disconnect (`POST /api/monarch/connector/disconnect`)
-  revokes at the revocation endpoint and deletes both secrets.
-- New dependency: none needed (Streamable HTTP is JSON-RPC over HTTPS POST; the probe uses `urllib`). The `mcp`
-  SDK is not installed in the build's Python 3.12 and is optional.
+**Design as built.** `src/monarch_connector.py`, routes in `src/server/monarch_routes.py`, all on the remote
+allow-list (permission `read_config` for status, `write_config` for the rest). Off unless the worker has
+`RETIREMENT_SYSTEM_MONARCH_CONNECTOR=1` (gateway `--monarch-connector`); desktop mode can set it too.
+- Everything happens in the user's own worker; the gateway has no connector routes and holds nothing. Because
+  the redirect is loopback, there is no callback to receive: `POST /api/monarch/connector/start` registers a
+  public client once (`token_endpoint_auth_method: none`, kept as the `monarch.client_id` secret), creates a
+  PKCE S256 verifier and a state **in this process's memory** (one at a time, ten minutes) and returns the
+  authorization address (`scope=mcp:read`, `resource=https://api.monarch.com/mcp`). The user signs in in their
+  own browser, which ends on an `http://127.0.0.1/callback?code=...&state=...` page that does not load; they
+  paste that address into `POST /api/monarch/connector/complete {"callback_url"}`. The state is compared in
+  constant time and is single-use; the pasted code is useless without the verifier, which never leaves the
+  worker. A token response without `mcp:read` is refused.
+- Discovery must name `https://api.monarch.com` as issuer and every endpoint under `https://api.monarch.com/`;
+  the transport refuses any other address. Responses are capped at 8 MiB, requests time out after 30 s.
+- Tokens are `monarch.access_token`, `monarch.refresh_token` (plus `monarch.connector_meta`: connected since,
+  access expiry, last sync summary) in `secrets_store`, so section 3's guard applies: a same-account server
+  worker cannot connect at all (gate-tested), and deleting the user's profile deletes them. No token, code,
+  account name or number is logged, returned or written to a file. An `invalid_grant` on refresh forgets the
+  tokens and asks the user to connect again.
+- `POST /api/monarch/connector/sync {"dry_run", "full"}`: `GetAccounts`; per account one daily
+  `GetNetWorthHistory`, kept only when the response's `account_deltas` name exactly that account id (or, with no
+  deltas, the last day equals the current balance), and skipped when two accounts' names differ only in case;
+  `GetTransactions` pages (pending rows skipped until posted; account names cleaned like the balances'). Then
+  `monarch_upload.import_transaction_rows` and `import_balance_rows_for_upload(source="monarch connector")`,
+  so the upsert, the import guards, masking and the mapping seed are shared. The first sync reads from
+  2000-01-01; later ones from the last sync minus 30 days (edits arrive), and the balances upsert keeps older
+  days. One sync at a time per worker. About 40-60 s for the owner's 6,800 transactions and 28 accounts,
+  inside the proxy's 120 s read timeout.
+- The 20% account-drop guard compares a connector sync only with earlier connector syncs
+  (`import_balance_rows(compare_same_source=True)`, `MonarchRepo.last_import(source=)`): a CSV export lists
+  closed accounts too (the owner's plan: 41) and the connector only open, visible ones (28), so comparing the
+  two would reject every connector sync after a CSV import.
+- `POST /api/monarch/connector/disconnect` revokes both tokens at the revocation endpoint (best effort) and
+  deletes them; the client id is kept. `GET /api/monarch/connector` reports `available` (with a `reason`
+  when not), `connected`, `connected_at`, `last_sync`, `sign_in_pending`.
+- Tests: `tests/test_monarch_connector_unit.py` runs everything against a fake Monarch built from the probe's
+  measurements (no live calls); the isolation gate starts the gateway with `--monarch-connector` and checks
+  that neither same-account worker can start a sign-in.
 
-**Exact remaining steps.**
-1. Owner runs the probe (kept outside the repo, in the session notes folder:
-   `phase4-monarch-probe/monarch_mcp_probe.py`): `python monarch_mcp_probe.py run`, signs in with Read only,
-   keeps `monarch_probe_report.json` (shapes, counts and dates only).
-2. Owner runs `python monarch_mcp_probe.py redirect-check https://<node>.ts.net:8443/gateway/monarch/callback`
-   to learn whether registration accepts the non-loopback HTTPS redirect. If refused, the connector cannot be
-   built as designed (a loopback redirect would need the user's browser on the server).
-3. A day later: `python monarch_mcp_probe.py refresh` (does unattended refresh work, is the refresh token
-   rotated). Then `cleanup` (revokes and deletes the stored probe tokens).
-4. Compare the report with what the importers need: transactions with a stable id, date, merchant, amount,
-   account and category; a balance history per account per day (or at least current balances), covering
-   several years with paging. If balance history is missing, the connector can feed transactions only.
-5. Only then build the routes above, with tests against a fake MCP server (no live calls in CI).
+**Caveats.** The hidden (Finicity) account still needs the CSV upload. Mixing CSV transaction uploads and
+connector syncs for the same user can leave one account's transactions under two spellings that differ only in
+spaces (the upload keeps the export's raw name, as the extractor does). Unattended refresh over days is
+unmeasured: if the refresh token turns out short-lived, users reconnect when told to.
+
+**Remaining owner steps.** Tomorrow or later: `python monarch_mcp_probe.py refresh` (in the notes folder) to
+see whether the refresh token still works after a day, then `python monarch_mcp_probe.py cleanup` (revokes and
+deletes the probe's tokens from your Credential Manager). The probe registered two OAuth clients at Monarch
+(one signed in, one from an accepted redirect check, never used; refused checks register nothing); Monarch >
+Settings > MCP Connector lists any granted access.
 
 ## 7. What did not run (needs the owner)
 
@@ -153,4 +183,6 @@ every account provider.
   `RETIREMENT_ELEVATED_TESTS=1`. Until it passes, "a stored credential survives worker-account password
   rotation" stays unverified. If it fails, either stop rotating (`--account-rotate-days 0`) or build the
   per-user encrypted fallback in section 3.
-- The Monarch connector probe (section 6).
+- The day-later refresh check and the probe cleanup (section 6, "Remaining owner steps").
+- A live connector sign-in through the built routes (the probe exercised the same calls from a script; the
+  routes are tested only against the fake).
