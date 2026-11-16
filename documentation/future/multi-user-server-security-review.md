@@ -154,9 +154,30 @@ plan is small).
 
 ## Verification set
 
-Results are filled in below from the logged runs (log tails quoted).
+Run once each, in this order, with nothing else heavy running (the load test and the fast tier did not overlap).
 
-VERIFICATION_PLACEHOLDER
+- `pytest -m "not slow" -v -rfE` (logged, background): first run `6 failed, 6954 passed, 16 skipped, 89 deselected
+  in 4123.31s (1:08:43)`. All six were mine or trivially fixable, and none was an inherited failure:
+  `test_no_new_files_assert_on_frontend_source_text` (my attack test named a frontend path), 
+  `test_no_data_file_io_outside_the_allowlist` (`src/monarch_upload.py` used `csv` directly after P7-08; moved to
+  `csv_exchange/text_csv.py`), the two skip-count ratchet tests (one `pytest.skip` in my junction test; removed), the
+  architecture diagram freshness test (a new file under `src/`; regenerated) and the text hygiene test (a form feed
+  in the Phase 6 measurements doc, where `C:\funnel_test` had become `C:` + 0x0c + `unnel_test`; fixed). After the
+  fixes the seven affected test files were re-run and passed. `gateway.db` needed no allow-list entry. The two
+  failures Phase 6 reported as not its own (a Phase 5 document status, a Monarch UI string test) did not fail
+  on this branch. `test_ss_longevity_sensitivity_functional` passed; it did not show its load sensitivity here.
+- Isolation gate, the three modules, after those fixes: `32 passed in 70.06s (0:01:10)`.
+- `npm test`: `tests 1914, pass 1914, fail 0`.
+- `npx playwright test tests/e2e/wi015-navigation-baseline.spec.js`: `1 passed (1.0m)`.
+- `npx playwright test -c playwright.gateway.config.js`: `6 passed (11.4s)`. This branch does **not** contain the
+  gateway spec: it lives on the Phase 5 branch in commit `f7d54544` (with two later Phase 5 commits, one of them the
+  connector panel), pushed after the Phase 6 branch was cut. I ran it by temporarily checking out those files and
+  the Phase 5 `frontend/` folder, then removed them; nothing of that is in this branch. The first attempt with only
+  the spec failed on the connector panel, which confirms the later Phase 5 frontend commit is needed. **The stack is
+  therefore missing three Phase 5 commits, and this review did not read the connector panel code.**
+- `python tools/fast_gates.py`: `99/99 passed | 0 failed`, `Fast gates passed.`
+
+The architecture diagram was regenerated for the new `src/gateway/fsguard.py`.
 
 ## Carried-over open items
 
