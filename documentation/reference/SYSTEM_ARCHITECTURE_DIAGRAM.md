@@ -63,6 +63,7 @@ From `requirements.txt` (the authoritative declared list):
 - `openpyxl>=3.1,<4`
 - `pywebview>=4.0,<7`
 - `keyring>=24,<26`
+- `segno==1.6.6`
 
 Actual usage detected per layer (which layer imports which third-party package):
 
@@ -71,7 +72,7 @@ Actual usage detected per layer (which layer imports which third-party package):
 | HTTP Routes | _none (stdlib only)_ |
 | Server Services | _none (stdlib only)_ |
 | HTTP Runtime | _none (stdlib only)_ |
-| Core Engine & Domain | `keyring`, `numpy`, `openpyxl`, `pypdf`, `pywebview`, `requests`, `scipy` |
+| Core Engine & Domain | `keyring`, `numpy`, `openpyxl`, `pypdf`, `pywebview`, `requests`, `scipy`, `segno` |
 | Projection Stages | _none (stdlib only)_ |
 | Reporting / Workbook | `lxml`, `numpy`, `openpyxl`, `scipy` |
 | Dashboard UI Builder | _none (stdlib only)_ |
@@ -637,7 +638,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/gain_harvest.py` | `tlh` | — |
 | `src/gateway/__init__.py` | — | — |
 | `src/gateway/__main__.py` | `gateway.server` | — |
-| `src/gateway/app.py` | `access_core`, `gateway`, `gateway.store`, `gateway.upstream`, `http_runtime.wsgi_facade` | — |
+| `src/gateway/app.py` | `access_core`, `gateway`, `gateway.store`, `gateway.upstream`, `http_runtime.wsgi_facade` | `segno` |
 | `src/gateway/cli.py` | `access_core`, `gateway.store` | — |
 | `src/gateway/server.py` | `access_core`, `gateway.app`, `gateway.store`, `http_runtime.server` | — |
 | `src/gateway/store.py` | `src`, `access_core`, `gateway` | — |

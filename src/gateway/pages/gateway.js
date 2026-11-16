@@ -125,6 +125,7 @@
       if (r.status === 401) { say("Your sign-in expired. Please sign in again."); return; }
       if (r.status !== 200 || !r.json.secret) { say(errText(r)); return; }
       $("secret").textContent = r.json.secret.replace(/\s+/g, "").replace(/(.{4})(?=.)/g, "$1 ");
+      if (r.json.qr_svg_data_uri) { $("qr").src = r.json.qr_svg_data_uri; $("qr").hidden = false; }
       var a = $("uri");
       a.href = r.json.otpauth_uri;
       a.textContent = r.json.otpauth_uri;

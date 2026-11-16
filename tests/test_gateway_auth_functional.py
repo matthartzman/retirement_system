@@ -68,6 +68,7 @@ def test_first_login_requires_totp_enrolment(rig):
     assert b.get("/api/auth/session").get_json()["stage"] == "pending"
     start = b.post("/api/auth/totp/enrol/start").get_json()
     assert start["secret"] and start["otpauth_uri"].startswith("otpauth://totp/")
+    assert f"secret={start['secret']}" in start["otpauth_uri"]
     bad = "000000" if rig.code(uid) != "000000" else "111111"
     assert b.post("/api/auth/totp/enrol/confirm", json={"code": bad}).status_code == 400
     r = b.post("/api/auth/totp/enrol/confirm", json={"code": rig.code(uid)})
@@ -319,3 +320,21 @@ def test_audit_records_logins_with_the_real_user_and_client_ip(rig):
     assert any(r["event"] == "totp enrolled" and r["actor_user_id"] == uid for r in rows)
     assert any(r["event"] == "logout" and r["actor_user_id"] == uid for r in rows)
     assert PW not in repr(rows) and b.csrf not in repr(rows)
+
+
+def test_enrolment_qr_encodes_the_same_otpauth_uri_as_the_manual_key(rig):
+    import segno
+
+    rig.add_user("ann")
+    b = rig.browser()
+    b.login("ann")
+    start = b.post("/api/auth/totp/enrol/start").get_json()
+    uri, qr = start["otpauth_uri"], start["qr_svg_data_uri"]
+    assert f"secret={start['secret']}" in uri  # the manual key is still returned as the fallback
+    assert qr.startswith("data:image/svg+xml")
+    # Rendered locally: identical to segno's own encoding of exactly this URI, and not of any other.
+    assert qr == segno.make(uri, error="m", micro=False).svg_data_uri(scale=5, border=4)
+    assert qr != segno.make(uri.replace(start["secret"], "A" * 32), error="m", micro=False).svg_data_uri(scale=5, border=4)
+    assert b.post("/api/auth/totp/enrol/start").get_json()["qr_svg_data_uri"] == qr  # same pending secret
+    csp = b.get("/gateway/enrol").headers["Content-Security-Policy"]
+    assert "img-src 'self' data:" in csp and "http" not in csp

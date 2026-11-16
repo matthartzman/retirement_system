@@ -142,6 +142,10 @@ sets `Content-Length` from the re-framed body, and injects `X-API-Token`. `Refer
 compares it against its Host when `Origin` is absent. Response `Set-Cookie`
 from a worker must be dropped by the proxy (the worker issues none in remote mode).
 
-Not done here: QR code for enrolment (no QR library in the repo; the page shows the key and URI for manual entry;
-`segno` is a pure-Python option for later), the proxy itself, the supervisor, Windows accounts, idle detection that
+Enrolment QR code: `segno` 1.6.6 (BSD-3-Clause, pure Python, no dependencies; pinned in `requirements.txt` and
+named in the PyInstaller spec's hidden imports) draws the `otpauth://` URI as an SVG data URI on this machine. No CDN
+or QR web service sees the secret; the gateway CSP allows `data:` images for it. The key and link stay on the page as
+the manual fallback. Licence and source: `src/gateway/THIRD_PARTY_NOTICES.md`.
+
+Not done here: the proxy itself, the supervisor, Windows accounts, idle detection that
 ignores background polling (the reporter's `idle_ms` approach; needs Phase 5 frontend work).

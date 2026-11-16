@@ -69,6 +69,9 @@ hidden_imports = hiddenimports_collected + [
     "openpyxl.drawing",
     "openpyxl.styles",
     "openpyxl.utils",
+    # segno (multi-user gateway TOTP enrolment QR code, BSD-3-Clause): only src/gateway imports it,
+    # and the gateway is not yet reached from main.py, so name it here for the frozen build.
+    "segno",
     # keyring (WP8.2): backends are discovered through entry points / importlib at runtime, so
     # static analysis misses them. Windows Credential Manager is the primary target.
     "keyring",

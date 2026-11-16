@@ -51,6 +51,8 @@ form button[type="submit"] { margin-top: 16px; }
 .status.ok { color: var(--ok); }
 .notice { background: var(--warn-bg); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; }
 .hidden { display: none; }
+#uri { overflow-wrap: anywhere; }
+.qr { display: block; width: 240px; max-width: 100%; height: auto; background: #fff; }
 .secret {
   font: 1.3rem/1.4 ui-monospace, Consolas, monospace; letter-spacing: 0.05em;
   word-break: break-all; padding: 10px; background: var(--bg);

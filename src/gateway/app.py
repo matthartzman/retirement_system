@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Callable
 from urllib.parse import quote
 
+import segno
 from src.access_core import FailureThrottle, KeyedThrottle, has_proxy_headers, is_loopback_host
 from src.http_runtime.wsgi_facade import Flask, HeaderMap, LocalRequest, Response, request
 
@@ -31,7 +32,9 @@ PAGES = {"login": "login.html", "enrol": "enrol.html", "account": "account.html"
 STATIC = {"gateway.js": "text/javascript; charset=utf-8", "gateway.css": "text/css; charset=utf-8"}
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 BODY_TYPES = frozenset({"application/json", "text/plain"})
-CSP = "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+# data: images only for the enrolment QR code, which is drawn here as an SVG data URI (no remote images).
+CSP = "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+QR_SCALE, QR_BORDER = 5, 4
 PUBLIC = frozenset({("GET", "/login"), ("POST", "/api/auth/login"), ("GET", "/api/auth/session")})
 PENDING_ALLOWED = frozenset({"/api/auth/totp/enrol/start", "/api/auth/totp/enrol/confirm", "/api/auth/totp/verify",
                              "/api/auth/logout", "/gateway/enrol"})
@@ -74,6 +77,11 @@ def safe_next(value: str | None) -> str:
     if v == "/login" or v.startswith("/login?"):
         return "/"
     return v
+
+
+def qr_svg_data_uri(text: str) -> str:
+    """``text`` as a QR code (error correction M), drawn on this machine as an SVG data URI."""
+    return segno.make(text, error="m", micro=False).svg_data_uri(scale=QR_SCALE, border=QR_BORDER)
 
 
 def _json(payload: dict, status: int = 200) -> Response:
@@ -348,7 +356,8 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
             secret = store.begin_totp_enrolment(sess["user_id"], clock())
         except ValueError as exc:
             return _refused(str(exc), 409)
-        return _json({"success": True, "secret": secret, "otpauth_uri": totp.provisioning_uri(secret, sess["username"])})
+        uri = totp.provisioning_uri(secret, sess["username"])
+        return _json({"success": True, "secret": secret, "otpauth_uri": uri, "qr_svg_data_uri": qr_svg_data_uri(uri)})
 
     @app.route("/api/auth/logout", methods=["POST"])
     def logout():
