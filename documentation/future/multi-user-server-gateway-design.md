@@ -1,6 +1,6 @@
 # Multi-user server: gateway accounts, login and sessions (Phase 2 design)
 
-Status: implemented
+Status: draft (built on branch claude/multi-user-phase-2-gateway-auth-c00f4f, not merged)
 Date: 2026-11-15
 
 Implements "Phase 2" of `multi-user-server-plan.md` together with its "Security requirements" and decisions
