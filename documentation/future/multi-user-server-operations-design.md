@@ -13,7 +13,8 @@ Implements "Phase 6 - Operations" of `multi-user-server-plan.md`. All new code i
 
 **Primitive.** The standard library has no authenticated cipher. `cryptography` was already installed on the
 dev machine (it was not in `requirements.txt`, which lists only what the app imports), so this phase adds
-`cryptography>=42,<46` to `requirements.txt` and uses `AESGCM` and `HKDF`. Hand-built HMAC-over-stream ciphers
+`cryptography>=42,<46` in a new server-only `requirements-gateway.txt` (the project dropped it from
+`requirements.txt` on purpose, so the frozen build does not bundle it) and uses `AESGCM` and `HKDF`. Hand-built HMAC-over-stream ciphers
 were rejected: the library is widely reviewed and the dependency is pure wheels on Windows.
 
 **Archive** (`<UTC stamp>.rpbak`, one file per set):

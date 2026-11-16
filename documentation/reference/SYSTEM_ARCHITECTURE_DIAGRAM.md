@@ -64,7 +64,6 @@ From `requirements.txt` (the authoritative declared list):
 - `pywebview>=4.0,<7`
 - `keyring>=24,<26`
 - `segno==1.6.6`
-- `cryptography>=42,<46`
 
 Actual usage detected per layer (which layer imports which third-party package):
 
@@ -78,7 +77,7 @@ Actual usage detected per layer (which layer imports which third-party package):
 | Reporting / Workbook | `lxml`, `numpy`, `openpyxl`, `scipy` |
 | Dashboard UI Builder | _none (stdlib only)_ |
 
-**Detected but not in `requirements.txt`:** `pypdf`, `requests`. Worth checking each one at the import site: as of this writing, `pyyaml` and `requests` are both guarded by `try/except ImportError` as optional/lazy imports (the feature degrades rather than crashing if absent) -- confirm any newly-appearing name here follows the same pattern before assuming it's safe to leave undeclared.
+**Detected but not in `requirements.txt`:** `cryptography`, `pypdf`, `requests`. Worth checking each one at the import site: as of this writing, `pyyaml` and `requests` are both guarded by `try/except ImportError` as optional/lazy imports (the feature degrades rather than crashing if absent) -- confirm any newly-appearing name here follows the same pattern before assuming it's safe to leave undeclared.
 
 ## 3. Data Flow: Plan Inputs to Report Outputs
 
@@ -659,7 +658,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/gateway/launchers.py` | `gateway` | — |
 | `src/gateway/logs.py` | — | — |
 | `src/gateway/migrate_all.py` | `gateway.backup_store`, `gateway.migrate_user` | — |
-| `src/gateway/migrate_user.py` | `src`, `active_plan`, `plan_data_migration`, `remote_worker`, `stores` | — |
+| `src/gateway/migrate_user.py` | `src`, `active_plan`, `plan_data_migration`, `remote_worker` | — |
 | `src/gateway/ops.py` | `src`, `gateway`, `gateway.health`, `gateway.server`, `gateway.service`, `gateway.store` | — |
 | `src/gateway/power.py` | — | — |
 | `src/gateway/proxy.py` | `gateway.build_queue`, `gateway.supervisor`, `gateway.upstream`, `http_runtime.wsgi_facade` | — |

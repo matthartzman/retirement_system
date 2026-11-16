@@ -1,0 +1,4 @@
+# Server-only dependency of the multi-user gateway (encrypted backups, src/gateway/backup_crypto.py).
+# Not in requirements.txt on purpose: the desktop and frozen builds must not bundle it (ARC-007 / WI-205).
+# Install on the server with: python -m pip install -r requirements.txt -r requirements-gateway.txt
+cryptography>=42,<46

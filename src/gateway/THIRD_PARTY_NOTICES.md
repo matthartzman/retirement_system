@@ -41,5 +41,5 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ## cryptography
 
 - Use: AES-256-GCM and HKDF-SHA256 for the encrypted backup archives (`src/gateway/backup_crypto.py`).
-- Source: https://github.com/pyca/cryptography (PyPI `cryptography`, `>=42,<46` in `requirements.txt`).
+- Source: https://github.com/pyca/cryptography (PyPI `cryptography`, `>=42,<46` in `requirements-gateway.txt`, server only).
 - Licence: Apache-2.0 OR BSD-3-Clause (dual); wheels bundle OpenSSL (Apache-2.0).

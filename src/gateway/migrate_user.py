@@ -22,7 +22,7 @@ def migrate_workspace(workspace: Path) -> dict:
     from src import platform_runtime  # noqa: PLC0415
     from src.active_plan import PLAN_FILE_NAME  # noqa: PLC0415
     from src.plan_data_migration import migrate_plan_data_at_rest  # noqa: PLC0415
-    from src.stores import PlanStore  # noqa: PLC0415
+    from src.active_plan import PlanStore  # noqa: PLC0415
 
     plan = workspace / PLAN_FILE_NAME
     if not plan.is_file():
