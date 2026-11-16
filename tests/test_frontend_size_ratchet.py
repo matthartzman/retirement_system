@@ -704,7 +704,7 @@ DASHBOARD_JS_MAX_LINES = 6_436
 # 2026-11-11 W4-06: lowered 43,703 -> 43,685 to the measured total (row helpers, step stats, KPI/history, step gating extracted).
 # 2026-11-16 multi-user Phase 5: ceiling unchanged at 43,685, now fully used. remote_mode.js and remote_files.js (about 280 lines) were paid for
 # by deleting dead code (system-config batch editor, 12 unreferenced functions) and condensing duplicated comments.
-TOTAL_JS_MAX_LINES = 43_673
+TOTAL_JS_MAX_LINES = 43_013
 
 
 
@@ -773,8 +773,7 @@ def test_ratchet_target_exists(name):
 PER_FILE_CAP_MIN_LINES = 1_100
 
 PER_FILE_CAPS = {
-    "admin.js": 795,
-    "settings_renderer.js": 1_239,
+    "settings_renderer.js": 1_322,
     "dashboard.js": 6_477,
     "dashboard_decomp_allocation_optimizer.js": 1_456,
     "dashboard_decomp_checklist_closeout.js": 1_399,
@@ -813,6 +812,7 @@ PER_FILE_CAP_LOG = [
     ("2026-11-11", "dashboard_decomp_row_model.js", 1_720, 822, "lowered: row helpers, step stats, KPI/history, step gating extracted (W4-06)"),
     ("2026-11-16", "admin.js", 2_048, 795, "lowered: settings renderer extracted to settings_renderer.js (admin app phase 5a)"),
     ("2026-11-16", "settings_renderer.js", None, 1_239, "new shared module, moved from admin.js with no net growth (admin app phase 5a)"),
+    ("2026-11-16", "settings_renderer.js", 1_239, 1_322, "raised: the base helpers and editor state moved in from the deleted admin.js so the Admin app and the planner Plan assumptions page share them (admin app phase 5c); frontend/js total is 672 lines lower than before the move"),
 ]
 
 
@@ -852,3 +852,16 @@ def test_per_file_cap_raises_need_a_recorded_reason():
             f"{name}: PER_FILE_CAPS says {cap:,} but the last PER_FILE_CAP_LOG row says "
             f"{last.get(name)}. A changed cap needs a log row with a reason."
         )
+
+
+# The Admin app's own frontend (admin_app/frontend) gets a separate ceiling, set at its size when the console moved
+# out of the planner (admin app phase 5c). Ratchet DOWN only; the shared settings_renderer.js counts against
+# frontend/js, not here.
+ADMIN_APP_FRONTEND_MAX_LINES = 853
+
+
+def test_admin_app_frontend_has_a_ceiling():
+    total = sum(_line_count(p) for p in (ROOT / "admin_app" / "frontend").glob("*") if p.suffix in {".js", ".css", ".html"})
+    assert total <= ADMIN_APP_FRONTEND_MAX_LINES, (
+        f"admin_app/frontend totals {total:,} lines, over {ADMIN_APP_FRONTEND_MAX_LINES:,}. Extract or delete before adding."
+    )

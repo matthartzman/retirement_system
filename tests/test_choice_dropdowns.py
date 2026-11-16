@@ -28,7 +28,7 @@ def test_user_ui_choice_renderer_uses_server_choice_options_and_irmaa_tier_label
 
 
 def test_admin_ui_choice_renderer_covers_brackets_irmaa_and_schema_type():
-    js = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8') + (ROOT/'frontend/js/settings_renderer.js').read_text(encoding='utf-8')
+    js = (ROOT/'frontend/js/settings_renderer.js').read_text(encoding='utf-8')
     assert (
         '"10.00%",\n' in js
         and '"12.00%",\n' in js

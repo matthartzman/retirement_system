@@ -36,7 +36,8 @@ FRONTEND = Path(__file__).resolve().parent / "frontend"
 PAGES = {"/": (FRONTEND / "index.html", "text/html"), "/users.js": (FRONTEND / "users.js", "text/javascript"),
          "/admin.js": (FRONTEND / "admin.js", "text/javascript"), "/admin.css": (FRONTEND / "admin.css", "text/css"),
          # the settings renderer is shared with the planner's Plan assumptions page: one file, served from the repo
-         "/settings_renderer.js": (_REPO_ROOT / "frontend" / "js" / "settings_renderer.js", "text/javascript")}
+         "/settings_renderer.js": (_REPO_ROOT / "frontend" / "js" / "settings_renderer.js", "text/javascript"),
+         "/settings_renderer.css": (_REPO_ROOT / "frontend" / "css" / "settings_renderer.css", "text/css")}
 
 
 def identity_db_path(retirement_system_dir: Path) -> Path:

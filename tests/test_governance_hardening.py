@@ -24,15 +24,14 @@ class GovernanceHardeningTests(unittest.TestCase):
         self.assertEqual(out.returncode,0,out.stdout+out.stderr)
 
     def test_admin_ui_is_split_into_modules(self):
-        html=(ROOT/'frontend/admin.html').read_text(encoding='utf-8')
-        self.assertIn('css/admin.css', html)
-        self.assertIn('js/admin.js', html)
+        html=(ROOT/'admin_app/frontend/index.html').read_text(encoding='utf-8')
+        self.assertIn('/admin.css', html)
+        self.assertIn('/admin.js', html)
         self.assertNotIn('<style>', html)
         self.assertNotIn('<script>\nfunction', html)
-        self.assertTrue((ROOT/'frontend/css/admin.css').exists())
-        js=(ROOT/'frontend/js/admin.js').read_text(encoding='utf-8')
+        self.assertTrue((ROOT/'admin_app/frontend/admin.css').exists())
+        js=(ROOT/'admin_app/frontend/admin.js').read_text(encoding='utf-8')
         self.assertIn('showTaxLawDashboard', js)
-        self.assertIn('showAdvisorSignoff', js)
 
     def test_exact_scalar_mc_validation_mode_and_vectorized_labeling(self):
         from src.data_io import load_csv, parse_client

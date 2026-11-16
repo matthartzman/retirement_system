@@ -298,6 +298,7 @@ REFUSED: dict[tuple[str, str], str] = {
     ("GET", "/api/plan/engine-assumptions"): _OPERATOR,
     ("POST", "/api/plan/engine-assumptions"): _OPERATOR,
     ("GET", "/system-configuration"): _OPERATOR,
+    ("GET", "/plan-assumptions"): _OPERATOR,
     ("POST", "/api/admin/server/shutdown"): _PROCESS,
     ("POST", "/api/shutdown"): _PROCESS,
     ("POST", "/api/secrets"): _SECRETS,

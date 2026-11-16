@@ -425,7 +425,6 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 
 All `.js` files found under `frontend/` (92):
 
-- `frontend/js/admin.js`
 - `frontend/js/api_client.js`
 - `frontend/js/app_store.js`
 - `frontend/js/dashboard.js`
@@ -507,6 +506,7 @@ All `.js` files found under `frontend/` (92):
 - `frontend/js/help_registry.js`
 - `frontend/js/modules/phase3_module_manifest.js`
 - `frontend/js/navigation.js`
+- `frontend/js/plan_assumptions.js`
 - `frontend/js/planning_workbench_ui.js`
 - `frontend/js/pywebview_bridge.js`
 - `frontend/js/remote_files.js`
@@ -518,7 +518,7 @@ All `.js` files found under `frontend/` (92):
 - `frontend/js/spending_dashboard.js`
 - `frontend/js/text_size.js`
 
-Files present under `frontend/js/` but not referenced by `index.html`'s script tags (`admin.js`, `runtime_history.js`, `settings_renderer.js`): loaded by a different page (e.g. an admin/standalone HTML entry point), or dead code -- check before assuming either.
+Files present under `frontend/js/` but not referenced by `index.html`'s script tags (`plan_assumptions.js`, `runtime_history.js`, `settings_renderer.js`): loaded by a different page (e.g. an admin/standalone HTML entry point), or dead code -- check before assuming either.
 
 ## 6. Appendix: Full Module Dependency Table
 

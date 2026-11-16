@@ -23,8 +23,8 @@ def test_user_helper_uses_educational_page_and_field_sections():
 
 
 def test_admin_helper_uses_educational_sections_and_value_options():
-    js = (ROOT / "frontend/js/admin.js").read_text(encoding="utf-8") + (ROOT / "frontend/js/settings_renderer.js").read_text(encoding="utf-8")
-    html = (ROOT / "frontend/admin.html").read_text(encoding="utf-8")
+    js = (ROOT / "admin_app/frontend/admin.js").read_text(encoding="utf-8") + (ROOT / "frontend/js/settings_renderer.js").read_text(encoding="utf-8")
+    html = (ROOT / "admin_app/frontend/index.html").read_text(encoding="utf-8") + (ROOT / "frontend/plan_assumptions.html").read_text(encoding="utf-8")
     combined = js + html
     for token in [
         "What this page controls",

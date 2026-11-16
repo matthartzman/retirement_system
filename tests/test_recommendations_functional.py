@@ -180,7 +180,7 @@ class RecommendationCompletionTests(unittest.TestCase):
         canonical = ROOT / 'frontend' / 'index.html'
         self.assertTrue(canonical.exists())
         # index.html, admin.html and the generated Concepts Guide (W3-10); no duplicate compatibility copy
-        self.assertEqual(sorted(p.name for p in (ROOT / 'frontend').glob('*.html')), ['admin.html', 'concepts.html', 'index.html'])
+        self.assertEqual(sorted(p.name for p in (ROOT / 'frontend').glob('*.html')), ['concepts.html', 'index.html', 'plan_assumptions.html'])
 
 
 if __name__ == '__main__':

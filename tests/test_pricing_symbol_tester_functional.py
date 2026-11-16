@@ -65,10 +65,10 @@ def test_server_exposes_single_symbol_pricing_tester_endpoint():
 
 
 def test_admin_pricing_controls_include_verbose_symbol_tester():
-    source = (ROOT / "frontend" / "js" / "admin.js").read_text(encoding="utf-8")
+    source = (ROOT / "admin_app" / "frontend" / "admin.js").read_text(encoding="utf-8")
     assert "Single-symbol live pricing tester" in source
     assert "runLivePriceSymbolTest" in source
-    assert "/api/prices/test-symbol" in source
+    assert "/api/settings/pricing-test" in source
     assert "Provider command / response trace" in source
     assert "Command sent" in source
     assert "Response preview" in source

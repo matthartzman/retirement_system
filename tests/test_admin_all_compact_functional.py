@@ -1,17 +1,15 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ADMIN_HTML = ROOT / "frontend" / "admin.html"
-ADMIN_JS = ROOT / "frontend" / "js" / "admin.js"
+ADMIN_HTML = ROOT / "admin_app" / "frontend" / "index.html"
+ADMIN_JS = ROOT / "admin_app" / "frontend" / "admin.js"
 ADMIN_ROUTES = ROOT / "src" / "server" / "admin_routes.py"
 
 
 def test_admin_console_exposes_governance_and_diagnostic_areas_only():
     html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     for label in [
-        "Global rebalancing controls",
         "Pricing / market data",
-        "Workbook build diagnostics",
         "Tax-law update dashboard",
         "Local reports",
     ]:

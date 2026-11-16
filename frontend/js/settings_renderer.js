@@ -1237,3 +1237,86 @@ function shouldRenderAsSectionSettings(rows, def) {
     rowCell(rows[0], 1).toLowerCase() === "subsection"
   );
 }
+// Base helpers and editor state shared by the Admin app and the planner's Plan assumptions page.
+let csrfToken = "";
+const ADMIN_APP_UNAVAILABLE_MESSAGE =
+  "Application unavailable. System Configuration editing, local report downloads, reference-data saves, pricing refresh, and diagnostics are unavailable";
+const api = (p, o = {}) => {
+  o = o || {};
+  const method = String(o.method || "GET").toUpperCase();
+  const headers = Object.assign(
+    { "Content-Type": "application/json" },
+    o.headers || {},
+  );
+  if (csrfToken && method !== "GET") headers["X-CSRF-Token"] = csrfToken;
+  return fetch(p, { ...o, headers }).then(async (r) => {
+    const t = await r.text();
+    let j;
+    try {
+      j = JSON.parse(t);
+    } catch (e) {
+      j = { success: r.ok, text: t };
+    }
+    if (!r.ok || j.success === false) throw new Error(j.error || t);
+    return j;
+  });
+};
+const esc = (s) =>
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (m) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        m
+      ],
+  );
+const TRASH_SVG_ICON =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path fill="currentColor" d="M6 1.5h4a.5.5 0 0 1 .5.5v1h3a.5.5 0 0 1 0 1h-.6l-.7 9.4a1.5 1.5 0 0 1-1.5 1.4H5.3a1.5 1.5 0 0 1-1.5-1.4L3.1 4H2.5a.5.5 0 0 1 0-1h3V2a.5.5 0 0 1 .5-.5Zm-1.9 2.5.68 9.32a.5.5 0 0 0 .5.46h5.44a.5.5 0 0 0 .5-.46L11.9 4H4.1Zm2.15 1.75a.5.5 0 0 1 .5.5v5.5a.5.5 0 0 1-1 0v-5.5a.5.5 0 0 1 .5-.5Zm3.5 0a.5.5 0 0 1 .5.5v5.5a.5.5 0 0 1-1 0v-5.5a.5.5 0 0 1 .5-.5ZM7 2.5v.5h2v-.5H7Z"/></svg>';
+function deleteIconBtn(onclickExpr, opts) {
+  opts = opts || {};
+  const extraCls = opts.cls ? " " + opts.cls : "";
+  return `<button type="button" class="danger icon-btn${extraCls}" onclick="${onclickExpr}" title="Delete" aria-label="Delete">${TRASH_SVG_ICON}</button>`;
+}
+// UX-006: #msg is a live region (role=status, aria-live=polite in admin.html).
+// Errors switch it to role=alert / assertive and add the .error style.
+function msg(s, isError) {
+  const el = document.getElementById("msg");
+  if (!el) return;
+  el.setAttribute("role", isError ? "alert" : "status");
+  el.setAttribute("aria-live", isError ? "assertive" : "polite");
+  el.classList.toggle("error", !!isError);
+  el.textContent = s;
+}
+// Unsaved-change announcement: announced once per editor, not per keystroke.
+function announceUnsaved(title) {
+  const text = "Unsaved changes in " + title;
+  const el = document.getElementById("msg");
+  if (el && el.textContent === text && !el.classList.contains("error")) return;
+  msg(text);
+}
+// UX-006: in-app confirm (a modal <dialog>: native focus trap, Escape, restore).
+function adminConfirm(message, confirmLabel) {
+  return new Promise((resolve) => {
+    const d = document.createElement("dialog");
+    d.className = "admin-modal";
+    d.setAttribute("role", "alertdialog");
+    d.setAttribute("aria-labelledby", "adminConfirmText");
+    d.innerHTML = `<p id="adminConfirmText">${esc(message)}</p><form method="dialog" class="admin-modal-actions"><button value="no" autofocus>Cancel</button><button value="yes" class="danger">${esc(confirmLabel || "Confirm")}</button></form>`;
+    d.addEventListener("close", () => {
+      d.remove();
+      resolve(d.returnValue === "yes");
+    });
+    document.body.appendChild(d);
+    d.showModal();
+  });
+}
+let sysCfgRows = [],
+  sysCfgOriginal = "",
+  sysCfgChanged = false,
+  activeEditor = null;
+let activeAdminStep = "",
+  activeEditorHeadingPage = 0,
+  editorHeadingNavPages = [],
+  lastAdminNavItems = [],
+  adminNavSearchText = "",
+  adminSearchScope = "nav",
+  adminPageSearchText = "";

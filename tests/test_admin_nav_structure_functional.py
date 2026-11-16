@@ -2,9 +2,9 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
-ADMIN_HTML = ROOT / "frontend" / "admin.html"
-ADMIN_CSS = ROOT / "frontend" / "css" / "admin.css"
-ADMIN_JS = ROOT / "frontend" / "js" / "admin.js"
+ADMIN_HTML = ROOT / "admin_app" / "frontend" / "index.html"
+ADMIN_CSS = ROOT / "frontend" / "css" / "settings_renderer.css"
+ADMIN_JS = ROOT / "admin_app" / "frontend" / "admin.js"
 
 
 def test_admin_accordion_uses_disclosure_triangles_and_help_buttons():
@@ -23,12 +23,13 @@ def test_admin_left_nav_has_non_clickable_intuitive_groups():
     html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     assert 'nav-group-label' in html
     for group in [
-        'System configuration',
+        'Users & access',
+        'System',
         'Market data',
-        'Tax & accounts',
+        'Governance',
     ]:
         assert group in html
-    assert re.search(r'group: "System configuration"', html)
+    assert re.search(r'group: "System"', html)
 
 
 def test_admin_click_handlers_still_have_backing_functions_after_refinement():
@@ -54,7 +55,8 @@ def test_system_config_pages_split_into_left_nav_with_correct_labels():
     for label in [
         "Runtime & files",
         "Dashboard & security",
-        "Global rebalancing controls",
+        "Build timeout",
+        "Refresh & drift",
     ]:
         assert label in html
     # Older labels removed in refactor
@@ -81,7 +83,7 @@ def test_save_bar_fixed_and_pricing_page_has_no_diagnostics_shortcut():
     """Save/cancel buttons fixed at bottom; pricing page excludes diagnostic links."""
     html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     assert ".cfg-actions{position:fixed" in html
-    pricing_block = html.split("async function openPricingControls", 1)[1].split("async function showDiagnostics", 1)[0]
+    pricing_block = html.split("async function openPricingControls", 1)[1].split("function renderPricingSymbolTester", 1)[0]
     assert "showDiagnostics()" not in pricing_block
     assert "Pricing diagnostics" not in pricing_block
     assert "Back</button>" not in html
@@ -130,9 +132,11 @@ def _nav_groups():
     node = shutil.which("node")
     assert node, "node is required"
     src = ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
+    users_start = src.index("const USER_PAGES = [")
+    users_block = src[users_start:src.index("];", users_start) + 2]
     pages_start = src.index("const SYSTEM_CONFIG_PAGES = [")
     nav_end = src.index("function renderAdminNav()")
-    code = src[pages_start:nav_end] + "\nconsole.log(JSON.stringify(adminNavItems().map(i=>[i.group,i.title,i.id])));"
+    code = users_block + chr(10) + src[pages_start:nav_end] + "\nconsole.log(JSON.stringify(adminNavItems().map(i=>[i.group,i.title,i.id])));"
     out = subprocess.run([node, "-e", code], capture_output=True, text=True, check=True).stdout
     groups = {}
     for g, t, _id in json.loads(out):
@@ -142,14 +146,17 @@ def _nav_groups():
 
 def test_admin_nav_rationalized_groups_and_placement():
     groups, ids = _nav_groups()
-    assert list(groups) == ["System configuration", "Market data", "Tax & accounts"]
+    assert list(groups) == ["Users & access", "System", "Market data", "Governance"]
     assert len(ids) == len(set(ids)), "duplicate nav ids"
     titles = [t for ts in groups.values() for t in ts]
     assert len(titles) == len(set(titles)), f"duplicate nav titles: {titles}"
-    for t in ("App settings", "Workbook build diagnostics"):
-        assert t in groups["System configuration"]
-    for t in ("Capital market assumptions", "Asset correlations", "Refresh & drift"):
+    assert groups["Users & access"] == ["Users", "Activity", "Admin audit"]
+    for t in ("App settings", "Runtime & files", "Dashboard & security", "Build timeout"):
+        assert t in groups["System"]
+    for t in ("Pricing controls", "Refresh & drift"):
         assert t in groups["Market data"]
-    for t in ("Tax-law update dashboard", "Tax modeling", "Global rebalancing controls", "Annuity calibration"):
-        assert t in groups["Tax & accounts"]
+    assert groups["Governance"] == ["Tax-law update dashboard"]
+    # engine settings are per plan now: none of them is an Admin page
+    for t in ("Capital market assumptions", "Asset correlations", "Tax modeling", "Global rebalancing controls", "Annuity calibration"):
+        assert not any(t in ts for ts in groups.values())
     assert not any("Plan Chat" in t for t in titles)
