@@ -66,6 +66,17 @@ def import_balances(base_dir: str | Path, csv_path: str | Path | None = None, *,
     path = Path(csv_path) if csv_path else default_source_path(base_dir)
     if not path.is_file():
         return {"success": True, "status": "skipped", "skip_reason": "no balances file"}
+    try:
+        rows: list[tuple[str, str, str, float]] | Exception = read_balances_csv(path)
+    except (ValueError, OSError) as exc:
+        rows = exc
+    return import_balance_rows(base_dir, rows, source=str(path), today=today, now=now)
+
+
+def import_balance_rows(base_dir: str | Path, rows: list[tuple[str, str, str, float]] | Exception, *, source: str,
+                        today: date | None = None, now: datetime | None = None) -> dict[str, Any]:
+    """The guarded upsert of already-parsed ``(date, account_key, account, balance)`` rows (an exception: the
+    parse failed and is recorded as the rejection). Used by :func:`import_balances` and the browser upload."""
     today = today or platform_runtime.today()
     now = now or datetime.now(timezone.utc)
     stamp = now.isoformat(timespec="seconds")
@@ -73,13 +84,13 @@ def import_balances(base_dir: str | Path, csv_path: str | Path | None = None, *,
         repo = store.monarch
 
         def reject(reason: str) -> dict[str, Any]:
-            repo.record_import(stamp, str(path), "rejected", detail=reason)
+            repo.record_import(stamp, source, "rejected", detail=reason)
             return {"success": False, "status": "rejected", "error": reason}
 
-        try:
-            rows = read_balances_csv(path)
-        except (ValueError, OSError) as exc:
-            return reject(str(exc))
+        if isinstance(rows, Exception):
+            return reject(str(rows))
+        if not rows:
+            return reject("balances file contained no rows")
         keys = {r[1] for r in rows}
         latest = max(r[0] for r in rows)
         if date.fromisoformat(latest) < today - timedelta(days=1):
@@ -90,7 +101,7 @@ def import_balances(base_dir: str | Path, csv_path: str | Path | None = None, *,
         with store.transaction():
             renamed = repo.migrate_renames(rows)
             repo.upsert_balances(rows)
-            repo.record_import(stamp, str(path), "ok", rows=len(rows), accounts=len(keys), latest_date=latest,
+            repo.record_import(stamp, source, "ok", rows=len(rows), accounts=len(keys), latest_date=latest,
                                detail="; ".join(f"renamed {old!r} -> {new!r}" for old, new in renamed))
     return {"success": True, "status": "ok", "rows": len(rows), "accounts": len(keys), "latest_date": latest,
             "renamed": renamed}

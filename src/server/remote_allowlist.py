@@ -95,6 +95,7 @@ ALLOWED: frozenset[tuple[str, str]] = frozenset({
     ("POST", "/api/life-illustration/seed"),
     ("GET", "/api/liquidity-buffers"),
     ("POST", "/api/liquidity-buffers"),
+    ("POST", "/api/monarch/upload"),
     ("POST", "/api/note-receivable/add"),
     ("POST", "/api/note-receivable/delete"),
     ("POST", "/api/other-asset/add"),
