@@ -137,6 +137,83 @@ the exe path, not `BASE_DIR`, in frozen mode. A frozen build ships the seed demo
 plan (`src/reference/demo_seed.rpx`) and the read-only reference database
 (`src/reference/reference.db`), not the `input/demo` CSV folder.
 
+### 3.6 Multi-user server (remote mode, branch stack not yet merged)
+
+A second way to run the app, for about 10 mutually untrusting users on one always-on Windows server, reached
+through Tailscale Funnel. Desktop and local server modes are unchanged. Design: `documentation/future/multi-user-server-plan.md`
+and the phase documents listed at the end of this section. Nothing here has run with real users: the security
+review's verdict is NO-GO until its six conditions are met.
+
+Shape: browser -> Funnel -> **gateway** (login, TOTP, CSRF, reverse proxy) -> one **worker** per user, each the
+ordinary app server in remote mode, bound to 127.0.0.1 and run under that user's own Windows account.
+
+- **Remote mode** (Phase 1). `python -m src.remote_worker --workspace <data/users/ID> --provision demo|blank|none`
+  runs the normal `src.server.create_app()` with `RETIREMENT_SYSTEM_REMOTE_MODE=1`. The supervisor must set
+  `RETIREMENT_SYSTEM_SERVER_API_TOKEN` in the environment (never argv); every request needs it as `X-API-Token` or
+  Bearer. The worker binds 127.0.0.1 on an ephemeral port, prints `RETIREMENT_WORKER_READY {json}` and writes the same
+  JSON to `--port-file`, and exits if `--parent-pid` ends. `src/server/remote_allowlist.py` is a method+route
+  allow-list: refused routes answer 403 ("not available on the server"), unknown routes 404. Paths stored in settings
+  go through `confine_path` so they stay inside the workspace; JSON responses have server paths rewritten
+  (`~workspace` and so on). Plan transfer is `GET /api/plan/download` and `POST /api/plan/upload` (base64 JSON, `open`
+  or `restore`, 64 MiB body cap). Builds use `/api/build/start` plus polling; the SSE route and synchronous
+  `POST /api/build` are refused. `/api/secrets` is refused.
+- **Gateway** (Phase 2, `src/gateway/`). `python -m src.gateway` (`__main__`, `server.py`, `cli.py`) serves two
+  loopback-only listeners (a Funnel port and a local one). `app.py` is the gate: session cookie (`__Host-`,
+  Secure, HttpOnly, SameSite=Strict), mandatory password plus TOTP (`totp.py`, QR via `segno`), CSRF and Origin
+  checks, idle (15 min) and absolute (12 h) expiry, throttling; users, roles (more than one admin allowed) and
+  sessions live in `gateway.db` (`store.py`). `GET /api/auth/session` returns the CSRF token the frontend sends.
+  Gateway-owned paths are `/login`, `/gateway/*`, `/api/auth/*`; the worker refuses them. Break-glass:
+  `python -m src.gateway.cli break-glass`.
+- **Proxy and supervisor** (Phase 3). `proxy.py` implements the `Upstream` seam (`upstream.py` holds the header
+  contract: strip client credentials and proxy headers, inject the worker token, rewrite Host and Origin). It checks
+  the worker's port still belongs to the worker process and intercepts `POST /api/build/start`.
+  `supervisor.py` starts a worker per user on demand, assigns it to a Windows Job Object (`winapi.py`), enforces a
+  memory limit, and reaps idle workers (default 30 min, never mid-build). `accounts.py` creates one Windows account
+  per user, with password rotation, deny-logon rights and removal on user delete; `launchers.py` has
+  `same-account` (development and tests) and `per-account` (needs the gateway as LocalSystem or elevated);
+  `acl.py` (`acl setup|check`) sets folder permissions; `fsguard.py` keeps the gateway's privileged jobs from
+  following junctions a worker could plant; `service.py` installs the gateway as a Windows service.
+  `build_queue.py` runs at most N builds at once across all users, one per user, queued ids `queued-<hex>`.
+- **Monarch and secrets** (Phase 4). `src/monarch_upload.py`: `POST /api/monarch/upload` (transactions or balances
+  CSV, base64 JSON, `dry_run`, 16 MiB / 250,000 row limits, masked account names, stale or shrunk balances rejected).
+  `src/monarch_connector.py`: optional OAuth connector to Monarch's own MCP (`api.monarch.com/mcp`), enabled by
+  gateway flag `--monarch-connector`, works only with the per-account launcher because tokens go in that account's
+  Credential Manager; routes `/api/monarch/connector` and its `start`, `complete`, `sync`, `disconnect`. The user pastes
+  back the loopback callback address (Monarch accepts only a loopback redirect). `src/monarch_mapping_seed.py` seeds
+  each new user's account map from the admin CSV given by `--monarch-mapping-csv`. Same-account workers store no
+  secrets (by design). The shared price-provider key stays in the gateway's environment and reaches workers via
+  `--pass-env`; `--worker-env` refuses the provider-key names.
+- **Frontend** (Phase 5). `frontend/js/remote_mode.js` wraps `window.fetch` once, pings `/api/ping`, and sets
+  `window.RetirementRemote.enabled` and `html.remote-mode` only when the worker says `remote_mode`; it is the single
+  place that turns a 401 into a redirect to `/login`, and it limits background session keep-alive (a notice at 12
+  minutes without a request). `frontend/js/remote_files.js` handles Save As (download) and Load/Restore (upload).
+  In remote mode CSS hides what the worker refuses (local backups, Monarch auto-update, shut down, path controls);
+  Exit becomes Sign out; the Monarch CSV upload card does a dry run before import; queued builds show "waiting".
+- **Operations** (Phase 6). `python -m src.gateway.ops` (`ops.py`) has `backup-key create`, `backup run|list|verify`,
+  `restore --archive A --user ID`, `migrate-all`, `funnel check|apply`, `power show|apply|revert`, `health`.
+  Backups (`backups.py`, `backup_crypto.py`, `backup_store.py`, `backup_dest.py`) are one AES-256-GCM `.rpbak` per
+  set, verified before it replaces its `.partial`; the key is a separate file (`backup.key`) the owner must copy
+  offline; the destination is a service-config setting kept out of the data root, install folder, profiles and
+  synced folders. Backups are enabled only when a key file is given. `migrate_user.py` and `migrate_all.py` migrate
+  workspaces on upgrade; `health.py` is an admin-only health page; `logs.py` handles log housekeeping;
+  `src/funnel_guard.py` checks that Funnel and Serve point only at the gateway's port. Operator steps are in the runbook.
+- **Run commands** (details in the runbook): `python -m src.gateway.cli create-admin --db <gw>\gateway.db --username NAME`;
+  `python -m src.gateway --db <gw>\gateway.db --funnel-port 5065 --public-origin https://NODE.ts.net:8443 --data-root <data> --launcher per-account`;
+  `python -m src.gateway.service install --config <gateway.json>` (elevated); `python -m src.gateway.acl setup|check ...`;
+  `tailscale funnel --https=8443 http://127.0.0.1:5065` (443 belongs to the trends reporter).
+
+Known gaps, not verified or not built: the elevated per-account isolation tests have not been run, so the Windows
+account boundary is unproven; credential survival across password rotation is unverified (use
+`--account-rotate-days 0` until it is); the frozen exe has no explicit `remote_worker` dispatch, so workers run from
+source with `--install-dir`; Funnel did not survive a reboot in the owner's measurement and the operations
+measurements recommend a startup task that runs `ops funnel apply --yes`, which the code does not provide; TOTP
+secrets are plain text in `gateway.db`; review items P7-O1 to P7-O13 are open.
+
+Phase documents (`documentation/future/`): `multi-user-server-plan.md`, `-phase0-results.md`,
+`-shared-state-inventory.md`, `-gateway-design.md`, `-supervisor-design.md`, `-monarch-secrets-design.md`,
+`-frontend-design.md`, `-operations-design.md`, `-operations-runbook.md`, `-operations-measurements.md`,
+`-security-review.md` (each with the `multi-user-server` prefix).
+
 ## 4. Data architecture
 
 ### 4.1 Canonical source hierarchy
@@ -738,6 +815,8 @@ procedurally, and the mechanism behind `OPTIONAL_MODULE_SHEETS` gating in
 sheeted — no logic executes for it at all.
 
 ## 9. Security and permissions posture
+
+Multi-user server mode (section 3.6) is the exception: there the gateway enforces authentication (password, mandatory TOTP, CSRF, sessions) and the worker allow-list and path confinement apply; the paragraphs below describe the local desktop and server modes. See `documentation/future/multi-user-server-security-review.md`.
 
 The current package is explicitly single-user and local-only, with
 SaaS/multi-tenant scaffolding retained as unreachable code rather than
