@@ -18,7 +18,7 @@ workspace was a temp directory; the repo root and the owner's real data were nev
 | Question | Call |
 |---|---|
 | Option A (worker process per user) | **GO** on resources and process model: a worker is about 64 MB idle, starts in about 1-2.5 s; a build tree peaks near 1 GB. |
-| Per-user Windows accounts | **GO, with conditions.** Launching a worker as a separate account with its profile loaded works from both an admin session and LocalSystem; folder separation and the read-only runtime work. Conditions: explicit ACLs on every data folder (the owner's repo folder was readable by the test accounts), `SeBatchLogonRight` granted and re-tested with the deny-interactive right, and `keyring` separation still to be measured. |
+| Per-user Windows accounts | **GO, with conditions.** Launching a worker as a separate account with its profile loaded works from both an admin session and LocalSystem; folder separation and the read-only runtime work. Conditions: explicit ACLs on every data folder (the owner's repo folder was readable by the test accounts), `SeBatchLogonRight` granted (batch logon works) and re-tested with the deny-interactive right, and `keyring` separation is confirmed; deny-interactive logon right still to be tested. |
 | Funnel or Cloudflare | **Funnel confirmed** as workable: the node is a running automatic service, port 8443 works from the public internet. Real external bandwidth and reboot survival are not measured. |
 | Monarch connector or CSV upload | **Build the CSV upload fallback first; keep the connector as an optional add-on.** The connector is live and supports third-party OAuth clients, but Monarch states it does not return Mastercard Connect (Finicity) accounts, which "may particularly affect brokerage accounts through Fidelity". The live tool list and data coverage were not tested (needs the owner's login). |
 | `pywin32` or `ctypes` | **`ctypes`**: worked live for both launch paths and Job Objects; no new dependency. |
@@ -118,7 +118,7 @@ mechanisms were used, both with the profile loaded (`ctypes` calls only; no `pyw
 account" case); (2) `LogonUser` + `LoadUserProfile` + `CreateEnvironmentBlock` + `CreateProcessAsUser` from a
 one-shot scheduled task running as `SYSTEM` (the LocalSystem case). The script went through four elevated runs: the
 first two failed on my own bugs (command quoting, then a file ACL); run 3 gave the results below; run 4 (added to fix
-the `keyring` copy) **hung** and was stopped by the owner. All accounts, profiles, `C:\p0test` and the task were
+the `keyring` copy) **hung** and was stopped by the owner; the retry (run 5) is below. All accounts, profiles, `C:\p0test` and the task were
 then removed by a separate cleanup script and verified gone (`net user`, `C:\Users`, folder check).
 
 **Measured (run 3)**
@@ -141,19 +141,29 @@ gateway, and the install directory, backups, `gateway.db` and the owner's existi
 user access, before any real user account exists. Phase 3 should test this by running the same probe against the
 real data root.
 
+**Retry results (run 5, after the earlier runs; owner-approved UAC)**
+
+| Check | Result |
+|---|---|
+| `keyring` backend under a per-user account launched with the profile loaded | **Works**: `keyring.backends.Windows.WinVaultKeyring`, set and get succeed. `secrets_store.py` can work unchanged under a per-user account. |
+| Credential Manager separation | **Separate.** With the same service and key name: A set `value-of-A`; B then read `None`; B set `value-of-B`; A's later read (a new logon) still returned `value-of-A`. `cmdkey /list` for B showed nothing before B stored its own entry. |
+| Persistence across logons | A's value survived to a later, separate logon, including one made with `LogonUser` type 4 from a LocalSystem task. |
+| Batch logon (`LogonUser` type 4) from LocalSystem | **Works for an account that holds the batch right** (A, added to the built-in "Performance Log Users" group, which holds `SeBatchLogonRight` by default); **fails with error 1385 for B**, which does not. Profile loaded and `keyring` worked in that process. |
+
+The earlier hang (run 4) did not recur: the earlier `keyring` copy was incomplete and the launcher now kills a probe
+after 45 s, so the cause of run 4 is still unexplained, but nothing here depended on it. In this run the batch right
+came from a group, not from editing local security policy; the test accounts and group membership were removed and
+verified gone.
+
 **Not established**
 
-- **`keyring` and Credential Manager separation: NOT MEASURED.** In run 3 my copy of the `keyring` package was
-  incomplete (`keyring.get_keyring` missing), so no secret was stored; `cmdkey /list` showed no entries for any
-  account, which is only the empty state. Run 4 used a corrected copy and hung before producing output; the cause
-  is unknown (possibly a probe blocking on Credential Manager or a launched process not exiting), and it was not
-  investigated further. To measure: run the probe by hand as each account (`runas /user:p0test_a`) with the
-  complete `keyring` package, setting a value as A, reading as B (expect none), and checking that the value survives
-  a new logon.
-- **Deny-interactive-logon and batch-logon rights.** Not changed (local security policy was not authorized). Because
-  type 4 failed and type 2 worked, Phase 3 must grant `SeBatchLogonRight` to the worker accounts and then test
-  `LogonUser` type 4 with the deny-interactive and deny-remote-interactive rights set, since
-  `CreateProcessWithLogonW` itself logs on interactively and would be blocked by the deny right.
+- **Deny-interactive and deny-remote-interactive rights combined with batch logon: NOT TESTED.** That needs editing
+  local security policy (`SeDenyInteractiveLogonRight`), which I did not do. Batch logon is now shown to work
+  without any interactive right, but `CreateProcessWithLogonW` logs on interactively and would be blocked by the
+  deny right, so Phase 3 must use `LogonUser` type 4 + `CreateProcessAsUser` (shown to work) and verify with the
+  deny rights set by the owner or in the setup script. Steps: grant the worker accounts `SeBatchLogonRight`, add
+  them to the deny-interactive and deny-remote-interactive policies, then re-run
+  `phase0-scripts/acct/run_elevated2.ps1` Part 2 and confirm type 4 still works.
 - Account deletion while its worker runs, password rotation, and Job Object assignment of a process started as
   another user (the Job Object test in item 4 used the same account).
 
@@ -250,7 +260,7 @@ as a separate follow-on of about 3-4 days.
    `C:\`. Use explicit ACLs with inheritance removed for `data/users/`, the install dir, backups and `gateway.db`.
    Install the runtime in a shared read-only location (the owner's Python is under a profile other accounts
    cannot run). Grant `SeBatchLogonRight` and use `LogonUser` type 4, because type 2 conflicts with deny-interactive
-   logon; re-test with the deny rights set. Measure `keyring` separation (not done).
+   logon; re-test with the deny rights set. `keyring` under a per-user account works and is separate per account (measured).
 5. **Phase 4:** CSV upload first; connector second and only for non-Finicity accounts; confirm redirect-URI
    registration with the Funnel name; request `mcp:read` only. Use dynamic client registration with PKCE.
 6. **Phase 6:** the gateway listens on Funnel 8443 (443 belongs to the trends reporter); extend
@@ -258,7 +268,7 @@ as a separate follow-on of about 3-4 days.
 
 ## What was not measured, in one list
 
-- `keyring` / Credential Manager separation between accounts; batch logon with the deny-interactive right set.
+- Batch logon with the deny-interactive right set (needs local security policy changes).
 - Real external Funnel bandwidth; Tailscale/Funnel after reboot; port 10000.
 - Monarch live tool list, data coverage, paging, token lifetime/refresh, redirect-URI acceptance (needs the owner's
   Monarch login in their browser).
