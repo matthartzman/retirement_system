@@ -26,6 +26,8 @@ const FROZEN_SCRIPT_ORDER = [
   "js/pywebview_bridge.js",
   "js/dashboard_shared_helpers.js",
   "js/render_hooks.js",
+  "js/remote_mode.js", // multi-user Phase 5: wraps fetch (401, keep-alive) before any module issues a request
+  "js/remote_files.js",
   "js/text_size.js",
   "js/help_registry.js",
   "js/api_client.js",
@@ -152,8 +154,8 @@ function definesOrWraps(src, sym) {
   return assign.test(stripped) || define.test(stripped);
 }
 
-test("index.html script list and order are frozen (87 module scripts)", () => {
-  assert.equal(scriptSrcs().length, 87);
+test("index.html script list and order are frozen (89 module scripts)", () => {
+  assert.equal(scriptSrcs().length, 89);
   assert.deepEqual(scriptSrcs(), FROZEN_SCRIPT_ORDER);
 });
 

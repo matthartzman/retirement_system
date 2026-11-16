@@ -3755,19 +3755,7 @@
       "scope": "inside-function"
     },
     {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_holdings.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "noteSpecialSessionChange",
-      "file": "frontend/js/dashboard_decomp_holdings.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_holdings.js",
       "kind": "call",
       "scope": "inside-function"
@@ -8537,12 +8525,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "liabilitiesText",
       "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "assign",
@@ -9835,6 +9817,12 @@
     {
       "name": "rows",
       "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/remote_mode.js",
       "kind": "read",
       "scope": "inside-function"
     },

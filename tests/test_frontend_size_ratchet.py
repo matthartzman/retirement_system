@@ -183,7 +183,9 @@ JS_DIR = ROOT / "frontend" / "js"
 # question box removed; nav desc derives from HELP_PAGES). Lowered to the measured 6,476.
 # 2026-11-03 (Account Tax Basis page: its STEPS entry, +1 in dashboard.js; the render branch and Build Impact id are folded into
 # existing lines). Raised to the measured 6,477.
-DASHBOARD_JS_MAX_LINES = 6_477
+# 2026-11-16 multi-user Phase 5: lowered 6,477 -> 6,436 to the measured size (boot-chain and tooltip comments condensed,
+# +2 lines for the remote-mode branches in exitApp and the 5050 fallback).
+DASHBOARD_JS_MAX_LINES = 6_436
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
@@ -700,6 +702,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-11 W4-06: lowered 43,710 -> 43,704 to the measured total (field guidance and allocation policy extracted).
 # 2026-11-11 W4-06: lowered 43,704 -> 43,703 to the measured total (nav context and detailed results extracted).
 # 2026-11-11 W4-06: lowered 43,703 -> 43,685 to the measured total (row helpers, step stats, KPI/history, step gating extracted).
+# 2026-11-16 multi-user Phase 5: ceiling unchanged at 43,685, now fully used. remote_mode.js and remote_files.js (about 280 lines) were paid for
+# by deleting dead code (system-config batch editor, 12 unreferenced functions) and condensing duplicated comments.
 TOTAL_JS_MAX_LINES = 43_685
 
 

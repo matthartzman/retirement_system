@@ -244,6 +244,8 @@ export function updateBuildProgress(job) {
       );
   }
 }
+const QUEUED_BUILD_PHASE = "Waiting for another build to finish";
+const QUEUED_BUILD_DETAIL = "Your build starts automatically when a build slot is free. You can keep this window open.";
 export async function buildWithProgress(buildBody) {
   // ARC-004/UX-009: fallback to /api/build is now scoped to only this
   // initial call (real HTTP status, not free-text "not found" matching);
@@ -272,12 +274,15 @@ export async function buildWithProgress(buildBody) {
     throw new Error("Build progress endpoint did not return a job id.");
   setActiveBuildJob(started.job_id);
   let lastProgress = Math.max(0, Number(started.progress) || 0);
+  // Remote mode: the gateway may park the build ("queued-..." job id) until a worker slot is free.
+  const startedQueued = !!started.queued || /^queued-/.test(String(started.job_id));
   updateBuildOverlay(
-    started.phase || "Preparing build",
-    "Build accepted. Waiting for live build telemetry.",
+    startedQueued ? QUEUED_BUILD_PHASE : started.phase || "Preparing build",
+    startedQueued ? started.detail || QUEUED_BUILD_DETAIL : "Build accepted. Waiting for live build telemetry.",
     lastProgress,
   );
-  startSmoothProgress(lastProgress, 82, 22, 5000);
+  let smoothStarted = !startedQueued;
+  if (smoothStarted) startSmoothProgress(lastProgress, 82, 22, 5000);
   let lastKnownProgress = lastProgress;
   let lastChange = Date.now();
   try {
@@ -298,9 +303,14 @@ export async function buildWithProgress(buildBody) {
       }
       lastProgress =
         pct === "indeterminate" ? lastProgress : Math.max(lastProgress, pct);
+      const waiting = job.status === "queued" || !!job.queued;
+      if (!waiting && !smoothStarted) {
+        smoothStarted = true;
+        startSmoothProgress(lastProgress, 82, 22, 5000);
+      }
       updateBuildOverlay(
-        job.phase || "Building workbook",
-        job.detail || "Working through the current Monte Carlo/build step...",
+        waiting ? QUEUED_BUILD_PHASE : job.phase || "Building workbook",
+        waiting ? job.detail || QUEUED_BUILD_DETAIL : job.detail || "Working through the current Monte Carlo/build step...",
         pct === "indeterminate" ? "indeterminate" : lastProgress,
         job.status === "failed" ? "error" : undefined,
       );

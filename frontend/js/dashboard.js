@@ -1570,21 +1570,10 @@ const FIELD_TOOLTIPS = {
   w_qcd_end_year:
     "Optional override for when this member's QCD giving stops. Click for the full explanation.",
 };
-// A hand-tuned FIELD_TOOLTIPS entry, once written, is worth more than the
-// generic fallback -- keep curating it for fields where the generic text
-// reads too dry. But #250: the icon itself must not be gated on that curated
-// list, or "layman's helper text throughout the UI" only ever covers the
-// ~30 fields someone got around to hand-writing. Every field already gets a
-// full purpose/impact/consider explanation when clicked, via showFieldHelp's
-// fieldGuidance()/row.notes -- this just surfaces the SAME source as a short
-// hover preview so the icon (and the promise it makes) appears everywhere
-// that explanation exists, not only where a bespoke one-liner was authored.
-// Some CSV `notes` were written as terse dev-facing reminders ("Gross in
-// earn_start_year", "s_corp | sole_prop | W2") that quote the storage label
-// or enum codes verbatim -- fine as an internal comment, not as user-facing
-// copy. Reuse the same snake_case-looking-token heuristic the group-heading
-// cleanup uses so those notes get skipped in favor of fieldGuidance's
-// already-humanized text instead of leaking the raw identifier to a tooltip.
+// A hand-tuned FIELD_TOOLTIPS entry beats the generic fallback, but the help icon itself must not be gated
+// on that curated list (#250): every field gets its fieldGuidance()/row.notes text as a hover preview.
+// Terse dev-facing notes that quote snake_case storage labels are skipped (same heuristic as the group
+// headings) in favor of fieldGuidance's humanized text.
 const _LOOKS_INTERNAL = /[a-z][a-z0-9]*_[a-z0-9]+/;
 function fieldTooltipPreview(row) {
   const lbl = norm(row?.label);
@@ -5890,7 +5879,7 @@ async function _checkAppStatusRun(show) {
     s.className = "status";
     s.textContent = "Starting...";
   }
-  const bases = [apiBase || "", "http://127.0.0.1:5050"].filter(
+  const bases = [apiBase || "", ...(window.RetirementRemote?.enabled ? [] : ["http://127.0.0.1:5050"])].filter(
     (v, i, a) => a.indexOf(v) === i,
   );
   for (const b of bases) {
@@ -6055,6 +6044,7 @@ function closeExitModal() {
 }
 
 async function exitApp() {
+  if (window.RetirementRemote?.enabled) return window.RetirementRemote.signOutFlow();
   if (unsavedChangeCount()) {
     openExitModal();
     return;
@@ -6198,29 +6188,10 @@ checkAppStatus(true).then(function (ok) {
       }
     })
     .catch(function () {});
-  // Dynamic import, not a bare global call: dashboard_decomp_local_backups.js
-  // and dashboard_decomp_monarch_autoupdate.js are now type="module" scripts
-  // (system_review 2026-08-31 item 3.11), so their window bridges are only
-  // guaranteed installed once each module's own top-level code has actually
-  // run -- import() resolves that module's cached record (already fetched
-  // via the <script type="module"> tag; re-importing the same specifier does
-  // NOT re-run the file, so this is not a double-execution) and only THEN
-  // proceeds, which is correct regardless of these two files' <script> tag
-  // position relative to dashboard.js. The specifier string (including the
-  // ?v= query) must stay byte-identical to the corresponding <script src>
-  // tag in index.html, or the two would resolve to different module-map
-  // entries -- two separate instances of the same file, with their own
-  // independent localBackupStatus/monarchAutoUpdateStatus state, silently
-  // diverging. test_pywebview_bridge_load_order_regression.py's sibling,
-  // test_dashboard_startup_race_and_script_order.py, does not check this;
-  // see test_dynamic_import_specifiers_match_script_tags below instead.
-  // Call through window, not the import()'d namespace object: neither file
-  // uses `export` (same no-export convention dashboard.js itself follows,
-  // for eval()-as-plain-script test compatibility -- see
-  // frontend/js/modules/phase3_module_manifest.js's v3 note), so their
-  // functions reach every caller, including this one, only via the window
-  // bridge each file installs at its own module-evaluation time. import()
-  // here exists purely to force-await that evaluation before this call.
+  // Dynamic import, not a bare global call: the local-backups and monarch-autoupdate modules install their
+  // window bridges at evaluation time, and re-importing the same specifier (byte-identical to the <script src>
+  // in index.html, ?v= included) awaits that evaluation without re-running the file. See
+  // test_dashboard_startup_race_and_script_order.py (test_dynamic_import_specifiers_match_script_tags).
   import("./dashboard_decomp_local_backups.js?v=1").then(function () {
     return refreshLocalBackupStatus(true);
   }).catch(function () {});

@@ -255,9 +255,6 @@ function setAdminStep(id) {
     }
   }
 }
-function adminPane(title, desc, body, eyebrow = "System") {
-  return `<div class="pane-head"><div class="eyebrow">${esc(eyebrow)}</div><h2>${esc(title)}</h2>${desc ? `<p>${esc(desc)}</p>` : ""}</div>${body}`;
-}
 
 const COLUMN_HELPERS = {
   target_allocation: {
@@ -428,11 +425,6 @@ async function clearAppCache() {
   if (skipped.length)
     text += ` ${skipped.length} folder(s) are in use by this running window and could not be cleared -- fully close and reopen the app to finish.`;
   msg(text);
-}
-async function applyMode(mode) {
-  msg(
-    "This package is local-only. Operating mode changes are no longer available.",
-  );
 }
 function navigateToClientUi() {
   if (window.__is_desktop_app__) {
@@ -1947,9 +1939,6 @@ async function runLivePriceSymbolTest() {
     msg("Pricing tester error: " + detail, true);
   }
 }
-async function showPricingAdmin() {
-  await openPricingControls();
-}
 
 async function showTaxLawDashboard() {
   setAdminStep("tax_law_dashboard");
@@ -1999,9 +1988,6 @@ async function showWorkspaces() {
   document.getElementById("main").innerHTML =
     `<h2>Local-only package</h2><p class="muted" data-kind="state">Client registry and report browsing pages were removed.</p>`;
   msg("Local-only package: client registry removed");
-}
-async function showWorkspaceFiles(t) {
-  showWorkspaces();
 }
 async function editWorkspacePlanData(t, name) {
   msg(

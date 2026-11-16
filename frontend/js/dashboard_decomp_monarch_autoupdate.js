@@ -56,6 +56,7 @@ function monarchAutoUpdateFreshnessWarningHtml() {
   return `<p class="small" data-kind="warn" style="color:var(--warn)"><b>Warning:</b> the data feed looks stalled — ${esc(detail)}, past the ${Number(freshness.stale_after_hours)}h limit. Imports may report success with nothing new.</p>`;
 }
 function monarchAutoUpdateControlsHtml() {
+  if (window.RetirementRemote?.enabled) return window.RetirementRemote.monarchUploadCardHtml();
   const s = monarchAutoUpdateStatus || {};
   const p = Object.assign(
     { enabled: true, source_dir: "", run_time: "04:00", transactions: true, balances: true },
@@ -74,6 +75,7 @@ function monarchAutoUpdateControlsHtml() {
   return `<div class="feature-card monarch-autoupdate-card" tabindex="0" onclick="showConfigCardHelp('monarch_autoupdate')" onfocus="showConfigCardHelp('monarch_autoupdate')"><h3>Third-party import auto-update</h3>${chk("monarchAutoUpdateEnabled", p.enabled, "Enable daily auto-update")}${detail}<div class="table-actions"><button class="btn" type="button"${monarchAutoUpdateRunning ? " disabled" : ""} onclick="event.stopPropagation();runMonarchAutoUpdateNow()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">${runLabel}</button><button class="btn" type="button" onclick="event.stopPropagation();refreshMonarchAutoUpdateStatus()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">Refresh</button></div></div>`;
 }
 async function refreshMonarchAutoUpdateStatus(silent = false) {
+  if (window.RetirementRemote?.enabled) return;
   try {
     monarchAutoUpdateStatus = await api("/api/plan/monarch-autoupdate");
     if (!silent) showMessage("Auto-update status refreshed.", "success");
