@@ -115,7 +115,7 @@ def test_batch_logon_works_with_the_deny_rights_and_interactive_logon_is_refused
     winapi.close_handle(tok)
     with pytest.raises(OSError) as exc:
         winapi.logon(name, pw, winapi.LOGON32_LOGON_INTERACTIVE)
-    assert exc.value.errno == winapi.ERROR_LOGON_TYPE_NOT_GRANTED
+    assert exc.value.winerror == winapi.ERROR_LOGON_TYPE_NOT_GRANTED
     del pw
     assert acl.check_layout(data_root=box["data"], gateway_sid=box["me"],
                             workers={901: (name, sid)}, gateway_db=box["gw"] / "gateway.db") == []
@@ -140,13 +140,18 @@ def test_one_account_cannot_read_another_accounts_or_the_gateways_folder(box):
     secret_a.write_text("account A's plan", encoding="utf-8")
     (box["gw"] / "probe.txt").write_text("gateway only", encoding="utf-8")
     out_b = _ws(box, 903) / "probe.txt"
-    cmd = ["cmd.exe", "/c", f'type "{secret_a}" > "{out_b}" 2>&1 & type "{box["gw"] / "probe.txt"}" >> "{out_b}" 2>&1'
-           f' & echo own > "{_ws(box, 903) / "own.txt"}"']
-    _run_as(box, 903, cmd)
-    text = out_b.read_text(encoding="utf-8", errors="replace")
-    assert "account A's plan" not in text and "gateway only" not in text
-    assert text.lower().count("access is denied") == 2, text
-    assert (_ws(box, 903) / "own.txt").exists()
+    probe = chr(10).join([
+        "import sys",
+        "out = []",
+        "for target in sys.argv[1:3]:",
+        "    try: out.append('READ ' + open(target, encoding='utf-8').read())",
+        "    except PermissionError: out.append('DENIED')",
+        "open(sys.argv[3], 'w', encoding='utf-8').write(chr(10).join(out))",
+    ])
+    code = _run_as(box, 903, [box["python"], "-E", "-s", "-c", probe, str(secret_a), str(box["gw"] / "probe.txt"),
+                              str(out_b)])
+    assert code == 0, code
+    assert out_b.read_text(encoding="utf-8").splitlines() == ["DENIED", "DENIED"]
 
 
 def _supervisor(box) -> Supervisor:
