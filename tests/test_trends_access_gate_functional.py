@@ -13,6 +13,7 @@ from financial_trends_reporter.main import create_app
 from financial_trends_reporter.sessions import SessionTable
 
 PW = "correct horse"
+TOTP_KEY = bytes(range(32))  # a fixed sealing key, so tests never touch the credential store
 
 
 SHARED_MONEY_JSON = json.dumps({"total": 5000.0, "days": 3})  # one cached string, like the spending cache
@@ -24,7 +25,7 @@ class Rig:
         (base / "input").mkdir(parents=True)
         (base / "local_state").mkdir(parents=True)
         self.now = [1000.0]
-        self.store = IdentityStore(tmp_path / "identity.db", scrypt_n=2**4)
+        self.store = IdentityStore(tmp_path / "identity.db", scrypt_n=2**4, totp_key=lambda: TOTP_KEY)
         self.sessions = SessionTable(clock=lambda: self.now[0])
         self.app = create_app(base, log_path=tmp_path / "log.jsonl", access_store=self.store,
                               sessions=self.sessions, clock=lambda: self.now[0], open_admin=lambda: False,
@@ -56,8 +57,8 @@ class Rig:
         def test_money_cached():
             return money(SHARED_MONEY_JSON)
 
-    def add(self, username="ann", must_change=False, money_view="dollars"):
-        uid = self.store.add_user(username.title(), username, PW, money_view=money_view)
+    def add(self, username="ann", must_change=False, money_view="dollars", totp_required=False):
+        uid = self.store.add_user(username.title(), username, PW, money_view=money_view, totp_required=totp_required)
         if not must_change:
             self.store.set_password(uid, PW, must_change=False)
         return uid

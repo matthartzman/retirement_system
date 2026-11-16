@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Financial Insight — Two-factor sign-in</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; display: flex; min-height: 100vh; align-items: center; justify-content: center; background: #f4f5f7; color: #1f2933; }
+  main { background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,.15); width: min(380px, 90vw); }
+  h1 { font-size: 1.2rem; margin: 0 0 12px; }
+  p { font-size: .9rem; line-height: 1.4; }
+  code { display: block; word-break: break-all; background: #eef0f3; padding: 8px; border-radius: 4px; font-size: 1rem; letter-spacing: .05em; }
+  label { display: block; font-size: .85rem; margin-top: 12px; }
+  input { width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px; font-size: 1rem; }
+  button { margin-top: 16px; width: 100%; padding: 10px; font-size: 1rem; }
+  [hidden] { display: none !important; }
+  #err { color: #b42318; margin-top: 12px; min-height: 1.2em; font-size: .9rem; }
+  ul { columns: 2; padding-left: 18px; font-family: ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Set up two-factor sign-in</h1>
+  <section id="step1">
+    <p>In an authenticator app (Microsoft Authenticator, Google Authenticator, 1Password and others), add an account by <strong>entering a setup key</strong>, then type the key below. Choose "time based".</p>
+    <button type="button" id="start">Show my setup key</button>
+  </section>
+  <section id="step2" hidden>
+    <p>Setup key:</p>
+    <code id="key"></code>
+    <form id="f">
+      <label>6-digit code now shown in the app <input id="c" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required></label>
+      <button type="submit">Confirm</button>
+    </form>
+  </section>
+  <section id="step3" hidden>
+    <p><strong>Save these recovery codes now.</strong> Each works once if you lose your phone. They are not shown again.</p>
+    <ul id="codes"></ul>
+    <button type="button" id="done">I have saved them</button>
+  </section>
+  <div id="err" role="alert"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const post = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) })
+  .then((r) => r.json().then((j) => ({ ok: r.ok && j.success !== false, ...j })))
+  .catch(() => ({ ok: false, error: "Could not reach the server." }));
+$("start").addEventListener("click", async () => {
+  $("err").textContent = "";
+  const j = await post("/api/totp/begin");
+  if (!j.ok) { $("err").textContent = j.error || "Could not start setup."; return; }
+  $("key").textContent = j.secret.replace(/(.{4})/g, "$1 ").trim();
+  $("step1").hidden = true; $("step2").hidden = false; $("c").focus();
+});
+$("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("err").textContent = "";
+  const j = await post("/api/totp/confirm", { code: $("c").value });
+  if (!j.ok) { $("err").textContent = j.error || "That code is not right."; return; }
+  $("codes").innerHTML = "";
+  j.recovery_codes.forEach((c) => { const li = document.createElement("li"); li.textContent = c; $("codes").appendChild(li); });
+  $("step2").hidden = true; $("step3").hidden = false;
+});
+$("done").addEventListener("click", () => { location.href = "/"; });
+</script>
+</body>
+</html>

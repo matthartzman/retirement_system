@@ -113,7 +113,8 @@ def register_users(app, store: IdentityStore, clock: Callable[[], float] = time.
         uid, err = guarded(lambda: store.add_user(
             str(data.get("display_name") or ""), username, str(data.get("temp_password") or ""), now=clock(),
             role=str(data.get("role") or "user"), expires_at=None if expires == "keep" else expires,
-            notes=str(data.get("notes") or ""), insights=False, must_change=True, granted_by=admin))
+            notes=str(data.get("notes") or ""), insights=False, must_change=True, granted_by=admin,
+            totp_required=data.get("totp_required") is not False))
         if err:
             return err
         if parsed:
@@ -138,6 +139,9 @@ def register_users(app, store: IdentityStore, clock: Callable[[], float] = time.
         _, err = guarded(lambda: store.update_user(user["id"], expires_at=expires, now=clock(), **kwargs))
         if err:
             return err
+        if isinstance(data.get("totp_required"), bool):
+            store.set_totp_required(user["id"], data["totp_required"], now=clock())
+            kwargs["totp_required"] = data["totp_required"]
         changed = sorted([*kwargs, *(["expires_at"] if expires != "keep" else [])])
         detail = "changed " + (", ".join(changed) or "nothing")
         if "role" in kwargs:
@@ -194,7 +198,8 @@ def register_users(app, store: IdentityStore, clock: Callable[[], float] = time.
         if user is None:
             return _fail("no such person", 404)
         had = store.reset_totp(user["id"])
-        audit("user.reset-totp", user["username"], ("was enrolled" if had else "was not enrolled") + "; sessions ended")
+        audit("user.reset-totp", user["username"], ("was enrolled" if had else "was not enrolled")
+              + "; sessions ended; recovery codes removed")
         return _json({"success": True, "was_enrolled": had})
 
     @app.route("/api/users/end-sessions", methods=["POST"])
