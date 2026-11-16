@@ -142,7 +142,10 @@ def append_history_payload(output_dir: Path, entry: Any, *, limit: int = 50) -> 
 def local_output_file_payload(output_dir: Path, filename: str) -> tuple[dict[str, Any], int]:
     """Validate that a requested file is inside output_dir and exists."""
     root = output_dir.resolve()
-    requested = (root / filename).resolve()
+    try:
+        requested = (root / filename).resolve()
+    except (OSError, ValueError):  # an embedded NUL or a name Windows cannot resolve
+        return {"success": False, "error": "Only local output files may be served"}, 400
     try:
         requested.relative_to(root)
     except Exception:
