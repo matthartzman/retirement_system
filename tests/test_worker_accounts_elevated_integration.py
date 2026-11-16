@@ -121,8 +121,9 @@ def test_batch_logon_works_with_the_deny_rights_and_interactive_logon_is_refused
                             workers={901: (name, sid)}, gateway_db=box["gw"] / "gateway.db") == []
 
 
-def _run_as(box, uid: int, argv: list[str], timeout: float = 60.0) -> int:
-    proc = PerAccountLauncher(box["mgr"]).launch(LaunchSpec(uid, argv, Path("C:\\Windows\\System32"), {}, 256 * 2**20, 8))
+def _run_as(box, uid: int, argv: list[str], timeout: float = 60.0, env: dict | None = None) -> int:
+    proc = PerAccountLauncher(box["mgr"]).launch(LaunchSpec(uid, argv, Path("C:\\Windows\\System32"), env or {},
+                                                            256 * 2**20, 8))
     try:
         deadline = time.time() + timeout
         while proc.poll() is None and time.time() < deadline:
@@ -210,3 +211,41 @@ def test_deleting_a_user_while_its_worker_runs_removes_everything(box):
         assert accounts.account_rights(sid) == set()
     finally:
         sup.shutdown()
+
+
+_CRED_PROBE = chr(10).join([
+    "import sys, keyring",
+    "sys.path.insert(0, sys.argv[1])",
+    "from src import secrets_store as s",
+    "backend = keyring.get_keyring()",
+    "s._remote_mode_guard(backend)  # remote mode plus the per-account launcher's flag: must accept",
+    "if sys.argv[2] == 'set': keyring.set_password(s.SERVICE_NAME, 'elevated-probe', sys.argv[4])",
+    "got = keyring.get_password(s.SERVICE_NAME, 'elevated-probe') or ''",
+    "open(sys.argv[3], 'w', encoding='utf-8').write(type(backend).__name__ + ' ' + got)",
+])
+
+
+def test_a_stored_credential_survives_password_rotation_and_goes_with_the_user(box):
+    """The question Phase 3 left open: NetUserChangePassword (a change, not a reset) should keep the DPAPI master
+    keys, so a Credential Manager entry the worker account stored is still readable after rotation; deleting the
+    user (NetUserDel + DeleteProfileW) removes it with the profile."""
+    mgr, uid = box["mgr"], 907
+    ws = _ws(box, uid)
+    mgr.ensure(uid, ws)
+    value = "probe-" + secrets.token_hex(4)
+    env = {"RETIREMENT_SYSTEM_REMOTE_MODE": "1"}
+    out = ws / "cred.txt"
+    argv = [box["python"], "-E", "-s", "-c", _CRED_PROBE, str(ROOT)]
+    assert _run_as(box, uid, argv + ["set", str(out), value], env=env) == 0
+    assert out.read_text(encoding="utf-8") == f"WinVaultKeyring {value}"
+    profile = Path("C:\\Users") / mgr.account_name(uid)
+    mgr.rotate(uid)
+    out.unlink()
+    assert _run_as(box, uid, argv + ["get", str(out)], env=env) == 0
+    assert out.read_text(encoding="utf-8") == f"WinVaultKeyring {value}", "the credential did not survive rotation"
+    sup = _supervisor(box)
+    try:
+        sup.user_deleted(uid)
+    finally:
+        sup.shutdown()
+    assert not profile.exists(), "the profile (and its Credential Manager vault) outlived the user"

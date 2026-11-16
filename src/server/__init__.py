@@ -9,6 +9,7 @@ from . import workbook_routes as _workbook_routes
 from . import plan_routes as _plan_routes
 from . import import_export_routes as _import_export_routes
 from . import admin_routes as _admin_routes
+from . import monarch_routes as _monarch_routes
 
 def create_app():
     """WSGI application factory."""
