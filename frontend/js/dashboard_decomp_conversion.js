@@ -82,6 +82,7 @@ export function renderConversionNotice() {
 }
 
 export async function refreshConversionNotice() {
+  if (window.RetirementRemote?.enabled) return null;
   try {
     const out = await api("/api/conversion/status");
     conversionState = out && out.success ? out : null;
