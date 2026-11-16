@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
+from . import fsguard
 from .backup_crypto import (BackupCryptoError, CorruptBackupError, DecryptingReader, EncryptingWriter,
                             WrongKeyError)
 
@@ -82,6 +83,10 @@ def write_archive(dest: Path, master: bytes, *, data_root: Path, user_ids: Itera
                     got = False
                     for member, rel in _USER_MEMBERS.items():
                         src = root / rel
+                        if fsguard.has_reparse_point(src, root):
+                            errors.append(f"user {uid} {member}: link inside the workspace, skipped")
+                            log.error("backup of user %s %s skipped: a link inside the workspace", uid, member)
+                            continue
                         if not src.is_file():
                             continue
                         try:
@@ -201,6 +206,8 @@ def restore_user(archive: Path, master: bytes, *, data_root: Path, user_id: int,
                 if not new.is_file():
                     continue
                 live = workspace / rel
+                if fsguard.has_reparse_point(live, workspace):
+                    raise RestoreError(f"user {uid}'s folder holds a link; remove it before restoring")
                 live.parent.mkdir(parents=True, exist_ok=True)
                 for suffix in ("", "-wal", "-shm"):
                     cur = live.with_name(live.name + suffix)

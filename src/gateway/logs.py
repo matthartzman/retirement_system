@@ -11,6 +11,8 @@ import time
 from pathlib import Path
 from typing import Callable, Iterable
 
+from . import fsguard
+
 log = logging.getLogger("retirement.gateway.logs")
 CONSOLE_LOG = Path("local_state") / "logs" / "worker_console.log"
 MAX_CONSOLE_BYTES = 5 * 1024 * 1024
@@ -31,12 +33,17 @@ def prune_worker_logs(data_root: Path, is_running: Callable[[int], bool], *, max
         uid = int(folder.name)
         current = folder / CONSOLE_LOG
         rotated = current.with_name(current.name + ".1")
+        if fsguard.has_reparse_point(current, folder):
+            log.warning("log housekeeping skipped user %s: a link inside the workspace", uid)
+            continue
         try:
             if rotated.is_file() and now - rotated.stat().st_mtime > keep_days * 86400 and not is_running(uid):
                 rotated.unlink()
                 removed += 1
             if current.is_file() and current.stat().st_size > max_bytes and not is_running(uid):
-                data = current.read_bytes()[-max_bytes // 2:]
+                with open(current, "rb") as fh:  # the tail only: never the whole file
+                    fh.seek(max(0, current.stat().st_size - max_bytes // 2))
+                    data = fh.read()
                 current.write_bytes(b"[older output trimmed by the gateway]\n" + data)
                 trimmed += 1
         except OSError as exc:
