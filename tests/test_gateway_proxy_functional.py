@@ -248,3 +248,60 @@ def test_cancelling_a_queued_build(rig):
     qid = proxy.forward(_req("POST", "/api/build/start", {"Content-Type": "application/json"}, b"{}"), BOB).get_json()["job_id"]
     assert proxy.forward(_req("POST", f"/api/build/cancel/{qid}", {}, b"{}"), BOB).get_json()["outcome"] == "cancelling"
     assert proxy.forward(_req("GET", f"/api/build/progress/{qid}"), BOB).get_json()["job"]["status"] == "cancelled"
+
+
+def test_a_refused_connection_to_a_live_worker_is_retried_not_treated_as_dead(rig):
+    """A full listen backlog looks like a refusal; the worker process still owns its port, so back off and retry."""
+    proxy, sup, workers, _q = rig
+    port = workers[1].port
+    workers[1].server.shutdown()
+    workers[1].server.server_close()  # nothing listens now: connections are refused
+
+    def revive() -> None:
+        time.sleep(0.15)
+        workers[1].server = ThreadingHTTPServer(("127.0.0.1", port), workers[1].server.RequestHandlerClass)
+        threading.Thread(target=workers[1].server.serve_forever, daemon=True).start()
+
+    threading.Thread(target=revive, daemon=True).start()
+    resp = proxy.forward(_req("GET", "/api/ping"), ALICE)
+    assert resp.status_code == 200 and sup.dead == []
+
+
+def test_a_refused_connection_when_the_port_is_lost_still_marks_the_worker_dead(rig):
+    proxy, sup, workers, _q = rig
+    workers[1].server.shutdown()
+    workers[1].server.server_close()
+    sup.owner_ok = False
+    assert proxy.forward(_req("GET", "/api/ping"), ALICE).status_code == 503
+    assert sup.dead
+
+
+def test_one_users_parallel_requests_are_bounded_and_all_answered(rig):
+    proxy, _sup, workers, _q = rig
+    proxy.config = ProxyConfig(max_upstream_per_user=4, read_timeout=5.0)
+    workers[1].sleep = 0.05
+    live = {"now": 0, "max": 0}
+    lock = threading.Lock()
+    orig = workers[1].server.RequestHandlerClass
+
+    class Counting(orig):
+        def _go(self):
+            with lock:
+                live["now"] += 1
+                live["max"] = max(live["max"], live["now"])
+            try:
+                super()._go()
+            finally:
+                with lock:
+                    live["now"] -= 1
+        do_GET = _go
+
+    workers[1].server.RequestHandlerClass = Counting
+    out: list[int] = []
+    threads = [threading.Thread(target=lambda: out.append(proxy.forward(_req("GET", "/x"), ALICE).status_code))
+               for _ in range(30)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+    assert out == [200] * 30 and live["max"] <= 4

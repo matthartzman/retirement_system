@@ -45,9 +45,9 @@ LOG = logging.getLogger("retirement.gateway.server")
 # cannot connect: they have no private credential store (``src/secrets_store._remote_mode_guard``).
 MONARCH_CONNECTOR_ENV = "RETIREMENT_SYSTEM_MONARCH_CONNECTOR"
 CLIENT_SOCKET_TIMEOUT = 60.0
-# P7-O3 defaults. 128 connections: ten users with a browser's six connections each is 60, and a proxied request
+# P7-O3 defaults. 256 connections: a Funnel (HTTP/2) page load can open ~130 at once and ten users at six each is 60; a proxied request
 # holds its thread while the worker answers. 30 s is a generous total for a request line, headers and a body.
-DEFAULT_MAX_CONNECTIONS = 128
+DEFAULT_MAX_CONNECTIONS = 256
 DEFAULT_REQUEST_DEADLINE = 30.0
 _BUSY = (b"HTTP/1.0 503 Service Unavailable\r\nRetry-After: 5\r\nContent-Type: text/plain\r\nContent-Length: 38\r\n"
          b"Connection: close\r\n\r\nThe server is busy. Try again shortly.\n")
@@ -188,7 +188,7 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--local-port", type=int, default=None, help="optional loopback port for use on this machine")
     p.add_argument("--public-origin", action="append", default=[], help="https origin users reach through Funnel")
     p.add_argument("--max-connections", type=int, default=DEFAULT_MAX_CONNECTIONS,
-                   help="connections served at once per listener; the next gets a 503 (default 128)")
+                   help="connections served at once per listener; the next gets a 503 (default 256)")
     p.add_argument("--request-deadline", type=float, default=DEFAULT_REQUEST_DEADLINE,
                    help="seconds allowed in total to receive one request's line, headers and body")
     p.add_argument("--hash-concurrency", type=int, default=4,

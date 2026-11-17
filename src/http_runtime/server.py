@@ -72,6 +72,9 @@ class _Handler(BaseHTTPRequestHandler):
 class LocalHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
+    # The stdlib backlog is 5: a browser opening ~100 parallel connections (HTTP/2 through Funnel) then gets
+    # connections refused on Windows. 256 is ample for a loopback listener.
+    request_queue_size = 256
 
     def __init__(self, server_address: tuple[str, int], app: Any) -> None:
         super().__init__(server_address, _Handler)
