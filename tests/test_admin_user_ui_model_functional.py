@@ -7,7 +7,7 @@ ADMIN_JS = ROOT / "frontend" / "js" / "admin.js"
 
 
 def test_admin_ui_uses_guided_user_ui_shell_and_navigation_model():
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     for token in [
         "admin-shell",
         "card side nav",
@@ -24,7 +24,7 @@ def test_admin_ui_uses_guided_user_ui_shell_and_navigation_model():
 
 
 def test_admin_ui_preserves_compact_inputs_and_raw_fallback_in_user_style():
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
+    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "settings_renderer.js").read_text(encoding="utf-8")
     for token in [
         "cfg-input",
         "cfg-select",

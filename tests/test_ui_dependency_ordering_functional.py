@@ -101,7 +101,7 @@ def test_monte_carlo_hsa_home_sale_and_estate_dependencies_are_dynamic():
 
 
 def test_admin_editor_orders_dependency_controls_first():
-    admin = text(ADMIN)
+    admin = text(ADMIN) + text(ROOT / "frontend" / "js" / "settings_renderer.js")
     assert "function adminDependencyRank" in admin
     assert "mc_engine_mode" in admin and "roth_conversion_policy" in admin
     assert "groups.forEach((g) =>\n    g.rows.sort" in admin

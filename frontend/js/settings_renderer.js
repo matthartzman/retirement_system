@@ -1,0 +1,1239 @@
+// Shared settings renderer (section settings, field help, CSV grid); classic script loaded before admin.js and by the planner.
+const COLUMN_HELPERS = {
+  target_allocation: {
+    asset_class:
+      "Recommended asset class / sleeve. Must match optimizer and security-master class names where possible.",
+    target_pct:
+      "User-defined target percent. Used only when the UI-selected allocation source is user-defined; covered/excluded sleeves are removed and the rest normalizes to 100%.",
+  },
+  security_master: {
+    symbol:
+      "Ticker or cash symbol available for holdings, ETF ideas, and replacement recommendations.",
+    asset_class:
+      "Maps the security to household allocation sleeves and rebalancing targets.",
+    sleeve:
+      "Higher-level grouping used for diversification and one-ETF-per-account starter recommendations.",
+    region: "Region tag used for notes and future filtering.",
+    style: "Style or exposure detail used for replacement rationale.",
+    notes: "Human-readable rationale displayed in review contexts.",
+  },
+  holdings: {
+    account:
+      "Account name. Account tax treatment is inferred by the engine and affects asset-location recommendations.",
+    symbol:
+      "Ticker or CASH. Must exist in the security master or be handled by fallback mapping.",
+    purchase_date:
+      "Lot purchase date. Determines short-term vs long-term gain/loss treatment in taxable accounts.",
+    shares: "Lot share quantity. Drives market value and sellable amount.",
+    purchase_price:
+      "Per-share cost basis. Used for fallback pricing and taxable gain/loss estimates.",
+    lot_type:
+      "buy, reinvestment, cash, or other lot tag. Helps explain trade and tax logic.",
+    note: "Optional do-not-sell or review context for the advisor.",
+  },
+  capital_market: {
+    horizon_years: "Forecast horizon bucket for optimizer assumptions.",
+    preset: "Assumption set name used by optimizer configurations.",
+    asset_class: "Asset class receiving the return/risk assumption.",
+    expected_return:
+      "Expected annual nominal return. Higher values can increase optimizer recommendations.",
+    volatility:
+      "Expected annual volatility. Higher values reduce attractiveness in risk-aware optimization.",
+    stock_index_correlation:
+      "Correlation proxy used for diversification/covariance calculations.",
+    notes: "Source or caution note shown for auditability.",
+  },
+  tax_constants: {
+    key: "Tax constant identifier consumed by projection code.",
+    tax_year: "Applicable tax year for the reference value.",
+    value: "Tax threshold, deduction, rate, or dollar value.",
+    source: "Citation/source note for auditability.",
+  },
+  asset_correlations: {
+    horizon_years:
+      "Forecast horizon bucket this correlation applies to. Blank applies to all horizons.",
+    preset:
+      "Correlation preset (LOW/MODERATE/HIGH/STRESS) this row belongs to; selected by the correlation_preset system setting.",
+    asset_class_a:
+      "One side of the asset-class pair. Must match a class name used in capital-market assumptions and the security master.",
+    asset_class_b:
+      "Other side of the asset-class pair. Correlation applies to this pair in both directions.",
+    correlation:
+      "Pairwise correlation coefficient, -1.00 to 1.00. Higher values reduce the diversification benefit between these two classes.",
+    notes: "Source or caution note shown for auditability.",
+  },
+  schema: {
+    section:
+      "Plan Data grouping this field belongs to in the client UI (matches a nav step/section there).",
+    subsection: "Subgroup within the section, if any.",
+    label: "Internal field key read by Plan Data parsing and validation.",
+    type:
+      "Input type: text, choice, boolean, date, percent, integer, year, number, currency, dollars, path, or secret. Controls how the client UI renders and validates the field.",
+    required:
+      "TRUE/FALSE. When TRUE, Plan Data validation blocks build-readiness until this field is filled in.",
+    default: "Value assumed when the field is left blank.",
+    min: "Minimum value accepted by validation, if bounded.",
+    max: "Maximum value accepted by validation, if bounded.",
+    description:
+      "Field-level help text shown to the client in the guided Plan Data UI.",
+  },
+  state_tax: {
+    state:
+      "State name. Matched against a household's or scenario's residency state.",
+    rate:
+      "Flat income tax rate, or top marginal rate for bracket states (see type).",
+    type:
+      "flat or bracket. Determines whether rate is applied uniformly or via a bracket table.",
+    exempt_retirement:
+      "TRUE/FALSE. Whether this state exempts retirement account distributions from state income tax.",
+    exempt_ss:
+      "TRUE/FALSE. Whether this state exempts Social Security benefits from state income tax.",
+    prop_rate:
+      "Effective property tax rate used for real-estate carrying-cost estimates.",
+    sales_rate:
+      "State plus average local sales tax rate, used for consumption-based estimates.",
+    estate:
+      "TRUE/FALSE. Whether this state levies its own estate tax separate from the federal estate tax.",
+    estate_exempt:
+      "State estate-tax exemption threshold, in dollars. Ignored when estate is FALSE.",
+    retirement_exempt_over_65:
+      "Additional retirement-income exemption amount available once a filer reaches 65.",
+    source: "Citation for the rates and rules in this row.",
+    estate_calc:
+      "Identifies which state-specific estate-tax calculation table/method the engine uses for this state.",
+  },
+  tax_update_dashboard: {
+    constant:
+      "Identifier for the tracked tax constant (matches its internal name in code).",
+    category: "High-level tax category this constant belongs to.",
+    year: "Tax year this value is current for.",
+    source:
+      "Where this value came from and where in the code it is embedded.",
+    source_url: "Authoritative source link to verify the value against.",
+    last_reviewed: "Date this constant was last confirmed against its source.",
+    review_frequency: "How often this constant should be re-verified.",
+    status:
+      "Current freshness/review status, shown on the Tax-law update dashboard.",
+    blocking:
+      "TRUE/FALSE. Whether a stale value here blocks advisor-ready/recommendation status.",
+    notes: "What to do when this constant needs updating.",
+  },
+};
+
+function rowCell(row, i) {
+  return String((row || [])[i] ?? "");
+}
+function isHeader(row) {
+  return (
+    rowCell(row, 0).trim().toLowerCase() === "section" &&
+    rowCell(row, 1).trim().toLowerCase() === "subsection"
+  );
+}
+function isComment(row) {
+  return rowCell(row, 0).trim().startsWith("#");
+}
+function isSetting(row) {
+  return (
+    rowCell(row, 0).trim() &&
+    !isHeader(row) &&
+    !isComment(row) &&
+    row.length >= 4
+  );
+}
+function cleanComment(s) {
+  return String(s || "")
+    .replace(/^#\s*-*/, "")
+    .replace(/-*\s*$/, "")
+    .trim();
+}
+function titleCaseLabel(s) {
+  const key = String(s || "").trim();
+  const labelMap = {
+    annual_premium_base_year: "Pre-65 Healthcare Premium (annual per person)",
+    part_b_base_premium_monthly: "Monthly Medicare Part B (prior to IRMAA)",
+    part_d_base_premium_monthly: "Monthly Medicare Part D (prior to IRMAA)",
+    annual_oop_estimate_today: "Annual Household Medical OOP Cap",
+    mc_engine_mode: "Monte Carlo Engine",
+    monthly_pia_at_fra_today_dollars: "Monthly at FRA",
+    roth_target_bracket_rate: "Roth Tax-Bracket Ceiling",
+    roth_irmaa_target_tier: "Medicare IRMAA Tier Ceiling",
+    irmaa_guardrail_mode: "IRMAA Guardrail Behavior",
+    roth_irmaa_headroom_usage_pct: "IRMAA Headroom Used",
+  };
+  if (labelMap[key]) return labelMap[key];
+  let out = String(s || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const acronyms = {
+    js: "JS",
+    ltcg: "LTCG",
+    stcg: "STCG",
+    etf: "ETF",
+    etfs: "ETFs",
+    pdia: "PDIA",
+    niit: "NIIT",
+    ira: "IRA",
+    iras: "IRAs",
+    rmd: "RMD",
+    rmds: "RMDs",
+    qcd: "QCD",
+    hsa: "HSA",
+    hsas: "HSAs",
+    cma: "CMA",
+    cmas: "CMAs",
+    csv: "CSV",
+    ui: "UI",
+    api: "API",
+    url: "URL",
+    https: "HTTPS",
+    http: "HTTP",
+    dns: "DNS",
+    pdf: "PDF",
+    xlsx: "XLSX",
+    qc: "QC",
+    tips: "TIPS",
+    reit: "REIT",
+    reits: "REITs",
+    sep: "SEP",
+    llc: "LLC",
+    irs: "IRS",
+    agi: "AGI",
+    magi: "MAGI",
+    pia: "PIA",
+    fra: "FRA",
+  };
+  return out
+    .replace(/\b[A-Za-z0-9]+\b/g, (w) => acronyms[w.toLowerCase()] || w)
+    .replace(/\bW2\b/g, "W-2")
+    .replace(/\bK1\b/g, "K-1");
+}
+function rowsToCsv(rows) {
+  return (
+    rows
+      .map((r) =>
+        r
+          .map((v) => {
+            v = String(v ?? "");
+            return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+          })
+          .join(","),
+      )
+      .join("\n") + "\n"
+  );
+}
+function parseCsv(text) {
+  const rows = [];
+  let row = [],
+    val = "",
+    inQ = false;
+  for (let i = 0; i < String(text).length; i++) {
+    const ch = text[i],
+      nx = text[i + 1];
+    if (inQ) {
+      if (ch === '"' && nx === '"') {
+        val += '"';
+        i++;
+      } else if (ch === '"') {
+        inQ = false;
+      } else val += ch;
+    } else {
+      if (ch === '"') inQ = true;
+      else if (ch === ",") {
+        row.push(val);
+        val = "";
+      } else if (ch === "\n") {
+        row.push(val);
+        rows.push(row);
+        row = [];
+        val = "";
+      } else if (ch === "\r") {
+      } else val += ch;
+    }
+  }
+  if (val || row.length) {
+    row.push(val);
+    rows.push(row);
+  }
+  return rows;
+}
+function choicesFor(row) {
+  const units = rowCell(row, 4).trim();
+  const label = rowCell(row, 2).trim();
+  const notes = rowCell(row, 5);
+  const section = rowCell(row, 0).trim();
+  const fixed = {
+    pricing_mode: ["CACHE", "LIVE", "OFFLINE"],
+    trade_optimizer_mode: ["GLOBAL_TAX_AWARE", "HEURISTIC"],
+    allow_taxable_gain_sales: [
+      "NEVER",
+      "DRIFT_THRESHOLD",
+      "WITHIN_BUDGET",
+      "ALWAYS",
+    ],
+    wash_sale_policy: ["FLAG_ONLY", "AVOID_SAME_SYMBOL", "STRICT_AVOID"],
+    asset_location_strength: ["LIGHT", "BALANCED", "STRONG"],
+    solver_fallback_policy: ["HEURISTIC", "NONE"],
+    app_mode: ["LOCAL"],
+    config_backend: ["SQLITE", "CSV", "YAML", "JSON"],
+    // These five were declared units="choice" in system_config.csv but had no
+    // entry here, so choicesFor() fell through to a free-text input despite
+    // the data saying they're a fixed set. Values confirmed against the
+    // fields' own notes text and their Python readers (data_io.py,
+    // optimization.py's _apply_correlation_preset).
+    capital_market_assumption_mode: ["PRESET", "CUSTOM_FILE"],
+    capital_market_assumption_horizon_source: [
+      "manual",
+      "auto_from_withdrawals",
+    ],
+    capital_market_assumption_preset: [
+      "CONSERVATIVE",
+      "BASELINE",
+      "AGGRESSIVE",
+    ],
+    correlation_assumption_mode: ["PRESET", "ADVANCED", "CUSTOM_FILE"],
+    correlation_preset: ["LOW", "MODERATE", "HIGH", "STRESS"],
+    plan_data_canonical_format: ["CSV", "JSON", "YAML"],
+    filing_status: ["MFJ", "Single", "HOH", "MFS"],
+    survivor_filing_status: ["Single", "HOH", "MFS"],
+    allocation_selection_mode: ["user_target", "optimizer_recommendation", "max_sharpe", "tangency"],
+    selection_action: ["include", "exclude", "consider_alternate_first"],
+    roth_conversion_policy: [
+      "optimize_terminal_tax",
+      "fill_to_bracket",
+      "fill_to_irmaa",
+      "fixed_dollar",
+      "none",
+    ],
+    roth_objective_mode: [
+      "BALANCED_RETIREMENT",
+      "MINIMIZE_LIFETIME_TAX",
+      "MAXIMIZE_TERMINAL_NET_WORTH",
+      "LEGACY_OPTIMIZED",
+      "ESTATE_TAX_AWARE",
+      "CUSTOM_WEIGHTED",
+    ],
+    estate_tax_objective_mode: ["OFF", "MONITOR_ONLY", "BALANCED", "STRONG"],
+    irmaa_guardrail_mode: [
+      "IGNORE",
+      "WARN_ONLY",
+      "AVOID_NEXT_TIER",
+      "AVOID_TIER_2_OR_ABOVE",
+      "CUSTOM_MAGI_CAP",
+    ],
+    legacy_objective_mode: ["OFF", "LOW", "BALANCED", "STRONG"],
+    mc_engine_mode: ["advanced_exact_scalar", "quick_vectorized"],
+    roth_irmaa_target_tier: ["TIER_1", "TIER_2", "TIER_3", "TIER_4", "TIER_5"],
+    core_spending_growth_mode: ["cpi", "manual_override"],
+  };
+  if (section === "schema" && label === "type")
+    return [
+      "text",
+      "choice",
+      "boolean",
+      "date",
+      "percent",
+      "integer",
+      "year",
+      "number",
+      "currency",
+      "dollars",
+      "path",
+      "secret",
+    ];
+  if (label === "roth_target_bracket_rate")
+    return [
+      "10.00%",
+      "12.00%",
+      "22.00%",
+      "24.00%",
+      "32.00%",
+      "35.00%",
+      "37.00%",
+    ];
+  if (fixed[label]) return fixed[label];
+  if (["yes/no", "boolean", "true/false"].includes(units.toLowerCase()))
+    return ["TRUE", "FALSE"];
+  if (/^.+\|.+$/.test(units))
+    return units
+      .split("|")
+      .map((x) => x.trim())
+      .filter(Boolean);
+  const pipe = (notes.match(
+    /([A-Z0-9_%. -]+\s*\|\s*[A-Z0-9_%. -]+(?:\s*\|\s*[A-Z0-9_%. -]+)+)/,
+  ) || [])[1];
+  return pipe
+    ? pipe
+        .split("|")
+        .map((x) => x.trim())
+        .filter(Boolean)
+    : null;
+}
+function choiceDisplay(label, value) {
+  const v = String(value);
+  if (label === "mc_engine_mode") {
+    const m = {
+      advanced_exact_scalar: "Advanced Exact Scalar (slower, advisor-ready)",
+      quick_vectorized: "Quick Vectorized (faster, approximate)",
+      exact_scalar: "Advanced Exact Scalar (slower, advisor-ready)",
+      vectorized: "Quick Vectorized (faster, approximate)",
+    };
+    return m[v] || v;
+  }
+  if (label === "roth_irmaa_target_tier") {
+    const m = {
+      TIER_1: "Tier 1 — MFJ $212,000 / Single $106,000",
+      TIER_2: "Tier 2 — MFJ $266,000 / Single $133,000",
+      TIER_3: "Tier 3 — MFJ $334,000 / Single $167,000",
+      TIER_4: "Tier 4 — MFJ $400,000 / Single $200,000",
+      TIER_5: "Tier 5 — MFJ $750,000 / Single $500,000",
+    };
+    return m[v] || v;
+  }
+  if (label === "roth_target_bracket_rate")
+    return v.replace(".00%", "%") + " bracket";
+  return v.replace(/_/g, " ");
+}
+function settingHelpDataAttrs(row) {
+  const key = rowCell(row, 2).trim();
+  const choices = choicesFor(row);
+  // data-help-title is what the help panel displays as its heading -- must be
+  // the human label (titleCaseLabel), not the raw snake_case key, or the help
+  // panel would show "app_mode" right after the row itself stopped showing
+  // it. data-help-key stays the raw key: adminFieldGuidance/adminDefaultMeaning
+  // etc. match on it with substring/lowercase heuristics that depend on the
+  // original field name. data-help-choices carries the same pick-list options
+  // rendered in the control itself (pipe-joined; "|" cannot appear inside a
+  // single choice token -- see choicesFor's own pipe-list parsing) so the help
+  // panel can enumerate them instead of a generic "Expected format" line.
+  const choicesAttr = choices
+    ? ` data-help-choices="${esc(choices.join("|"))}"`
+    : "";
+  return ` data-help-title="${esc(titleCaseLabel(key))}" data-help-key="${esc(key)}" data-help-units="${esc(rowCell(row, 4))}" data-help-note="${esc(rowCell(row, 5))}" data-help-location="${esc(rowCell(row, 0) + (rowCell(row, 1) ? " / " + rowCell(row, 1) : ""))}"${choicesAttr}`;
+}
+// The literal "Help" column used to render an empty <td> -- a column header
+// with nothing under it in any row, i.e. a dormant help affordance. Every
+// setting row now gets a real "?" button here (matching the client UI's
+// per-field helpbtn convention), wired to the same showSettingHelp panel the
+// control's own onfocus/onclick already opens.
+function settingHelpButton(row, label) {
+  return `<button type="button" class="setting-help-btn" title="Help for ${esc(label)}" aria-label="Help for ${esc(label)}"${settingHelpDataAttrs(row)} onclick="showSettingHelpFromControl(this)">?</button>`;
+}
+// UX-002 (system review 2026-09-25, WI-503): the setting-name cell is a
+// <label for> pointing at this id, so each .cfg-input/.cfg-select has a
+// programmatic name (and clicking the name focuses the control).
+function settingControlId(i) {
+  return "cfg-ctl-" + i;
+}
+function settingControl(row, i) {
+  const value = rowCell(row, 3);
+  const label = rowCell(row, 2).trim();
+  const choices = choicesFor(row);
+  const units = rowCell(row, 4).toLowerCase();
+  const helpDataAttrs = settingHelpDataAttrs(row);
+  const helpAttrs = ` onfocus="showSettingHelpFromControl(this)" onclick="showSettingHelpFromControl(this)"`;
+  if (choices) {
+    // Only append a trailing "custom value" option when the stored value
+    // isn't already one of the known choices -- appending it unconditionally
+    // used to add a blank, unlabeled duplicate option to every select (e.g.
+    // a second, empty "SQLITE" entry) even when the value matched exactly.
+    const customOption = choices.includes(value)
+      ? ""
+      : `<option value="${esc(value)}" selected>Custom: ${esc(value)}</option>`;
+    return `<select class="cfg-select" id="${settingControlId(i)}" data-row="${i}"${helpDataAttrs} onchange="markActiveChanged(this)"${helpAttrs}>${choices.map((c) => `<option value="${esc(c)}" ${String(c) === value ? "selected" : ""}>${esc(choiceDisplay(label, c))}</option>`).join("")}${customOption}</select>`;
+  }
+  const type =
+    units === "secret" || /token|secret|password|api_key/i.test(label)
+      ? "password"
+      : "text";
+  return `<input class="cfg-input" id="${settingControlId(i)}" type="${type}" data-row="${i}"${helpDataAttrs} value="${esc(value)}" oninput="markActiveChanged(this)"${helpAttrs}>`;
+}
+function impactNote(row) {
+  const label = rowCell(row, 2).trim();
+  const units = rowCell(row, 4).trim();
+  const note = rowCell(row, 5).trim();
+  let cat = "Planning input",
+    cls = "";
+  if (rowCell(row, 0).includes("System Configuration")) {
+    cat = "System setting";
+    cls = "restart";
+  }
+  if (rowCell(row, 0).includes("Market Pricing") || label.includes("pricing")) {
+    cat = "Pricing";
+    cls = "pricing";
+  }
+  if (
+    rowCell(row, 0).includes("Rebalancing") ||
+    /tax|gain|wash|turnover|solver|roth|pre_tax/i.test(label)
+  ) {
+    cat = "Tax / trade optimizer";
+    cls = "tax";
+  }
+  let extra = "";
+  if (["host", "port", "app_mode"].includes(label))
+    extra = " Startup-only settings may require an app restart.";
+  if (label === "max_build_seconds")
+    extra =
+      " Increase this when Advanced Exact Scalar Monte Carlo or sensitivity grids need more time; restart the app after saving so runtime configuration reloads, or set RETIREMENT_SYSTEM_MAX_BUILD_SECONDS before launching the UI.";
+  if (label === "mc_engine_mode")
+    extra =
+      " Advanced Exact Scalar is slower but advisor-ready. Quick Vectorized is faster and approximate for diagnostics and UI testing.";
+  if (label === "pricing_mode")
+    extra =
+      " LIVE tries quote providers first; CACHE uses cached prices even when stale before live calls; OFFLINE uses cached prices first and only uses cost basis when no cache exists.";
+  if (label === "trade_optimizer_mode")
+    extra =
+      " GLOBAL_TAX_AWARE solves household-level drift/tax/location tradeoffs; HEURISTIC uses the simpler account-by-account engine.";
+  if (label === "selection_action")
+    extra =
+      " include keeps this sleeve eligible; exclude removes it from recommendations; consider_alternate_first counts covered assets before recommending more.";
+  return `<span class="impact-tag ${esc(cls)}">${esc(cat)}</span>${units ? `<span class="impact-tag">${esc(units)}</span>` : ""}<div>${esc(note || "Controls generated reports, workbook build behavior, or recommendation logic.")}${esc(extra)}</div>`;
+}
+function adminDependencyRank(key) {
+  const l = String(key || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_");
+  if (
+    [
+      "enabled",
+      "active",
+      "use",
+      "mode",
+      "policy",
+      "policy_type",
+      "type",
+      "mc_engine_mode",
+      "roth_conversion_policy",
+      "allocation_selection_mode",
+    ].includes(l)
+  )
+    return "00";
+  if (
+    l.includes("policy") ||
+    l.includes("strategy") ||
+    l.endsWith("_mode") ||
+    l.includes("method")
+  )
+    return "01";
+  if (
+    l.includes("target") ||
+    l.includes("bracket") ||
+    l.includes("tier") ||
+    l.includes("guardrail")
+  )
+    return "02";
+  if (
+    l.includes("amount") ||
+    l.includes("pct") ||
+    l.includes("percent") ||
+    l.includes("rate") ||
+    l.includes("headroom")
+  )
+    return "03";
+  if (
+    l.includes("start") ||
+    l.includes("end") ||
+    l.includes("year") ||
+    l.includes("date") ||
+    l.includes("window")
+  )
+    return "04";
+  return "50";
+}
+function filteredSettingRows(rows, opts = {}) {
+  return rows
+    .map((r, i) => ({ r, i }))
+    .filter((x) => {
+      if (!isSetting(x.r)) return false;
+      const sec = rowCell(x.r, 0),
+        sub = rowCell(x.r, 1),
+        key = rowCell(x.r, 2);
+      if (
+        opts.filterKeys &&
+        opts.filterKeys.length &&
+        !opts.filterKeys.includes(key)
+      )
+        return false;
+      if (
+        opts.filterSections &&
+        opts.filterSections.length &&
+        !opts.filterSections.includes(sec)
+      )
+        return false;
+      if (
+        opts.filterSubsections &&
+        opts.filterSubsections.length &&
+        !opts.filterSubsections.includes(sub)
+      )
+        return false;
+      return true;
+    });
+}
+function buildConfigTable(rows) {
+  return buildSectionSettings(rows, {});
+}
+// Backward-test marker: rows:sysCfgRows
+function buildSectionSettings(rows, opts = {}) {
+  const visible = filteredSettingRows(rows, opts);
+  if (!visible.length)
+    return '<div class="no-results">No editable settings found for this view.</div>';
+  const byIdx = new Set(visible.map((x) => x.i));
+  const groupMode =
+    opts.collapseBySubsection || opts.profile === "section_settings";
+  function groupKeyFor(row) {
+    const section = rowCell(row, 0).trim(),
+      sub = rowCell(row, 1).trim();
+    return groupMode ? section + "||" + (sub || "General") : section;
+  }
+  function groupTitleFor(row) {
+    const section = rowCell(row, 0).trim(),
+      sub = rowCell(row, 1).trim();
+    return titleCaseLabel(groupMode ? (sub ? sub : section) : section);
+  }
+  function groupLocationFor(row) {
+    const section = rowCell(row, 0).trim(),
+      sub = rowCell(row, 1).trim();
+    return section + (sub ? " / " + sub : "");
+  }
+  const groups = [];
+  let pendingNote = "";
+  rows.forEach((row, i) => {
+    if (isHeader(row)) return;
+    if (isComment(row)) {
+      const n = cleanComment(rowCell(row, 0));
+      const detail = rowCell(row, 5).trim();
+      if (detail) pendingNote = detail;
+      else if (n) pendingNote = n;
+      return;
+    }
+    if (!isSetting(row) || !byIdx.has(i)) return;
+    const key = groupKeyFor(row);
+    let g = groups.find((x) => x.key === key);
+    if (!g) {
+      g = {
+        key,
+        title: groupTitleFor(row),
+        location: groupLocationFor(row),
+        note: pendingNote,
+        rows: [],
+      };
+      groups.push(g);
+      pendingNote = "";
+    }
+    g.rows.push({ row, i });
+  });
+  groups.forEach((g) =>
+    g.rows.sort((a, b) =>
+      (
+        adminDependencyRank(rowCell(a.row, 2)) + rowCell(a.row, 2)
+      ).localeCompare(
+        adminDependencyRank(rowCell(b.row, 2)) + rowCell(b.row, 2),
+      ),
+    ),
+  );
+  const singleGroup = groups.length === 1;
+  function tableFor(g, headingIndex) {
+    let tbody = "";
+    let currentSub = "";
+    g.rows.forEach(({ row, i }) => {
+      const section = rowCell(row, 0).trim(),
+        sub = rowCell(row, 1).trim();
+      if (!groupMode && sub !== currentSub) {
+        currentSub = sub;
+        tbody += `<tr class="subhead"><td colspan="3">${esc(sub || "General")}</td></tr>`;
+      }
+      const label = titleCaseLabel(rowCell(row, 2));
+      const units = rowCell(row, 4);
+      const note = impactText(row);
+      // No raw key/type subtitle here (e.g. "app_mode · choice") -- matches
+      // the client UI, which never shows a field's internal name or data
+      // type, only its label plus help text. That detail still reaches the
+      // help panel via data-help-units on the control/button below.
+      tbody += `<tr data-filter="${esc((section + " " + sub + " " + rowCell(row, 2) + " " + rowCell(row, 3) + " " + rowCell(row, 5)).toLowerCase())}"><td><label class="setting-name" for="${settingControlId(i)}">${esc(label)}</label></td><td>${settingControl(row, i)}</td><td>${settingHelpButton(row, label)}</td></tr>`;
+    });
+    const table = `<table><thead><tr><th style="width:45%">Setting</th><th>Value</th><th style="width:46px">Help</th></tr></thead><tbody>${tbody}</tbody></table>`;
+    const help =
+      g.note ||
+      "Review these settings before saving; changes flow into workbook schedules, report sections, warnings, recommendations, or system behavior depending on this group.";
+    if (singleGroup) {
+      return `<div class="cfg-section single-section" data-heading-index="${headingIndex}" data-section="${esc((g.location || "").toLowerCase())}" data-help-title="${esc(g.title)}" data-help-note="${esc(help)}"><h3>${esc(g.title)}</h3>${table}</div>`;
+    }
+    return `<details class="cfg-section" data-heading-index="${headingIndex}" data-section="${esc((g.location || "").toLowerCase())}" data-help-title="${esc(g.title)}" data-help-note="${esc(help)}"><summary tabindex="0"><span class="summary-title">${esc(g.title)}</span></summary>${table}</details>`;
+  }
+  return groups.map((g, idx) => tableFor(g, idx)).join("");
+}
+function impactText(row) {
+  return impactNote(row)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function adminFieldGuidance(key, note, units, location) {
+  const l = String(key || "").toLowerCase();
+  if (l === "max_build_seconds")
+    return {
+      purpose:
+        "Sets the maximum number of seconds allowed for a workbook build before timing out.",
+      impact:
+        "Exact scalar Monte Carlo, Social Security claiming sweeps, sensitivity grids, and large client plans may need a higher timeout.",
+      consider:
+        "For interactive exact-scalar Monte Carlo, 900–1800 seconds is typical; for large advisor-grade runs, 2400+ may be appropriate. Save and restart the app after changing it.",
+    };
+  if (l.includes("roth_objective_mode"))
+    return {
+      purpose:
+        "Chooses the optimizer objective for Roth conversion strategy selection.",
+      impact:
+        "Balances lifetime tax, terminal net worth, survivor tax compression, Roth legacy quality, and estate-tax awareness depending on the selected mode.",
+      consider:
+        "Ask: what should the Roth strategy optimize for in this case? Use Balanced when no single objective dominates; choose a narrower mode only when a clear client priority, such as lifetime tax or legacy value, should override other tradeoffs.",
+    };
+  if (l.includes("estate_tax_objective_mode"))
+    return {
+      purpose:
+        "Controls whether projected federal or state estate-tax exposure affects Roth strategy scoring.",
+      impact:
+        "When Balanced or Strong, strategies that worsen projected estate-tax exposure lose objective score; when no estate tax is projected, the score impact should be zero.",
+      consider:
+        "Ask: is estate-tax exposure a real planning constraint for this household? Keep Balanced or Strong if projected estate tax should influence Roth choices; set OFF or Monitor Only if the Roth strategy should ignore estate-tax scoring.",
+    };
+  if (l.includes("headroom_usage"))
+    return {
+      purpose:
+        "Sets the percentage of available tax-bracket or IRMAA headroom the conversion engine is allowed to use.",
+      impact:
+        "Lower percentages leave more margin for dividends, interest, capital gains, rounding, and late-year income surprises.",
+      consider:
+        "Default 95% is intentionally conservative; use 100% only when exact threshold filling is deliberate.",
+    };
+  if (l.includes("irmaa_guardrail"))
+    return {
+      purpose:
+        "Defines how Medicare IRMAA thresholds constrain voluntary conversions.",
+      impact:
+        "A stricter guardrail can reduce conversions to avoid future Medicare premium cliffs; a looser setting can improve Roth funding but accepts more premium risk.",
+      consider:
+        "Avoid Next Tier is the default planning guardrail. Custom caps belong in advisor-reviewed scenarios.",
+    };
+  if (l.includes("roth_conversion_policy"))
+    return {
+      purpose:
+        "Selects the Roth conversion policy family used by the projection engine.",
+      impact:
+        "Optimize compares candidate policies; fill-to-bracket and fill-to-IRMAA apply mechanical caps; fixed-dollar uses the entered annual amount; none allows only forced conversions.",
+      consider:
+        "Use optimize_terminal_tax for the normal default so the workbook explains the selected strategy.",
+    };
+  if (l.includes("roth_target_bracket_rate"))
+    return {
+      purpose:
+        "Sets the marginal tax bracket ceiling for fill-to-bracket Roth conversion strategies.",
+      impact:
+        "Higher brackets allow larger conversions but may increase current tax, IRMAA risk, and cash-flow strain.",
+      consider:
+        "Use this as a ceiling, not a mandate. The 95% headroom setting prevents filling exactly to the dollar.",
+    };
+  if (l.includes("forced") || l.includes("roth_conversion_wife_ira_to_roth"))
+    return {
+      purpose:
+        "Records a user-directed or already-executed Roth conversion that the optimizer should not choose or remove.",
+      impact:
+        "Forced conversions appear separately from voluntary optimizer conversions and still affect AGI, taxes, Medicare thresholds, and account balances.",
+      consider:
+        "Use forced rows only for confirmed actions or explicit scenario assumptions.",
+    };
+  return null;
+}
+function showSectionHelp(ev, btn) {
+  if (ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+  }
+  const d = btn?.closest?.("details.cfg-section");
+  if (!d) return;
+  const box = document.getElementById("adminHelp");
+  const title = d.dataset.helpTitle || "Setting group";
+  const note =
+    d.dataset.helpNote ||
+    "Review this setting group before saving. Changes flow into the workbook and reports.";
+  if (box)
+    box.innerHTML = `<div class="help-title">${esc(title)}</div><div class="help-body"><h3>What this group controls</h3><p>${esc(note)}</p><h3>How the settings work together</h3><p>Rows in the same group are usually read together during build, pricing, tax, optimizer, diagnostics, or report generation. Review related settings before changing a single row in isolation.</p><h3>How to choose values</h3><p>Use row-level help for the exact option meaning. Save after edits, then rebuild or restart only when the setting itself requires it.</p><h3>Likely planning or system impact</h3><p>Changing this group can affect cash flow, terminal net worth, lifetime taxes, post-terminal taxes, risk, workbook narratives, warnings, recommendations, pricing reliability, or app behavior.</p></div>`;
+  d.open = true;
+}
+function showSettingHelpFromControl(ctrl) {
+  showSettingHelp(null, ctrl);
+}
+
+function adminNorm(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_");
+}
+function adminValueOptionsHelp(key, units, value, choices) {
+  const k = adminNorm(key),
+    u = String(units || ""),
+    v = String(value || "");
+  if (/yes\/no|true\/false/i.test(u) || /^(YES|NO|TRUE|FALSE)$/i.test(v))
+    return "<ul><li><b>YES</b>: enable or include this behavior in the system/build.</li><li><b>NO</b>: disable or exclude this behavior.</li></ul>";
+  if (k.includes("pricing_mode"))
+    return "<ul><li><b>LIVE</b>: request fresh provider quotes and cache them when available.</li><li><b>CACHE</b>: use saved cached quotes first, then fallback only when needed.</li><li><b>OFFLINE</b>: avoid external calls and use local/fallback values.</li></ul>";
+  // Every other pick-list field: enumerate its real options instead of the
+  // generic "Expected format: choice." line below. choiceDisplay() reuses
+  // whatever hand-authored display text a field already has (e.g.
+  // mc_engine_mode's "Advanced Exact Scalar (slower, advisor-ready)"), so
+  // fields with richer labels get them here too, not just in the dropdown.
+  if (choices && choices.length)
+    return (
+      "<ul>" +
+      choices
+        .map((c) => `<li><b>${esc(choiceDisplay(key, c))}</b></li>`)
+        .join("") +
+      "</ul>"
+    );
+  if (k.includes("max_build_seconds") || k.includes("timeout"))
+    return "<p>Use seconds. Higher values let long Monte Carlo/workbook builds finish; lower values fail faster when a build is stuck.</p>";
+  if (k.includes("percent") || k.endsWith("_pct") || u.includes("%"))
+    return "<p>Use a percentage. Higher values magnify the related inflation, return, guardrail, allocation, tax, or risk assumption.</p>";
+  if (
+    k.includes("amount") ||
+    k.includes("value") ||
+    k.includes("balance") ||
+    k.includes("tax") ||
+    k.includes("income") ||
+    k.includes("spending") ||
+    u.includes("$")
+  )
+    return "<p>Use dollars. Higher values usually increase the modeled amount; whether that helps or hurts depends on whether this is income/asset or tax/expense/liability.</p>";
+  if (u) return `<p>Expected format: ${esc(units)}.</p>`;
+  return "<p>Use the value that matches the documented system assumption, reference-data source, or operational setting.</p>";
+}
+function adminConnectionHelp(key, location) {
+  const k = adminNorm(key),
+    loc = String(location || "");
+  if (k.includes("pricing"))
+    return "Connects to holdings values, allocation drift, tax-lot estimates, rebalancing recommendations, and pricing diagnostics.";
+  if (k.includes("tax"))
+    return "Connects to tax schedules, Roth scoring, lifetime tax, estate-tax exposure, and QC freshness warnings.";
+  if (k.includes("build") || k.includes("timeout"))
+    return "Connects to UI build reliability, Monte Carlo completion, workbook generation, and final plan_summary output.";
+  if (
+    k.includes("allocation") ||
+    k.includes("optimizer") ||
+    k.includes("trade")
+  )
+    return "Connects to recommended asset allocation, tax-aware trades, drift tolerance, turnover, and recommendation narratives.";
+  if (k.includes("path") || k.includes("folder") || k.includes("csv"))
+    return "Connects to local file adapters, backup/recovery, import/export, and database mirroring.";
+  return `Connects to the ${esc(loc || "current configuration area")} and may be read together with nearby settings during the next build.`;
+}
+function adminDefaultMeaning(key, note, units, location) {
+  const k = adminNorm(key),
+    label = String(key || "setting").replace(/_/g, " "),
+    loc = String(location || "System Configuration");
+  const cleanNote = String(note || "").trim();
+  if (
+    cleanNote &&
+    cleanNote !==
+      "This value is used by workbook generation, planning logic, or recommendation output."
+  )
+    return cleanNote;
+  if (k.includes("pricing"))
+    return `Controls how market values are obtained or reused for holdings in ${loc}. This affects whether account values come from live quotes, cached quotes, or local fallback data.`;
+  if (k.includes("timeout") || k.includes("max_build_seconds"))
+    return `Sets how long the local build process may run before the UI treats it as failed. Longer values give Monte Carlo, workbook, and dashboard generation more time to finish.`;
+  if (k.includes("path") || k.includes("folder") || k.includes("csv"))
+    return `Identifies a local file or adapter location used for import, export, diagnostics, or recovery while the SQLite database remains the primary source of truth.`;
+  if (k.includes("tax") || k.includes("bracket") || k.includes("deduction"))
+    return `Provides a tax-reference assumption used to calculate projected income taxes, lifetime taxes, Roth strategy comparisons, estate-tax exposure, or QC freshness warnings.`;
+  if (k.includes("roth"))
+    return `Controls a Roth conversion setting that can change current-year taxable income, future RMDs, Medicare threshold exposure, survivor taxation, and Roth legacy scoring.`;
+  if (
+    k.includes("allocation") ||
+    k.includes("optimizer") ||
+    k.includes("trade")
+  )
+    return `Controls optimizer or rebalancing behavior used to translate holdings and assumptions into target allocation, drift, recommended trades, turnover, and tax-aware trade limits.`;
+  if (k.includes("enabled") || k.includes("toggle") || k.startsWith("include"))
+    return `Turns a module, report element, diagnostic, or calculation path on or off for future builds.`;
+  if (String(units || "").includes("$"))
+    return `Sets a dollar-denominated system assumption named ${label}. The build reads it as a monetary limit, threshold, fallback value, or model input depending on its configuration group.`;
+  if (
+    String(units || "").includes("%") ||
+    k.includes("pct") ||
+    k.includes("rate")
+  )
+    return `Sets a percentage-based system assumption named ${label}. The build uses it to scale rates, limits, guardrails, returns, inflation, taxes, or optimizer weights.`;
+  return `Controls the ${label} setting in ${loc}. The next save/rebuild uses it together with nearby settings to shape generated outputs, diagnostics, recommendations, or local runtime behavior.`;
+}
+function adminImpactHelp(key, note, units) {
+  const k = adminNorm(key);
+  let directional = "";
+  if (k.includes("timeout"))
+    directional =
+      "Higher timeout values reduce false build failures but can make a truly stuck build take longer to report.";
+  else if (k.includes("pricing_mode"))
+    directional =
+      "LIVE can improve current values but depends on provider availability; CACHE is more stable for routine work; OFFLINE is safest for no-network validation but may use fallback values.";
+  else if (k.includes("enabled") || k.includes("toggle"))
+    directional =
+      "Changing No to Yes usually exposes a module or calculation in outputs; changing Yes to No usually removes it from reports and diagnostics.";
+  else if (k.includes("tax"))
+    directional =
+      "Tax-reference changes can move lifetime taxes, Roth recommendations, estate exposure, and QC warnings.";
+  else
+    directional =
+      "Changing this value can affect TNW, lifetime taxes, interim liquidity, recommendations, warnings, or system reliability after save/rebuild.";
+  return [note, directional].filter(Boolean).join(" ");
+}
+function showSettingHelp(ev, btn) {
+  if (ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+  }
+  const box = document.getElementById("adminHelp");
+  const title = btn?.dataset?.helpTitle || "Setting";
+  const key = btn?.dataset?.helpKey || "";
+  const units = btn?.dataset?.helpUnits || "";
+  const note =
+    btn?.dataset?.helpNote ||
+    "This value is used by workbook generation, planning logic, or recommendation output.";
+  const location = btn?.dataset?.helpLocation || "";
+  const choices = btn?.dataset?.helpChoices
+    ? btn.dataset.helpChoices.split("|")
+    : null;
+  const g = adminFieldGuidance(key, note, units, location) || {};
+  const meaning = g.purpose || adminDefaultMeaning(key, note, units, location);
+  const options =
+    g.options ||
+    adminValueOptionsHelp(key, units, btn?.value || "", choices);
+  const connections = g.connections || adminConnectionHelp(key, location);
+  const impact = g.impact || adminImpactHelp(key, note, units);
+  if (box)
+    box.innerHTML = `<div class="help-title">${esc(title)}</div><div class="help-body"><h3>What this value means</h3><p>${esc(meaning)}</p><h3>Value options and how to choose</h3>${options}<h3>How it relates to this page</h3><p>${connections}</p><h3>Likely impact of changing it</h3><p>${impact.includes("<") ? impact : esc(impact)}</p></div>`;
+  const d = btn?.closest?.("details.cfg-section");
+  if (d) d.open = true;
+}
+function showColumnHelp(ev, btn) {
+  if (ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+  }
+  const box = document.getElementById("adminHelp");
+  const col = btn?.dataset?.col || "Column";
+  const note = btn?.dataset?.note || "Editable CSV adapter column.";
+  if (box)
+    box.innerHTML = `<div class="help-title">${esc(titleCaseLabel(col))}</div><div class="help-body"><h3>What this column means</h3><p>${esc(note)}</p><h3>Value options and how to choose</h3><p>Use values consistent with the column purpose and the other columns in the same row. For choice-like columns, keep spelling consistent so downstream lookups match.</p><h3>How it relates to this table</h3><p>Columns in the same row are read together. A good value in one column can be ignored or misclassified if the account, ticker, source, date, or category columns around it are inconsistent.</p><h3>Likely impact of changing it</h3><p>Column edits can affect classifications, pricing, tax treatment, optimizer behavior, YTD mapping, warnings, or report totals depending on this reference table.</p></div>`;
+}
+function tableColumnNote(profile, col) {
+  const p = COLUMN_HELPERS[profile] || {};
+  return (
+    p[col] ||
+    {
+      section: "Grouping section. Keeps related inputs together.",
+      subsection: "Subgroup within the section.",
+      label: "Setting key used by the model.",
+      value: "Editable value used by workbook/projection logic.",
+      units: "Expected type or units.",
+      notes: "Helper note explaining the setting impact.",
+    }[col] ||
+    "Editable field. Review downstream workbook impact before saving."
+  );
+}
+function gridChoicesFor(profile, col, row, head) {
+  const c = String(col || "").toLowerCase();
+  // "type" means something different per profile -- schema.csv's type is a
+  // Plan Data field's input type, state_tax.csv's type is how its rate is
+  // applied. Matching on column name alone (pre-existing behavior) offered
+  // schema's 13 input-type choices on state_tax's flat/bracket column, a
+  // wrong pick list that happened to go unnoticed because state_tax fell
+  // through to the ungated "generic" profile rather than a dedicated one.
+  if (c === "type" && profile === "state_tax") return ["flat", "bracket"];
+  if (c === "type" && (profile === "schema" || profile === "generic"))
+    return [
+      "text",
+      "choice",
+      "boolean",
+      "date",
+      "percent",
+      "integer",
+      "year",
+      "number",
+      "currency",
+      "dollars",
+      "path",
+      "secret",
+      "covered",
+    ];
+  if (
+    [
+      "required",
+      "exempt_retirement",
+      "exempt_ss",
+      "estate",
+      "blocking",
+    ].includes(c)
+  )
+    return ["TRUE", "FALSE"];
+  if (c === "status")
+    return ["CURRENT_WITHIN_POLICY", "REVIEW_REQUIRED", "STALE", "UNKNOWN"];
+  return null;
+}
+function gridAriaLabel(head, ci, ri) {
+  return esc(titleCaseLabel(head[ci] || "Value") + " row " + (ri + 1));
+}
+function gridControl(profile, h, row, ri, ci, head) {
+  const choices = gridChoicesFor(profile, h, row, head);
+  const val = row[ci] || "";
+  if (choices) {
+    // Same fix as settingControl(): only add a trailing "custom value" option
+    // when the stored value isn't already one of the known choices, instead
+    // of unconditionally appending a blank duplicate.
+    const customOption = choices.includes(val)
+      ? ""
+      : `<option value="${esc(val)}" selected>Custom: ${esc(val)}</option>`;
+    return `<select class="grid-input" aria-label="${gridAriaLabel(head, ci, ri)}" data-row="${ri + 1}" data-col="${ci}" onchange="markGridChanged(this)">${choices.map((c) => `<option value="${esc(c)}" ${String(c) === String(val) ? "selected" : ""}>${esc(c)}</option>`).join("")}${customOption}</select>`;
+  }
+  return `<input class="grid-input" aria-label="${gridAriaLabel(head, ci, ri)}" data-row="${ri + 1}" data-col="${ci}" value="${esc(val)}" oninput="markGridChanged(this)">`;
+}
+function buildDataGrid(rows, profile = "generic") {
+  if (!rows.length) return '<div class="no-results">No rows found.</div>';
+  const head = rows[0];
+  const body = rows.slice(1);
+  return `<div class="scroll"><table class="data-table"><thead><tr>${head.map((h, ci) => `<th>${esc(titleCaseLabel(h))} <button type="button" class="column-help-btn" title="Column help" aria-label="Help for ${esc(h)}" data-col="${esc(h)}" data-note="${esc(tableColumnNote(profile, h))}" onclick="showColumnHelp(event,this)">?</button></th>`).join("")}<th>Actions</th></tr></thead><tbody>${body.map((r, ri) => `<tr data-filter="${esc(r.join(" ").toLowerCase())}">${head.map((h, ci) => `<td>${gridControl(profile, h, r, ri, ci, head)}</td>`).join("")}<td>${deleteIconBtn(`deleteGridRow(${ri + 1})`)}</td></tr>`).join("")}</tbody></table></div><button onclick="addGridRow()">Add row</button>`;
+}
+function summarizeRows(rows) {
+  const settings = rows.filter(isSetting);
+  const sections = new Set(settings.map((r) => rowCell(r, 0)));
+  const pricing = settings.find((r) => rowCell(r, 2) === "pricing_mode");
+  const opt = settings.find((r) => rowCell(r, 2) === "trade_optimizer_mode");
+  return `<div class="cfg-summary"><div class="summary-card"><span class="muted">Sections</span><b>${sections.size}</b></div><div class="summary-card"><span class="muted">Editable settings</span><b>${settings.length}</b></div><div class="summary-card"><span class="muted">Pricing mode</span><b>${esc(pricing ? rowCell(pricing, 3) : "n/a")}</b></div><div class="summary-card"><span class="muted">Trade optimizer</span><b>${esc(opt ? rowCell(opt, 3) : "n/a")}</b></div></div>`;
+}
+function markActiveChanged(el) {
+  const i = Number(el.dataset.row);
+  while (activeEditor.rows[i].length < 6) activeEditor.rows[i].push("");
+  activeEditor.rows[i][3] = el.value;
+  el.classList.add("changed");
+  activeEditor.changed = true;
+  if (activeEditor.file === "system_config.csv") sysCfgChanged = true;
+  announceUnsaved(activeEditor.title);
+}
+function markGridChanged(el) {
+  const r = Number(el.dataset.row),
+    c = Number(el.dataset.col);
+  while (activeEditor.rows[r].length <= c) activeEditor.rows[r].push("");
+  activeEditor.rows[r][c] = el.value;
+  el.classList.add("changed");
+  activeEditor.changed = true;
+  announceUnsaved(activeEditor.title);
+}
+function filterActiveTable() {
+  const cfgEl = document.getElementById("cfgSearch");
+  if (cfgEl && adminSearchScope === "page") adminPageSearchText = cfgEl.value;
+  const q = (
+    adminSearchScope === "page" ? adminPageSearchText : cfgEl?.value || ""
+  )
+    .trim()
+    .toLowerCase();
+  let visible = 0;
+  document.querySelectorAll("#editorBody tr[data-filter]").forEach((tr) => {
+    const show = !q || tr.dataset.filter.includes(q);
+    tr.style.display = show ? "" : "none";
+    if (show) visible++;
+  });
+  document.querySelectorAll("#editorBody details.cfg-section").forEach((d) => {
+    const rows = [...d.querySelectorAll("tr[data-filter]")];
+    const any = rows.some((r) => r.style.display !== "none");
+    d.style.display = any ? "" : "none";
+    if (q && any) d.open = true;
+  });
+  const cnt = document.getElementById("cfgResultCount");
+  if (cnt) cnt.textContent = `${visible} matching rows`;
+  applyEditorHeadingPage(q ? null : 0, false);
+}
+function editorDetails() {
+  return [...document.querySelectorAll("#editorBody details.cfg-section")];
+}
+function applyEditorHeadingPage(page = 0, scroll = true) {
+  const details = editorDetails();
+  if (!details.length) return;
+  if (details.length <= 8) {
+    details.forEach((d) => {
+      d.dataset.pageHidden = "0";
+      if (!d.hasAttribute("data-filter-hidden")) d.style.display = "";
+    });
+    activeEditorHeadingPage = 0;
+    updateEditorHeadingNavPages();
+    return;
+  }
+  activeEditorHeadingPage = Math.max(
+    0,
+    Math.min(page, Math.ceil(details.length / 8) - 1),
+  );
+  details.forEach((d, i) => {
+    const show = Math.floor(i / 8) === activeEditorHeadingPage;
+    d.dataset.pageHidden = show ? "0" : "1";
+    d.style.display = show ? "" : "none";
+  });
+  updateEditorHeadingNavPages();
+  const visible = details.filter((d) => d.style.display !== "none");
+  if (scroll)
+    document
+      .getElementById("editorBody")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function editorParentStep() {
+  return activeEditor?.navStep || activeAdminStep;
+}
+function clearEditorHeadingNavPages() {
+  editorHeadingNavPages = [];
+  renderAdminNav();
+}
+function updateEditorHeadingNavPages() {
+  const details = editorDetails();
+  if (!details.length || details.length <= 8) {
+    editorHeadingNavPages = [];
+    renderAdminNav();
+    return;
+  }
+  const pages = Math.ceil(details.length / 8);
+  const parent = editorParentStep();
+  const parentItem =
+    (lastAdminNavItems || []).find((x) => x.id === parent) || {};
+  editorHeadingNavPages = Array.from({ length: pages }, (_, i) => {
+    const start = i * 8 + 1,
+      end = Math.min(details.length, (i + 1) * 8);
+    return {
+      id: `${parent}_headings_${i}`,
+      group: parentItem.group || "Current editor",
+      title: `${parentItem.title || activeEditor?.title || "Editor"} · headings ${start}-${end}`,
+      desc: "Additional collapsible heading page in the left navigation",
+      action: `showEditorHeadingPage(${i})`,
+      helpKey: navHelpKey(parent),
+    };
+  });
+  renderAdminNav();
+}
+function showEditorHeadingPage(page) {
+  applyEditorHeadingPage(page, false);
+  const id = `${editorParentStep()}_headings_${page}`;
+  setAdminStep(id);
+  document
+    .getElementById("editorBody")
+    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function initEditorInteractions() {
+  const details = editorDetails();
+  if (!details.length) {
+    clearEditorHeadingNavPages();
+    return;
+  }
+  details.forEach((d, idx) => {
+    const summary = d.querySelector("summary");
+    const focusables = [
+      ...d.querySelectorAll(
+        'input,select,textarea,button,a,[tabindex]:not([tabindex="-1"])',
+      ),
+    ].filter((el) => el !== summary && !el.disabled);
+    const last = focusables[focusables.length - 1];
+    if (last) {
+      last.addEventListener("keydown", (ev) => {
+        if (ev.key === "Tab" && !ev.shiftKey) {
+          const next = details[idx + 1];
+          if (next) {
+            if (next.dataset.pageHidden === "1")
+              applyEditorHeadingPage(Math.floor((idx + 1) / 8), false);
+            next.open = true;
+          }
+        }
+      });
+    }
+  });
+  applyEditorHeadingPage(0, false);
+}
+function toggleRawEditor() {
+  const box = document.getElementById("rawBox");
+  box.classList.toggle("open");
+  if (box.classList.contains("open"))
+    document.getElementById("rawCsv").value = rowsToCsv(activeEditor.rows);
+}
+async function loadCsvEditor(def, backAction = "showAppSettings()") {
+  const out = await api("/api/admin/system-config");
+  const rows =
+    out.rows && out.rows.length ? out.rows : parseCsv(out.csv_content || "");
+  activeEditor = {
+    ...def,
+    rows,
+    route: "/api/admin/system-config",
+    title: def.title || def.file,
+    changed: false,
+    backAction,
+  };
+  const body = shouldRenderAsSectionSettings(rows, def)
+    ? buildSectionSettings(rows, def)
+    : buildDataGrid(rows, def.profile);
+  document.getElementById("main").innerHTML =
+    `<h2>${esc(activeEditor.title)}</h2><p class="muted">${esc(out.path)}</p>${def.note ? `<div class="note-box">${esc(def.note)}</div>` : ""}<div class="toolbar compact-toolbar"><input id="cfgSearch" class="cfg-input hidden" aria-label="Search rows, values, or helper notes" placeholder="Search rows, values, or helper notes..." oninput="filterActiveTable()"><span id="cfgResultCount" class="pill">${Math.max(0, rows.length - 1)} rows</span><span><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=true)">Expand all</button><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=false)">Collapse all</button><button onclick="toggleRawEditor()">Advanced raw CSV</button></span></div><div id="editorBody">${body}</div><div id="rawBox" class="advanced-box"><h3>Advanced CSV adapter editor</h3><textarea id="rawCsv" aria-label="Raw CSV adapter data">${esc(rowsToCsv(rows))}</textarea></div><div class="cfg-actions"><button class="primary" onclick="saveActiveEditor()">Save</button><button onclick="loadCsvEditor(activeEditor,activeEditor.backAction)">Reload from disk</button><span class="mini">Save stays visible. Use the left navigation to move between pages; raw CSV fallback is preserved.</span></div>`;
+  initEditorInteractions();
+  msg(activeEditor.title + " loaded");
+}
+async function saveActiveEditor() {
+  const rawOpen = document.getElementById("rawBox")?.classList.contains("open");
+  const body = rawOpen
+    ? { csv_content: document.getElementById("rawCsv").value }
+    : { rows: activeEditor.rows };
+  await api(activeEditor.route, { method: "POST", body: JSON.stringify(body) });
+  if (activeEditor.file === "system_config.csv") sysCfgChanged = false;
+  activeEditor.changed = false;
+  msg(
+    activeEditor.title +
+      " saved. Restart the app if you changed startup-only settings.",
+  );
+  await loadCsvEditor(activeEditor, activeEditor.backAction);
+}
+function addGridRow() {
+  const cols = activeEditor.rows[0]?.length || 1;
+  activeEditor.rows.push(Array(cols).fill(""));
+  loadCsvEditorFromMemory();
+}
+function deleteGridRow(i) {
+  activeEditor.rows.splice(i, 1);
+  loadCsvEditorFromMemory();
+}
+function loadCsvEditorFromMemory() {
+  const def = activeEditor;
+  document.getElementById("editorBody").innerHTML =
+    shouldRenderAsSectionSettings(def.rows, def)
+      ? buildSectionSettings(def.rows, def)
+      : buildDataGrid(def.rows, def.profile);
+  initEditorInteractions();
+  def.changed = true;
+  msg("Unsaved changes in " + def.title);
+}
+// Profiles with their own dedicated column layout must never be coerced into
+// the section/subsection/label/value/units/notes shape settingControl()
+// assumes -- schema.csv's header row (section,subsection,label,TYPE,
+// required,default,min,max,description) used to pass the old bare "does row
+// 0 say 'section'?" heuristic below and get rendered through
+// buildSectionSettings anyway, which read its "type" column as if it were an
+// editable "value" and its "required" column as "units". Editing and saving
+// there would have silently corrupted schema.csv's real type/required data.
+// Profiles that DO want the settings-row UI (section_settings, and anything
+// with no profile at all -- legacy callers) keep using the heuristic.
+const GRID_ONLY_PROFILES = new Set([
+  "security_master",
+  "capital_market",
+  "tax_constants",
+  "asset_correlations",
+  "schema",
+  "state_tax",
+  "tax_update_dashboard",
+]);
+function shouldRenderAsSectionSettings(rows, def) {
+  if (def.profile === "section_settings") return true;
+  if (GRID_ONLY_PROFILES.has(def.profile)) return false;
+  return !!(
+    rows[0] &&
+    rowCell(rows[0], 0).toLowerCase() === "section" &&
+    rowCell(rows[0], 1).toLowerCase() === "subsection"
+  );
+}
