@@ -1412,3 +1412,7 @@ header :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{o
   .nf-switch.on .nf-knob{transform:translateX(20px)}
   .nav-mode .btn{min-height:44px}
 }
+
+.manage-plan-list{list-style:none;margin:8px 0;padding:0}
+.manage-plan-row{display:flex;align-items:center;gap:6px;padding:4px 0}
+.manage-plan-name{flex:1;overflow-wrap:anywhere}
