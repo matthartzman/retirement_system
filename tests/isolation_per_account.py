@@ -117,14 +117,62 @@ def force_rmtree(path: Path) -> None:
     shutil.rmtree(path, ignore_errors=True)
 
 
-_SWEEP = r"""
+_LIST_SIDS = r"""
+Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like 'C:\Users\rpwtest_*' } | ForEach-Object { $_.SID }
+"""
+_REMOVE = r"""
 Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like 'C:\Users\rpwtest_*' } | ForEach-Object {
-    $sid = $_.SID
-    foreach ($key in @("HKU\$sid", "HKU\${sid}_Classes")) { "reg unload ${key}: " + ((reg unload $key 2>&1) -join " ") }
     try { Remove-CimInstance -InputObject $_ -ErrorAction Stop; "removed $($_.LocalPath)" }
     catch { "remove $($_.LocalPath) failed: $($_.Exception.Message)" }
 }
 """
+
+
+def _enable_privileges(*names: str) -> None:
+    """Switch on privileges the token holds but has disabled (``reg unload`` does not, and gets 'Access is denied')."""
+    import ctypes  # noqa: PLC0415
+    from ctypes import wintypes as w  # noqa: PLC0415
+
+    class LUID(ctypes.Structure):
+        _fields_ = [("Low", w.DWORD), ("High", w.LONG)]
+
+    class LAA(ctypes.Structure):
+        _fields_ = [("Luid", LUID), ("Attributes", w.DWORD)]
+
+    class TP(ctypes.Structure):
+        _fields_ = [("Count", w.DWORD), ("Privileges", LAA * 1)]
+
+    k, a = ctypes.WinDLL("kernel32", use_last_error=True), ctypes.WinDLL("advapi32", use_last_error=True)
+    k.GetCurrentProcess.restype = w.HANDLE
+    k.CloseHandle.argtypes = [w.HANDLE]
+    a.OpenProcessToken.argtypes = [w.HANDLE, w.DWORD, ctypes.POINTER(w.HANDLE)]
+    a.LookupPrivilegeValueW.argtypes = [w.LPCWSTR, w.LPCWSTR, ctypes.POINTER(LUID)]
+    a.AdjustTokenPrivileges.argtypes = [w.HANDLE, w.BOOL, ctypes.POINTER(TP), w.DWORD, ctypes.c_void_p, ctypes.c_void_p]
+    tok = w.HANDLE()
+    if not a.OpenProcessToken(k.GetCurrentProcess(), 0x20 | 0x8, ctypes.byref(tok)):  # ADJUST_PRIVILEGES | QUERY
+        return
+    try:
+        for name in names:
+            tp = TP()
+            tp.Count = 1
+            tp.Privileges[0].Attributes = 2  # SE_PRIVILEGE_ENABLED
+            if a.LookupPrivilegeValueW(None, name, ctypes.byref(tp.Privileges[0].Luid)):
+                a.AdjustTokenPrivileges(tok, False, ctypes.byref(tp), 0, None, None)
+    finally:
+        k.CloseHandle(tok)
+
+
+def unload_hive(sid: str) -> list[str]:
+    """RegUnLoadKey for a leaked profile hive and its _Classes hive; one result line each."""
+    import ctypes  # noqa: PLC0415
+    from ctypes import wintypes as w  # noqa: PLC0415
+
+    _enable_privileges("SeRestorePrivilege", "SeBackupPrivilege")
+    a = ctypes.WinDLL("advapi32", use_last_error=True)
+    a.RegUnLoadKeyW.argtypes = [ctypes.c_void_p, w.LPCWSTR]
+    a.RegUnLoadKeyW.restype = w.LONG
+    hku = ctypes.c_void_p(0x80000003)  # HKEY_USERS
+    return [f"RegUnLoadKey {sub}: {a.RegUnLoadKeyW(hku, sub)}" for sub in (sid, f"{sid}_Classes")]
 
 
 def sweep_profiles() -> None:
@@ -133,12 +181,15 @@ def sweep_profiles() -> None:
     remove them until they are unloaded. Retried because the dead workers' handles close a moment after the kill."""
     dest = os.environ.get(DIAG_ENV, "").strip()
     for attempt in range(4):
-        out = subprocess.run(["powershell", "-NoProfile", "-Command", _SWEEP], capture_output=True, text=True)
-        if dest:  # what reg unload / Remove-CimInstance said, for the owner to read after a failed run
+        sids = subprocess.run(["powershell", "-NoProfile", "-Command", _LIST_SIDS], capture_output=True,
+                              text=True).stdout.split()
+        lines = [line for sid in sids for line in unload_hive(sid)]
+        out = subprocess.run(["powershell", "-NoProfile", "-Command", _REMOVE], capture_output=True, text=True)
+        if dest:  # what the unload and Remove-CimInstance said, for the owner to read after a failed run
             try:
                 Path(dest).mkdir(parents=True, exist_ok=True)
                 with (Path(dest) / "profile_sweep.txt").open("a", encoding="utf-8") as fh:
-                    fh.write(f"--- attempt {attempt}\n{out.stdout}{out.stderr}\n")
+                    fh.write(f"--- attempt {attempt}\n" + "\n".join(lines) + f"\n{out.stdout}{out.stderr}\n")
             except OSError:
                 pass
         if not any(p.name.lower().startswith(PREFIX) for p in Path("C:\\Users").iterdir()):
