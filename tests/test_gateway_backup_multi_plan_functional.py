@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import io
 import json
-import os
 import sqlite3
 import tarfile
 from datetime import datetime, timezone
@@ -116,7 +115,6 @@ def test_a_registry_row_outside_the_workspace_or_with_a_bad_name_is_skipped_not_
     assert b"secret" not in path.read_bytes()
 
 
-@pytest.mark.skipif(os.name != "nt", reason="junction")
 def test_a_junction_inside_the_workspace_is_not_followed(server):
     import subprocess
 
