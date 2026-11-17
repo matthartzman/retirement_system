@@ -1,7 +1,8 @@
 # Re-runs the isolation gate (three modules) and the elevated worker-account suite against the INSTALLED build,
 # with real per-account workers, as SYSTEM in session 0 (the way the gateway service runs). Security review
 # condition 6. Run from an ELEVATED PowerShell, with the owner's approval; nothing needs a repository checkout:
-#   powershell -ExecutionPolicy Bypass -File C:\RetirementPlanner\app\tools\run_isolation_on_installed_build.ps1
+#   powershell -ExecutionPolicy Bypass -File "<this checkout>\tools\run_isolation_on_installed_build.ps1"
+#   (the installed copy has this script only after it is re-exported from a main that contains it)
 #   options: -InstallDir C:\RetirementPlanner\app  -Filter "attacks"  -KeepVenv
 # Output: C:\Windows\Temp\rpw_isolation_installed.txt (pytest) and ...\rpw_isolation_setup.txt (venv setup),
 # the pytest log's tail is printed at the end.
@@ -43,10 +44,14 @@ Remove-Item $log, $setup -ErrorAction SilentlyContinue
 Remove-Item $venv, $basetemp -Recurse -Force -ErrorAction SilentlyContinue
 
 "Creating the throwaway test venv (output: $setup) ..."
+# Windows PowerShell 5.1 turns a native command's stderr (pip warnings) into a terminating error under "Stop".
+$ErrorActionPreference = "Continue"
 & $py -m venv $venv *> $setup
+if ($LASTEXITCODE -ne 0) { throw "venv creation failed; see $setup" }
 $vpy = Join-Path $venv "Scripts\python.exe"
 & $vpy -m pip install --disable-pip-version-check -r (Join-Path $InstallDir "requirements.txt") -r (Join-Path $InstallDir "requirements-gateway.txt") "pytest>=8.0,<10" "pytest-timeout>=2.3,<3" *>> $setup
 if ($LASTEXITCODE -ne 0) { throw "pip install failed; see $setup" }
+$ErrorActionPreference = "Stop"
 
 $files = "tests/test_multi_user_isolation_integration.py tests/test_multi_user_isolation_routes_integration.py tests/test_multi_user_isolation_attacks_integration.py tests/test_worker_accounts_elevated_integration.py"
 $k = if ($Filter) { "-k `"$Filter`"" } else { "" }
