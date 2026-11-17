@@ -99,7 +99,10 @@ def _parent_alive(pid: int) -> bool:
         kernel32.OpenProcess.restype = wintypes.HANDLE
         handle = kernel32.OpenProcess(0x1000 | 0x00100000, False, pid)  # QUERY_LIMITED_INFORMATION | SYNCHRONIZE
         if not handle:
-            return False
+            # A per-account worker cannot open its LocalSystem gateway (ERROR_ACCESS_DENIED, 5): that is "can't
+            # tell", not "gone". Only ERROR_INVALID_PARAMETER (87, no such pid) means the parent has ended; the
+            # gateway's kill-on-close Job Object stops the worker if the gateway dies.
+            return ctypes.get_last_error() == 5
         try:
             return kernel32.WaitForSingleObject(handle, 0) == 0x102  # WAIT_TIMEOUT: still running
         finally:
