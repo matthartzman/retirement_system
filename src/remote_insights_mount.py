@@ -62,7 +62,7 @@ class PrefixMount:
         except Exception:  # noqa: BLE001 - never echo exception text to a remote user
             import logging  # noqa: PLC0415
 
-            logging.getLogger(__name__).exception("insights mount: unhandled error")
+            logging.getLogger("retirement_system.insights_mount").exception("insights mount: unhandled error")
             return _json({"success": False, "error": remote_mode.GENERIC_ERROR}, 500)
         return self._clean(response)
 
