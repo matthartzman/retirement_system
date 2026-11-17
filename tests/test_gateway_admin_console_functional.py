@@ -113,7 +113,7 @@ def test_list_has_the_console_shape_and_hides_what_the_gateway_does_not_have(rig
     f = body["features"]
     assert f["grants"] is False and f["require_totp"] is False and f["activity"] is False
     assert f["expiry"] is False and f["notes"] is False and f["end_sessions"] is False and f["edit_name"] is False
-    assert f["unlock"] is True and f["delete_confirm_username"] is True
+    assert f["audit"] is True
     ann = next(u for u in body["users"] if u["id"] == uid)
     assert ann["username"] == "ann" and ann["display_name"] == "Ann" and ann["role"] == "user"
     assert ann["status"] == "active" and ann["expired"] is False and ann["locked"] is False

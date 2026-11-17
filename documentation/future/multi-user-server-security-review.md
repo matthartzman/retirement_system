@@ -184,6 +184,36 @@ Run once each, in this order, with nothing else heavy running (the load test and
 
 The architecture diagram was regenerated for the new `src/gateway/fsguard.py`.
 
+## Admin console hosted by the gateway (integration design, phase 1)
+
+The planner's Users UI (`admin_app/frontend/users.js`, `admin.css`) is now served by the gateway at `/gateway/admin`
+and talks to `src/gateway/admin_console.py`, a compat layer over the existing store calls. New attack surface and how
+it is held:
+
+- **Deny by default.** `app.is_admin_path` treats every path under `/gateway/admin`, `/api/auth/admin` and `/gateway/users`
+  (case-insensitive, prefix match, so `/gateway/administrator` is refused too) as admin-only, in the gate, before any
+  route function runs. `tests/test_gateway_admin_guard_contract.py` walks the route map: a route in the gateway
+  namespace that is not on its short user list must return 403 to a user, 302/401 to an anonymous caller and to a
+  password-only (two-factor pending) session, and a route mentioning `admin` outside the guarded prefixes fails.
+- **No new authorization code path.** Console writes call the same store methods, the same last-admin and lifecycle
+  hooks and the same error mapping as the older routes. The console routes only differ in JSON shape.
+- **Session, CSRF, Origin, Host, Fetch-Metadata** are the gate's, unchanged; the console page adds the per-session
+  `X-CSRF-Token` header itself. Tested on every console write: no token, wrong token, forged Origin, no Origin,
+  cross-site Fetch-Metadata, wrong Host (421 on loopback) and a Funnel Origin on loopback.
+- **CSP** is the gateway's (`default-src 'self'`). The page has no inline script, style or handler (asserted on the served
+  HTML); the Playwright journey fails on any CSP console violation.
+- **Static files** under `/gateway/admin/static/` are an exact four-name allowlist, admin only (the public
+  `/gateway/static/` path does not serve them). `admin.js`, `processes.js` and `index.html` are not served.
+- **Delete** requires the exact username in the request body, checked by the server as well as the dialog.
+- **Name changes** are refused by the server until phase 2 (the dialog shows the name read-only).
+- **Not exposed:** the Admin app's settings, process start/stop and shutdown routes. Nothing in
+  `admin_app/routes_system.py` or `routes_processes.py` is imported by the gateway.
+- **Ordinary users:** no link to the console is shown to them, every console and admin route returns the same generic
+  403 whatever the id, and the isolation test `test_multi_user_isolation_attacks_integration.py` exercises the real
+  gateway for this as well.
+
+Not verified here: the installed build (the console needs `admin_app\frontend` to ship with `src\gateway`).
+
 ## Carried-over open items
 
 From the Phase 3 to 6 notes, none closed by this review:

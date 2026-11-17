@@ -36,7 +36,7 @@ API_BASE = "/api/auth/admin/console"
 FEATURES = {
     "grants": False, "require_totp": False, "activity": False,
     "expiry": False, "notes": False, "end_sessions": False, "edit_name": False,
-    "unlock": True, "delete_confirm_username": True, "audit": True,
+    "audit": True,
 }
 
 

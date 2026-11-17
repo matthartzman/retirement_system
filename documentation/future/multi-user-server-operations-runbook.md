@@ -124,23 +124,29 @@ data folder or the install folder; the key is never inside the backup folder; `C
 * **Logs**: `C:\RetirementPlanner\state\logs\gateway.log` (rotating); each user's `local_state\logs\app.log`
   (1 MB x 3) and `worker_console.log` (one run, plus `.1`). The gateway trims an idle user's console log above 5 MB and
   removes old rotated copies hourly. Logs mask account numbers; do not paste them into chat without reading them.
-* **Audit**: `GET /api/auth/admin/audit` (admins).
+* **Audit**: the Admin console's **Audit log** page (admins), or `GET /api/auth/admin/audit`.
 * **Service**: `& $PY -m src.gateway.service status|stop|start`.
 
 ## 3. User account lifecycle
 
-All steps except break-glass are on the admin **Users** page (`/gateway/users`, requires an admin with two-factor).
-Every action is in the audit log with the admin's name.
+All steps except break-glass are in the **Admin console** at `https://<node>.ts.net:8443/gateway/admin` (an admin with
+two-factor; the old `/gateway/users` address redirects there). The console lists people from `gateway.db`, adds and edits
+them in a dialog, and shows the audit log under **Audit log**. Settings, process start/stop and shutdown are not in it
+and never will be: they stay with the gateway CLI and configuration. Every action is in the audit log with the admin's
+name. Before upgrading the server code, copy `C:\RetirementPlanner\state\gateway.db` aside (the console adds no
+schema change in this phase, but the copy is the rollback for later ones). The console page needs the
+`admin_app\frontend\users.js` and `admin.css` files from the same code drop as `src\gateway`; if either is missing the page
+loads blank and the gateway log says `admin console file missing`.
 
 | Task | How | What happens |
 |---|---|---|
-| **Create** | Users page, add: username, display name, role, a one-time temporary password (say it to them out of band) | Account in `gateway.db`; Windows account `rpw_<id>` and the locked-down folder are made automatically. At first sign-in the user must choose a new password **and enrol two-factor** (QR code or key); nothing else is reachable until then. |
-| **Disable** | Users page, disable | Sessions end at once, the worker stops, the Windows account is disabled, data is kept. Enable reverses it. |
-| **Delete** | Users page, delete (cannot be undone) | Worker stopped, a last encrypted snapshot `<stamp>.user<id>.rpbak` taken, the Windows account, its rights, profile and the `data\users\<id>` folder removed. Verify: `net user rpw_<id>` says no such user, the folder is gone, `ops backup list` shows the snapshot. **The user's data still sits in that snapshot and in every retained full backup** (14 days with the defaults). To purge sooner, delete the snapshot and the older `*.rpbak` files you accept losing. |
+| **Create** | Admin console, Add person: username, display name, role, a one-time temporary password (say it to them out of band) | Account in `gateway.db`; Windows account `rpw_<id>` and the locked-down folder are made automatically. At first sign-in the user must choose a new password **and enrol two-factor** (QR code or key); nothing else is reachable until then. |
+| **Disable** | Admin console, Edit, Password, sessions and removal, Disable | Sessions end at once, the worker stops, the Windows account is disabled, data is kept. Enable reverses it. |
+| **Delete** | Admin console, Edit, Password, sessions and removal; type the person's username to enable Delete (cannot be undone: it says their plans and data are deleted) | Worker stopped, a last encrypted snapshot `<stamp>.user<id>.rpbak` taken, the Windows account, its rights, profile and the `data\users\<id>` folder removed. Verify: `net user rpw_<id>` says no such user, the folder is gone, `ops backup list` shows the snapshot. **The user's data still sits in that snapshot and in every retained full backup** (14 days with the defaults). To purge sooner, delete the snapshot and the older `*.rpbak` files you accept losing. |
 | **User password** | The user: `/gateway/account`. If forgotten: admin, reset password (a new temporary one; they must change it) | Sessions end. |
 | **Lost phone** | Admin, reset two-factor | They re-enrol at next sign-in. |
-| **Locked out** | Admin, unlock | Lockout is 5 failures for 15 minutes otherwise. |
-| **Second admin** | Users page, change role to admin | Any admin can promote or demote; the last active admin cannot be demoted, disabled or deleted. Keep **two** admins so a lost phone is a reset, not an incident. |
+| **Locked out** | Admin console, Edit, Unlock (shown while they are locked) | Lockout is 5 failures for 15 minutes otherwise. |
+| **Second admin** | Admin console, Edit, Role: Administrator, Save | Any admin can promote or demote; the last active admin cannot be demoted, disabled or deleted. Keep **two** admins so a lost phone is a reset, not an incident. |
 | **Break-glass** (every admin locked out) | On the server: `& $PY -m src.gateway.cli break-glass --db C:\RetirementPlanner\state\gateway.db --username owner` | Hidden prompt for a new password; two-factor cleared (re-enrol at next sign-in), account unlocked and enabled, sessions ended, audited as `cli:<windows user>`. Only a Windows administrator on the server can do it. |
 | **Worker account passwords** | Automatic: rotated every `--account-rotate-days` (default 90) with `NetUserChangePassword`; never shown or logged | Nothing to do. There is no manual command. |
 | **Shared price-provider key** | Set the machine environment variable, then restart the service | Passed to workers with `--pass-env`; never put on a command line. |
