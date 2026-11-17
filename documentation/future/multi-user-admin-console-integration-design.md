@@ -1,6 +1,6 @@
 # Multi-user server: one user-management UI (Admin console behind the gateway)
 
-Status: draft
+Status: approved
 Date: 2026-11-17
 
 Owner decision (2026-11-17): retire the gateway's own `/gateway/users` page and put the planner's Admin console
@@ -110,7 +110,7 @@ the gateway's anyway. That is Option B's work plus a second trust boundary, so i
 | Last-admin rule | Enforced in the store, not the UI: demoting, disabling or deleting the only active admin is refused with the same message, surfaced inside the dialog. Tests cover role change, disable and delete, and two concurrent attempts |
 | Audit log (who did what) | The console's "Admin audit" page reads the gateway `audit_log` (actor, event, target, details, client address, listener). It replaces the console's `admin_audit`, whose actor is the fixed string "owner (PC)". The gateway log is a superset (it also records sign-ins and lockouts) |
 | Mandatory two-factor and TOTP reset | The "require two-factor" switch is not shown (section 5). "Reset two-factor" stays. First sign-in after a reset forces re-enrolment |
-| 12-character minimum password | Gateway-mode server value is 12 (`store.py:MIN_PASSWORD_LENGTH`). The console's 10 comes from `access_core.MIN_PASSWORD_LENGTH`, shared with the single-user Admin app and Financial Insights. Reconcile on the server by passing the minimum into the console (server-provided, not a JS constant) and keeping 12 in the gateway store; whether the single-user apps also move to 12 is an owner question |
+| 12-character minimum password | Gateway-mode server value is 12 (`store.py:MIN_PASSWORD_LENGTH`). The console's 10 comes from `access_core.MIN_PASSWORD_LENGTH`, shared with the single-user Admin app and Financial Insights. Reconcile on the server by passing the minimum into the console (server-provided, not a JS constant) and keeping 12 in the gateway store; the single-user apps stay at 10 (decided) |
 | Temporary-password flow | `must_change=True` for every created or reset password, unchanged |
 | Reset password prompt | Replaced by the console's inline field (no `window.prompt`) |
 
@@ -118,8 +118,8 @@ the gateway's anyway. That is Option B's work plus a second trust boundary, so i
 
 | Field | Recommendation | Security effect if wrongly shown or ignored |
 |---|---|---|
-| Access expiry | **Implement** (phase 2). Add `users.expires_at`; refuse at login, TOTP verify and on every session lookup; treat expired like disabled for worker stop | If shown but not enforced, an admin believes access ended when it did not. Enforcement touches the login path, so it needs the most tests |
-| Notes | **Implement or hide** (owner question). Admin-only, never in any user-facing response or in worker identity headers | Low risk if admin-only; a free-text field could hold sensitive data, so it is excluded from the audit log details |
+| Access expiry | **Implement** (decided; phase 2). Add `users.expires_at`; refuse at login, TOTP verify and on every session lookup; treat expired like disabled for worker stop | If shown but not enforced, an admin believes access ended when it did not. Enforcement touches the login path, so it needs the most tests |
+| Notes | **Implement** (decided; phase 2). Admin-only, never in any user-facing response or in worker identity headers | Low risk if admin-only; a free-text field could hold sensitive data, so it is excluded from the audit log details |
 | Planner access grant | **Hide.** Every active user has the planner; "Can sign in" is the Disable/Enable switch | Showing an off switch that does not block anything is false assurance |
 | Financial Insights grant, money view, per-view access | **Hide.** Financial Insights is not in the multi-user server | Same false-assurance risk; no gateway enforcement exists |
 | Require two-factor | **Hide; show "Two-factor: required"** | A working off switch would defeat mandatory TOTP (plan decision 5) on an internet-facing server |
@@ -164,20 +164,24 @@ login-path changes.
 | 1. Console on the gateway | `/gateway/admin` page and static allowlist; shared `users.js` parameterised (base path, CSRF, features, min password); compat layer; deny-by-default admin guard and route-contract test; `/gateway/users` redirect; Playwright journeys | 1 to 1.5 | Reading `users.js` (188 lines) and `admin.css`, the gate; Playwright runs of a real gateway (about 15 s each) | Moderate |
 | 2. Missing admin features | Migration v3 (`expires_at`, `notes`); edit-name and end-sessions routes; expiry enforced on login, TOTP and session lookup; tests | 1 | Login path is security-critical: repeated test-fix cycles in `test_gateway_auth_functional.py`; scope by running only gateway tests while iterating | Moderate to heavy |
 | 3. Retire and document | Audit page on the gateway log; delete-confirmation wording; remove `users.html` and old JS; update runbook, security review and architecture diagram | 0.5 | Docs edits; diagram regeneration | Light |
-| 4. Optional | Per-user activity; import from a local `identity.db` | 0.5 to 1 | New code with little reuse | Moderate |
+| 4. Optional | Per-user activity (no `identity.db` import, decided) | 0.5 | New code with little reuse | Moderate |
 
 Total for phases 1 to 3: about 2.5 to 3 cycles. Not a spend-heavy search: avoid reading `dashboard.js`-sized files; this
 touches `src/gateway/` and `admin_app/frontend/` only. Keep new frontend lines out of `frontend/js` so the size ratchet
 is unaffected (`admin_app/frontend/` and `src/gateway/pages/` are outside it; **not verified** that the ratchet and
 architecture-diagram checks treat `admin_app/frontend` that way).
 
-## 8. Questions for the owner
+## 8. Decisions (owner, 2026-11-17)
 
-1. Confirm option B (the gateway serves the console's Users UI, the standalone `admin_app` is not run or proxied on the server), rather than proxying the whole Admin app?
-2. Access expiry: implement it on the gateway (recommended), or hide it for now?
-3. Notes: implement (admin-only) or hide?
-4. Minimum password: 12 on the multi-user server only, or move the single-user apps (Admin app, Financial Insights) to 12 as well?
-5. People from the desktop `identity.db`: re-create by hand (recommended) or build an import in phase 4?
-6. Settings, process start/stop and shutdown stay off the server (recommended). Confirm.
-7. Delete: require typing the person's username, with a warning that plans and data are deleted?
-8. Close PR 466 (the restyle of the old page), since this supersedes it?
+All eight questions are answered. Nothing below is open.
+
+1. **Option B confirmed.** The gateway hosts the Users UI at `/gateway/admin` on `gateway.db`. `admin_app` is not run or proxied on the server.
+2. **Access expiry: implement** (phase 2), enforced at login, TOTP verify and every session lookup.
+3. **Notes: implement** (phase 2), admin-only, excluded from audit details and from any non-admin response.
+4. **Minimum password: 12 on the multi-user server only.** The single-user apps (Admin app, Financial Insights) and `access_core.MIN_PASSWORD_LENGTH` do not change; the console receives the minimum from the server.
+5. **No import from `identity.db`.** People are re-created by hand (the phase 4 import is dropped).
+6. **Settings, process start/stop and shutdown stay off the server.**
+7. **Delete requires typing the person's username**, with a warning that their plans and data are deleted.
+8. **PR 466 is closed as superseded.**
+
+Phase 4 now contains only the optional per-user activity view. Phases 1 to 3 are unchanged; implementation has not started and begins only on the owner's go-ahead.
