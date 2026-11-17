@@ -4,7 +4,17 @@ Status: draft (review of the stack through Phase 6, dated 2026-11-16; the owner-
 Date: 2026-11-16
 Branch: `claude/multi-user-phase-7-verification-f1a555`, based on the Phase 6 branch.
 
-## Verdict: NO-GO for real users today; GO once the conditions below are met (4 and 5 are now met in code; 1, 2, 3 and 6 remain)
+## Verdict: CONDITIONAL GO (2026-11-17): all six conditions below are met on the owner's machine; the open medium and low findings remain, and the service and Funnel have not been installed yet
+
+Status of the six conditions on 2026-11-17 (owner's machine, installed copy at `C:\RetirementPlanner\app`):
+conditions 1 and 6 by the installed-build run (38 passed, 0 failed, as SYSTEM, per-account workers; no account or
+data folder left, the two leaked profile folders removed after a reboot with the profile service), condition 2 by a
+recursive ACL scan (0 worker-writable entries in the code folder and `C:\Program Files\Python313`) after closing one
+gap (P7-O14), condition 3 by removing the standard-account access to `C:\RetirementPlanning`, conditions 4 and 5 in
+code (PR #451, CI green). "Conditional" because: the real service and Funnel listener have not run yet (condition 4
+still wants one measurement through Funnel; condition 5's seal under the running service is only exercised by the
+test run as SYSTEM), and the open findings below are accepted or scheduled, not fixed. The original text of the
+conditions follows, kept for the record.
 
 Cross-user leakage is the risk the plan names, and this review found and fixed three ways one user could reach
 another user's data or permissions (P7-01, P7-02, P7-03), all through paths the earlier phases had not covered.
@@ -84,6 +94,7 @@ Severity is my judgement for this deployment (10 mutually untrusted users, publi
 | P7-O11 | Low | `RETIREMENT_SYSTEM_PLAN_DB` bypasses confinement (environment only, so not request-reachable). | Only if the supervisor environment is wrong. | Confine it at startup. |
 | P7-O12 | Info | `gateway.db` in backups also holds DPAPI blobs that do not open on a rebuilt machine, and restoring an old copy revives deleted or disabled users; there is no freshness protection on archives. | Disaster-recovery surprise. | Document in the runbook; add a counter or signed manifest later. |
 | P7-O13 | Info | The Monarch connector's `disconnect` returns 403 when the connector flag is off, so a user cannot revoke stored tokens until it is re-enabled. | Design note. | Allow disconnect regardless of the flag. |
+| P7-O14 | Medium | `acl check` inspects the install folder but not its **parent**. On the owner's machine `C:\RetirementPlanner` was created under `C:\` and inherited `Authenticated Users:(M)`, which includes the right to delete or rename `app`, `data` and `state`. A worker could replace `app` and have the SYSTEM service run its code at the next start. Found by reading the ACLs by hand on 2026-11-17 and closed by hand (`icacls C:\RetirementPlanner /inheritance:r /grant:r ...`); the same C: root default also gave every signed-in account Modify on `C:\RetirementPlanning` (condition 3). | Reproduced by reading the ACLs; not exploited. | Make `acl check` and `acl setup` cover the install folder's parent and any folder created under a drive root, and put the `icacls` lock in the runbook as an install step. |
 
 ### Reviewed and found sound
 
