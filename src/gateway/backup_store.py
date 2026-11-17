@@ -32,8 +32,14 @@ SUFFIX = ".rpbak"
 PARTIAL = ".partial"
 _FULL_RE = re.compile(r"^(\d{8}T\d{6}Z)\.rpbak$")
 _USER_RE = re.compile(r"^(\d{8}T\d{6}Z)\.user(\d+)\.rpbak$")
-_USER_MEMBERS = {"plan.rpx": "plan.rpx", "app.db": Path("local_state") / "app.db"}
-_MEMBER_RE = re.compile(r"^users/(\d+)/(plan\.rpx|app\.db)$")
+FORMAT = 2  # 2: every registered plan file of a user, not only plan.rpx (multiple plans per user)
+_APP_DB_REL = Path("local_state") / "app.db"
+# What a user's plan file may be called in an archive (the worker names them: plan.rpx, plans/<32 hex>.rpx,
+# saved_plans/<sanitised name>.rpx). Anything else is never written back, whoever signed the archive.
+_PLAN_REL = r"plan\.rpx|plans/[0-9a-f]{32}\.rpx|saved_plans/[A-Za-z0-9 ._()-]{1,100}\.rpx"
+_PLAN_REL_RE = re.compile(rf"^(?:{_PLAN_REL})$")
+_MEMBER_RE = re.compile(rf"^users/([1-9]\d*)/(app\.db|{_PLAN_REL})$")
+_LIVE_PLAN_GLOBS = ("plan.rpx", "plans/*.rpx", "saved_plans/*.rpx")
 ALLOWED_OTHER = {"gateway.db", "manifest.json"}
 _CHECK_SECONDS = 60.0
 
@@ -66,6 +72,47 @@ def _add(tar: tarfile.TarFile, name: str, data: bytes, mtime: float) -> None:
     tar.addfile(info, io.BytesIO(data))
 
 
+def _registered_plan_rels(app_db_bytes: bytes, root: Path, uid: int, errors: list[str]) -> list[str]:
+    """Workspace-relative POSIX names of the plan files the user's registry lists, each re-verified here:
+    the registry is a user-writable file, so nothing in it is trusted (inside the workspace, no link on the
+    way, a name the worker could have given, a regular file; the demo plan is reproducible and left out)."""
+    rels: list[str] = []
+    try:
+        con = sqlite3.connect(":memory:")
+        try:
+            image = bytearray(app_db_bytes)
+            image[18] = image[19] = 1  # a WAL-mode image cannot be opened in memory; read it as a rollback-journal file
+            con.deserialize(bytes(image))
+            rows = con.execute("SELECT path, kind FROM plan_registry").fetchall()
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return rels
+    base = os.path.normcase(os.path.abspath(root))
+    for raw, kind in rows:
+        if kind == "demo":
+            continue
+        path = Path(os.path.abspath(str(raw)))
+        norm = os.path.normcase(str(path))
+        if not norm.startswith(base + os.sep):
+            errors.append(f"user {uid}: a plan file outside the workspace, skipped")
+            continue
+        try:
+            rel = path.relative_to(Path(os.path.abspath(root))).as_posix()
+        except ValueError:  # same folder spelled in another case: not the name the worker gave it
+            errors.append(f"user {uid}: a plan file with an unexpected name, skipped")
+            continue
+        if not _PLAN_REL_RE.fullmatch(rel):
+            errors.append(f"user {uid}: a plan file with an unexpected name, skipped")
+            continue
+        if fsguard.has_reparse_point(path, root):
+            errors.append(f"user {uid} {rel}: link inside the workspace, skipped")
+            continue
+        if path.is_file() and rel not in rels:
+            rels.append(rel)
+    return rels
+
+
 def write_archive(dest: Path, master: bytes, *, data_root: Path, user_ids: Iterable[int],
                   gateway_db: Path | None, now: float, label: str = "full") -> tuple[Path, dict]:
     """Write one archive file at ``dest`` (atomically, verified); returns (path, report)."""
@@ -81,21 +128,37 @@ def write_archive(dest: Path, master: bytes, *, data_root: Path, user_ids: Itera
                 for uid in user_ids:
                     root = Path(data_root) / "users" / str(int(uid))
                     got = False
-                    for member, rel in _USER_MEMBERS.items():
+                    app_db = root / _APP_DB_REL
+                    app_bytes = b""
+                    rels = ["plan.rpx"]  # the workspace plan is always backed up, registered or not
+                    if app_db.is_file() and not fsguard.has_reparse_point(app_db, root):
+                        try:
+                            app_bytes = sqlite_bytes(app_db)
+                            rels += [r for r in _registered_plan_rels(app_bytes, root, uid, errors) if r not in rels]
+                        except Exception as exc:  # noqa: BLE001 - reported per user, never fatal
+                            errors.append(f"user {uid} app.db: {type(exc).__name__}")
+                            log.error("backup of user %s app.db failed: %s", uid, type(exc).__name__)
+                    elif app_db.is_file():
+                        errors.append(f"user {uid} app.db: link inside the workspace, skipped")
+                    for rel in rels:
                         src = root / rel
                         if fsguard.has_reparse_point(src, root):
-                            errors.append(f"user {uid} {member}: link inside the workspace, skipped")
-                            log.error("backup of user %s %s skipped: a link inside the workspace", uid, member)
+                            errors.append(f"user {uid} {rel}: link inside the workspace, skipped")
+                            log.error("backup of user %s %s skipped: a link inside the workspace", uid, rel)
                             continue
                         if not src.is_file():
                             continue
                         try:
-                            _add(tar, f"users/{int(uid)}/{member}", sqlite_bytes(src), now)
-                            members.append(f"users/{int(uid)}/{member}")
+                            _add(tar, f"users/{int(uid)}/{rel}", sqlite_bytes(src), now)
+                            members.append(f"users/{int(uid)}/{rel}")
                             got = True
                         except Exception as exc:  # noqa: BLE001 - reported per user, never fatal
-                            errors.append(f"user {uid} {member}: {type(exc).__name__}")
-                            log.error("backup of user %s %s failed: %s", uid, member, type(exc).__name__)
+                            errors.append(f"user {uid} {rel}: {type(exc).__name__}")
+                            log.error("backup of user %s %s failed: %s", uid, rel, type(exc).__name__)
+                    if app_bytes:
+                        _add(tar, f"users/{int(uid)}/app.db", app_bytes, now)
+                        members.append(f"users/{int(uid)}/app.db")
+                        got = True
                     if got:
                         users.append(int(uid))
                 if gateway_db is not None and Path(gateway_db).is_file():
@@ -105,7 +168,7 @@ def write_archive(dest: Path, master: bytes, *, data_root: Path, user_ids: Itera
                     except Exception as exc:  # noqa: BLE001
                         errors.append(f"gateway.db: {type(exc).__name__}")
                         log.error("backup of gateway.db failed: %s", type(exc).__name__)
-                manifest = {"format": 1, "label": label, "created_utc": datetime.fromtimestamp(now, timezone.utc).isoformat(),
+                manifest = {"format": FORMAT, "label": label, "created_utc": datetime.fromtimestamp(now, timezone.utc).isoformat(),
                             "users": users, "members": members, "errors": errors}
                 _add(tar, "manifest.json", json.dumps(manifest).encode("utf-8"), now)
             writer.finish()
@@ -167,10 +230,13 @@ def workspace_in_use(workspace: Path) -> bool:
 
 
 def restore_user(archive: Path, master: bytes, *, data_root: Path, user_id: int, stamp: str | None = None) -> dict:
-    """Replace one user's ``plan.rpx`` and ``app.db`` from the archive; no other user is touched.
+    """Replace one user's ``app.db`` and plan files from the archive; no other user is touched.
 
     The whole archive is authenticated first.  The user's current files are moved aside as
     ``*.before-restore-<stamp>`` (kept until you delete them) and the restored files swapped in.
+    A format 2 archive is one point in time for all of the user's plans, so every live plan file
+    (plan.rpx, plans/*.rpx, saved_plans/*.rpx) and app.db is moved aside, including plans made after
+    the backup; a format 1 archive (plan.rpx and app.db only) replaces just those two.
     """
     uid = int(user_id)
     workspace = Path(data_root) / "users" / str(uid)
@@ -193,6 +259,7 @@ def restore_user(archive: Path, master: bytes, *, data_root: Path, user_id: int,
                 if not m or int(m.group(1)) != uid or not member.isfile():
                     continue
                 target = staging / m.group(2)
+                target.parent.mkdir(parents=True, exist_ok=True)
                 with open(target, "wb") as out:
                     shutil.copyfileobj(tar.extractfile(member), out)
             reader.verify_to_end()
@@ -201,10 +268,20 @@ def restore_user(archive: Path, master: bytes, *, data_root: Path, user_id: int,
             fh.close()
         moved: list[tuple[Path, Path]] = []
         try:
-            for member, rel in _USER_MEMBERS.items():
-                new = staging / member
-                if not new.is_file():
-                    continue
+            incoming = sorted((p.relative_to(staging).as_posix() for p in staging.rglob("*") if p.is_file()),
+                              key=lambda n: (n == "app.db", n))  # the registry last
+            full_set = int(manifest.get("format", 1)) >= 2
+            targets = list(incoming)
+            if full_set:  # live plan files that the archive does not hold move aside too
+                for pattern in _LIVE_PLAN_GLOBS:
+                    for cur in workspace.glob(pattern):
+                        rel = cur.relative_to(workspace).as_posix()
+                        if cur.is_file() and not cur.is_symlink() and rel not in targets:
+                            targets.append(rel)
+                if "app.db" not in targets and (workspace / _APP_DB_REL).is_file():
+                    targets.append("app.db")
+            for member in targets:
+                rel = _APP_DB_REL if member == "app.db" else Path(member)
                 live = workspace / rel
                 if fsguard.has_reparse_point(live, workspace):
                     raise RestoreError(f"user {uid}'s folder holds a link; remove it before restoring")
@@ -215,8 +292,9 @@ def restore_user(archive: Path, master: bytes, *, data_root: Path, user_id: int,
                         aside = cur.with_name(cur.name + f".before-restore-{stamp}")
                         os.replace(cur, aside)
                         moved.append((cur, aside))
-                os.replace(new, live)
-                restored.append(str(rel).replace("\\", "/"))
+                if member in incoming:
+                    os.replace(staging / member, live)
+                    restored.append(str(rel).replace("\\", "/"))
         except BaseException:
             for cur, aside in reversed(moved):  # put the user's files back
                 if aside.exists():
