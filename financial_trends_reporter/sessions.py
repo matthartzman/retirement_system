@@ -18,6 +18,7 @@ class Session:
     token: str
     user_id: int
     last_active: float
+    epoch: int = 0  # the person's session_epoch at sign-in; the gate ends the session if it has moved
 
 
 class SessionTable:
@@ -28,10 +29,10 @@ class SessionTable:
         self._sessions: dict[str, Session] = {}
         self.expired_user_ids: list[int] = []  # drained by the caller to log timeouts
 
-    def create(self, user_id: int) -> str:
+    def create(self, user_id: int, epoch: int = 0) -> str:
         token = secrets.token_urlsafe(32)
         with self._lock:
-            self._sessions[token] = Session(token, user_id, self._clock())
+            self._sessions[token] = Session(token, user_id, self._clock(), epoch)
         return token
 
     def get(self, token: str | None) -> Session | None:
@@ -52,6 +53,12 @@ class SessionTable:
             sess = self._sessions.get(token)
             if sess is not None:
                 sess.last_active = max(sess.last_active, self._clock() - max(0, idle_ms) / 1000.0)
+
+    def set_epoch(self, token: str | None, epoch: int) -> None:
+        with self._lock:
+            sess = self._sessions.get(token or "")
+            if sess is not None:
+                sess.epoch = epoch
 
     def end(self, token: str | None) -> None:
         with self._lock:
