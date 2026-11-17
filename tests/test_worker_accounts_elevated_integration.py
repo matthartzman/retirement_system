@@ -249,3 +249,65 @@ def test_a_stored_credential_survives_password_rotation_and_goes_with_the_user(b
     finally:
         sup.shutdown()
     assert not profile.exists(), "the profile (and its Credential Manager vault) outlived the user"
+
+
+# Each stage runs in its own process as the worker account and appends one flushed line per step to a file, so a
+# process killed by the loader (0xC0000142) still leaves the last step it reached. The child has no stdio, so the
+# file is the only channel.
+_STAGE_HEADER = chr(10).join([
+    "import sys, os, traceback",
+    "def note(msg):",
+    "    with open(sys.argv[1], 'a', encoding='utf-8') as f:",
+    "        f.write(msg + chr(10)); f.flush(); os.fsync(f.fileno())",
+    "note('start')",
+    "try:",
+])
+
+
+def _stage(body: str) -> str:
+    lines = [("    " + ln) for ln in body.splitlines()]
+    tail = ["except BaseException:", "    note('EXC ' + traceback.format_exc().replace(chr(10), ' | '))", "note('end')"]
+    return chr(10).join([_STAGE_HEADER, *lines, *tail])
+
+
+_DIAG_STAGES = {
+    "0 bare python": "note('ok')",
+    "1 window station and desktop": chr(10).join([
+        "import ctypes, ctypes.wintypes as w",
+        "u = ctypes.WinDLL('user32', use_last_error=True)",
+        "u.GetProcessWindowStation.restype = ctypes.c_void_p",
+        "u.GetUserObjectInformationW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, w.DWORD, ctypes.c_void_p]",
+        "buf = ctypes.create_unicode_buffer(256); n = w.DWORD()",
+        "ok = u.GetUserObjectInformationW(u.GetProcessWindowStation(), 2, buf, 512, ctypes.byref(n))",
+        "note('window station ok=%s name=%r' % (ok, buf.value))",
+    ]),
+    "2 import platform; platform.uname()": "import platform; note(str(platform.uname()))",
+    "3 import keyring": "import keyring; note('keyring ' + keyring.__file__)",
+    "4 keyring.get_keyring()": "import keyring; note(type(keyring.get_keyring()).__name__)",
+    "5 WinVault set and get": chr(10).join([
+        "import keyring",
+        "keyring.set_password('RetirementSystemDiag', 'u', 'v'); note('set ok')",
+        "note('get ' + str(keyring.get_password('RetirementSystemDiag', 'u')))",
+        "keyring.delete_password('RetirementSystemDiag', 'u'); note('delete ok')",
+    ]),
+}
+
+
+def test_diagnose_worker_credential_manager_stages(box):
+    """Diagnostic, not a gate: runs each step of the credential probe in its own process as a worker account and
+    reports the exit code and what each reached. Output goes to the terminal (use -s) and to
+    ``%TEMP%\rpw_cred_diag.txt`` for pasting back."""
+    uid = 908
+    ws = _ws(box, uid)
+    box["mgr"].ensure(uid, ws)
+    report = []
+    for label, body in _DIAG_STAGES.items():
+        out = ws / "stage.txt"
+        out.unlink(missing_ok=True)
+        code = _run_as(box, uid, [box["python"], "-E", "-s", "-c", _stage(body), str(out)],
+                       env={"RETIREMENT_SYSTEM_REMOTE_MODE": "1"})
+        seen = out.read_text(encoding="utf-8") if out.exists() else "(no file written)"
+        report.append(f"[{label}] exit={code} hex={(code or 0) & 0xFFFFFFFF:#010x}{chr(10)}{seen}")
+    text = (chr(10) * 2).join(report)
+    Path(os.environ.get("TEMP", "C:\Windows\Temp"), "rpw_cred_diag.txt").write_text(text, encoding="utf-8")
+    print(chr(10) + text)
