@@ -24,7 +24,7 @@ Before putting real users on the server:
    gateway from a clean install folder with no owner data.
 4. **Pre-authentication exhaustion (P7-O3): met in code (`f5ff6323`).** The gateway gates on the headers
    before reading a body, caps gateway-owned bodies, bounds connections and password hashing, and enforces a total read
-   deadline. Still worth one owner measurement through Funnel (defaults: 128 connections, 4 hashes, 30 s, 32 KiB).
+   deadline. Still worth one owner measurement through Funnel (defaults: 256 connections, 4 hashes, 30 s, 32 KiB).
 5. **Encrypt the TOTP secrets at rest (P7-O1): met in code (`0a84422f`).** Only an elevated run as LocalSystem confirms
    the service seals with its own account's DPAPI scope; the tests ran as the developer's account. Backups taken before the
    upgrade still hold clear-text secrets until they age out of `--backup-keep`; delete them or re-key if that matters.

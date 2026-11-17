@@ -74,7 +74,7 @@ again with the body. A request refused at the first stage is answered and closed
 - **Body caps.** Gateway-owned routes (login, two-factor, password, admin) accept at most `GatewayConfig.max_body_bytes`
   (32 KiB); only an authenticated, forwarded route may carry up to `proxy_body_bytes` (64 MiB, the plan upload). Over
   the cap: 413 on the declared `Content-Length`, unread.
-- **Connections.** `--max-connections` (default 128 per listener); the next gets `503` with `Retry-After` on the accept
+- **Connections.** `--max-connections` (default 256 per listener); the next gets `503` with `Retry-After` on the accept
   thread, no handler thread is started.
 - **Total deadline.** `--request-deadline` (default 30 s) covers the request line, headers and body together; a reader
   that dribbles bytes cannot reset it. The 60 s per-read timeout still applies to writing the reply.

@@ -15,6 +15,7 @@ import logging
 import re
 import socket
 import threading
+import time
 from dataclasses import dataclass
 
 from src.http_runtime.wsgi_facade import HeaderMap, LocalRequest, Response
@@ -39,6 +40,9 @@ class ProxyConfig:
     connect_timeout: float = 5.0
     read_timeout: float = 120.0
     build_poll_seconds: float = 5.0
+    max_upstream_per_user: int = 16  # parallel requests one user's worker is handed; the rest wait their turn
+    upstream_wait_seconds: float = 60.0  # how long a request may wait for a turn before a 503
+    refused_backoff: tuple[float, ...] = (0.05, 0.1, 0.2, 0.4, 0.8)  # retries of a refused connection to a live worker
 
 
 def _json(payload: dict, status: int = 200) -> Response:
@@ -58,6 +62,8 @@ class WorkerProxy:
         self.supervisor = supervisor
         self.queue = build_queue
         self.config = config or ProxyConfig()
+        self._gates: dict[int, threading.BoundedSemaphore] = {}
+        self._gates_lock = threading.Lock()
         self._wake = threading.Event()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -85,7 +91,25 @@ class WorkerProxy:
         return self._send(req, uid, path)
 
     # ---- plain forwarding ----
+    def _gate(self, uid: int) -> threading.BoundedSemaphore:
+        with self._gates_lock:
+            gate = self._gates.get(uid)
+            if gate is None:
+                gate = self._gates[uid] = threading.BoundedSemaphore(max(1, self.config.max_upstream_per_user))
+            return gate
+
     def _send(self, req: LocalRequest, uid: int, path: str, *, retry: bool = True) -> Response:
+        # A page load can issue 100+ requests at once; hand the worker a bounded number and queue the rest
+        # briefly instead of overrunning its listener (which would look like a dead worker).
+        gate = self._gate(uid)
+        if not gate.acquire(timeout=self.config.upstream_wait_seconds):
+            return _error(req, "Your planner is busy. Please try again shortly.", 503)
+        try:
+            return self._send_gated(req, uid, path, retry=retry)
+        finally:
+            gate.release()
+
+    def _send_gated(self, req: LocalRequest, uid: int, path: str, *, retry: bool = True) -> Response:
         try:
             ep = self.supervisor.endpoint(uid)
         except WorkerUnavailable as exc:
@@ -100,26 +124,36 @@ class WorkerProxy:
         body = req.body or b""
         target = path + (f"?{req.query_string}" if req.query_string else "")
         headers = upstream_headers(req.headers, worker_port=ep.port, worker_token=ep.token, body_length=len(body))
-        conn = http.client.HTTPConnection("127.0.0.1", ep.port, timeout=self.config.connect_timeout)
-        try:
-            conn.connect()
-            conn.sock.settimeout(self.config.read_timeout)
-            conn.request(req.method, target, body=body, headers=headers)
-            resp = conn.getresponse()
-            data = resp.read(self.config.max_response_bytes + 1)
-            status, raw_headers = resp.status, resp.getheaders()
-        except (ConnectionRefusedError, ConnectionResetError, http.client.RemoteDisconnected) as exc:
-            self.supervisor.mark_dead(uid, ep, f"connection failed ({type(exc).__name__})")
-            if retry and req.method in ("GET", "HEAD"):
-                return self._send(req, uid, path, retry=False)
-            return _error(req, "Your planner restarted while handling that request. Please try again.", 502)
-        except (socket.timeout, TimeoutError):
-            return _error(req, "Your planner took too long to answer.", 504)
-        except OSError:
-            LOG.warning("proxy error for user %s", uid, exc_info=True)
-            return _error(req, "Your planner could not be reached.", 502)
-        finally:
-            conn.close()
+        attempt = 0
+        while True:
+            conn = http.client.HTTPConnection("127.0.0.1", ep.port, timeout=self.config.connect_timeout)
+            try:
+                conn.connect()
+                conn.sock.settimeout(self.config.read_timeout)
+                conn.request(req.method, target, body=body, headers=headers)
+                resp = conn.getresponse()
+                data = resp.read(self.config.max_response_bytes + 1)
+                status, raw_headers = resp.status, resp.getheaders()
+                break
+            except (ConnectionRefusedError, ConnectionResetError, http.client.RemoteDisconnected) as exc:
+                # A refusal while the worker process still owns its port is a full backlog, not a dead worker:
+                # back off and try again. Only a worker that has lost its port is stopped.
+                if (attempt < len(self.config.refused_backoff) and self.supervisor.port_owner_ok(ep)
+                        and (req.method in ("GET", "HEAD") or isinstance(exc, ConnectionRefusedError))):
+                    time.sleep(self.config.refused_backoff[attempt])
+                    attempt += 1
+                    continue
+                self.supervisor.mark_dead(uid, ep, f"connection failed ({type(exc).__name__})")
+                if retry and req.method in ("GET", "HEAD"):
+                    return self._send_gated(req, uid, path, retry=False)
+                return _error(req, "Your planner restarted while handling that request. Please try again.", 502)
+            except (socket.timeout, TimeoutError):
+                return _error(req, "Your planner took too long to answer.", 504)
+            except OSError:
+                LOG.warning("proxy error for user %s", uid, exc_info=True)
+                return _error(req, "Your planner could not be reached.", 502)
+            finally:
+                conn.close()
         if len(data) > self.config.max_response_bytes:
             return _error(req, "That response is too large to send.", 502)
         return self._response(status, raw_headers, data, ep)
