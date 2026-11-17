@@ -352,7 +352,7 @@ def test_diagnose_worker_dll_load_failures(box):
 
 
 def test_diagnose_worker_loads_each_dll(box):
-    """Diagnostic, not a gate: load each DLL on its own (``_winapi.LoadLibrary`` needs no ctypes) as the worker
+    """Diagnostic, not a gate: load each DLL on its own (``sqlite3.load_extension`` needs no ctypes) as the worker
     account and as the admin running this test, to name the DLL whose initialisation fails.
     Output: terminal (-s) and ``%TEMP%\rpw_dll_each.txt``."""
     uid = 910
@@ -369,7 +369,7 @@ def test_diagnose_worker_loads_each_dll(box):
     code = chr(10).join([
         "import sqlite3",
         "con = sqlite3.connect(':memory:'); con.enable_load_extension(True)",
-        "for t in sys.argv[2:]:",
+        "for t in open(sys.argv[2], encoding='utf-8').read().splitlines():",
         "    try:",
         "        con.load_extension(t); note('LOADED ' + t)",
         "    except Exception as e:",
@@ -377,7 +377,9 @@ def test_diagnose_worker_loads_each_dll(box):
     ])
     out = ws / "each.txt"
     out.unlink(missing_ok=True)
-    rc = _run_as(box, uid, [box["python"], "-E", "-s", "-c", _stage(code), str(out)] + targets,
+    listing = ws / "targets.txt"  # CreateProcessWithTokenW caps the command line at 1024 characters
+    listing.write_text(chr(10).join(targets), encoding="utf-8")
+    rc = _run_as(box, uid, [box["python"], "-E", "-s", "-c", _stage(code), str(out), str(listing)],
                  env={}, memory=None, procs=None)
     report = [f"[as worker account] exit={(rc or 0) & 0xFFFFFFFF:#010x} via {box.get('last_method')}",
               out.read_text(encoding="utf-8") if out.exists() else "(no file written)"]
