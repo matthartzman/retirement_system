@@ -349,3 +349,42 @@ def test_diagnose_worker_dll_load_failures(box):
     text = (chr(10) * 2).join(report)
     Path(os.environ.get("TEMP", r"C:\Windows\Temp"), "rpw_dll_diag.txt").write_text(text, encoding="utf-8")
     print(chr(10) + text)
+
+
+def test_diagnose_worker_loads_each_dll(box):
+    """Diagnostic, not a gate: load each DLL on its own (``_winapi.LoadLibrary`` needs no ctypes) as the worker
+    account and as the admin running this test, to name the DLL whose initialisation fails.
+    Output: terminal (-s) and ``%TEMP%\rpw_dll_each.txt``."""
+    uid = 910
+    ws = _ws(box, uid)
+    box["mgr"].ensure(uid, ws)
+    py = Path(box["python"]).parent
+    system = ["kernel32", "vcruntime140", "ucrtbase", "advapi32", "bcrypt", "ws2_32", "crypt32", "user32", "gdi32",
+              "ole32", "oleaut32", "propsys", "uxtheme", "shell32"]
+    bundled = ["DLLs\\sqlite3.dll", "DLLs\\libffi-8.dll", "DLLs\\libcrypto-3.dll", "DLLs\\libssl-3.dll",
+               "python312.dll", "vcruntime140.dll"]
+    targets = [str(py / b) for b in bundled]
+    targets += [str(py / "DLLs" / "libffi-8.dll"), str(py / "DLLs" / "_ctypes.pyd")]
+    targets += system
+    code = chr(10).join([
+        "import _winapi",
+        "for t in sys.argv[2:]:",
+        "    try:",
+        "        _winapi.LoadLibrary(t); note('LOADED ' + t)",
+        "    except OSError as e:",
+        "        note('FAILED ' + t + ' winerror=' + str(e.winerror) + ' ' + str(e))",
+    ])
+    out = ws / "each.txt"
+    out.unlink(missing_ok=True)
+    rc = _run_as(box, uid, [box["python"], "-E", "-s", "-c", _stage(code), str(out)] + targets,
+                 env={}, memory=None, procs=None)
+    report = [f"[as worker account] exit={(rc or 0) & 0xFFFFFFFF:#010x} via {box.get('last_method')}",
+              out.read_text(encoding="utf-8") if out.exists() else "(no file written)"]
+    probe = "import _winapi,sys" + chr(10) + chr(10).join(
+        f"try: _winapi.LoadLibrary(r'{t}'); print('LOADED', r'{t}')" + chr(10)
+        + "except OSError as e: print('FAILED', r'" + t + "', e.winerror)" for t in targets)
+    r = subprocess.run([box["python"], "-E", "-s", "-c", probe], capture_output=True, text=True)
+    report += ["[as the admin running the test, same runtime copy] exit=%s" % r.returncode, r.stdout, r.stderr]
+    text = chr(10).join(report)
+    Path(os.environ.get("TEMP", r"C:\Windows\Temp"), "rpw_dll_each.txt").write_text(text, encoding="utf-8")
+    print(chr(10) + text)
