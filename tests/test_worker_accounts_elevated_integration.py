@@ -564,3 +564,35 @@ def test_diagnose_credential_rotation_timing(box, variant, uid):
     after = run("get")
     print(f"RESULT variant={variant} set={first} get_after_rotation={after} expected={value!r}")
     assert after[1].endswith(value), f"{variant}: the credential did not survive rotation: {after}"
+
+
+@pytest.mark.parametrize("variant,uid", [("control_pause_no_rotation", 917), ("retry_a", 918), ("retry_b", 919),
+                                         ("retry_c", 920)])
+def test_diagnose_credential_after_rotation_retries(box, variant, uid):
+    """Diagnostic, not a gate (run as SYSTEM): is a missing credential after rotation permanent or only the first
+    logon after it? ``control_pause_no_rotation`` pauses without rotating, to separate persistence from rotation."""
+    if _process_session(os.getpid()) != 0:
+        pytest.skip("run as SYSTEM (tools/run_elevated_tests_as_system.ps1)")
+    mgr = box["mgr"]
+    ws = _ws(box, uid)
+    mgr.ensure(uid, ws)
+    value = "probe-" + secrets.token_hex(4)
+    env = {"RETIREMENT_SYSTEM_REMOTE_MODE": "1"}
+    out = ws / "cred.txt"
+    argv = [box["python"], "-E", "-s", "-c", _CRED_PROBE, str(_app_copy(box))]
+
+    def run(mode):
+        out.unlink(missing_ok=True)
+        extra = [value] if mode == "set" else []
+        _run_as(box, uid, argv + [mode, str(out)] + extra, env=env)
+        got = out.read_text(encoding="utf-8") if out.exists() else "(no file)"
+        return "OK" if got.endswith(value) else repr(got)
+
+    seq = [("set", run("set"))]
+    time.sleep(10)
+    if variant != "control_pause_no_rotation":
+        mgr.rotate(uid)
+    for label, gap in (("get1", 0), ("get2", 0), ("get3", 5), ("get4", 0)):
+        time.sleep(gap)
+        seq.append((label, run("get")))
+    print(f"RESULT variant={variant} " + " ".join(f"{k}={v}" for k, v in seq))
