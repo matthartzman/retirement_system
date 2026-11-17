@@ -8,9 +8,11 @@ passwords, codes, secrets or cookie values. The schema version is ``PRAGMA user_
 from __future__ import annotations
 
 import hashlib
+import hmac
 import re
 import secrets
 import sqlite3
+import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -31,6 +33,10 @@ ABSOLUTE_SECONDS = 12 * 3600
 PENDING_SECONDS = 5 * 60
 TOUCH_EVERY_SECONDS = 30
 AUDIT_DETAILS_MAX = 300
+# scrypt (n=2**15, r=8) holds ~32 MiB while it runs: only this many password hashes at once, and a caller
+# waits at most HASH_WAIT_SECONDS for a slot before the gateway answers 503 (P7-O3).
+DEFAULT_HASH_CONCURRENCY = 4
+HASH_WAIT_SECONDS = 20.0
 
 _MIGRATIONS: list[tuple[int, list[str]]] = [
     (1, [
@@ -119,14 +125,21 @@ class LastAdminError(ValueError):
     """The change would leave no active admin."""
 
 
+class HashBusyError(RuntimeError):
+    """Every password-hashing slot stayed busy for the whole wait; the caller should retry shortly."""
+
+
 def _token_hash(token: str) -> str:
     return hashlib.sha256((token or "").encode("utf-8")).hexdigest()
 
 
 class GatewayStore:
-    def __init__(self, path: Path | str, scrypt_n: int = access_core.DEFAULT_SCRYPT_N) -> None:
+    def __init__(self, path: Path | str, scrypt_n: int = access_core.DEFAULT_SCRYPT_N, *,
+                 hash_concurrency: int = DEFAULT_HASH_CONCURRENCY, hash_wait: float = HASH_WAIT_SECONDS) -> None:
         self.path = Path(path)
         self._n = int(scrypt_n)
+        self._hash_slots = threading.BoundedSemaphore(max(1, int(hash_concurrency)))
+        self._hash_wait = float(hash_wait)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         conn = self._connect()
         try:
@@ -136,6 +149,18 @@ class GatewayStore:
         self._migrate()
 
     # ---- plumbing ----
+    def _hash(self, password: str, salt: bytes, n: int) -> bytes:
+        """``access_core.hash_password`` under the concurrency cap (P7-O3)."""
+        if not self._hash_slots.acquire(timeout=self._hash_wait):
+            raise HashBusyError("the server is busy checking passwords")
+        try:
+            return access_core.hash_password(password, salt, n)
+        finally:
+            self._hash_slots.release()
+
+    def _password_matches(self, password: str, salt: bytes, n: int, expected: bytes) -> bool:
+        return hmac.compare_digest(self._hash(password, salt, n), expected)
+
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path, timeout=10, isolation_level=None)
         conn.row_factory = sqlite3.Row
@@ -221,7 +246,7 @@ class GatewayStore:
         self._check_role(role)
         self.check_password(password)
         salt = access_core.new_salt()
-        digest = access_core.hash_password(password, salt, self._n)
+        digest = self._hash(password, salt, self._n)
         try:
             with self._tx() as conn:
                 cur = conn.execute(
@@ -310,7 +335,7 @@ class GatewayStore:
         """Set a password, clear any lockout and end the user's sessions (except ``keep_session``, a cookie value)."""
         self.check_password(password)
         salt = access_core.new_salt()
-        digest = access_core.hash_password(password, salt, self._n)
+        digest = self._hash(password, salt, self._n)
         with self._tx() as conn:
             row = self._locked_user(conn, user_id)
             conn.execute("UPDATE users SET pw_hash=?, pw_salt=?, scrypt_n=?, must_change=?, failed_count=0, locked_until=0,"
@@ -329,18 +354,18 @@ class GatewayStore:
         user = self.get_user(user_id)
         if not user:
             return False
-        return access_core.password_matches(password, user["pw_salt"], user["scrypt_n"], user["pw_hash"])
+        return self._password_matches(password, user["pw_salt"], user["scrypt_n"], user["pw_hash"])
 
     # ---- sign-in ----
     def verify_password(self, username: str, password: str, now: float) -> LoginCheck:
         user = self.find_user(username)
         if user is None:
-            access_core.burn_password_check(password, self._n)
+            self._hash(password, access_core._DUMMY_SALT, self._n)
             return LoginCheck(False, None, "unknown")
         if user["locked_until"] > now:
-            access_core.burn_password_check(password, self._n)
+            self._hash(password, access_core._DUMMY_SALT, self._n)
             return LoginCheck(False, user["id"], "locked")
-        matches = access_core.password_matches(password, user["pw_salt"], user["scrypt_n"], user["pw_hash"])
+        matches = self._password_matches(password, user["pw_salt"], user["scrypt_n"], user["pw_hash"])
         if user["disabled"]:
             return LoginCheck(False, user["id"], "disabled")
         if matches:

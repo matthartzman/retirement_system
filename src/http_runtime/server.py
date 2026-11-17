@@ -28,6 +28,9 @@ class _Handler(BaseHTTPRequestHandler):
         headers = {k: v for k, v in self.headers.items()}
         app = getattr(self.server, "retirement_app")
         response: Response = app.handle_http(self.command, self.path, headers, body, self.client_address[0] if self.client_address else "127.0.0.1")
+        self._send_response(response)
+
+    def _send_response(self, response: Response) -> None:
         payload = response.get_data()
         self.send_response(int(response.status_code))
         sent_length = False
