@@ -11,6 +11,7 @@
   label { display: block; font-size: .85rem; margin-top: 12px; }
   input { width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px; font-size: 1rem; }
   button { margin-top: 16px; width: 100%; padding: 10px; font-size: 1rem; }
+  [hidden] { display: none !important; }
   #err { color: #b42318; margin-top: 12px; min-height: 1.2em; font-size: .9rem; }
 </style>
 </head>
@@ -19,6 +20,7 @@
   <h1>Financial Insight</h1>
   <label>Username <input id="u" autocomplete="username" autocapitalize="none" required></label>
   <label>Password <input id="p" type="password" autocomplete="current-password" required></label>
+  <label id="codeRow" hidden>Code from your authenticator app (or a recovery code) <input id="c" autocomplete="one-time-code" inputmode="text" autocapitalize="characters"></label>
   <button type="submit">Sign in</button>
   <div id="err" role="alert"></div>
 </form>
@@ -29,9 +31,10 @@ document.getElementById("f").addEventListener("submit", async (e) => {
   err.textContent = "";
   try {
     const r = await fetch("/api/signin", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: document.getElementById("u").value, password: document.getElementById("p").value }) });
+      body: JSON.stringify({ username: document.getElementById("u").value, password: document.getElementById("p").value, code: document.getElementById("c").value }) });
     const j = await r.json();
-    if (r.ok && j.success) { location.href = j.must_change ? "/change-password" : "/"; return; }
+    if (r.ok && j.success) { location.href = j.must_change ? "/change-password" : j.needs_totp ? "/totp" : "/"; return; }
+    if (j.needs_code) { document.getElementById("codeRow").hidden = false; document.getElementById("c").focus(); }
     err.textContent = j.error || "Sign-in failed.";
   } catch (x) { err.textContent = "Could not reach the server."; }
 });

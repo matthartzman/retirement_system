@@ -34,7 +34,9 @@ from src.stores import SchemaVersionError  # noqa: E402
 
 from financial_trends_reporter import account_registry, balance_series, flows, liquid_change, live_snapshot, percent_view, plan_annuity_values, projections, realized_view, spending_window  # noqa: E402
 from financial_trends_reporter.access_routes import register_access  # noqa: E402
-from financial_trends_reporter.access_store import DB_FILENAME as ACCESS_DB_FILENAME, AccessStore  # noqa: E402
+from financial_trends_reporter.access_store import DB_FILENAME as ACCESS_DB_FILENAME  # noqa: E402
+from financial_trends_reporter.admin_launch import ensure_admin_app  # noqa: E402
+from src.identity.store import DB_FILENAME as IDENTITY_DB_FILENAME, IdentityStore, open_identity_store  # noqa: E402
 from financial_trends_reporter.listeners import ListenerApp, check_funnel_target  # noqa: E402
 from financial_trends_reporter.sessions import SessionTable  # noqa: E402
 from financial_trends_reporter.app_sync import sync_from_app  # noqa: E402
@@ -72,8 +74,8 @@ def _parse_spending_window(args) -> tuple[date, date]:
     return start, end
 
 
-def create_app(retirement_system_dir: Path, log_path: Path | None = None, access_store: AccessStore | None = None,
-               sessions: SessionTable | None = None, clock=time.time, percent_basis=None) -> Flask:
+def create_app(retirement_system_dir: Path, log_path: Path | None = None, access_store: IdentityStore | None = None,
+               sessions: SessionTable | None = None, clock=time.time, percent_basis=None, open_admin=None) -> Flask:
     app = Flask("financial_trends_reporter", static_folder=str(_APP_ROOT / "frontend"))
     resolved_log_path = log_path or default_log_path(_APP_ROOT)
 
@@ -449,12 +451,14 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
 
     register_access(
         app,
-        access_store or AccessStore(resolved_log_path.with_name(ACCESS_DB_FILENAME)),
+        access_store or open_identity_store(Path(retirement_system_dir) / "local_state" / IDENTITY_DB_FILENAME,
+                                            legacy_access_path=resolved_log_path.with_name(ACCESS_DB_FILENAME)),
         sessions or SessionTable(),
         clock=clock,
         percent_basis=percent_basis or (lambda: percent_view.scale_basis(
             balances_db, read_history(resolved_log_path),
             plan_annuity_values.account_values(retirement_system_dir, balances_db))),
+        open_admin=open_admin or (lambda: ensure_admin_app(Path(retirement_system_dir))),
     )
     return app
 

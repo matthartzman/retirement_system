@@ -2,24 +2,29 @@
 
 Generalised from the Financial Insights ``AccessStore``. One SQLite file (``local_state/identity.db``)
 holds every sign-in for every app. Passwords are scrypt-hashed and never stored or logged readably.
-Schema version starts at 3 so it continues from ``access.db``'s ``user_version = 2``.
+Schema version starts at 3 so it continues from ``access.db``'s ``user_version = 2``; version 4 adds
+``users.totp_required`` (two-factor sign-in, see ``totp.py``).
 """
 from __future__ import annotations
 
+import hmac
 import json
 import sqlite3
 import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Callable, Literal
 
 from src import access_core
+from . import totp as totp_lib
 from src.access_core import LOCK_SECONDS, MAX_FAILED_BEFORE_LOCK, MIN_PASSWORD_LENGTH  # noqa: F401 - public names
 
 DB_FILENAME = "identity.db"
 LEGACY_ACCESS_DB = "access.db"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
+PENDING_ENROLMENT_SECONDS = 10 * 60
+MAX_ENROLMENT_ATTEMPTS = 5
 THROTTLE_WINDOW_SECONDS = 10 * 60
 THROTTLE_FREE_FAILURES = 20
 THROTTLE_MAX_DELAY_SECONDS = 60.0
@@ -46,7 +51,8 @@ CREATE TABLE IF NOT EXISTS users (
     status TEXT NOT NULL DEFAULT 'active',
     expires_at REAL,
     session_epoch INTEGER NOT NULL DEFAULT 0,
-    notes TEXT NOT NULL DEFAULT ''
+    notes TEXT NOT NULL DEFAULT '',
+    totp_required INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE IF NOT EXISTS app_grants (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -90,7 +96,8 @@ class LoginResult:
     ok: bool
     user_id: int | None
     must_change: bool
-    reason: Literal["ok", "bad", "locked"]
+    reason: Literal["ok", "bad", "locked", "totp", "bad_code"]  # "totp": password right, a code is needed
+    needs_enrolment: bool = False  # signed in, but must enrol a second factor before anything else
 
 
 class LastAdminError(ValueError):
@@ -104,9 +111,12 @@ def default_db_path() -> Path:
 
 
 class IdentityStore:
-    def __init__(self, path: Path, scrypt_n: int = 2**15) -> None:
+    def __init__(self, path: Path, scrypt_n: int = 2**15, totp_key: Callable[[], bytes] | None = None) -> None:
         self.path = Path(path)
         self._n = scrypt_n
+        self._totp_key_fn = totp_key or totp_lib.default_key
+        self._totp_key_cache: bytes | None = None
+        self._pending: dict[int, dict] = {}
         self._lock = threading.RLock()
         self._throttle = access_core.FailureThrottle(THROTTLE_WINDOW_SECONDS, THROTTLE_FREE_FAILURES, THROTTLE_MAX_DELAY_SECONDS)
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -114,6 +124,9 @@ class IdentityStore:
             conn = self._conn()
             try:
                 conn.executescript(_SCHEMA)
+                if "totp_required" not in {r["name"] for r in conn.execute("PRAGMA table_info(users)")}:
+                    # Existing people default to required, so they are prompted to enrol at next sign-in.
+                    conn.execute("ALTER TABLE users ADD COLUMN totp_required INTEGER NOT NULL DEFAULT 1")
                 conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
                 conn.commit()
             finally:
@@ -170,7 +183,7 @@ class IdentityStore:
     def add_user(self, display_name: str, username: str, temp_password: str, now: float | None = None, *,
                  role: str = "user", expires_at: float | None = None, notes: str = "",
                  money_view: str | None = "percent", insights: bool = True, must_change: bool = True,
-                 granted_by: str = "") -> int:
+                 granted_by: str = "", totp_required: bool = True) -> int:
         """Create an account. ``insights=True`` (the default) also gives the Financial Insights grant."""
         now = self._now(now)
         username = (username or "").strip().lower()
@@ -185,9 +198,9 @@ class IdentityStore:
         try:
             cur = self._run(
                 "INSERT INTO users(display_name, username, pw_hash, pw_salt, scrypt_n, must_change, created_at, updated_at,"
-                " role, expires_at, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                " role, expires_at, notes, totp_required) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (display_name.strip(), username, access_core.hash_password(temp_password, salt, self._n), salt, self._n,
-                 int(must_change), now, now, role, expires_at, (notes or "")[:500]),
+                 int(must_change), now, now, role, expires_at, (notes or "")[:500], int(totp_required)),
             )
         except sqlite3.IntegrityError:
             raise ValueError("that username is already in use") from None
@@ -220,6 +233,7 @@ class IdentityStore:
                 "expired": r["expires_at"] is not None and r["expires_at"] <= now,
                 "last_signin_at": r["last_signin_at"], "must_change": bool(r["must_change"]),
                 "locked": r["locked_until"] > now, "session_epoch": r["session_epoch"],
+                "totp_required": bool(r["totp_required"]), "totp_enrolled": self.totp_enrolled(r["id"]),
                 "money_view": next((g["money_view"] for g in grants if g["app"] == "insights"), None) or "percent",
                 "grants": grants,
             })
@@ -298,6 +312,7 @@ class IdentityStore:
 
     def reset_totp(self, user_id: int) -> bool:
         """Remove a person's second factor (they enrol again) and end their sessions. True if one was enrolled."""
+        self._pending.pop(user_id, None)
         had = bool(self._run("DELETE FROM totp WHERE user_id=?", (user_id,)).rowcount)
         self.end_sessions(user_id)
         return had
@@ -369,9 +384,116 @@ class IdentityStore:
         rows = self._run("SELECT * FROM app_grants WHERE user_id=? ORDER BY app", (user_id,)).fetchall()
         return [self._grant_dict(r) for r in rows]
 
+    # ---- two-factor (TOTP) ----
+    def _key(self) -> bytes:
+        if self._totp_key_cache is None:
+            self._totp_key_cache = self._totp_key_fn()
+        return self._totp_key_cache
+
+    def set_totp_required(self, user_id: int, required: bool, now: float | None = None) -> None:
+        if not self.get_user(user_id):
+            raise ValueError("no such user")
+        self._run("UPDATE users SET totp_required=?, updated_at=? WHERE id=?", (int(bool(required)), self._now(now), user_id))
+
+    def totp_enrolled(self, user_id: int) -> bool:
+        return bool(self._run("SELECT 1 FROM totp WHERE user_id=?", (user_id,)).fetchall())
+
+    def recovery_codes_left(self, user_id: int) -> int:
+        rows = self._run("SELECT recovery_codes FROM totp WHERE user_id=?", (user_id,)).fetchall()
+        return len(json.loads(rows[0]["recovery_codes"])) if rows else 0
+
+    def begin_enrolment(self, user_id: int, now: float | None = None) -> str:
+        """Start enrolling a second factor; returns the new secret (base32), shown to the person once.
+        The secret is held in memory only until ``confirm_enrolment`` proves their authenticator works."""
+        now = self._now(now)
+        if not self.get_user(user_id):
+            raise ValueError("no such user")
+        if self.totp_enrolled(user_id):
+            raise ValueError("two-factor sign-in is already set up")
+        self._key()  # fail early (credential store unavailable) rather than after the person scanned it
+        secret = totp_lib.new_secret()
+        with self._lock:
+            self._pending[user_id] = {"secret": secret, "expires": now + PENDING_ENROLMENT_SECONDS, "attempts": 0}
+        return secret
+
+    def confirm_enrolment(self, user_id: int, code: str, now: float | None = None) -> list[str] | None:
+        """Finish enrolment with a code from the new secret. Returns the recovery codes (shown once), or None for a
+        wrong code. After a few wrong codes the pending secret is dropped and ``begin_enrolment`` must be repeated."""
+        now = self._now(now)
+        with self._lock:
+            pend = self._pending.get(user_id)
+            if pend is None or pend["expires"] <= now:
+                self._pending.pop(user_id, None)
+                raise ValueError("start the setup again")
+            step = totp_lib.match_step(pend["secret"], code, now)
+            if step is None:
+                pend["attempts"] += 1
+                self._throttle.record(now)
+                if pend["attempts"] >= MAX_ENROLMENT_ATTEMPTS:
+                    self._pending.pop(user_id, None)
+                return None
+            del self._pending[user_id]
+            key = self._key()
+            codes = totp_lib.new_recovery_codes()
+            try:
+                self._run("INSERT INTO totp(user_id, secret, enrolled_at, last_used_step, recovery_codes) VALUES (?,?,?,?,?)",
+                          (user_id, totp_lib.seal(pend["secret"].encode(), key, user_id), now, step,
+                           json.dumps([totp_lib.hash_recovery(c, key) for c in codes])))
+            except sqlite3.IntegrityError:
+                raise ValueError("two-factor sign-in is already set up") from None
+            return codes
+
+    def regenerate_recovery_codes(self, user_id: int, code: str, now: float | None = None) -> list[str] | None:
+        """New recovery codes (the old ones stop working), after a valid authenticator code. None if the code is wrong."""
+        now = self._now(now)
+        with self._lock:
+            if not self.totp_enrolled(user_id) or not self._accept_second_factor(user_id, code, now, allow_recovery=False):
+                self._throttle.record(now)
+                return None
+            key = self._key()
+            codes = totp_lib.new_recovery_codes()
+            self._run("UPDATE totp SET recovery_codes=? WHERE user_id=?",
+                      (json.dumps([totp_lib.hash_recovery(c, key) for c in codes]), user_id))
+            return codes
+
+    def _accept_second_factor(self, user_id: int, code: str, now: float, allow_recovery: bool = True) -> bool:
+        """True if ``code`` is a fresh authenticator code (a step newer than the last accepted: replay is refused)
+        or an unused recovery code (consumed). Never raises for a bad code; raises only if the key is unavailable."""
+        rows = self._run("SELECT secret, last_used_step, recovery_codes FROM totp WHERE user_id=?", (user_id,)).fetchall()
+        if not rows:
+            return False
+        key = self._key()
+        if totp_lib.looks_like_recovery(code):
+            if not allow_recovery:
+                return False
+            hashes = json.loads(rows[0]["recovery_codes"])
+            want = totp_lib.hash_recovery(code, key)
+            match = next((h for h in hashes if hmac.compare_digest(h.encode(), want.encode())), None)
+            if match is None:
+                return False
+            left = [h for h in hashes if h != match]
+            # compare-and-swap so two simultaneous uses of one code cannot both succeed
+            return bool(self._run("UPDATE totp SET recovery_codes=? WHERE user_id=? AND recovery_codes=?",
+                                  (json.dumps(left), user_id, rows[0]["recovery_codes"])).rowcount)
+        try:
+            secret = totp_lib.unseal(rows[0]["secret"], key, user_id).decode()
+        except totp_lib.SealError:
+            return False  # a secret we cannot read never lets anyone in
+        step = totp_lib.match_step(secret, code, now)
+        if step is None or step <= int(rows[0]["last_used_step"]):
+            return False
+        return bool(self._run("UPDATE totp SET last_used_step=? WHERE user_id=? AND last_used_step<?",
+                              (step, user_id, step)).rowcount)
+
     # ---- sign-in ----
-    def verify_login(self, username: str, password: str, now: float) -> LoginResult:
-        """Check username and password. A disabled or expired account is refused exactly like a wrong password."""
+    def verify_login(self, username: str, password: str, now: float, code: str | None = None) -> LoginResult:
+        """Check username and password, then the second factor when one is enrolled.
+
+        A disabled or expired account is refused exactly like a wrong password. With a second factor enrolled and no
+        ``code`` the result is ``reason="totp"`` (nothing is counted). A wrong code counts toward the same lockout and
+        global throttle as a wrong password, and a right password alone never clears the failure count for such a
+        person, so guessing codes while re-sending the password cannot dodge the lockout.
+        """
         username = (username or "").strip().lower()
         with self._lock:
             rows = self._run("SELECT * FROM users WHERE username=?", (username,)).fetchall()
@@ -386,8 +508,19 @@ class IdentityStore:
             if row["locked_until"] > now:
                 return LoginResult(False, row["id"], False, "locked")
             if access_core.password_matches(password, row["pw_salt"], row["scrypt_n"], row["pw_hash"]):
+                enrolled = self.totp_enrolled(row["id"])
+                if enrolled:
+                    if not (code or "").strip():
+                        return LoginResult(False, row["id"], False, "totp")
+                    if not self._accept_second_factor(row["id"], code, now):
+                        self._throttle.record(now)
+                        failed, locked_until = access_core.failure_outcome(row["failed_count"], now)
+                        self._run("UPDATE users SET failed_count=?, locked_until=? WHERE id=?",
+                                  (failed, locked_until, row["id"]))
+                        return LoginResult(False, row["id"], False, "locked" if locked_until else "bad_code")
                 self._run("UPDATE users SET failed_count=0 WHERE id=?", (row["id"],))
-                return LoginResult(True, row["id"], bool(row["must_change"]), "ok")
+                return LoginResult(True, row["id"], bool(row["must_change"]), "ok",
+                                   needs_enrolment=bool(row["totp_required"]) and not enrolled)
             self._throttle.record(now)
             failed, locked_until = access_core.failure_outcome(row["failed_count"], now)
             self._run("UPDATE users SET failed_count=?, locked_until=? WHERE id=?", (failed, locked_until, row["id"]))
@@ -484,9 +617,9 @@ class IdentityStore:
 
 
 def open_identity_store(path: Path | None = None, *, legacy_access_path: Path | None = None,
-                        scrypt_n: int = 2**15) -> IdentityStore:
+                        scrypt_n: int = 2**15, totp_key: Callable[[], bytes] | None = None) -> IdentityStore:
     """Open (creating if needed) the identity store, migrating a legacy ``access.db`` on first start."""
-    store = IdentityStore(path or default_db_path(), scrypt_n=scrypt_n)
+    store = IdentityStore(path or default_db_path(), scrypt_n=scrypt_n, totp_key=totp_key)
     if legacy_access_path is not None:
         store.migrate_access_db(legacy_access_path)
     return store

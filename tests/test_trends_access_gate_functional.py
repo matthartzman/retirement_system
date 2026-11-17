@@ -6,12 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from financial_trends_reporter.access_store import AccessStore
+from src.identity.store import IdentityStore
+
 from financial_trends_reporter.listeners import ListenerApp, check_funnel_target
 from financial_trends_reporter.main import create_app
 from financial_trends_reporter.sessions import SessionTable
 
 PW = "correct horse"
+TOTP_KEY = bytes(range(32))  # a fixed sealing key, so tests never touch the credential store
 
 
 SHARED_MONEY_JSON = json.dumps({"total": 5000.0, "days": 3})  # one cached string, like the spending cache
@@ -23,10 +25,10 @@ class Rig:
         (base / "input").mkdir(parents=True)
         (base / "local_state").mkdir(parents=True)
         self.now = [1000.0]
-        self.store = AccessStore(tmp_path / "access.db", scrypt_n=2**4)
+        self.store = IdentityStore(tmp_path / "identity.db", scrypt_n=2**4, totp_key=lambda: TOTP_KEY)
         self.sessions = SessionTable(clock=lambda: self.now[0])
         self.app = create_app(base, log_path=tmp_path / "log.jsonl", access_store=self.store,
-                              sessions=self.sessions, clock=lambda: self.now[0],
+                              sessions=self.sessions, clock=lambda: self.now[0], open_admin=lambda: False,
                               **({"percent_basis": percent_basis} if percent_basis else {}))
         if test_routes:
             self._add_test_routes()
@@ -55,8 +57,8 @@ class Rig:
         def test_money_cached():
             return money(SHARED_MONEY_JSON)
 
-    def add(self, username="ann", must_change=False, money_view="dollars"):
-        uid = self.store.add_user(username.title(), username, PW, money_view=money_view)
+    def add(self, username="ann", must_change=False, money_view="dollars", totp_required=False):
+        uid = self.store.add_user(username.title(), username, PW, money_view=money_view, totp_required=totp_required)
         if not must_change:
             self.store.set_password(uid, PW, must_change=False)
         return uid
@@ -131,12 +133,14 @@ def test_lockout_returns_429(rig):
     assert resp.status_code == 429 and token is None
 
 
-def test_remote_has_no_owner_only_routes_even_when_signed_in(rig):
+def test_remote_has_no_local_only_routes_even_when_signed_in(rig):
     rig.add()
     _, token = rig.signin()
-    for path in ("/api/people", "/api/activity", "/access.js"):
+    for path in ("/api/people", "/api/activity", "/access.js"):  # the people screens moved to the Admin app
         assert rig.call(rig.remote, "GET", path, cookie=token).status_code == 404
-        assert rig.call(rig.remote, "GET", path).status_code == 404
+    assert rig.call(rig.remote, "POST", "/api/open-admin", {}, cookie=token).status_code == 404
+    assert rig.call(rig.remote, "POST", "/api/open-admin", {}).status_code == 404
+    assert rig.call(rig.local, "POST", "/api/open-admin", {}).get_json() == {"success": False}  # no launcher wired in this rig
 
 
 def test_local_needs_no_sign_in_and_reports_the_owner(rig):

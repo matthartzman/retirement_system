@@ -66,14 +66,16 @@ def test_cached_string_not_mutated_for_owner(tmp_path):
     assert json.loads(SHARED_MONEY_JSON) == {"total": 5000.0, "days": 3}
 
 
-def test_view_change_applies_next_request(tmp_path):
+def test_view_change_ends_the_session_and_applies_at_next_sign_in(tmp_path):
     rig, t = _rig(tmp_path)
     uid = 1  # first user in a fresh store
     assert rig.call(rig.remote, "GET", "/api/test-money", cookie=t["ann"]).get_json()["total"] == 0.5
-    assert rig.call(rig.local, "POST", "/api/people/view", {"id": uid, "money_view": "dollars"}).status_code == 200
-    assert rig.call(rig.remote, "GET", "/api/test-money", cookie=t["ann"]).get_json() == {"total": 5000.0, "days": 3}
+    rig.store.set_money_view(uid, "dollars")  # what the Admin app does; it also bumps the epoch
+    assert rig.call(rig.remote, "GET", "/api/test-money", cookie=t["ann"]).status_code == 401
+    token = rig.signin("ann")[1]
+    assert rig.call(rig.remote, "GET", "/api/test-money", cookie=token).get_json() == {"total": 5000.0, "days": 3}
 
 
-def test_remote_still_404s_people_for_percent_user(tmp_path):
+def test_remote_still_404s_open_admin_for_percent_user(tmp_path):
     rig, t = _rig(tmp_path)
-    assert rig.call(rig.remote, "GET", "/api/people", cookie=t["ann"]).status_code == 404
+    assert rig.call(rig.remote, "POST", "/api/open-admin", {}, cookie=t["ann"]).status_code == 404

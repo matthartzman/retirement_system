@@ -1,7 +1,10 @@
 """Auth gate and account routes for the two listeners.
 
 Local (5057): no sign-in; Host must be loopback and proxy headers are refused. Remote (5058):
-every request needs a session except the sign-in page and API; owner-only paths are 404.
+every request needs a session except the sign-in page and API; local-only paths are 404.
+
+People live in the shared identity store (src/identity) and are managed in the Admin app. A remote session ends on the
+next request when the person is disabled or expired, the Financial Insights grant is gone, or the session epoch moved.
 """
 from __future__ import annotations
 
@@ -12,12 +15,16 @@ from typing import Callable
 
 from src.http_runtime.wsgi_facade import Response, request
 
+from src.identity import totp as totp_lib
+from src.identity.store import IdentityStore
+from src.secrets_store import SecretStoreUnavailable
+
 from . import percent_view
-from .access_store import AccessStore
 from .listeners import current_listener, has_proxy_headers, is_loopback_host
 from .sessions import SessionTable
 
-VIEWS = {"trends", "live", "accounts", "people", "activity"}
+INSIGHTS_VIEWS = ("live", "trends", "projections")  # the tabs a grant can limit; the Admin app offers the same list
+VIEWS = set(INSIGHTS_VIEWS) | {"accounts"}
 # POST path -> (event, details from the JSON body). Amounts are never logged.
 ACTIONS = {
     "/api/account": ("account edit", lambda b: " ".join(str(b.get(k)) for k in ("account_key", "type", "app_account") if b.get(k) is not None)),
@@ -28,16 +35,18 @@ ACTIONS = {
 }
 COOKIE = "trends_session"
 OWNER_NAME = "owner (PC)"
-ACCESS_JS_PATH = Path(__file__).resolve().parent / "frontend" / "access.js"
 CHANGE_PASSWORD_HTML_PATH = Path(__file__).resolve().parent / "frontend" / "change_password.html"
 SIGNIN_HTML_PATH = Path(__file__).resolve().parent / "frontend" / "signin.html"
-OWNER_ONLY_PREFIXES = ("/api/people", "/api/activity", "/access.js")
+LOCAL_ONLY_PREFIXES = ("/api/open-admin",)
 PUBLIC_REMOTE = {("GET", "/signin"), ("POST", "/api/signin")}
 MUST_CHANGE_ALLOWED = {"/api/change-password", "/api/signout", "/api/whoami"}
+ENROL_ALLOWED = {"/api/totp/begin", "/api/totp/confirm", "/api/change-password", "/api/signout", "/api/whoami"}
+TOTP_HTML_PATH = Path(__file__).resolve().parent / "frontend" / "totp.html"
 # Percent-only people: this one route is refused, every other /api/ JSON body is scaled unless listed here.
 WITHHELD_FOR_PERCENT = {"/api/spending/transactions"}
 PASS_THROUGH_FOR_PERCENT = {"/api/whoami", "/api/ping", "/api/view", "/api/signin", "/api/signout", "/api/change-password",
-                            "/api/run-status", "/api/run-cancel", "/api/passthrough-decision", "/api/account-prefs"}
+                            "/api/run-status", "/api/run-cancel", "/api/passthrough-decision", "/api/account-prefs",
+                            "/api/totp/begin", "/api/totp/confirm", "/api/totp/recovery-codes"}
 PERCENT_MARK = {"mode": "percent", "basis": "net_worth_today"}
 
 
@@ -48,8 +57,9 @@ def _json(payload, status=200, headers=None) -> Response:
     return resp
 
 
-def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.time,
-                    percent_basis: Callable[[], float | None] = lambda: None) -> None:
+def register_access(app, store: IdentityStore, sessions: SessionTable, clock=time.time,
+                    percent_basis: Callable[[], float | None] = lambda: None,
+                    open_admin: Callable[[], bool] = lambda: False) -> None:
     def _log(event: str, details: str = "", person: str | None = None) -> None:
         env = request.environ
         source = str(request.headers.get("X-Forwarded-For", "") or "").split(",")[0].strip() if current_listener() == "remote" else ""
@@ -66,8 +76,22 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
             event, describe = ACTIONS[request.path]
             _log(event, describe(request.get_json(silent=True) or {}))
 
-    def _owner_only(path: str) -> bool:
-        return any(path == p or path.startswith(p + "/") for p in OWNER_ONLY_PREFIXES)
+    def _local_only(path: str) -> bool:
+        return any(path == p or path.startswith(p + "/") for p in LOCAL_ONLY_PREFIXES)
+
+    def _session_user(sess):
+        """The signed-in person for a live session, or None when this session must end (person gone, disabled,
+        expired, no Financial Insights grant, or the epoch moved because the Admin app ended their sessions)."""
+        user = store.get_user(sess.user_id)
+        if user is None or user["status"] != "active" or (user["expires_at"] is not None and user["expires_at"] <= clock()):
+            return None, None
+        grant = store.get_grant(user["id"], "insights")
+        if grant is None or int(user["session_epoch"]) != sess.epoch:
+            return None, None
+        user["money_view"] = grant["money_view"] or "percent"
+        user["totp_enrolled"] = store.totp_enrolled(user["id"])
+        user["needs_totp"] = bool(user["totp_required"]) and not user["totp_enrolled"]
+        return user, grant
 
     @app.before_request
     def _gate():
@@ -82,14 +106,14 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
             _log_action()
             return None
         # ---- remote ----
-        if _owner_only(path):
+        if _local_only(path):
             return _json({"success": False, "error": "Not found"}, 404)
         if (request.method, path) in PUBLIC_REMOTE:
             return None
         token = request.cookies.get(COOKIE)
         sess = sessions.get(token)
         _log_timeouts()
-        user = store.get_user(sess.user_id) if sess else None
+        user, grant = _session_user(sess) if sess else (None, None)
         if sess is None or user is None:
             if sess is not None:
                 sessions.end(token)
@@ -98,13 +122,19 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
             resp = Response(b"", status=302)
             resp.headers["Location"] = "/signin"
             return resp
-        env["token"], env["user"], env["person"] = token, user, user["display_name"]
+        env["token"], env["user"], env["grant"], env["person"] = token, user, grant, user["display_name"]
         if user["must_change"] and path == "/":
             resp = Response(b"", status=302)
             resp.headers["Location"] = "/change-password"
             return resp
         if user["must_change"] and path.startswith("/api/") and path not in MUST_CHANGE_ALLOWED:
             return _json({"success": False, "must_change": True, "error": "choose a new password first"}, 409)
+        if user["needs_totp"] and path == "/":
+            resp = Response(b"", status=302)
+            resp.headers["Location"] = "/totp"
+            return resp
+        if user["needs_totp"] and path.startswith("/api/") and path not in ENROL_ALLOWED:
+            return _json({"success": False, "needs_totp": True, "error": "set up two-factor sign-in first"}, 409)
         if user["money_view"] == "percent" and path in WITHHELD_FOR_PERCENT:
             return _json({"success": False, "error": "Not available in the percent view."}, 403)
         _log_action()
@@ -151,18 +181,36 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
         if delay and now - store.last_failure_at() < delay:
             _log("sign-in throttled", person="(not signed in)")
             return _json({"success": False, "error": "Too many attempts. Try again shortly."}, 429, {"Retry-After": str(int(delay) + 1)})
-        result = store.verify_login(str(body.get("username") or ""), str(body.get("password") or ""), now)
+        code = str(body.get("code") or "")[:32]
+        try:
+            result = store.verify_login(str(body.get("username") or ""), str(body.get("password") or ""), now, code=code)
+        except SecretStoreUnavailable:  # fail closed: a second factor that cannot be checked never lets anyone in
+            return _json({"success": False, "error": "Two-factor sign-in is unavailable right now."}, 503)
         attempted = str(body.get("username") or "")[:64]
         if result.reason == "locked":
             _log("locked out", attempted, person="(not signed in)")
             return _json({"success": False, "error": "Too many attempts. Try again in a few minutes."}, 429, {"Retry-After": "900"})
+        if result.reason == "totp":  # password was right; ask for the code (the grant is still checked once the code is in)
+            if store.get_grant(result.user_id, "insights") is None:
+                _log("sign-in failed", attempted, person="(not signed in)")
+                return _json({"success": False, "error": "Incorrect username or password."}, 401)
+            return _json({"success": False, "needs_code": True})
+        if result.reason == "bad_code":
+            _log("two-factor code failed", attempted, person="(not signed in)")
+            return _json({"success": False, "needs_code": True, "error": "That code is not right."}, 401)
         if not result.ok:
             _log("sign-in failed", attempted, person="(not signed in)")
             return _json({"success": False, "error": "Incorrect username or password."}, 401)
+        if store.get_grant(result.user_id, "insights") is None:  # same refusal as a wrong password
+            _log("sign-in failed", attempted, person="(not signed in)")
+            return _json({"success": False, "error": "Incorrect username or password."}, 401)
         store.touch_last_signin(result.user_id, now)
-        token = sessions.create(result.user_id)
-        _log("signed in", person=store.get_user(result.user_id)["display_name"])
-        resp = _json({"success": True, "must_change": result.must_change})
+        token = sessions.create(result.user_id, store.session_epoch(result.user_id) or 0)
+        who = store.get_user(result.user_id)["display_name"]
+        if totp_lib.looks_like_recovery(code):
+            _log("recovery code used", person=who)
+        _log("signed in", person=who)
+        resp = _json({"success": True, "must_change": result.must_change, "needs_totp": result.needs_enrolment})
         resp.set_cookie(COOKIE, token, secure=True, httponly=True, samesite="Strict", path="/")
         return resp
 
@@ -179,11 +227,16 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
     @app.route("/api/whoami", methods=["GET"])
     def whoami():
         user = request.environ.get("user")
+        grant = request.environ.get("grant")
+        views = (grant or {}).get("views") or list(INSIGHTS_VIEWS)  # no list on the grant means every view
         return _json({
             "listener": current_listener(),
             "name": request.environ.get("person", OWNER_NAME),
             "must_change": bool(user and user["must_change"]),
+            "needs_totp": bool(user and user["needs_totp"]),
+            "totp_enrolled": bool(user and user["totp_enrolled"]),
             "money_view": user["money_view"] if user else "both",
+            "views": [v for v in INSIGHTS_VIEWS if v in views],
         })
 
     @app.route("/api/change-password", methods=["POST"])
@@ -198,14 +251,79 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
             store.set_password(user["id"], str(body.get("new") or ""), must_change=False, now=clock())
         except ValueError as exc:
             return _json({"success": False, "error": str(exc)}, 400)
+        # The new password ends this person's other sessions (epoch bump); this one carries on.
+        sessions.set_epoch(request.environ.get("token"), store.session_epoch(user["id"]) or 0)
         _log("password changed")
         return _json({"success": True})
+
+    @app.route("/totp", methods=["GET"])
+    def totp_page():
+        return Response(TOTP_HTML_PATH.read_text(encoding="utf-8"), content_type="text/html; charset=utf-8")
+
+    def _totp_user():
+        user = request.environ.get("user")
+        if user is None:
+            return None, _json({"success": False, "error": "Only signed-in guests use two-factor sign-in."}, 400)
+        return user, None
+
+    @app.route("/api/totp/begin", methods=["POST"])
+    def totp_begin():
+        user, err = _totp_user()
+        if err:
+            return err
+        try:
+            secret = store.begin_enrolment(user["id"], now=clock())
+        except SecretStoreUnavailable:
+            return _json({"success": False, "error": "Two-factor sign-in is unavailable right now."}, 503)
+        except ValueError as exc:
+            return _json({"success": False, "error": str(exc)}, 409)
+        return _json({"success": True, "secret": secret,
+                      "uri": totp_lib.provisioning_uri(secret, user["username"])}, headers={"Cache-Control": "no-store"})
+
+    @app.route("/api/totp/confirm", methods=["POST"])
+    def totp_confirm():
+        user, err = _totp_user()
+        if err:
+            return err
+        body = request.get_json(silent=True) or {}
+        try:
+            codes = store.confirm_enrolment(user["id"], str(body.get("code") or "")[:32], now=clock())
+        except SecretStoreUnavailable:
+            return _json({"success": False, "error": "Two-factor sign-in is unavailable right now."}, 503)
+        except ValueError as exc:
+            return _json({"success": False, "error": str(exc)}, 409)
+        if codes is None:
+            _log("two-factor code failed", "setup")
+            return _json({"success": False, "error": "That code is not right. Check your authenticator and try again."}, 400)
+        _log("two-factor enrolled")
+        return _json({"success": True, "recovery_codes": codes}, headers={"Cache-Control": "no-store"})
+
+    @app.route("/api/totp/recovery-codes", methods=["POST"])
+    def totp_recovery_codes():
+        user, err = _totp_user()
+        if err:
+            return err
+        body = request.get_json(silent=True) or {}
+        if not store.check_current_password(user["id"], str(body.get("current") or "")):
+            return _json({"success": False, "error": "Your current password is not right."}, 400)
+        try:
+            codes = store.regenerate_recovery_codes(user["id"], str(body.get("code") or "")[:32], now=clock())
+        except SecretStoreUnavailable:
+            return _json({"success": False, "error": "Two-factor sign-in is unavailable right now."}, 503)
+        if codes is None:
+            _log("two-factor code failed", "recovery codes")
+            return _json({"success": False, "error": "That code is not right."}, 400)
+        _log("recovery codes replaced")
+        return _json({"success": True, "recovery_codes": codes}, headers={"Cache-Control": "no-store"})
 
     @app.route("/api/view", methods=["POST"])
     def view():
         name = str((request.get_json(silent=True) or {}).get("view") or "")
         if name not in VIEWS:
             return _json({"success": False, "error": "unknown view"}, 400)
+        allowed = (request.environ.get("grant") or {}).get("views")
+        if allowed and name in INSIGHTS_VIEWS and name not in allowed:
+            return _json({"success": False, "error": "this view is not available to you"}, 403)
         _log("view opened", name)
         return _json({"success": True})
 
@@ -221,76 +339,7 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
             sessions.note_interaction(token, idle_ms)
         return _json({"success": True})
 
-    # ---- owner-only (the gate answers 404 for these on the remote listener) ----
-    @app.route("/access.js", methods=["GET"])
-    def access_js():
-        return Response(ACCESS_JS_PATH.read_text(encoding="utf-8"), content_type="text/javascript; charset=utf-8")
-
-    @app.route("/api/people", methods=["GET"])
-    def people():
-        return _json({"people": store.list_users(now=clock())})
-
-    @app.route("/api/people", methods=["POST"])
-    def add_person():
-        body = request.get_json(silent=True) or {}
-        try:
-            uid = store.add_user(str(body.get("display_name") or ""), str(body.get("username") or ""),
-                                 str(body.get("temp_password") or ""), now=clock(),
-                                 money_view=str(body.get("money_view") or "percent"))
-        except ValueError as exc:
-            return _json({"success": False, "error": str(exc)}, 400)
-        _log("person added", str(body.get("username") or "").strip().lower())
-        return _json({"success": True, "id": uid})
-
-    def _person_from_body():
-        body = request.get_json(silent=True) or {}
-        try:
-            uid = int(body.get("id"))
-        except (TypeError, ValueError):
-            return None, body
-        return store.get_user(uid), body
-
-    @app.route("/api/people/reset", methods=["POST"])
-    def reset_person():
-        user, body = _person_from_body()
-        if user is None:
-            return _json({"success": False, "error": "no such person"}, 404)
-        try:
-            store.set_password(user["id"], str(body.get("temp_password") or ""), must_change=True, now=clock())
-        except ValueError as exc:
-            return _json({"success": False, "error": str(exc)}, 400)
-        sessions.end_user(user["id"])
-        _log("password reset", user["username"])
-        return _json({"success": True})
-
-    @app.route("/api/people/view", methods=["POST"])
-    def set_person_view():
-        user, body = _person_from_body()
-        if user is None:
-            return _json({"success": False, "error": "no such person"}, 404)
-        money_view = str(body.get("money_view") or "")
-        try:
-            store.set_money_view(user["id"], money_view)
-        except ValueError as exc:
-            return _json({"success": False, "error": str(exc)}, 400)
-        _log("view setting", f"{user['username']} {money_view}")
-        return _json({"success": True})
-
-    @app.route("/api/people/delete", methods=["POST"])
-    def delete_person():
-        user, _body = _person_from_body()
-        if user is None:
-            return _json({"success": False, "error": "no such person"}, 404)
-        store.delete_user(user["id"])
-        sessions.end_user(user["id"])
-        _log("person deleted", user["username"])
-        return _json({"success": True})
-
-    @app.route("/api/activity", methods=["GET"])
-    def activity():
-        def num(name):
-            try:
-                return float(request.args.get(name))
-            except (TypeError, ValueError):
-                return None
-        return _json({"events": store.read_events(person=request.args.get("person") or None, since=num("from"), until=num("to"))})
+    # ---- local-only (the gate answers 404 for these on the remote listener) ----
+    @app.route("/api/open-admin", methods=["POST"])
+    def open_admin_app():
+        return _json({"success": bool(open_admin())})

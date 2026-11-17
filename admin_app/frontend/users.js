@@ -32,7 +32,8 @@
 
   function userRow(u) {
     const flags = [u.status === "disabled" ? '<span class="tag bad">disabled</span>' : "", u.expired ? '<span class="tag bad">expired</span>' : "",
-      u.locked ? '<span class="tag bad">locked</span>' : "", u.must_change ? '<span class="tag">must change password</span>' : ""].join("");
+      u.locked ? '<span class="tag bad">locked</span>' : "", u.must_change ? '<span class="tag">must change password</span>' : "",
+      u.totp_enrolled ? '<span class="tag">two-factor on</span>' : u.totp_required ? '<span class="tag">two-factor to set up</span>' : ""].join("");
     return `<tr class="${u.status === "disabled" || u.expired ? "off" : ""}" data-user="${u.id}">
       <td>${esc(u.display_name)}</td><td>${esc(u.username)}</td><td>${esc(u.role)}</td><td>${flags || "active"}</td>
       <td>${esc(day(u.expires_at))}</td><td>${esc(when(u.last_signin_at))}</td><td>${grantSummary(u)}</td>
@@ -63,6 +64,7 @@
       ${u ? "" : `<label class="field"><span>Temporary password (${MIN_PW}+ characters; they choose their own at first sign-in)</span><input id="fPw" type="password" autocomplete="new-password"></label>`}
       <label class="field"><span>Role</span><select id="fRole"><option value="user"${u && u.role === "user" || !u ? " selected" : ""}>User</option><option value="admin"${u && u.role === "admin" ? " selected" : ""}>Administrator</option></select></label>
       <label class="field"><span>Access ends after (blank = never)</span><input id="fExpires" type="date" value="${esc(dateValue(u && u.expires_at))}"></label>
+      <label><input type="checkbox" id="fTotp"${!u || u.totp_required ? " checked" : ""}> Require two-factor sign-in (Financial Insights)${u && u.totp_enrolled ? " &mdash; already set up" : ""}</label>
       <label class="field"><span>Notes</span><textarea id="fNotes" rows="2" maxlength="500">${esc(u ? u.notes : "")}</textarea></label>
       <fieldset><legend>Financial Insights</legend>
         <label><input type="checkbox" id="gInsights"${insOn ? " checked" : ""}> Can sign in</label>
@@ -111,12 +113,12 @@
     const name = $("#fName", dlg).value.trim(), username = $("#fUser", dlg).value.trim(), pw = $("#fPw", dlg).value;
     if (!name || !username) return { error: "Name and username are both needed." };
     if (pw.length < MIN_PW) return { error: `Temporary password must be at least ${MIN_PW} characters.` };
-    return api("/api/users", { display_name: name, username, temp_password: pw, role: $("#fRole", dlg).value, notes: $("#fNotes", dlg).value,
+    return api("/api/users", { display_name: name, username, temp_password: pw, role: $("#fRole", dlg).value, notes: $("#fNotes", dlg).value, totp_required: $("#fTotp", dlg).checked,
       expires_at: endOfDay($("#fExpires", dlg).value), grants: { insights: g.insights ? insightsGrant(g) : null, planner: g.planner } });
   }
 
   async function saveEdit(u, g) {
-    const body = { id: u.id, display_name: $("#fName", dlg).value.trim(), role: $("#fRole", dlg).value, notes: $("#fNotes", dlg).value };
+    const body = { id: u.id, display_name: $("#fName", dlg).value.trim(), role: $("#fRole", dlg).value, notes: $("#fNotes", dlg).value, totp_required: $("#fTotp", dlg).checked };
     const expires = endOfDay($("#fExpires", dlg).value);
     if (expires !== u.expires_at && dateValue(expires) !== dateValue(u.expires_at)) body.expires_at = expires;
     let out = await api("/api/users/update", body);
