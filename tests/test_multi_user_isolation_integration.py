@@ -16,6 +16,7 @@ from __future__ import annotations
 import http.client
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -177,7 +178,8 @@ def launch_gateway(base: Path, roles: dict[str, str]):
     cmd = ipa.gateway_command(python, db, data_root, ready_file, public_origin=PUBLIC_ORIGIN,
                               shared_key_env=SHARED_KEY_ENV, per_account=per)
     log = (base / "gateway.log").open("w", encoding="utf-8")
-    proc = subprocess.Popen(cmd, cwd=str(cwd), env=env, stdout=log, stderr=subprocess.STDOUT)
+    flags = subprocess.CREATE_NEW_PROCESS_GROUP if per else 0  # so Ctrl+Break reaches only the gateway
+    proc = subprocess.Popen(cmd, cwd=str(cwd), env=env, stdout=log, stderr=subprocess.STDOUT, creationflags=flags)
     try:
         deadline = time.time() + (120 if per else 60)
         while not ready_file.is_file():
@@ -191,6 +193,13 @@ def launch_gateway(base: Path, roles: dict[str, str]):
                 "log": base / "gateway.log", "per_account": bool(per)}
         yield info
     finally:
+        if per and proc.poll() is None:
+            # A clean stop lets the gateway unload the worker accounts' profiles; a kill leaves them loaded by Windows.
+            try:
+                proc.send_signal(signal.CTRL_BREAK_EVENT)
+                proc.wait(timeout=40)
+            except (OSError, subprocess.TimeoutExpired):
+                pass
         proc.terminate()
         try:
             proc.wait(timeout=20)

@@ -16,6 +16,7 @@ import secrets
 import shutil
 import subprocess
 import time
+import warnings
 from pathlib import Path
 
 import pytest
@@ -218,6 +219,29 @@ def save_diagnostics(box: Path, data_root: Path, environ=None) -> None:
         pass
 
 
+_LOADED = r"""
+Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like 'C:\Users\rpwtest_*' -and $_.Loaded } | ForEach-Object { Split-Path $_.LocalPath -Leaf }
+"""
+
+
+def held_by_windows(names: list[str]) -> set[str]:
+    """Which of these profile folders still belong to a profile Windows holds loaded (deletable only after a reboot)."""
+    out = subprocess.run(["powershell", "-NoProfile", "-Command", _LOADED], capture_output=True, text=True).stdout
+    loaded = {line.strip().lower() for line in out.splitlines() if line.strip()}
+    return {n for n in names if n.lower() in loaded}
+
+
+def _note_diagnostic(text: str, environ=None) -> None:
+    dest = (environ if environ is not None else os.environ).get(DIAG_ENV, "").strip()
+    if dest:
+        try:
+            Path(dest).mkdir(parents=True, exist_ok=True)
+            with (Path(dest) / "profile_sweep.txt").open("a", encoding="utf-8") as fh:
+                fh.write(text + "\n")
+        except OSError:
+            pass
+
+
 def cleanup(box: Path, store, data_root: Path) -> None:
     """Remove the throwaway accounts the gateway created, their profiles and folders, then assert none are left."""
     from src.gateway import accounts  # noqa: PLC0415
@@ -237,6 +261,11 @@ def cleanup(box: Path, store, data_root: Path) -> None:
             force_rmtree(p)
     leftovers = leftover_accounts()
     profiles = [p.name for p in Path("C:\\Users").iterdir() if p.name.lower().startswith(PREFIX)]
+    held = held_by_windows(profiles)
+    if held:  # the gateway was killed (the logout test does it on purpose): Windows keeps these hives until a reboot
+        warnings.warn(f"throwaway profile folders held loaded by Windows until a reboot: {sorted(held)}")
+        _note_diagnostic(f"profiles held loaded by Windows (reboot clears them): {sorted(held)}")
     assert not leftovers, f"throwaway accounts left behind: {leftovers}"
-    assert not profiles, f"throwaway profiles left behind: {profiles}"
+    stuck = [n for n in profiles if n not in held]
+    assert not stuck, f"throwaway profiles left behind: {stuck}"
     assert not box.exists(), f"{box} was not removed"

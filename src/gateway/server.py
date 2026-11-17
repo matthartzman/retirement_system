@@ -18,6 +18,7 @@ import io
 import json
 import logging
 import os
+import signal
 import socket
 import sys
 import threading
@@ -406,6 +407,9 @@ def run_gateway(argv: list[str] | None, stop_event: threading.Event) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     stop = threading.Event()
+    sigbreak = getattr(signal, "SIGBREAK", None)
+    if sigbreak is not None:  # Windows: Ctrl+Break (or CTRL_BREAK_EVENT) stops cleanly, so workers and profiles are released
+        signal.signal(sigbreak, lambda *_: stop.set())
     try:
         return run_gateway(argv, stop)
     except KeyboardInterrupt:  # pragma: no cover
