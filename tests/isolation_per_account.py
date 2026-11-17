@@ -15,6 +15,8 @@ import os
 import secrets
 import shutil
 import subprocess
+import time
+import warnings
 from pathlib import Path
 
 import pytest
@@ -116,6 +118,86 @@ def force_rmtree(path: Path) -> None:
     shutil.rmtree(path, ignore_errors=True)
 
 
+_LIST_SIDS = r"""
+Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like 'C:\Users\rpwtest_*' } | ForEach-Object { $_.SID }
+"""
+_REMOVE = r"""
+Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like 'C:\Users\rpwtest_*' } | ForEach-Object {
+    try { Remove-CimInstance -InputObject $_ -ErrorAction Stop; "removed $($_.LocalPath)" }
+    catch { "remove $($_.LocalPath) failed: $($_.Exception.Message)" }
+}
+"""
+
+
+def _enable_privileges(*names: str) -> None:
+    """Switch on privileges the token holds but has disabled (``reg unload`` does not, and gets 'Access is denied')."""
+    import ctypes  # noqa: PLC0415
+    from ctypes import wintypes as w  # noqa: PLC0415
+
+    class LUID(ctypes.Structure):
+        _fields_ = [("Low", w.DWORD), ("High", w.LONG)]
+
+    class LAA(ctypes.Structure):
+        _fields_ = [("Luid", LUID), ("Attributes", w.DWORD)]
+
+    class TP(ctypes.Structure):
+        _fields_ = [("Count", w.DWORD), ("Privileges", LAA * 1)]
+
+    k, a = ctypes.WinDLL("kernel32", use_last_error=True), ctypes.WinDLL("advapi32", use_last_error=True)
+    k.GetCurrentProcess.restype = w.HANDLE
+    k.CloseHandle.argtypes = [w.HANDLE]
+    a.OpenProcessToken.argtypes = [w.HANDLE, w.DWORD, ctypes.POINTER(w.HANDLE)]
+    a.LookupPrivilegeValueW.argtypes = [w.LPCWSTR, w.LPCWSTR, ctypes.POINTER(LUID)]
+    a.AdjustTokenPrivileges.argtypes = [w.HANDLE, w.BOOL, ctypes.POINTER(TP), w.DWORD, ctypes.c_void_p, ctypes.c_void_p]
+    tok = w.HANDLE()
+    if not a.OpenProcessToken(k.GetCurrentProcess(), 0x20 | 0x8, ctypes.byref(tok)):  # ADJUST_PRIVILEGES | QUERY
+        return
+    try:
+        for name in names:
+            tp = TP()
+            tp.Count = 1
+            tp.Privileges[0].Attributes = 2  # SE_PRIVILEGE_ENABLED
+            if a.LookupPrivilegeValueW(None, name, ctypes.byref(tp.Privileges[0].Luid)):
+                a.AdjustTokenPrivileges(tok, False, ctypes.byref(tp), 0, None, None)
+    finally:
+        k.CloseHandle(tok)
+
+
+def unload_hive(sid: str) -> list[str]:
+    """RegUnLoadKey for a leaked profile hive and its _Classes hive; one result line each."""
+    import ctypes  # noqa: PLC0415
+    from ctypes import wintypes as w  # noqa: PLC0415
+
+    _enable_privileges("SeRestorePrivilege", "SeBackupPrivilege")
+    a = ctypes.WinDLL("advapi32", use_last_error=True)
+    a.RegUnLoadKeyW.argtypes = [ctypes.c_void_p, w.LPCWSTR]
+    a.RegUnLoadKeyW.restype = w.LONG
+    hku = ctypes.c_void_p(0x80000003)  # HKEY_USERS
+    return [f"RegUnLoadKey {sub}: {a.RegUnLoadKeyW(hku, sub)}" for sub in (sid, f"{sid}_Classes")]
+
+
+def sweep_profiles() -> None:
+    """Unload and delete every ``C:\\Users\\rpwtest_*`` profile. The tests end the gateway with TerminateProcess, so
+    the worker accounts' registry hives stay loaded (the gateway never ran its own unload) and DeleteProfile cannot
+    remove them until they are unloaded. Retried because the dead workers' handles close a moment after the kill."""
+    dest = os.environ.get(DIAG_ENV, "").strip()
+    for attempt in range(4):
+        sids = subprocess.run(["powershell", "-NoProfile", "-Command", _LIST_SIDS], capture_output=True,
+                              text=True).stdout.split()
+        lines = [line for sid in sids for line in unload_hive(sid)]
+        out = subprocess.run(["powershell", "-NoProfile", "-Command", _REMOVE], capture_output=True, text=True)
+        if dest:  # what the unload and Remove-CimInstance said, for the owner to read after a failed run
+            try:
+                Path(dest).mkdir(parents=True, exist_ok=True)
+                with (Path(dest) / "profile_sweep.txt").open("a", encoding="utf-8") as fh:
+                    fh.write(f"--- attempt {attempt}\n" + "\n".join(lines) + f"\n{out.stdout}{out.stderr}\n")
+            except OSError:
+                pass
+        if not any(p.name.lower().startswith(PREFIX) for p in Path("C:\\Users").iterdir()):
+            return
+        time.sleep(2)
+
+
 DIAG_ENV = "RETIREMENT_ISOLATION_DIAG_DIR"
 
 
@@ -137,11 +219,35 @@ def save_diagnostics(box: Path, data_root: Path, environ=None) -> None:
         pass
 
 
+_LOADED = r"""
+Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like 'C:\Users\rpwtest_*' -and $_.Loaded } | ForEach-Object { Split-Path $_.LocalPath -Leaf }
+"""
+
+
+def held_by_windows(names: list[str]) -> set[str]:
+    """Which of these profile folders still belong to a profile Windows holds loaded (deletable only after a reboot)."""
+    out = subprocess.run(["powershell", "-NoProfile", "-Command", _LOADED], capture_output=True, text=True).stdout
+    loaded = {line.strip().lower() for line in out.splitlines() if line.strip()}
+    return {n for n in names if n.lower() in loaded}
+
+
+def _note_diagnostic(text: str, environ=None) -> None:
+    dest = (environ if environ is not None else os.environ).get(DIAG_ENV, "").strip()
+    if dest:
+        try:
+            Path(dest).mkdir(parents=True, exist_ok=True)
+            with (Path(dest) / "profile_sweep.txt").open("a", encoding="utf-8") as fh:
+                fh.write(text + "\n")
+        except OSError:
+            pass
+
+
 def cleanup(box: Path, store, data_root: Path) -> None:
     """Remove the throwaway accounts the gateway created, their profiles and folders, then assert none are left."""
     from src.gateway import accounts  # noqa: PLC0415
 
     save_diagnostics(box, data_root)
+    sweep_profiles()  # unload the hives the killed gateway left loaded, so account removal can delete the profiles
     mgr = accounts.WindowsAccountManager(store, data_root, prefix=PREFIX, rotate_days=0)
     for row in store.list_worker_accounts():
         try:
@@ -149,11 +255,17 @@ def cleanup(box: Path, store, data_root: Path) -> None:
         except OSError:
             pass
     force_rmtree(box)
+    sweep_profiles()
     for p in Path("C:\\Users").iterdir():
         if p.name.lower().startswith(PREFIX):
             force_rmtree(p)
     leftovers = leftover_accounts()
     profiles = [p.name for p in Path("C:\\Users").iterdir() if p.name.lower().startswith(PREFIX)]
+    held = held_by_windows(profiles)
+    if held:  # the gateway was killed (the logout test does it on purpose): Windows keeps these hives until a reboot
+        warnings.warn(f"throwaway profile folders held loaded by Windows until a reboot: {sorted(held)}")
+        _note_diagnostic(f"profiles held loaded by Windows (reboot clears them): {sorted(held)}")
     assert not leftovers, f"throwaway accounts left behind: {leftovers}"
-    assert not profiles, f"throwaway profiles left behind: {profiles}"
+    stuck = [n for n in profiles if n not in held]
+    assert not stuck, f"throwaway profiles left behind: {stuck}"
     assert not box.exists(), f"{box} was not removed"

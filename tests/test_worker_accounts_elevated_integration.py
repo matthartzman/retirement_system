@@ -156,7 +156,10 @@ def test_one_account_cannot_read_another_accounts_or_the_gateways_folder(box):
 
 
 def _supervisor(box) -> Supervisor:
-    cfg = SupervisorConfig(data_root=box["data"], install_dir=ROOT, python=box["python"], provision="demo",
+    # The copied bare runtime has no packages; an installed-build run (tools/run_isolation_on_installed_build.ps1)
+    # points RETIREMENT_ISOLATION_PYTHON at the installed venv, which the worker accounts can read.
+    python = os.environ.get("RETIREMENT_ISOLATION_PYTHON") or box["python"]
+    cfg = SupervisorConfig(data_root=box["data"], install_dir=ROOT, python=python, provision="demo",
                            start_timeout=120, extra_env={"RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS": "1"})
     return Supervisor(cfg, PerAccountLauncher(box["mgr"]), accounts=box["mgr"], build_queue=BuildQueue(1))
 
