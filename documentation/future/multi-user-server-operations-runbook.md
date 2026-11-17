@@ -197,7 +197,8 @@ migrate lazily on their next sign-in.
 
 1. Tell users; stop the service: `& $PY -m src.gateway.service stop`.
 2. Full backup with the *old* code: `ops backup run ...` and keep its file name.
-3. Copy the new release over `C:\RetirementPlanner\app`, update the runtime (`pip install -r requirements.txt -r requirements-gateway.txt`), run
+3. Copy the new release over `C:\RetirementPlanner\app` (elevated: `powershell -ExecutionPolicy Bypass -File "<checkout>\tools\export_main_to_install.ps1"`, which
+   exports `main` with `git archive` and copies without deleting; `-DryRun` first), update the runtime (`pip install -r requirements.txt -r requirements-gateway.txt`), run
    `acl setup`/`check` as in step 3.
 4. Migrate everyone with the *new* code (it snapshots each user first, migrates in a fresh process per user, never
    stops at the first failure, and migrates `gateway.db` when it opens it):
