@@ -1,6 +1,6 @@
 # Multiple plans per user on the multi-user server: design
 
-Status: draft (awaiting owner decisions in section 11; nothing is implemented)
+Status: approved (owner decisions recorded in section 11; implementation in progress)
 
 Scope: let one user of the multi-user server keep several plans (a base case and what-if scenarios), each private to
 that user. Builds on `multi-user-server-plan.md`, `multi-user-server-gateway-design.md` and
@@ -56,7 +56,7 @@ New or changed routes (all need an entry in `remote_allowlist.py`, the route man
 |---|---|
 | `GET /api/plans` | Unchanged shape, plus `limits` (`max_plans`, `plan_count`, `disk_used_mb`, `disk_quota_mb`) so the UI can disable New/Duplicate and explain why. |
 | `POST /api/plans/create` `{name, from: "blank"\|"demo"}` | Copy the shipped demo seed to `plans/<id>.rpx` (same step `remote_worker.provision` uses), apply `blank_plan_rows` for `blank`, register kind `user`, activate, run `_after_plan_switch`. Count and quota checked first. Nothing is touched if any step fails (temp file then rename). |
-| `POST /api/plans/duplicate` `{plan_id, name?}` | SQLite backup-API copy (`copy_sqlite_file`) of the named registered plan to `plans/<id>.rpx`; default name "<name> (copy)"; activates the copy (matches Save As today; owner question 3 asks whether it should instead stay on the current plan). |
+| `POST /api/plans/duplicate` `{plan_id, name?}` | SQLite backup-API copy (`copy_sqlite_file`) of the named registered plan to `plans/<id>.rpx`; default name "<name> (copy)"; stays on the current plan (owner decision 3). |
 | `POST /api/plans/rename` | Unchanged route; adds the normalisation and uniqueness rules above. |
 | `POST /api/plans/delete` `{plan_id}` | Refused for the active plan, the demo plan, a plan with a running or queued build, and the user's last non-demo plan. Otherwise: unregister, delete the file and its `-wal`/`-shm` sidecars, delete `output/plans/<id>/`, all after confining each path. Irreversible, so the UI confirms with the plan name. Audit event `plan_deleted`. |
 | `POST /api/plans/forget` | `REFUSED` in remote mode with the reason "leaves an orphaned file counting toward your quota; use delete". The desktop app keeps it. |
@@ -133,10 +133,10 @@ Effort (relative): steps 1-3 moderate, step 4 moderate (touches the audited back
 
 Not verifiable without an elevated or installed build: the per-account isolation run, real Windows junction behaviour under a dedicated worker account, and the Job Object disk behaviour. Those stay the owner's.
 
-## 11. Decisions needed from the owner
+## 11. Owner decisions (recorded)
 
-1. **Limits.** Proposed defaults: 10 plans and 1024 MiB per user. Keep, or other numbers? (Both are gateway flags either way.)
-2. **Can plans be copied between users?** Proposed **no**: a user can export their own plan and upload it themselves, and nothing server-side moves a plan across users (it would break the "mutually untrusted" boundary and the isolation story). An admin-mediated copy could be added later as an operator command. Confirm "no".
-3. **UX.** (a) Is a "Manage plans" menu next to the existing header switcher acceptable, or should plans get their own nav page (that changes the wi015 baseline)? (b) Should Duplicate switch to the copy (like Save As) or stay on the current plan?
-4. **Delete.** Hard delete with a typed-name confirmation (proposed), or a soft delete with a 7-day recycle area that still counts toward quota?
-5. **Backup cost.** Backing up every plan multiplies archive size by plans per user. Accept the larger archives, or cap what is backed up (for example the active plan and the newest N)? Proposed: back up all, and re-run the operations design's disk estimate with the quota in place.
+1. **Limits**: 10 plans and 1024 MiB per user, configurable in the gateway config; checked on create, duplicate, upload and build start.
+2. **No copying of plans between users.** A user can download a `.rpx` and send it themselves.
+3. **UX**: a "Manage plans" menu beside the header plan switcher; no new nav step (the wi015 baseline is untouched). **Duplicate stays on the current plan** and does not switch to the copy (this replaces the "activates the copy" line in section 3).
+4. **Delete**: hard delete with a typed-plan-name confirmation; the nightly backups still hold it.
+5. **Backup size**: accept archives that grow with every plan: back up all registered plans, archive format v2, old v1 archives still restore; the plan cap bounds the size.
