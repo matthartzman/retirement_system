@@ -174,7 +174,7 @@ describe("fieldHtml(): state and description wiring", () => {
 
 describe("admin.js settings table: every setting control has a <label for>", () => {
   function loadAdmin() {
-    const src = ["settings_renderer.js", "admin.js"].map((f) => fs.readFileSync(path.join(HERE, "..", "..", "frontend", "js", f), "utf8")).join("\n");
+    const src = [path.join(HERE, "..", "..", "frontend", "js", "settings_renderer.js"), path.join(HERE, "..", "..", "admin_app", "frontend", "admin.js")].map((f) => fs.readFileSync(f, "utf8")).join("\n");
     const noop = () => {};
     const stub = () => ({
       style: {},

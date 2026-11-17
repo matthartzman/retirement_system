@@ -8,8 +8,8 @@ import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "frontend");
-const src = ["settings_renderer.js", "admin.js"].map((f) => fs.readFileSync(path.join(ROOT, "js", f), "utf8")).join("\n");
-const html = fs.readFileSync(path.join(ROOT, "admin.html"), "utf8");
+const src = [path.join(ROOT, "js", "settings_renderer.js"), path.join(ROOT, "..", "admin_app", "frontend", "admin.js")].map((f) => fs.readFileSync(f, "utf8")).join("\n");
+const html = fs.readFileSync(path.join(ROOT, "..", "admin_app", "frontend", "index.html"), "utf8");
 
 const noop = () => {};
 const el = () => ({ style: {}, classList: { add: noop, remove: noop, toggle: noop, contains: () => false }, setAttribute: noop, addEventListener: noop, querySelectorAll: () => [], querySelector: () => null });
@@ -19,6 +19,8 @@ const sandbox = {
   setTimeout: noop, setInterval: noop, console,
 };
 sandbox.addEventListener = noop;
+sandbox.location = { hash: "" };
+sandbox.history = { replaceState: noop };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);

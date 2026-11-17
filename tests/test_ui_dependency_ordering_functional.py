@@ -3,7 +3,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DASH = ROOT / "frontend" / "js" / "dashboard.js"
 DASH_STATIC = ROOT / "src" / "dashboard_ui" / "static" / "js" / "dashboard.js"
-ADMIN = ROOT / "frontend" / "js" / "admin.js"
+ADMIN = ROOT / "admin_app" / "frontend" / "admin.js"
 
 
 def text(path: Path) -> str:

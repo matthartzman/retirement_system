@@ -1,9 +1,9 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ADMIN_HTML = ROOT / "frontend" / "admin.html"
-ADMIN_CSS = ROOT / "frontend" / "css" / "admin.css"
-ADMIN_JS = ROOT / "frontend" / "js" / "admin.js"
+ADMIN_HTML = ROOT / "admin_app" / "frontend" / "index.html"
+ADMIN_CSS = ROOT / "frontend" / "css" / "settings_renderer.css"
+ADMIN_JS = ROOT / "admin_app" / "frontend" / "admin.js"
 
 
 def test_admin_ui_uses_guided_user_ui_shell_and_navigation_model():

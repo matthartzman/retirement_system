@@ -85,6 +85,14 @@ def admin_tax_law_dashboard():
     return jsonify({"success": True, "version": VERSION if 'VERSION' in globals() else "9", "rows": rows, "max_lag_years": max_lag})
 
 
+@app.route("/plan-assumptions")
+def plan_assumptions_page():
+    denied = _require("manage_clients")
+    if denied:
+        return denied
+    return redirect("/frontend/plan_assumptions.html", code=302)
+
+
 @app.route("/api/workspace/diagnostics", methods=["GET"])
 @app.route("/api/admin/diagnostics", methods=["GET"])
 def admin_diagnostics():

@@ -17,9 +17,9 @@ def read(path: str) -> str:
 
 def test_user_and_admin_navigation_have_single_scope_toggle_search_and_status_offline_message():
     user_html = read('frontend/index.html')
-    admin_html = read('frontend/admin.html')
+    admin_html = read('admin_app/frontend/index.html')
     user_js = dashboard_js_sources()
-    admin_js = read('frontend/js/admin.js')
+    admin_js = read('admin_app/frontend/admin.js')
     assert 'id="combinedSearch"' in user_html
     assert 'setSearchScope(\'nav\')' in user_html and 'setSearchScope(\'page\')' in user_html
     assert 'id="adminCombinedSearch"' in admin_html
@@ -36,7 +36,7 @@ def test_user_and_admin_navigation_have_single_scope_toggle_search_and_status_of
 
 def test_inline_field_context_help_removed_and_nav_descriptions_break_line():
     user_js = dashboard_js_sources()
-    admin_js = read('frontend/js/admin.js')
+    admin_js = read('admin_app/frontend/admin.js')
     assert 'class="field-note"' not in user_js
     assert '<br><span class="step-desc"' in user_js
     assert '<br><span class="step-desc"' in admin_js

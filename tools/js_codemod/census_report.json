@@ -359,24 +359,6 @@
   ],
   "external_references": [
     {
-      "name": "csrfToken",
-      "file": "frontend/js/admin.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "csrfToken",
-      "file": "frontend/js/admin.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "csrfToken",
-      "file": "frontend/js/admin.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
       "name": "rows",
       "file": "frontend/js/app_store.js",
       "kind": "read",
@@ -9689,6 +9671,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "csrfToken",
+      "file": "frontend/js/plan_assumptions.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
       "name": "dirty",
       "file": "frontend/js/remote_mode.js",
       "kind": "read",
@@ -10014,6 +10002,18 @@
     },
     {
       "name": "rows",
+      "file": "frontend/js/settings_renderer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "csrfToken",
+      "file": "frontend/js/settings_renderer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "csrfToken",
       "file": "frontend/js/settings_renderer.js",
       "kind": "read",
       "scope": "inside-function"

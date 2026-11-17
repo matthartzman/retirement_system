@@ -1,8 +1,8 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ADMIN_HTML = ROOT / "frontend" / "admin.html"
-ADMIN_JS = ROOT / "frontend" / "js" / "admin.js"
+ADMIN_HTML = ROOT / "admin_app" / "frontend" / "index.html"
+ADMIN_JS = ROOT / "admin_app" / "frontend" / "admin.js"
 
 
 def test_admin_system_config_uses_compact_table_editor():

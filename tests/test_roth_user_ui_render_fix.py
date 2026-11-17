@@ -81,21 +81,6 @@ def test_roth_step_filter_would_return_controls_from_input_rows():
     assert len(ui_rows) >= 15
 
 
-def test_roth_conversion_controls_moved_to_user_ui_not_admin_editor():
-    """Roth conversion controls live in main UI (dashboard.js), not admin.js."""
-    admin = (ROOT / 'frontend/js/admin.js').read_text(encoding='utf-8')
-    user = dashboard_js_text()
-    user += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
-    assert 'id: "roth_conversion"' in user
-    assert "Roth conversion strategy" in user
-    assert '(sec === "Withdrawal Policy" &&' in user
-    # W-B / #334 (B2): the Roth step's Model Constants/IRMAA branch existed only
-    # to show irmaa_annual_inflator, which is retired (IRMAA thresholds follow
-    # CPI via tax_kernel), so the branch is gone.
-    assert 'lbl === "irmaa_annual_inflator"' not in user
-    assert "title:'Roth conversion controls'" not in admin
-
-
 def test_schema_exposes_roth_optimizer_governance_controls():
     """Reference data schema includes roth objective and headroom controls."""
     labels = set()

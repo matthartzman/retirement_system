@@ -37,7 +37,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_HTML = ROOT / "frontend" / "index.html"
-ADMIN_HTML = ROOT / "frontend" / "admin.html"
+ADMIN_HTML = ROOT / "frontend" / "plan_assumptions.html"
+ADMIN_APP_HTML = ROOT / "admin_app" / "frontend" / "index.html"
 
 MODULE_TAG = '<script type="module" src="js/dashboard_shared_helpers.js'
 PYWEBVIEW_MODULE_TAG = '<script type="module" src="js/pywebview_bridge.js'
@@ -88,8 +89,8 @@ def test_shared_helpers_not_referenced_in_admin_html():
     test's sibling module addresses for pywebview_bridge.js specifically --
     re-examine both files together before wiring dashboard_shared_helpers.js
     into admin.html."""
-    html = ADMIN_HTML.read_text(encoding="utf-8")
-    assert "dashboard_shared_helpers.js" not in html
+    for page in (ADMIN_HTML, ADMIN_APP_HTML):
+        assert "dashboard_shared_helpers.js" not in page.read_text(encoding="utf-8")
 
 
 def test_no_other_frontend_js_file_uses_a_shared_helper_at_top_level():

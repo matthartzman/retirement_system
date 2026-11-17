@@ -117,6 +117,8 @@ class DesktopApi:
         root = Path(__file__).resolve().parents[1]
         if url.rstrip("/") in ("", "/", "/frontend"):
             target = root / "frontend" / "index.html"
+        elif "/plan-assumptions" in url:
+            target = root / "frontend" / "plan_assumptions.html"
         elif "/admin" in url or "/system-configuration" in url:
             # System configuration lives in the Admin app: open it in the system browser, not this window.
             import webbrowser  # noqa: PLC0415

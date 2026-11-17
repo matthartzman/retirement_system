@@ -49,7 +49,7 @@ export function scanSource(src, file) {
 
 function frontendSources() {
   const files = fs.readdirSync("frontend/js").filter((f) => f.endsWith(".js")).map((f) => `frontend/js/${f}`);
-  return files.concat(["frontend/index.html", "frontend/admin.html"]);
+  return files.concat(["frontend/index.html", "frontend/plan_assumptions.html", "admin_app/frontend/index.html"]);
 }
 
 test("guard catches prose without data-kind and lines over the limit", () => {

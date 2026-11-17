@@ -30,7 +30,7 @@ class PricingUiReleaseTests(unittest.TestCase):
         self.assertEqual(p.sources['XYZ'], 'holdings_cost_basis_fallback')
 
     def test_admin_and_user_help_panels_are_purpose_impact_consider_not_boilerplate(self):
-        admin = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8') + (ROOT/'frontend/js/settings_renderer.js').read_text(encoding='utf-8')
+        admin = (ROOT/'admin_app/frontend/admin.js').read_text(encoding='utf-8') + (ROOT/'frontend/js/settings_renderer.js').read_text(encoding='utf-8')
         user = dashboard_js_text()
         user += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
         self.assertIn('What this page controls', admin)
@@ -42,7 +42,7 @@ class PricingUiReleaseTests(unittest.TestCase):
         self.assertIn('Cost basis is now a last-resort estimate only when there is no cached quote', user)
 
     def test_visible_release_surfaces_are_current(self):
-        for rel in ['frontend/index.html','frontend/admin.html','src/version.py']:
+        for rel in ['frontend/index.html','admin_app/frontend/index.html','src/version.py']:
             text = (ROOT/rel).read_text(encoding='utf-8', errors='ignore')
             self.assertNotIn('Retirement System v8.1', text)
         out = __import__('subprocess').run([__import__('sys').executable, 'tools/check_version_surfaces.py'], cwd=ROOT, text=True, capture_output=True)

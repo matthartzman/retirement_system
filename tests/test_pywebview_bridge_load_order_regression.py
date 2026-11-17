@@ -39,8 +39,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_HTML = ROOT / "frontend" / "index.html"
-ADMIN_HTML = ROOT / "frontend" / "admin.html"
-ADMIN_JS = ROOT / "frontend" / "js" / "admin.js"
+ADMIN_HTML = ROOT / "frontend" / "plan_assumptions.html"  # the planner page that replaced admin.html
+ADMIN_JS = ROOT / "frontend" / "js" / "plan_assumptions.js"
 
 MODULE_TAG = '<script type="module" src="js/pywebview_bridge.js'
 CLASSIC_TAG = '<script src="js/pywebview_bridge.js'
@@ -94,12 +94,12 @@ def test_admin_js_boot_is_deferred_past_dom_content_loaded():
     after every deferred/module script -- including pywebview_bridge.js --
     has already run."""
     js = ADMIN_JS.read_text(encoding="utf-8")
-    assert "\nshowAppSettings().catch(" not in js, (
+    assert "\nshowPlanAssumptions().catch(" not in js, (
         "admin.js calls showAppSettings() as a bare top-level statement again -- "
         "this races pywebview_bridge.js's fetch patch under pywebview. Wrap the "
         "boot sequence in a DOMContentLoaded listener (see this file's docstring)."
     )
-    assert "\ncheckApp();" not in js, (
+    assert "\n_bootPlanAssumptions();" not in js, (
         "admin.js calls checkApp() as a bare top-level statement again -- same "
         "race as showAppSettings() above."
     )

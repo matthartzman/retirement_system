@@ -1,93 +1,64 @@
-// Item 2.14 (finding Q4): the admin/System Configuration UI
-// (frontend/js/admin.js, served at /admin) had zero browser coverage --
-// every other spec in this suite exercises the CLIENT dashboard only.
-//
-// Changes a real system_config.csv setting (max_build_seconds) through the
-// actual admin UI, verifies it round-trips through a real save + reload
-// from disk, then restores the original value in a finally block --
-// following the same real-save-then-restore pattern
-// test_grid_save_reaches_the_build_config_regression.py already
-// established for the client-side config editor. max_build_seconds is a
-// safe field to mutate: it only bounds how long a future build subprocess
-// is allowed to run (src/server/workbook_routes.py's build_start route),
-// it is not read anywhere on the request/response path this suite's other
-// specs exercise, and it is restored before the test ends either way.
-import { test, expect } from './fixtures.js';
+// Install-wide settings through the Admin app: change a real runtime setting (max_build_seconds), save it, and
+// check it survives a fresh page load. Starts its own admin_app process on a throwaway workspace (so there is
+// nothing to restore) and a spare port; it does not use the planner fixtures.
+// Engine settings are covered by plan-assumptions.spec.js (they are per plan, in the planner).
+import { test, expect } from '@playwright/test';
+import { spawn } from 'node:child_process';
+import fs from 'node:fs';
+import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-test('a real system_config.csv setting round-trips through the admin UI save/reload path', async ({ page }) => {
-  await page.goto('/admin');
-  await page.waitForLoadState('networkidle');
+const ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
+const PORT = Number(process.env.RETIREMENT_SYSTEM_E2E_ADMIN_SETTINGS_PORT || 5962);
+const BASE = `http://127.0.0.1:${PORT}`;
+
+function waitUntilReady(deadline) {
+  return new Promise((resolve, reject) => {
+    const attempt = () => {
+      const req = http.get(`${BASE}/api/ping`, (res) => { res.resume(); resolve(); });
+      req.on('error', () => (Date.now() > deadline ? reject(new Error('admin app never answered')) : setTimeout(attempt, 300)));
+      req.setTimeout(2_000, () => req.destroy());
+    };
+    attempt();
+  });
+}
+
+let child;
+
+test.beforeAll(async () => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'admin-settings-e2e-'));
+  child = spawn(process.platform === 'win32' ? 'python' : 'python3',
+    ['-m', 'admin_app', '--retirement-system-dir', workspace, '--port', String(PORT), '--no-open'],
+    { cwd: ROOT, stdio: 'ignore' });
+  await waitUntilReady(Date.now() + 30_000);
+});
+
+test.afterAll(() => { if (child) child.kill(); });
+
+async function openBuildTimeout(page) {
+  await page.goto(`${BASE}/`);
   await page.getByRole('button', { name: /Build timeout/ }).first().click();
-  await page.waitForTimeout(500);
   await page.getByRole('button', { name: 'Expand all' }).click();
+  return page.locator('tr', { hasText: 'Max Build Seconds' }).locator('input.cfg-input');
+}
 
-  const input = page.locator('tr', { hasText: 'Max Build Seconds' }).locator('input.cfg-input');
+test('a runtime setting round-trips through the Admin app save and a fresh page load', async ({ page }) => {
+  const input = await openBuildTimeout(page);
   await expect(input).toBeVisible({ timeout: 10_000 });
-  const originalValue = await input.inputValue();
-  expect(originalValue, 'expected a real numeric max_build_seconds value to already be configured').toMatch(/^\d+$/);
+  expect(await input.inputValue()).toMatch(/^\d+$/);
 
-  // A distinctive figure vanishingly unlikely to already be the configured
-  // value, so a stale-read bug (save appears to succeed but the reload
-  // shows the old number) is unambiguous.
   const NEW_VALUE = '2653';
+  await input.fill(NEW_VALUE);
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('tr', { hasText: 'Max Build Seconds' }).locator('input.cfg-input')).toHaveValue(NEW_VALUE, { timeout: 10_000 });
 
-  try {
-    await input.fill(NEW_VALUE);
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
+  // a second, independent page load proves the value is in the settings store, not just in this page's memory
+  const fresh = await openBuildTimeout(page);
+  await expect(fresh).toHaveValue(NEW_VALUE, { timeout: 10_000 });
 
-    // saveActiveEditor() (frontend/js/admin.js) shows "<title> saved.
-    // Restart the app if you changed startup-only settings." via the same
-    // msg() banner used elsewhere, but then immediately calls
-    // `await loadCsvEditor(...)` to repopulate the page from what was
-    // actually just written to disk -- and loadCsvEditor's own last line is
-    // `msg(activeEditor.title + " loaded")`, which stomps the "saved" text
-    // the instant that reload finishes. Root-caused directly (2026-09-01)
-    // against a real flaky failure: on a fast/idle server the reload's own
-    // GET can resolve before this assertion's next poll, so the "saved"
-    // text is not a bug in the app, it's just never reliably observable --
-    // whether an E2E run catches it is pure luck of the poll timing, not a
-    // real distinguishing signal. The toHaveValue() check below already
-    // proves the same real round trip (save -> disk -> reload) far more
-    // robustly, since it polls until the reload actually lands rather than
-    // trying to catch a message in the middle of being overwritten.
-    const reloadedInput = page.locator('tr', { hasText: 'Max Build Seconds' }).locator('input.cfg-input');
-    await expect(reloadedInput).toHaveValue(NEW_VALUE, { timeout: 10_000 });
-
-    // A second, independent full page reload -- proves the value is
-    // genuinely on disk (system_config.csv), not merely held in the
-    // in-memory activeEditor.rows this same page session already trusts.
-    await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
-    await page.getByRole('button', { name: /Build timeout/ }).first().click();
-    await page.waitForTimeout(500);
-    await page.getByRole('button', { name: 'Expand all' }).click();
-    const freshInput = page.locator('tr', { hasText: 'Max Build Seconds' }).locator('input.cfg-input');
-    await expect(freshInput).toHaveValue(NEW_VALUE, { timeout: 10_000 });
-  } finally {
-    // saveActiveEditor() (frontend/js/admin.js) re-renders #editorBody via
-    // loadCsvEditor() on every save, and that fresh render always starts
-    // every <details> section CLOSED -- the "Expand all" click above has no
-    // lasting effect once any save happens. toHaveValue() above doesn't
-    // require visibility, so that step passes even on a collapsed row and
-    // never surfaces this; only an action requiring visibility (fill/click)
-    // does. Root-caused directly (2026-09-01) against a CI failure on this
-    // exact line: under slower conditions, the row can still be collapsed
-    // here even though the try block's own second "Expand all" (above)
-    // succeeded moments earlier -- re-click it immediately before acting so
-    // there's no window for a save-triggered render to have silently
-    // reclosed it in between.
-    const expandAll = page.getByRole('button', { name: 'Expand all' });
-    if (await expandAll.count()) await expandAll.click();
-    const restoreInput = page.locator('tr', { hasText: 'Max Build Seconds' }).locator('input.cfg-input');
-    if (await restoreInput.count()) {
-      await restoreInput.fill(originalValue);
-      const saveButton = page.getByRole('button', { name: 'Save', exact: true });
-      if (await saveButton.count()) {
-        await saveButton.click();
-        // See the try block's comment above on why this waits for the
-        // reloaded value rather than the fleeting "saved" toast text.
-        await expect(restoreInput).toHaveValue(originalValue, { timeout: 10_000 });
-      }
-    }
-  }
+  // and the save left an audit row naming a count, never a value
+  await page.getByRole('button', { name: /Admin audit/ }).first().click();
+  await expect(page.getByText('settings.save')).toBeVisible({ timeout: 10_000 });
 });
