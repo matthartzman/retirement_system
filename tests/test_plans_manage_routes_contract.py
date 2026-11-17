@@ -42,7 +42,7 @@ def _post(client, path, body):
 
 def _cleanup(client, *ids):
     active = plan_registry.active_record()["plan_id"]
-    keep = next(p for p in plan_registry.list_plans() if p["kind"] != "demo" and p["plan_id"] not in ids)
+    keep = next(p for p in plan_registry.list_plans() if p["kind"] != "demo" and p["exists"] and p["plan_id"] not in ids)
     plan_registry.activate(keep["plan_id"], check=False)
     for pid in ids:
         try:
@@ -89,18 +89,21 @@ def test_duplicate_keeps_the_current_plan_active(remote):
         _cleanup(remote, body["plan"]["plan_id"])
 
 
-def test_rename_and_delete_with_typed_name(remote):
+def test_rename_and_delete_with_typed_name(remote, monkeypatch):
+    from src.server import plan_routes
+
+    monkeypatch.setattr(plan_routes, "_build_running", lambda: False)  # another test may leave a build job behind
     _, made = _post(remote, "/api/plans/create", {"name": "Temp", "from": "blank"})
     pid = made["plan"]["plan_id"]
     try:
         status, body = _post(remote, "/api/plans/rename", {"plan_id": pid, "name": "Temp two"})
         assert status == 200 and any(p["name"] == "Temp two" for p in body["plans"])
-        base = next(p for p in plan_registry.list_plans() if p["plan_id"] != pid and p["kind"] != "demo")
+        base = next(p for p in plan_registry.list_plans() if p["plan_id"] != pid and p["kind"] != "demo" and p["exists"])
         _post(remote, "/api/plans/switch", {"plan_id": base["plan_id"]})
         status, body = _post(remote, "/api/plans/delete", {"plan_id": pid, "confirm_name": "nope"})
         assert status == 400 and body["success"] is False
         status, body = _post(remote, "/api/plans/delete", {"plan_id": pid, "confirm_name": "Temp two"})
-        assert status == 200 and pid not in [p["plan_id"] for p in body["plans"]]
+        assert status == 200 and pid not in [p["plan_id"] for p in body["plans"]], body
     finally:
         _cleanup(remote, pid)
 
@@ -139,11 +142,27 @@ def test_download_by_plan_id_and_uniform_error(remote):
     try:
         other = plan_registry.active_record()["plan_id"]
         assert other == pid  # create activated it; ask for another plan by id
-        base = next(p for p in plan_registry.list_plans() if p["plan_id"] != pid and p["kind"] != "demo")
+        base = next(p for p in plan_registry.list_plans() if p["plan_id"] != pid and p["kind"] != "demo" and p["exists"])
         ok = remote.get(f"/api/plan/download?plan_id={base['plan_id']}", headers=_h())
         assert ok.status_code == 200 and ok.get_data()[:16] == b"SQLite format 3\x00"
         for bad in ("0" * 32, "../x", "CON"):
             resp = remote.get(f"/api/plan/download?plan_id={bad}", headers=_h())
             assert resp.status_code == 404 and resp.get_json()["success"] is False
+    finally:
+        _cleanup(remote, pid)
+
+
+def test_delete_is_refused_while_a_build_runs(remote, monkeypatch):
+    from src.server import plan_routes
+
+    _, made = _post(remote, "/api/plans/create", {"name": "Busy", "from": "blank"})
+    pid = made["plan"]["plan_id"]
+    try:
+        base = next(p for p in plan_registry.list_plans() if p["plan_id"] != pid and p["kind"] != "demo" and p["exists"])
+        _post(remote, "/api/plans/switch", {"plan_id": base["plan_id"]})
+        monkeypatch.setattr(plan_routes, "_build_running", lambda: True)
+        status, body = _post(remote, "/api/plans/delete", {"plan_id": pid, "confirm_name": "Busy"})
+        assert status == 400 and "build" in body["error"]
+        assert plan_registry.get_plan(pid)
     finally:
         _cleanup(remote, pid)
