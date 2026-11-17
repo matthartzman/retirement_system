@@ -1,6 +1,6 @@
 # Admin App: Design and Implementation Plan
 
-Status: draft
+Status: implemented
 Date: 2026-11-16
 
 ## Goal

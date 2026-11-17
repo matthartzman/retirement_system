@@ -65,6 +65,7 @@ The maintained description is `documentation/reference/CURRENT_SYSTEM_DESIGN_SPE
 | Build pipeline and outputs | design spec sections 5 and 8 |
 | Frontend structure, render hooks, navigation | design spec section 7 |
 | Multi-user server (gateway, per-user workers, remote mode, ops) | design spec section 3.6; `documentation/future/multi-user-server-*.md` |
+| Three local apps (Planner, Financial Insights, Admin app) and the shared identity store | design spec section 3.7; `documentation/future/admin-app-plan.md` |
 | One-time conversion of an old install | `LEGACY_CONVERSION.md` |
 
 ### Rules that bite
@@ -83,6 +84,13 @@ Code: `src/remote_worker.py`, `src/server/remote_allowlist.py`, `src/gateway/*`,
 - The gateway owns `/login`, `/gateway/*`, `/api/auth/*`. CSRF is the gateway's: requests carrying the worker token skip the worker's Origin check.
 - Never put a provider key on a command line or in `--worker-env`; use the gateway's environment and `--pass-env`.
 - Isolation tests that start workers are slow-tier and Windows-flaky; run them once per change. The elevated per-account tests are run by the owner.
+
+### Three apps and the identity store
+
+The system is three separate local processes, each loopback-only: the **Planner** (`main.py`, port 5050 in server mode), **Financial Insights** (`financial_trends_reporter/`, local 5057, remote 5058 behind the Funnel) and the **Admin app** (`admin_app/`, port 5056). Accounts live once, in the shared identity store `src/identity/` (`local_state/identity.db`: password hashes, roles, per-app grants `insights`/`planner`, enable/disable, expiry, TOTP, session epochs, activity and admin audit). Financial Insights signs people in against it and admits only those holding an `insights` grant; it no longer manages accounts. The Admin app owns people, grants, activity, the admin audit and the install-wide settings (the old `/admin` console moved out of the planner; `/admin` and `/system-configuration` now hand off to it). Per-plan engine assumptions stay in the planner (Plan assumptions pages, `/api/plan/engine-assumptions`).
+- Run: `python -m admin_app` (or `admin_app/launchers/START_ADMIN_APP.bat`, or the "Retirement Planner Admin" desktop shortcut from `tools/INSTALL_DESKTOP_ICON.py`). First time: `python -m admin_app create-admin --username NAME`. The planner's launcher never starts it.
+- The Admin app has no sign-in; its trust boundary is loopback plus Host/proxy-header refusal (`admin_app/trust.py`). Do not add a `--host` option or expose it through the Funnel.
+- The identity store refuses to remove or disable the last administrator; `create-admin` is the recovery path.
 
 ### Frontend working tips (`frontend/`)
 

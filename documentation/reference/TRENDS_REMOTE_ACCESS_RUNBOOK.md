@@ -5,7 +5,7 @@ Design: `documentation/archive/superpowers/plans/2026-10-27-trends-remote-access
 
 ## How it works
 
-- The server listens on two loopback ports. **5057** is the owner's PC: no password, and the only place the People and Activity screens exist. **5058** is for Tailscale Funnel only: every request needs a personal sign-in.
+- The server listens on two loopback ports. **5057** is the owner's PC: no password, and no longer has People or Activity screens: people are managed in the Admin app (`python -m admin_app`, port 5056). **5058** is for Tailscale Funnel only: every request needs a personal sign-in.
 - Everyone, including you on your phone, uses the same `https://<pc>.<tailnet>.ts.net/` link and signs in with their own username and password.
 - Remote sessions end after 10 minutes without anyone touching the page. Exit becomes "Sign out" and only ends that person's session.
 - The server runs in the background whenever you are logged on to Windows. Exit never stops it.
@@ -28,11 +28,11 @@ Design: `documentation/archive/superpowers/plans/2026-10-27-trends-remote-access
 
 ### 3. Add people
 
-Open http://127.0.0.1:5057 on the PC, click **People & Activity**, **Add person…**, and give each person a username and a temporary password (10+ characters). They are made to choose their own at first sign-in. Send the link and the temporary password by whatever channel you trust (not both in one message, ideally).
+Start the Admin app on the PC (`python -m admin_app`, then http://127.0.0.1:5056), open **People**, **Add person…**, give each person a username and a temporary password (10+ characters), and grant them Financial Insights access. They are made to choose their own at first sign-in. Send the link and the temporary password by whatever channel you trust (not both in one message, ideally).
 
 ### 4. Choose what each person sees: $ / % / Both
 
-Each person has a **money view** setting in People & Activity (the Add person dialog and the person's row):
+Each person has a **money view** setting in the Admin app People page (the Add person dialog and the person's row):
 
 - **%** (the default for new people): amounts appear only as percentages. Account balances and spending are shown as a percent of net worth, the Net Worth and Liquid charts as percent change since the start of the scope, spending as a share of total spending, and flows as a share of the liquid balance. Their data is scaled on the server before it leaves the PC, so no dollar figure is sent to their device. Each card names its base once in its heading (for example *% of net worth*, *% of total*, *share of gross assets*) and the cells show bare percentages.
 - **$**: dollars only, as on the PC.
@@ -47,8 +47,8 @@ Adding any new `/api/` route fails `tests/test_trends_percent_view_leak_guard_re
 ## Day to day
 
 - **Stop the server:** `financial_trends_reporter\tools\launchers\stop_trends_server.ps1`. **Restart:** `Start-ScheduledTask -TaskName FinancialTrendsReporter_Server`.
-- **Reset a forgotten password / remove someone:** People & Activity, Reset password or Delete. Their open sessions end on their next tap.
-- **Read the log:** People & Activity, Activity (filter by exact name).
+- **Reset a forgotten password / remove someone:** Admin app People page: Reset password, Disable or Delete. Their open sessions end on their next tap.
+- **Read the log:** Admin app Activity page (filter by exact name).
 - After an unattended reboot the link is down until you log on to the PC.
 - Double-clicking `START_TRENDS_APP.bat` while the server is already running just opens the browser.
 
@@ -67,5 +67,5 @@ Funnel's real `Host` header and whether it forwards the visitor's address (`X-Fo
 7. Sign in as a second person on another device: signing out of one does not affect the other.
 8. On the PC, delete the second person: their device lands on sign-in on its next tap.
 9. On the phone, open `<link>/api/history` while signed out: it must say sign-in required, not show data. Open `<link>/api/people`: it must say not found.
-10. On the PC, Activity shows the sign-ins, views and actions above.
+10. On the PC, the Admin app Activity page shows the sign-ins, views and actions above.
 11. Reboot the PC, log on, and confirm the link works again without starting anything by hand.

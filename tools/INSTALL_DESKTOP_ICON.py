@@ -12,6 +12,7 @@ ICON = ROOT / 'frontend' / 'assets' / 'retirement_planner.ico'
 UI_SCRIPT = ROOT / 'tools' / 'launchers' / 'START_DESKTOP.py'
 RESET_SCRIPT = ROOT / 'tools' / 'set_local_mode.py'
 TRENDS_SCRIPT = ROOT / 'financial_trends_reporter' / 'main.py'
+ADMIN_SCRIPT = ROOT / 'admin_app' / 'main.py'
 
 def write_bat(name: str, script: Path) -> Path:
     target = DESKTOP / f'{name}.bat'
@@ -43,6 +44,8 @@ launchers = [
     ('Retirement Planner', UI_SCRIPT, 'Start Retirement System'),
     ('Retirement Planner - Reset Local Mode', RESET_SCRIPT, 'Reset Retirement System to local mode'),
     ('Financial Insight', TRENDS_SCRIPT, 'Start Financial Insight'),
+    # Separate loopback-only app (port 5056). The planner's launcher never starts it; only this shortcut does.
+    ('Retirement Planner Admin', ADMIN_SCRIPT, 'Start the Retirement System Admin app'),
 ]
 # Launchers renamed since an earlier install; their old shortcuts would sit beside the new ones.
 RETIRED = ['Financial Trends Reporter']

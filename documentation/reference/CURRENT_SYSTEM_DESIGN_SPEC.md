@@ -214,6 +214,43 @@ Phase documents (`documentation/future/`): `multi-user-server-plan.md`, `-phase0
 `-frontend-design.md`, `-operations-design.md`, `-operations-runbook.md`, `-operations-measurements.md`,
 `-security-review.md` (each with the `multi-user-server` prefix).
 
+### 3.7 Three local apps and the shared identity store
+
+The system is three separate loopback processes that share one account store. Design and phase history:
+`documentation/future/admin-app-plan.md`.
+
+| App | Entry | Port | Owns |
+|---|---|---|---|
+| Retirement Planner | `main.py` | 5050 (server mode; desktop mode opens no socket) | plan rows, builds, per-plan engine assumptions |
+| Financial Insights (FI) | `financial_trends_reporter/main.py` | 5057 local (owner, no sign-in), 5058 remote (Tailscale Funnel, sign-in) | balance trends, projections, its sessions |
+| Admin app | `python -m admin_app` | 5056, loopback only | people, app grants, activity, admin audit, install-wide settings, system tools |
+
+- **Identity store** (`src/identity/`, `local_state/identity.db`, `open_identity_store`). One account list for the whole
+  system: scrypt password hashes, `must_change`, lockout and sign-in throttle, roles, enable/disable, access expiry,
+  per-app grants (`APPS = ("insights", "planner")`; `planner` is reserved for the multi-user server), TOTP with recovery
+  codes (`src/identity/totp.py`, secrets sealed with a key held in the OS credential store via `secrets_store`, never in `identity.db`), session epochs, a cross-app activity log and
+  an admin audit. The store refuses to remove or disable the last administrator. The first start of FI or the Admin app
+  migrates a legacy `data/access.db` into it. `python -m admin_app create-admin --username NAME` makes the first
+  administrator.
+- **Financial Insights** signs people in against the store and admits only those holding an `insights` grant. It no
+  longer manages accounts; its owner-only People and Activity routes were removed in favour of the Admin app. A password
+  reset, disable or grant removal in the Admin app takes effect in FI because sessions carry the user's epoch and are
+  checked against the store, so the apps need not share a process.
+- **Admin app** (`admin_app/`) reuses `src.http_runtime`. It has no sign-in: the trust boundary is loopback only
+  (`admin_app/trust.py` refuses a non-loopback Host and any proxy header, and checks that the Funnel does not target
+  its port). Routes: `/api/users*`, `/api/activity`, `/api/audit` (`routes_users.py`); `/api/settings*`,
+  `/api/tax-law-dashboard`, `/api/system/*` (`routes_system.py`). Every write is recorded in `admin_audit` as counts and
+  labels, never values.
+- **System configuration moved.** Install-wide runtime settings (rows of `app.db` settings) are edited in the Admin
+  app; the planner re-reads them on each call, so a change applies without a restart (host/port changes still need
+  one). The planner's `/admin` and `/system-configuration` routes now hand off to the Admin app. Per-plan engine
+  sections (annuity calibration, asset class assumptions, correlations, plan settings, rebalancing) stay with the plan
+  and are edited on the planner's Plan assumptions pages (`/api/plan/engine-assumptions`). The settings renderer is one
+  shared file, `frontend/js/settings_renderer.js`.
+- **Launching.** `admin_app/launchers/START_ADMIN_APP.bat` and the "Retirement Planner Admin" desktop shortcut
+  (`tools/INSTALL_DESKTOP_ICON.py`, `launchers/CREATE_DESKTOP_SHORTCUT.vbs`). The planner's launcher never starts the
+  Admin app, so it is running only when the user started it.
+
 ## 4. Data architecture
 
 ### 4.1 Canonical source hierarchy
