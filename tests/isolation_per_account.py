@@ -120,8 +120,9 @@ def force_rmtree(path: Path) -> None:
 _SWEEP = r"""
 Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like 'C:\Users\rpwtest_*' } | ForEach-Object {
     $sid = $_.SID
-    foreach ($key in @("HKU\$sid", "HKU\${sid}_Classes")) { reg unload $key 2>&1 | Out-Null }
-    Remove-CimInstance -InputObject $_ -ErrorAction SilentlyContinue
+    foreach ($key in @("HKU\$sid", "HKU\${sid}_Classes")) { "reg unload ${key}: " + ((reg unload $key 2>&1) -join " ") }
+    try { Remove-CimInstance -InputObject $_ -ErrorAction Stop; "removed $($_.LocalPath)" }
+    catch { "remove $($_.LocalPath) failed: $($_.Exception.Message)" }
 }
 """
 
@@ -130,8 +131,16 @@ def sweep_profiles() -> None:
     """Unload and delete every ``C:\\Users\\rpwtest_*`` profile. The tests end the gateway with TerminateProcess, so
     the worker accounts' registry hives stay loaded (the gateway never ran its own unload) and DeleteProfile cannot
     remove them until they are unloaded. Retried because the dead workers' handles close a moment after the kill."""
-    for _ in range(4):
-        subprocess.run(["powershell", "-NoProfile", "-Command", _SWEEP], capture_output=True)
+    dest = os.environ.get(DIAG_ENV, "").strip()
+    for attempt in range(4):
+        out = subprocess.run(["powershell", "-NoProfile", "-Command", _SWEEP], capture_output=True, text=True)
+        if dest:  # what reg unload / Remove-CimInstance said, for the owner to read after a failed run
+            try:
+                Path(dest).mkdir(parents=True, exist_ok=True)
+                with (Path(dest) / "profile_sweep.txt").open("a", encoding="utf-8") as fh:
+                    fh.write(f"--- attempt {attempt}\n{out.stdout}{out.stderr}\n")
+            except OSError:
+                pass
         if not any(p.name.lower().startswith(PREFIX) for p in Path("C:\\Users").iterdir()):
             return
         time.sleep(2)
