@@ -212,3 +212,22 @@ def test_audit_log_lists_newest_first(rig):
     rig.now[0] = 2000.0
     rig.add("bob")
     assert [a["target_user"] for a in rig.get("/api/audit")[1]["audit"]] == ["bob", "ann"]
+
+
+def test_two_factor_requirement_defaults_on_can_be_switched_per_person_and_reset_is_audited(rig):
+    key = bytes(range(32))
+    rig.store._totp_key_fn = lambda: key
+    uid = rig.add("ann")
+    assert rig.user(uid)["totp_required"] is True and rig.user(uid)["totp_enrolled"] is False
+    other = rig.add("bob", totp_required=False)
+    assert rig.user(other)["totp_required"] is False
+    assert rig.post("/api/users/update", {"id": uid, "totp_required": False})[0] == 200
+    assert rig.user(uid)["totp_required"] is False
+    secret = rig.store.begin_enrolment(uid, now=1000.0)
+    from src.identity import totp as totp_lib
+    rig.store.confirm_enrolment(uid, totp_lib.totp_at(secret, 1000.0), now=1000.0)
+    assert rig.user(uid)["totp_enrolled"] is True
+    _, out = rig.post("/api/users/reset-totp", {"id": uid})
+    assert out["was_enrolled"] is True and rig.user(uid)["totp_enrolled"] is False
+    audit = json.dumps(rig.store.read_audit())
+    assert secret not in audit and "user.reset-totp" in audit and "totp_required" in audit

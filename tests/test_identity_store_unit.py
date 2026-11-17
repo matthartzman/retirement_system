@@ -19,7 +19,7 @@ def _store(tmp_path):
 def test_schema_version_continues_from_access_db(tmp_path):
     store = _store(tmp_path)
     conn = sqlite3.connect(store.path)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 3
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 4
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"users", "app_grants", "totp", "activity", "admin_audit"} <= tables
     cols = {r[1] for r in conn.execute("PRAGMA table_info(users)")}

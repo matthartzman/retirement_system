@@ -15,7 +15,9 @@ from typing import Callable
 
 from src.http_runtime.wsgi_facade import Response, request
 
+from src.identity import totp as totp_lib
 from src.identity.store import IdentityStore
+from src.secrets_store import SecretStoreUnavailable
 
 from . import percent_view
 from .listeners import current_listener, has_proxy_headers, is_loopback_host
@@ -38,10 +40,13 @@ SIGNIN_HTML_PATH = Path(__file__).resolve().parent / "frontend" / "signin.html"
 LOCAL_ONLY_PREFIXES = ("/api/open-admin",)
 PUBLIC_REMOTE = {("GET", "/signin"), ("POST", "/api/signin")}
 MUST_CHANGE_ALLOWED = {"/api/change-password", "/api/signout", "/api/whoami"}
+ENROL_ALLOWED = {"/api/totp/begin", "/api/totp/confirm", "/api/change-password", "/api/signout", "/api/whoami"}
+TOTP_HTML_PATH = Path(__file__).resolve().parent / "frontend" / "totp.html"
 # Percent-only people: this one route is refused, every other /api/ JSON body is scaled unless listed here.
 WITHHELD_FOR_PERCENT = {"/api/spending/transactions"}
 PASS_THROUGH_FOR_PERCENT = {"/api/whoami", "/api/ping", "/api/view", "/api/signin", "/api/signout", "/api/change-password",
-                            "/api/run-status", "/api/run-cancel", "/api/passthrough-decision", "/api/account-prefs"}
+                            "/api/run-status", "/api/run-cancel", "/api/passthrough-decision", "/api/account-prefs",
+                            "/api/totp/begin", "/api/totp/confirm", "/api/totp/recovery-codes"}
 PERCENT_MARK = {"mode": "percent", "basis": "net_worth_today"}
 
 
@@ -84,6 +89,8 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
         if grant is None or int(user["session_epoch"]) != sess.epoch:
             return None, None
         user["money_view"] = grant["money_view"] or "percent"
+        user["totp_enrolled"] = store.totp_enrolled(user["id"])
+        user["needs_totp"] = bool(user["totp_required"]) and not user["totp_enrolled"]
         return user, grant
 
     @app.before_request
@@ -122,6 +129,12 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
             return resp
         if user["must_change"] and path.startswith("/api/") and path not in MUST_CHANGE_ALLOWED:
             return _json({"success": False, "must_change": True, "error": "choose a new password first"}, 409)
+        if user["needs_totp"] and path == "/":
+            resp = Response(b"", status=302)
+            resp.headers["Location"] = "/totp"
+            return resp
+        if user["needs_totp"] and path.startswith("/api/") and path not in ENROL_ALLOWED:
+            return _json({"success": False, "needs_totp": True, "error": "set up two-factor sign-in first"}, 409)
         if user["money_view"] == "percent" and path in WITHHELD_FOR_PERCENT:
             return _json({"success": False, "error": "Not available in the percent view."}, 403)
         _log_action()
@@ -168,11 +181,23 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
         if delay and now - store.last_failure_at() < delay:
             _log("sign-in throttled", person="(not signed in)")
             return _json({"success": False, "error": "Too many attempts. Try again shortly."}, 429, {"Retry-After": str(int(delay) + 1)})
-        result = store.verify_login(str(body.get("username") or ""), str(body.get("password") or ""), now)
+        code = str(body.get("code") or "")[:32]
+        try:
+            result = store.verify_login(str(body.get("username") or ""), str(body.get("password") or ""), now, code=code)
+        except SecretStoreUnavailable:  # fail closed: a second factor that cannot be checked never lets anyone in
+            return _json({"success": False, "error": "Two-factor sign-in is unavailable right now."}, 503)
         attempted = str(body.get("username") or "")[:64]
         if result.reason == "locked":
             _log("locked out", attempted, person="(not signed in)")
             return _json({"success": False, "error": "Too many attempts. Try again in a few minutes."}, 429, {"Retry-After": "900"})
+        if result.reason == "totp":  # password was right; ask for the code (the grant is still checked once the code is in)
+            if store.get_grant(result.user_id, "insights") is None:
+                _log("sign-in failed", attempted, person="(not signed in)")
+                return _json({"success": False, "error": "Incorrect username or password."}, 401)
+            return _json({"success": False, "needs_code": True})
+        if result.reason == "bad_code":
+            _log("two-factor code failed", attempted, person="(not signed in)")
+            return _json({"success": False, "needs_code": True, "error": "That code is not right."}, 401)
         if not result.ok:
             _log("sign-in failed", attempted, person="(not signed in)")
             return _json({"success": False, "error": "Incorrect username or password."}, 401)
@@ -181,8 +206,11 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
             return _json({"success": False, "error": "Incorrect username or password."}, 401)
         store.touch_last_signin(result.user_id, now)
         token = sessions.create(result.user_id, store.session_epoch(result.user_id) or 0)
-        _log("signed in", person=store.get_user(result.user_id)["display_name"])
-        resp = _json({"success": True, "must_change": result.must_change})
+        who = store.get_user(result.user_id)["display_name"]
+        if totp_lib.looks_like_recovery(code):
+            _log("recovery code used", person=who)
+        _log("signed in", person=who)
+        resp = _json({"success": True, "must_change": result.must_change, "needs_totp": result.needs_enrolment})
         resp.set_cookie(COOKIE, token, secure=True, httponly=True, samesite="Strict", path="/")
         return resp
 
@@ -205,6 +233,8 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
             "listener": current_listener(),
             "name": request.environ.get("person", OWNER_NAME),
             "must_change": bool(user and user["must_change"]),
+            "needs_totp": bool(user and user["needs_totp"]),
+            "totp_enrolled": bool(user and user["totp_enrolled"]),
             "money_view": user["money_view"] if user else "both",
             "views": [v for v in INSIGHTS_VIEWS if v in views],
         })
@@ -225,6 +255,66 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
         sessions.set_epoch(request.environ.get("token"), store.session_epoch(user["id"]) or 0)
         _log("password changed")
         return _json({"success": True})
+
+    @app.route("/totp", methods=["GET"])
+    def totp_page():
+        return Response(TOTP_HTML_PATH.read_text(encoding="utf-8"), content_type="text/html; charset=utf-8")
+
+    def _totp_user():
+        user = request.environ.get("user")
+        if user is None:
+            return None, _json({"success": False, "error": "Only signed-in guests use two-factor sign-in."}, 400)
+        return user, None
+
+    @app.route("/api/totp/begin", methods=["POST"])
+    def totp_begin():
+        user, err = _totp_user()
+        if err:
+            return err
+        try:
+            secret = store.begin_enrolment(user["id"], now=clock())
+        except SecretStoreUnavailable:
+            return _json({"success": False, "error": "Two-factor sign-in is unavailable right now."}, 503)
+        except ValueError as exc:
+            return _json({"success": False, "error": str(exc)}, 409)
+        return _json({"success": True, "secret": secret,
+                      "uri": totp_lib.provisioning_uri(secret, user["username"])}, headers={"Cache-Control": "no-store"})
+
+    @app.route("/api/totp/confirm", methods=["POST"])
+    def totp_confirm():
+        user, err = _totp_user()
+        if err:
+            return err
+        body = request.get_json(silent=True) or {}
+        try:
+            codes = store.confirm_enrolment(user["id"], str(body.get("code") or "")[:32], now=clock())
+        except SecretStoreUnavailable:
+            return _json({"success": False, "error": "Two-factor sign-in is unavailable right now."}, 503)
+        except ValueError as exc:
+            return _json({"success": False, "error": str(exc)}, 409)
+        if codes is None:
+            _log("two-factor code failed", "setup")
+            return _json({"success": False, "error": "That code is not right. Check your authenticator and try again."}, 400)
+        _log("two-factor enrolled")
+        return _json({"success": True, "recovery_codes": codes}, headers={"Cache-Control": "no-store"})
+
+    @app.route("/api/totp/recovery-codes", methods=["POST"])
+    def totp_recovery_codes():
+        user, err = _totp_user()
+        if err:
+            return err
+        body = request.get_json(silent=True) or {}
+        if not store.check_current_password(user["id"], str(body.get("current") or "")):
+            return _json({"success": False, "error": "Your current password is not right."}, 400)
+        try:
+            codes = store.regenerate_recovery_codes(user["id"], str(body.get("code") or "")[:32], now=clock())
+        except SecretStoreUnavailable:
+            return _json({"success": False, "error": "Two-factor sign-in is unavailable right now."}, 503)
+        if codes is None:
+            _log("two-factor code failed", "recovery codes")
+            return _json({"success": False, "error": "That code is not right."}, 400)
+        _log("recovery codes replaced")
+        return _json({"success": True, "recovery_codes": codes}, headers={"Cache-Control": "no-store"})
 
     @app.route("/api/view", methods=["POST"])
     def view():
