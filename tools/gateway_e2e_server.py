@@ -31,6 +31,9 @@ def main() -> int:
     uid = store.create_user("carol", "Carol", "user", PASSWORD, now=now, actor=Actor(None, "e2e"), must_change=False)
     secret = store.begin_totp_enrolment(uid, now - 3600)
     assert store.confirm_totp(uid, totp.code_at(secret, int((now - 3600) // 30)), now - 3600)
+    aid = store.create_user("alice", "Alice Admin", "admin", PASSWORD, now=now, actor=Actor(None, "e2e"), must_change=False)
+    asecret = store.begin_totp_enrolment(aid, now - 3600)
+    assert store.confirm_totp(aid, totp.code_at(asecret, int((now - 3600) // 30)), now - 3600)
     env = {k: v for k, v in __import__("os").environ.items() if not k.startswith("RETIREMENT_SYSTEM_")}
     cmd = [sys.executable, "-m", "src.gateway", "--db", str(db), "--local-port", "0", "--funnel-port", "0",
            "--public-origin", "https://node.example.ts.net:8443", "--no-tailscale-check",
@@ -44,7 +47,8 @@ def main() -> int:
             return 1
         time.sleep(0.1)
     ready = json.loads(ready_file.read_text(encoding="utf-8"))
-    print(json.dumps({"port": ready["local_port"], "username": "carol", "password": PASSWORD, "totp_secret": secret}), flush=True)
+    print(json.dumps({"port": ready["local_port"], "username": "carol", "password": PASSWORD, "totp_secret": secret,
+                      "admin": {"username": "alice", "password": PASSWORD, "totp_secret": asecret}}), flush=True)
     try:
         proc.wait()
     except KeyboardInterrupt:

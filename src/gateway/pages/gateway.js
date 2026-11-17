@@ -192,46 +192,109 @@
     }).catch(function () { say("Network error. Please try again."); });
   }
 
-  function actionButton(cell, label, cls, fn) {
-    var b = el("button", label, "small " + cls);
-    b.type = "button";
-    b.addEventListener("click", fn);
-    cell.appendChild(b);
+  var users = [];
+  var current = null;
+  var MIN_PW = 12;
+
+  function tag(text, bad) {
+    var t = el("span", text, bad ? "tag bad" : "tag");
+    return t;
   }
 
   function userRow(u) {
     var tr = document.createElement("tr");
-    var st = [];
-    if (u.disabled) { st.push("disabled"); }
-    if (u.locked) { st.push("locked"); }
-    if (u.must_change) { st.push("must change"); }
-    [u.display_name, u.username, u.role, st.join(", ") || "ok", u.totp, fmtTime(u.last_login_at)]
+    if (u.disabled) { tr.className = "off"; }
+    var status = document.createElement("td");
+    var any = false;
+    [[u.disabled, "disabled", true], [u.locked, "locked", true], [u.must_change, "must change", false]]
+      .forEach(function (f) { if (f[0]) { status.appendChild(tag(f[1], f[2])); any = true; } });
+    if (!any) { status.textContent = "active"; }
+    [u.display_name, u.username, u.role === "admin" ? "Administrator" : "User"]
       .forEach(function (t) { tr.appendChild(el("td", t)); });
+    tr.appendChild(status);
+    tr.appendChild(el("td", u.totp));
+    tr.appendChild(el("td", fmtTime(u.last_login_at)));
     var td = document.createElement("td");
-    var p = BASE + "/" + encodeURIComponent(u.id);
-    actionButton(td, u.role === "admin" ? "Make user" : "Make admin", "secondary", function () {
-      act(p + "/role", { role: u.role === "admin" ? "user" : "admin" });
-    });
-    actionButton(td, u.disabled ? "Enable" : "Disable", "secondary", function () {
-      act(p + "/disabled", { disabled: !u.disabled });
-    });
-    if (u.locked) {
-      actionButton(td, "Unlock", "secondary", function () { act(p + "/unlock"); });
-    }
-    actionButton(td, "Reset password", "secondary", function () {
-      var t = window.prompt("Temporary password for " + u.username + " (at least 12 characters):");
-      if (t === null) { return; }
-      if (t.length < 12) { say("The temporary password must be at least 12 characters."); return; }
-      act(p + "/reset-password", { temp_password: t });
-    });
-    actionButton(td, "Reset two-factor", "secondary", function () { act(p + "/reset-totp"); });
-    actionButton(td, "Delete", "danger", function () {
-      if (window.confirm("Delete user " + u.username + "? This cannot be undone.")) {
-        act(p + "/delete");
-      }
-    });
+    var b = el("button", "Edit");
+    b.type = "button";
+    b.addEventListener("click", function () { openDialog(u); });
+    td.appendChild(b);
     tr.appendChild(td);
     return tr;
+  }
+
+  function dlgErr(msg) { $("form-err").textContent = msg || ""; }
+
+  function openDialog(u) {
+    current = u;
+    var dlg = $("user-dialog");
+    dlgErr("");
+    $("user-form").reset();
+    $("dlg-title").textContent = u ? "Edit " + u.display_name : "Add person";
+    var label = u ? "Save changes" : "Add person";
+    $("u-save").textContent = label;
+    $("u-save-top").textContent = label;
+    $("u-display").value = u ? u.display_name : "";
+    $("u-display").readOnly = !!u;
+    $("u-username").value = u ? u.username : "";
+    $("u-username").readOnly = !!u;
+    $("u-role").value = u ? u.role : "user";
+    $("u-added").textContent = (u && u.created_at ? new Date(u.created_at * 1000) : new Date()).toLocaleDateString();
+    $("u-temp-field").classList.toggle("hidden", !!u);
+    $("u-acts").classList.toggle("hidden", !u);
+    $("u-acts").open = false;
+    if (u) {
+      $("u-toggle").textContent = u.disabled ? "Enable" : "Disable";
+      $("u-unlock").classList.toggle("hidden", !u.locked);
+    }
+    dlg.showModal();
+    (u ? $("u-role") : $("u-display")).focus();
+  }
+
+  function closeDialog() { $("user-dialog").close(); }
+
+  /* One call; on refusal show the server's (generic) message inside the dialog and keep it open. */
+  function dlgCall(path, body) {
+    return api("POST", path, body || {}).then(function (r) {
+      if (r.status === 401 && !r.json.error) { toLogin(); return false; }
+      if (r.status !== 200 || r.json.success === false) { dlgErr(errText(r)); return false; }
+      return true;
+    }).catch(function () { dlgErr("Network error. Please try again."); return false; });
+  }
+
+  function refresh() { return loadUsers().then(loadAudit); }
+
+  function saveDialog() {
+    dlgErr("");
+    if (!current) {
+      var name = $("u-display").value.trim(), user = $("u-username").value.trim(), pw = $("u-temp").value;
+      if (!name || !user) { dlgErr("Name and username are both needed."); return Promise.resolve(); }
+      if (pw.length < MIN_PW) { dlgErr("Temporary password must be at least " + MIN_PW + " characters."); return Promise.resolve(); }
+      return dlgCall(BASE, { username: user, display_name: name, role: $("u-role").value, temp_password: pw })
+        .then(function (ok) { if (ok) { closeDialog(); say("Person added.", true); return refresh(); } });
+    }
+    if ($("u-role").value === current.role) { closeDialog(); return Promise.resolve(); }
+    return dlgCall(BASE + "/" + encodeURIComponent(current.id) + "/role", { role: $("u-role").value })
+      .then(function (ok) { if (ok) { closeDialog(); say(""); return refresh(); } });
+  }
+
+  function runAction(act) {
+    var u = current, p = BASE + "/" + encodeURIComponent(u.id), call;
+    if (act === "delete") {
+      if (!window.confirm("Delete " + u.display_name + "? This cannot be undone.")) { return Promise.resolve(); }
+      call = dlgCall(p + "/delete");
+    } else if (act === "toggle") {
+      if (!u.disabled && !window.confirm("Disable " + u.display_name + " and end their sessions?")) { return Promise.resolve(); }
+      call = dlgCall(p + "/disabled", { disabled: !u.disabled });
+    } else if (act === "reset-password") {
+      var t = $("u-reset").value;
+      if (t.length < MIN_PW) { dlgErr("Temporary password must be at least " + MIN_PW + " characters."); return Promise.resolve(); }
+      call = dlgCall(p + "/reset-password", { temp_password: t });
+    } else {
+      call = dlgCall(p + "/" + act);
+    }
+    dlgErr("");
+    return call.then(function (ok) { if (ok) { closeDialog(); say(""); return refresh(); } });
   }
 
   function fill(id, rows) {
@@ -244,7 +307,9 @@
     return api("GET", BASE).then(function (r) {
       if (r.status === 401) { toLogin(); return; }
       if (r.status !== 200) { say(errText(r)); return; }
-      fill("users-body", (r.json.users || []).map(userRow));
+      users = r.json.users || [];
+      $("user-count").textContent = users.length + (users.length === 1 ? " person" : " people");
+      fill("users-body", users.map(userRow));
     });
   }
 
@@ -265,19 +330,14 @@
 
   function initUsers() {
     loadUsers().then(loadAudit).catch(function () { say("Could not load users."); });
-    onSubmit($("create-form"), function () {
-      return api("POST", BASE, {
-        username: $("c-username").value.trim(),
-        display_name: $("c-display").value.trim(),
-        role: $("c-role").value,
-        temp_password: $("c-temp").value
-      }).then(function (r) {
-        if (r.status === 401 && !r.json.error) { toLogin(); return; }
-        if (r.status !== 200 || r.json.success === false) { say(errText(r)); return; }
-        say("User created.", true);
-        $("create-form").reset();
-        return loadUsers().then(loadAudit);
-      });
+    $("add-user").addEventListener("click", function () { openDialog(null); });
+    $("u-close").addEventListener("click", closeDialog);
+    $("user-form").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      saveDialog();
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-act]"), function (b) {
+      b.addEventListener("click", function () { runAction(b.getAttribute("data-act")); });
     });
   }
 

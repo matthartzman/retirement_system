@@ -19,27 +19,47 @@
   <p id="status" class="status" role="status" aria-live="polite"></p>
   <section>
     <h2>Users</h2>
+    <div class="bar"><button type="button" class="primary" id="add-user">Add person</button><span id="user-count" class="note"></span></div>
     <div class="wrap">
       <table>
-        <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Two-factor</th><th>Last sign-in</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Two-factor</th><th>Last sign-in</th><th></th></tr></thead>
         <tbody id="users-body"></tbody>
       </table>
     </div>
   </section>
-  <form id="create-form" class="card">
-    <h2>Create user</h2>
-    <div class="row">
-      <div><label for="c-username">Username</label>
-        <input id="c-username" type="text" autocomplete="off" autocapitalize="none" required></div>
-      <div><label for="c-display">Display name</label>
-        <input id="c-display" type="text" autocomplete="off" required></div>
-      <div><label for="c-role">Role</label>
-        <select id="c-role"><option value="user">user</option><option value="admin">admin</option></select></div>
-      <div><label for="c-temp">Temporary password (12+ characters)</label>
-        <input id="c-temp" type="password" autocomplete="new-password" minlength="12" required></div>
-    </div>
-    <button type="submit">Create user</button>
-  </form>
+  <dialog id="user-dialog" aria-labelledby="dlg-title">
+    <form id="user-form" novalidate>
+      <header class="dhead">
+        <h2 id="dlg-title">Add person</h2>
+        <button type="submit" class="primary" id="u-save-top">Save changes</button>
+        <div class="err" id="form-err" role="alert"></div>
+      </header>
+      <section class="acct">
+        <h3>Account</h3>
+        <div class="row2">
+          <label class="field"><span>Name</span><input id="u-display" type="text" autocomplete="off"></label>
+          <label class="field"><span>Username</span><input id="u-username" type="text" autocomplete="off" autocapitalize="none"></label>
+        </div>
+        <label class="field" id="u-temp-field"><span>Temporary password (12+ characters; they choose their own at first sign-in)</span><input id="u-temp" type="password" autocomplete="new-password"></label>
+        <div class="row3">
+          <label class="field"><span>Role</span><select id="u-role"><option value="user">User</option><option value="admin">Administrator</option></select></label>
+          <label class="field"><span>Added</span><output id="u-added"></output></label>
+        </div>
+        <details class="acts" id="u-acts">
+          <summary>Password, sessions and removal</summary>
+          <label class="field"><span>New temporary password</span><input id="u-reset" type="password" autocomplete="new-password"></label>
+          <div class="actions">
+            <button type="button" data-act="reset-password">Reset password</button>
+            <button type="button" data-act="reset-totp">Reset two-factor</button>
+            <button type="button" data-act="unlock" id="u-unlock">Unlock</button>
+            <button type="button" data-act="toggle" id="u-toggle">Disable</button>
+            <button type="button" class="danger" data-act="delete">Delete</button>
+          </div>
+        </details>
+      </section>
+      <div class="foot"><button type="button" id="u-close">Close</button><button type="submit" class="primary" id="u-save">Save changes</button></div>
+    </form>
+  </dialog>
   <section>
     <h2>Audit log</h2>
     <div class="wrap">
