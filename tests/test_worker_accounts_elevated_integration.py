@@ -397,6 +397,12 @@ def test_diagnose_worker_loads_each_dll(box):
     print(chr(10) + text)
 
 
+def _process_session(pid: int) -> int | None:
+    sid = ctypes.c_ulong()
+    k = ctypes.WinDLL("kernel32", use_last_error=True)
+    return int(sid.value) if k.ProcessIdToSessionId(ctypes.c_ulong(pid), ctypes.byref(sid)) else None
+
+
 def _launch_raw(box, uid: int, argv: list[str], desktop: str | None, use_job: bool) -> int | None:
     """Logon, load the profile, start ``argv`` as the account with the given ``lpDesktop`` and optionally in a Job."""
     name, pw = box["mgr"].credentials(uid)
@@ -411,6 +417,7 @@ def _launch_raw(box, uid: int, argv: list[str], desktop: str | None, use_job: bo
         if use_job:
             job = winapi.Job()
             job.assign(started.process_handle)
+        box["child_session"] = _process_session(started.pid)
         winapi.resume_thread(started.thread_handle)
         deadline = time.time() + 60
         while winapi.process_exit_code(started.process_handle) is None and time.time() < deadline:
@@ -450,6 +457,8 @@ def test_diagnose_worker_user32_by_desktop_and_job(box):
             report.append(f"[desktop={desktop!r} job={use_job}] exit={(rc or 0) & 0xFFFFFFFF:#010x}" + chr(10) + seen)
     reg = subprocess.run(["reg", "query", r"HKLM\System\CurrentControlSet\Control\Session Manager\SubSystems",
                           "/v", "Windows"], capture_output=True, text=True).stdout
+    report.append(f"[sessions] this test process={_process_session(os.getpid())} worker child={box.get('child_session')} "
+                  f"(a mismatch means the worker's user32 cannot attach to this session's desktop)")
     report.append("[desktop heap registry]" + chr(10) + " ".join(reg.split()).split("SharedSection")[-1][:60])
     me = subprocess.run(["whoami", "/priv"], capture_output=True, text=True).stdout
     report.append("[gateway privileges incl. AssignPrimaryToken]" + chr(10) + chr(10).join(
