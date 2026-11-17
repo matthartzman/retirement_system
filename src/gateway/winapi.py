@@ -423,7 +423,8 @@ class StartedProcess:
     method: str  # "CreateProcessAsUserW" or "CreateProcessWithTokenW"
 
 
-def create_process_as(token: int, command_line: str, *, cwd: str, env: dict[str, str]) -> StartedProcess:
+def create_process_as(token: int, command_line: str, *, cwd: str, env: dict[str, str],
+                      desktop: str | None = "") -> StartedProcess:
     """Start ``command_line`` suspended under ``token`` with no window and no inherited handles.
 
     ``CreateProcessAsUserW`` needs ``SeAssignPrimaryTokenPrivilege`` (LocalSystem has it). Without it
@@ -437,7 +438,7 @@ def create_process_as(token: int, command_line: str, *, cwd: str, env: dict[str,
     # account cannot open. Windows creates a window station for the new logon session instead. With a NULL desktop
     # user32/gdi32 initialisation fails in the child, so any DLL that links them (_ctypes via oleaut32, _ssl via
     # libcrypto) dies with "DLL initialization routine failed" (keyring, ssl and ctypes all need them).
-    si.lpDesktop = ""
+    si.lpDesktop = desktop  # None means NULL (inherit the parent's)
     pi = _PROCESS_INFORMATION()
     flags = CREATE_SUSPENDED | CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP | CREATE_UNICODE_ENVIRONMENT
     cmd = ctypes.create_unicode_buffer(command_line)

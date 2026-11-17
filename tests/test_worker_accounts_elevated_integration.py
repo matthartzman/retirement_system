@@ -395,3 +395,65 @@ def test_diagnose_worker_loads_each_dll(box):
     text = chr(10).join(report)
     Path(os.environ.get("TEMP", r"C:\Windows\Temp"), "rpw_dll_each.txt").write_text(text, encoding="utf-8")
     print(chr(10) + text)
+
+
+def _launch_raw(box, uid: int, argv: list[str], desktop: str | None, use_job: bool) -> int | None:
+    """Logon, load the profile, start ``argv`` as the account with the given ``lpDesktop`` and optionally in a Job."""
+    name, pw = box["mgr"].credentials(uid)
+    token = winapi.logon(name, pw, winapi.LOGON32_LOGON_BATCH)
+    del pw
+    profile = winapi.load_profile(token, name)
+    started = job = None
+    try:
+        env = winapi.environment_block(token)
+        started = winapi.create_process_as(token, subprocess.list2cmdline(argv), cwd=r"C:\Windows\System32",
+                                           env=env, desktop=desktop)
+        if use_job:
+            job = winapi.Job()
+            job.assign(started.process_handle)
+        winapi.resume_thread(started.thread_handle)
+        deadline = time.time() + 60
+        while winapi.process_exit_code(started.process_handle) is None and time.time() < deadline:
+            time.sleep(0.1)
+        return winapi.process_exit_code(started.process_handle)
+    finally:
+        if started is not None:
+            winapi.terminate_process(started.process_handle)
+            winapi.close_handle(started.process_handle)
+            winapi.close_handle(started.thread_handle)
+        if job is not None:
+            job.close()
+        profile.unload()
+        winapi.close_handle(token)
+
+
+def test_diagnose_worker_user32_by_desktop_and_job(box):
+    """Diagnostic, not a gate: does ``user32`` initialise for the worker account with a NULL, empty or explicit
+    desktop, with and without a Job Object? Output: terminal (-s) and ``%TEMP%\rpw_user32_diag.txt``."""
+    uid = 911
+    ws = _ws(box, uid)
+    box["mgr"].ensure(uid, ws)
+    out = ws / "u32.txt"
+    code = chr(10).join([
+        "import sqlite3",
+        "con = sqlite3.connect(':memory:'); con.enable_load_extension(True)",
+        "for t in ('user32', 'gdi32', 'ole32'):",
+        "    try: con.load_extension(t)",
+        "    except Exception as e: note(t + ' :: ' + str(e))",
+    ])
+    report = []
+    for desktop in (None, "", r"WinSta0\Default"):
+        for use_job in (False, True):
+            out.unlink(missing_ok=True)
+            rc = _launch_raw(box, uid, [box["python"], "-E", "-s", "-c", _stage(code), str(out)], desktop, use_job)
+            seen = out.read_text(encoding="utf-8").replace(chr(10), " / ") if out.exists() else "(no file written)"
+            report.append(f"[desktop={desktop!r} job={use_job}] exit={(rc or 0) & 0xFFFFFFFF:#010x}" + chr(10) + seen)
+    reg = subprocess.run(["reg", "query", r"HKLM\System\CurrentControlSet\Control\Session Manager\SubSystems",
+                          "/v", "Windows"], capture_output=True, text=True).stdout
+    report.append("[desktop heap registry]" + chr(10) + " ".join(reg.split()).split("SharedSection")[-1][:60])
+    me = subprocess.run(["whoami", "/priv"], capture_output=True, text=True).stdout
+    report.append("[gateway privileges incl. AssignPrimaryToken]" + chr(10) + chr(10).join(
+        ln for ln in me.splitlines() if "Assign" in ln or "Impersonate" in ln))
+    text = chr(10).join(report)
+    Path(os.environ.get("TEMP", r"C:\Windows\Temp"), "rpw_user32_diag.txt").write_text(text, encoding="utf-8")
+    print(chr(10) + text)
