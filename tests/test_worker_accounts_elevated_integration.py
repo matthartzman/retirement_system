@@ -121,9 +121,10 @@ def test_batch_logon_works_with_the_deny_rights_and_interactive_logon_is_refused
                             workers={901: (name, sid)}, gateway_db=box["gw"] / "gateway.db") == []
 
 
-def _run_as(box, uid: int, argv: list[str], timeout: float = 60.0, env: dict | None = None) -> int:
+def _run_as(box, uid: int, argv: list[str], timeout: float = 60.0, env: dict | None = None,
+            memory: int | None = 256 * 2**20, procs: int | None = 8) -> int:
     proc = PerAccountLauncher(box["mgr"]).launch(LaunchSpec(uid, argv, Path("C:\\Windows\\System32"), env or {},
-                                                            256 * 2**20, 8))
+                                                            memory, procs))
     try:
         deadline = time.time() + timeout
         while proc.poll() is None and time.time() < deadline:
@@ -309,5 +310,40 @@ def test_diagnose_worker_credential_manager_stages(box):
         seen = out.read_text(encoding="utf-8") if out.exists() else "(no file written)"
         report.append(f"[{label}] exit={code} hex={(code or 0) & 0xFFFFFFFF:#010x}{chr(10)}{seen}")
     text = (chr(10) * 2).join(report)
-    Path(os.environ.get("TEMP", "C:\Windows\Temp"), "rpw_cred_diag.txt").write_text(text, encoding="utf-8")
+    Path(os.environ.get("TEMP", r"C:\Windows\Temp"), "rpw_cred_diag.txt").write_text(text, encoding="utf-8")
+    print(chr(10) + text)
+
+
+def test_diagnose_worker_dll_load_failures(box):
+    """Diagnostic, not a gate: which of the job limits, the runtime copy's ACLs or the DLLs themselves makes
+    ``import _ctypes`` fail for a worker account. Output: terminal (-s) and ``%TEMP%\rpw_dll_diag.txt``."""
+    uid = 909
+    ws = _ws(box, uid)
+    box["mgr"].ensure(uid, ws)
+    out = ws / "stage.txt"
+    mib = 2**20
+    report = []
+
+    def run(label, body, memory, procs):
+        out.unlink(missing_ok=True)
+        code = _run_as(box, uid, [box["python"], "-E", "-s", "-c", _stage(body), str(out)], env={}, memory=memory,
+                       procs=procs)
+        seen = out.read_text(encoding="utf-8") if out.exists() else "(no file written)"
+        report.append(f"[{label}] exit={(code or 0) & 0xFFFFFFFF:#010x}" + chr(10) + seen.replace(chr(10), " / "))
+
+    for memory, procs in ((None, None), (256 * mib, 8), (1024 * mib, 8), (256 * mib, None)):
+        run(f"import _ctypes, memory={memory and memory // mib}MiB procs={procs}", "import _ctypes; note('ok')",
+            memory, procs)
+    for mod in ("_wmi", "sqlite3", "_ssl", "_socket", "_overlapped", "_decimal"):
+        run(f"import {mod} (no limits)", f"import {mod}; note('ok')", None, None)
+    py = Path(box["python"]).parent
+    for target in (py / "DLLs", py / "DLLs" / "_ctypes.pyd", py / "python312.dll", py / "vcruntime140_1.dll", py):
+        r = subprocess.run(["icacls", str(target)], capture_output=True, text=True)
+        report.append(f"[icacls {target}]" + chr(10) + r.stdout.strip())
+    r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                        "Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='Application Error'} "
+                        "-MaxEvents 4 | ForEach-Object { $_.Message }"], capture_output=True, text=True)
+    report.append("[recent Application Error events]" + chr(10) + r.stdout.strip())
+    text = (chr(10) * 2).join(report)
+    Path(os.environ.get("TEMP", r"C:\Windows\Temp"), "rpw_dll_diag.txt").write_text(text, encoding="utf-8")
     print(chr(10) + text)
