@@ -216,14 +216,20 @@ def test_deleting_a_user_while_its_worker_runs_removes_everything(box):
 
 
 _CRED_PROBE = chr(10).join([
-    "import sys, keyring",
-    "sys.path.insert(0, sys.argv[1])",
-    "from src import secrets_store as s",
-    "backend = keyring.get_keyring()",
-    "s._remote_mode_guard(backend)  # remote mode plus the per-account launcher's flag: must accept",
-    "if sys.argv[2] == 'set': keyring.set_password(s.SERVICE_NAME, 'elevated-probe', sys.argv[4])",
-    "got = keyring.get_password(s.SERVICE_NAME, 'elevated-probe') or ''",
-    "open(sys.argv[3], 'w', encoding='utf-8').write(type(backend).__name__ + ' ' + got)",
+    "import sys",
+    "try:",
+    "    import keyring",
+    "    sys.path.insert(0, sys.argv[1])",
+    "    from src import secrets_store as s",
+    "    backend = keyring.get_keyring()",
+    "    s._remote_mode_guard(backend)  # remote mode plus the per-account launcher's flag: must accept",
+    "    if sys.argv[2] == 'set': keyring.set_password(s.SERVICE_NAME, 'elevated-probe', sys.argv[4])",
+    "    got = keyring.get_password(s.SERVICE_NAME, 'elevated-probe') or ''",
+    "    result = type(backend).__name__ + ' ' + got",
+    "except BaseException:",
+    "    import traceback",
+    "    result = 'PROBE FAILED ' + traceback.format_exc().replace(chr(10), ' | ')",
+    "open(sys.argv[3], 'w', encoding='utf-8').write(result)",
 ])
 
 
