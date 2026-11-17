@@ -16,7 +16,7 @@ from typing import Callable
 
 from src.http_runtime.wsgi_facade import Response, request
 
-from .store import MIN_PASSWORD_LENGTH, GatewayStore
+from .store import KEEP, MIN_PASSWORD_LENGTH, GatewayStore
 
 ADMIN_PAGE = "admin.html"
 PAGES_DIR = Path(__file__).resolve().parent / "pages"
@@ -31,11 +31,10 @@ ADMIN_STATIC: dict[str, tuple[Path, str]] = {
     "admin-gateway.css": (PAGES_DIR, CSS),
 }
 API_BASE = "/api/auth/admin/console"
-# Shown to the page so it hides what the gateway does not have. Phase 2 turns expiry, notes, end_sessions and
-# edit_name on once the routes and the enforcement exist.
+# Shown to the page so it hides what the gateway does not have (grants, the two-factor switch, activity by app).
 FEATURES = {
     "grants": False, "require_totp": False, "activity": False,
-    "expiry": False, "notes": False, "end_sessions": False, "edit_name": False,
+    "expiry": True, "notes": True, "end_sessions": True, "edit_name": True,
     "audit": True,
 }
 
@@ -43,9 +42,10 @@ FEATURES = {
 def _console_user(u: dict) -> dict:
     return {
         "id": u["id"], "username": u["username"], "display_name": u["display_name"], "role": u["role"],
-        "status": "disabled" if u["disabled"] else "active", "expired": False, "locked": u["locked"],
+        "status": "disabled" if u["disabled"] else "active", "expired": u["expired"], "locked": u["locked"],
         "must_change": u["must_change"], "totp_enrolled": u["totp"] == "enrolled", "totp_required": True,
-        "expires_at": None, "last_signin_at": u["last_login_at"], "created_at": u["created_at"], "grants": [],
+        "expires_at": u["expires_at"], "notes": u["notes"], "last_signin_at": u["last_login_at"],
+        "created_at": u["created_at"], "grants": [],
     }
 
 
@@ -97,13 +97,29 @@ def register_admin_console(app, store: GatewayStore, *, clock: Callable[[], floa
         row = store.get_user(uid)
         if row is None:
             return refused("no such user", 404)
-        name = b.get("display_name")
-        if isinstance(name, str) and name.strip() != row["display_name"]:
-            return refused("The name cannot be changed yet.", 400)
+        # Only keys the page sent are changed. ``expires_at: null`` clears the expiry.
+        wanted = {k: b[k] for k in ("display_name", "notes", "expires_at") if k in b}
         role = b.get("role")
-        if not isinstance(role, str):
-            return admin_call(lambda: None)
-        return admin_call(lambda: store.set_role(uid, role, now=clock(), actor=actor()))
+
+        def run():
+            fields = store.check_profile(**wanted)  # validate everything before changing anything
+            if isinstance(role, str):
+                store.set_role(uid, role, now=clock(), actor=actor())
+            return store.set_profile(uid, now=clock(), actor=actor(), **fields) if fields else {}
+
+        def after(result):
+            if result.get("expiry_changed_access") and not row["disabled"]:
+                return notify("user_disabled", uid, bool(result.get("expired")))
+            return None
+        return admin_call(run, after=after)
+
+    @app.route(API_BASE + "/users/end-sessions", methods=["POST"])
+    def console_end_sessions():
+        uid, bad = target(body())
+        if bad:
+            return bad
+        return admin_call(lambda: {"ended": store.end_sessions(uid, now=clock(), actor=actor())},
+                          after=lambda _r: notify("signed_out", uid, 0))
 
     @app.route(API_BASE + "/users/reset-password", methods=["POST"])
     def console_reset_password():

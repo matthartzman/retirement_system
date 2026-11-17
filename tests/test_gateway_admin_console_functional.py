@@ -112,13 +112,13 @@ def test_list_has_the_console_shape_and_hides_what_the_gateway_does_not_have(rig
     assert body["min_password"] == 12
     f = body["features"]
     assert f["grants"] is False and f["require_totp"] is False and f["activity"] is False
-    assert f["expiry"] is False and f["notes"] is False and f["end_sessions"] is False and f["edit_name"] is False
+    assert f["expiry"] is True and f["notes"] is True and f["end_sessions"] is True and f["edit_name"] is True
     assert f["audit"] is True
     ann = next(u for u in body["users"] if u["id"] == uid)
     assert ann["username"] == "ann" and ann["display_name"] == "Ann" and ann["role"] == "user"
     assert ann["status"] == "active" and ann["expired"] is False and ann["locked"] is False
     assert ann["totp_enrolled"] is False and ann["totp_required"] is True and ann["grants"] == []
-    assert ann["expires_at"] is None and "last_signin_at" in ann and "created_at" in ann
+    assert ann["expires_at"] is None and ann["notes"] == "" and "last_signin_at" in ann and "created_at" in ann
     blob = repr(body)
     assert "pw_hash" not in blob and "secret" not in blob and "csrf" not in blob
 
@@ -160,15 +160,6 @@ def test_update_changes_the_role_and_the_last_admin_rule_holds(rig):
     assert rig.store.get_user(uid)["role"] == "admin"
     assert admin.post(f"{API}/users/update", json={"id": uid, "role": "owner"}).status_code == 400
     assert admin.post(f"{API}/users/update", json={"id": 9999, "role": "user"}).status_code == 404
-
-
-def test_update_refuses_a_name_change_until_the_gateway_supports_it(rig):
-    admin, _ = rig.signed_in("root", role="admin")
-    uid = rig.add_user("ann")
-    same = admin.post(f"{API}/users/update", json={"id": uid, "role": "user", "display_name": "Ann"})
-    assert same.status_code == 200
-    other = admin.post(f"{API}/users/update", json={"id": uid, "role": "user", "display_name": "Mallory"})
-    assert other.status_code == 400 and rig.store.get_user(uid)["display_name"] == "Ann"
 
 
 def test_disable_enable_unlock_and_reset_totp_drive_the_same_store_and_lifecycle(rig):

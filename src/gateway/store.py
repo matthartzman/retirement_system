@@ -10,10 +10,12 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
+import math
 import re
 import secrets
 import sqlite3
 import threading
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,7 +30,7 @@ from .secret_box import SecretBox, default_secret_box
 
 LOG = logging.getLogger("retirement.gateway.store")
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 ROLES = ("admin", "user")
 MIN_PASSWORD_LENGTH = 12
 MAX_PASSWORD_LENGTH = 1024
@@ -106,7 +108,21 @@ _MIGRATIONS: list[tuple[int, list[str]]] = [
             rotated_at REAL NOT NULL
         )""",
     ]),
+    # Admin console phase 2: access expiry (epoch seconds, NULL = never) and admin-only notes. Additive, so an
+    # older database keeps every row and works unchanged.
+    (3, [
+        "ALTER TABLE users ADD COLUMN expires_at REAL",
+        "ALTER TABLE users ADD COLUMN notes TEXT NOT NULL DEFAULT ''",
+    ]),
 ]
+
+
+KEEP = object()  # "leave this field as it is" for ``set_profile``
+NOTES_MAX = 500
+
+
+def _expired(expires_at: float | None, now: float) -> bool:
+    return expires_at is not None and now >= expires_at
 
 
 @dataclass(frozen=True)
@@ -278,20 +294,23 @@ class GatewayStore:
     def list_users(self, now: float) -> list[dict]:
         rows = self._read(
             "SELECT u.id, u.username, u.display_name, u.role, u.disabled, u.locked_until, u.must_change, u.last_login_at,"
-            " u.created_at, t.enrolled_at, t.user_id AS has_totp FROM users u LEFT JOIN totp_secrets t ON t.user_id = u.id"
+            " u.created_at, u.expires_at, u.notes, t.enrolled_at, t.user_id AS has_totp FROM users u LEFT JOIN totp_secrets t ON t.user_id = u.id"
             " ORDER BY u.username")
         return [{
             "id": r["id"], "username": r["username"], "display_name": r["display_name"], "role": r["role"],
             "disabled": bool(r["disabled"]), "locked": r["locked_until"] > now, "must_change": bool(r["must_change"]),
             "totp": "enrolled" if r["enrolled_at"] is not None else ("pending" if r["has_totp"] is not None else "none"),
             "last_login_at": r["last_login_at"], "created_at": r["created_at"],
+            "expires_at": r["expires_at"], "expired": _expired(r["expires_at"], now), "notes": r["notes"],
         } for r in rows]
 
-    def count_active_admins(self, conn: sqlite3.Connection | None = None) -> int:
-        sql = "SELECT COUNT(*) FROM users WHERE role='admin' AND disabled=0"
+    def count_active_admins(self, conn: sqlite3.Connection | None = None, now: float | None = None) -> int:
+        """Admins who can sign in: not disabled and not past their access expiry."""
+        sql = "SELECT COUNT(*) FROM users WHERE role='admin' AND disabled=0 AND (expires_at IS NULL OR expires_at > ?)"
+        params = (time.time() if now is None else now,)
         if conn is not None:
-            return int(conn.execute(sql).fetchone()[0])
-        return int(self._read(sql)[0][0])
+            return int(conn.execute(sql, params).fetchone()[0])
+        return int(self._read(sql, params)[0][0])
 
     @staticmethod
     def _locked_user(conn: sqlite3.Connection, user_id: int) -> sqlite3.Row:
@@ -300,8 +319,9 @@ class GatewayStore:
             raise LookupError("no such user")
         return row
 
-    def _guard_last_admin(self, conn: sqlite3.Connection, row: sqlite3.Row) -> None:
-        if row["role"] == "admin" and not row["disabled"] and self.count_active_admins(conn) <= 1:
+    def _guard_last_admin(self, conn: sqlite3.Connection, row: sqlite3.Row, now: float) -> None:
+        usable = row["role"] == "admin" and not row["disabled"] and not _expired(row["expires_at"], now)
+        if usable and self.count_active_admins(conn, now) <= 1:
             raise LastAdminError("this is the last active admin; promote another admin first")
 
     def set_role(self, user_id: int, role: str, *, now: float, actor: Actor) -> None:
@@ -311,7 +331,7 @@ class GatewayStore:
             if row["role"] == role:
                 return
             if role != "admin":
-                self._guard_last_admin(conn, row)
+                self._guard_last_admin(conn, row, now)
             conn.execute("UPDATE users SET role=?, updated_at=? WHERE id=?", (role, now, row["id"]))
             self._end_user_sessions(conn, row["id"])
             self.audit("role changed", now=now, actor=actor, target_user_id=row["id"], target_username=row["username"],
@@ -323,7 +343,7 @@ class GatewayStore:
             if bool(row["disabled"]) == bool(disabled):
                 return
             if disabled:
-                self._guard_last_admin(conn, row)
+                self._guard_last_admin(conn, row, now)
                 self._end_user_sessions(conn, row["id"])
             conn.execute("UPDATE users SET disabled=?, updated_at=? WHERE id=?", (int(bool(disabled)), now, row["id"]))
             self.audit("user disabled" if disabled else "user enabled", now=now, actor=actor, target_user_id=row["id"],
@@ -332,10 +352,75 @@ class GatewayStore:
     def delete_user(self, user_id: int, *, now: float, actor: Actor) -> None:
         with self._tx() as conn:
             row = self._locked_user(conn, user_id)
-            self._guard_last_admin(conn, row)
+            self._guard_last_admin(conn, row, now)
             conn.execute("DELETE FROM users WHERE id=?", (row["id"],))
             self.audit("user deleted", now=now, actor=actor, target_user_id=row["id"], target_username=row["username"],
                        conn=conn)
+
+    @staticmethod
+    def check_profile(*, display_name=KEEP, notes=KEEP, expires_at=KEEP) -> dict:
+        """Validate and clean the editable profile fields; keys left at KEEP are omitted from the result."""
+        out: dict = {}
+        if display_name is not KEEP:
+            if not isinstance(display_name, str):
+                raise ValueError("the name must be text")
+            name = display_name.strip()
+            if not name or len(name) > 80 or any(ord(c) < 32 or ord(c) == 127 for c in name):
+                raise ValueError("the name must be 1 to 80 characters, with no control characters")
+            out["display_name"] = name
+        if notes is not KEEP:
+            if not isinstance(notes, str):
+                raise ValueError("notes must be text")
+            if len(notes) > NOTES_MAX or any((ord(c) < 32 and c not in "\n\r\t") or ord(c) == 127 for c in notes):
+                raise ValueError(f"notes can be up to {NOTES_MAX} characters, with no control characters")
+            out["notes"] = notes
+        if expires_at is not KEEP:
+            if expires_at is not None:
+                if isinstance(expires_at, bool) or not isinstance(expires_at, (int, float)) \
+                        or not math.isfinite(expires_at) or expires_at <= 0:
+                    raise ValueError("the access end must be a date, or empty for never")
+                expires_at = float(expires_at)
+            out["expires_at"] = expires_at
+        return out
+
+    def set_profile(self, user_id: int, *, now: float, actor: Actor, display_name=KEEP, notes=KEEP,
+                    expires_at=KEEP) -> dict:
+        """Edit name, notes and access expiry. Returns ``{"expired": bool, "expiry_changed_access": bool}``.
+
+        The audit row lists which fields changed but never the notes text. Making the last usable admin expire
+        is refused like demoting or disabling them.
+        """
+        fields = self.check_profile(display_name=display_name, notes=notes, expires_at=expires_at)
+        with self._tx() as conn:
+            row = self._locked_user(conn, user_id)
+            before = _expired(row["expires_at"], now)
+            changed = [k for k, v in fields.items() if row[k] != v]
+            after = _expired(fields.get("expires_at", row["expires_at"]), now)
+            if not changed:
+                return {"expired": after, "expiry_changed_access": False}
+            if after and not before:
+                usable_admin = row["role"] == "admin" and not row["disabled"]
+                if usable_admin and self.count_active_admins(conn, now) <= 1:
+                    raise LastAdminError("this is the last active admin; promote another admin first")
+            sets = ", ".join(f"{k}=?" for k in changed)
+            conn.execute(f"UPDATE users SET {sets}, updated_at=? WHERE id=?",
+                         tuple(fields[k] for k in changed) + (now, row["id"]))
+            if after:
+                self._end_user_sessions(conn, row["id"])
+            label = {"display_name": "name", "notes": "notes", "expires_at": "expiry"}
+            self.audit("profile changed", now=now, actor=actor, target_user_id=row["id"],
+                       target_username=row["username"], details=", ".join(label[k] for k in changed), conn=conn)
+        return {"expired": after, "expiry_changed_access": after != before}
+
+    def end_sessions(self, user_id: int, *, now: float, actor: Actor) -> int:
+        """Sign a person out everywhere. Returns how many sessions were removed."""
+        with self._tx() as conn:
+            row = self._locked_user(conn, user_id)
+            n = int(conn.execute("SELECT COUNT(*) FROM sessions WHERE user_id=?", (row["id"],)).fetchone()[0])
+            self._end_user_sessions(conn, row["id"])
+            self.audit("sessions ended", now=now, actor=actor, target_user_id=row["id"],
+                       target_username=row["username"], details=f"{n} session(s)", conn=conn)
+        return n
 
     def set_password(self, user_id: int, password: str, *, must_change: bool, now: float, actor: Actor,
                      event: str = "password changed", keep_session: str | None = None) -> None:
@@ -375,6 +460,8 @@ class GatewayStore:
         matches = self._password_matches(password, user["pw_salt"], user["scrypt_n"], user["pw_hash"])
         if user["disabled"]:
             return LoginCheck(False, user["id"], "disabled")
+        if matches and _expired(user["expires_at"], now):
+            return LoginCheck(False, user["id"], "expired")  # same generic error as any failure; not a lockout count
         if matches:
             # Not cleared here: wrong second-factor codes keep counting until the sign-in completes
             # (``touch_login``), so re-entering the password cannot reset an attacker's guess budget.
@@ -515,11 +602,14 @@ class GatewayStore:
         if not token:
             return None
         h = _token_hash(token)
-        rows = self._read("SELECT s.*, u.username, u.display_name, u.role, u.must_change, u.disabled FROM sessions s"
+        rows = self._read("SELECT s.*, u.username, u.display_name, u.role, u.must_change, u.disabled, u.expires_at AS user_expires_at FROM sessions s"
                           " JOIN users u ON u.id = s.user_id WHERE s.token_hash=?", (h,))
         if not rows:
             return None
         sess = dict(rows[0])
+        if _expired(sess.pop("user_expires_at"), now):
+            self.end_session(token)
+            return None
         idle = sess["stage"] == "active" and now - sess["last_seen"] >= IDLE_SECONDS
         if now >= sess["expires_at"] or idle or sess["disabled"]:
             self.end_session(token)

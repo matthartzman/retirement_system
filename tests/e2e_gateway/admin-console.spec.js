@@ -85,10 +85,11 @@ test('an admin sees the people list with no CSP violations and the gateway-only 
   // what the gateway has no meaning for is not offered
   await expect(page.getByText('Financial Insights')).toHaveCount(0);
   await expect(page.getByRole('columnheader', { name: 'Access' })).toHaveCount(0);
-  await expect(page.getByRole('columnheader', { name: 'Expires' })).toHaveCount(0);
+  await expect(page.getByRole('columnheader', { name: 'Expires' })).toBeVisible();
   await page.getByRole('button', { name: 'Add person' }).click();
   await expect(page.locator('dialog')).toContainText('Two-factor sign-in: required for everyone.');
-  await expect(page.locator('dialog')).not.toContainText('Notes');
+  await expect(page.locator('dialog')).toContainText('Notes');
+  await expect(page.locator('dialog #fExpires')).toBeVisible();
   await expect(page.locator('dialog')).toContainText('12+ characters');
   await page.getByRole('button', { name: 'Close' }).click();
   expect(violations).toEqual([]);
@@ -110,12 +111,12 @@ test('add a person: a short temporary password is refused, a good one creates th
   await expect(page.locator('table').first()).toContainText('Dana Example');
 });
 
-test('edit: the role changes, the name is read-only, and the last admin cannot be demoted', async ({ page, stack }) => {
+test('edit: the role changes and the last admin cannot be demoted', async ({ page, stack }) => {
   await signIn(page, stack, 'admin');
   await page.goto('/gateway/admin');
   await page.locator('tr', { hasText: 'Dana Example' }).getByRole('button', { name: 'Edit' }).click();
   const dlg = page.locator('dialog');
-  await expect(dlg.locator('#fName')).toHaveAttribute('readonly', '');
+  await expect(dlg.locator('#fName')).not.toHaveAttribute('readonly', '');
   await dlg.locator('#fRole').selectOption('admin');
   await dlg.locator('#fSave').click();
   await expect(page.locator('dialog')).toBeHidden();
@@ -130,6 +131,32 @@ test('edit: the role changes, the name is read-only, and the last admin cannot b
   await page.locator('dialog #fSave').click();
   await expect(page.locator('dialog #formErr')).toContainText(/last active admin/i);
   await page.getByRole('button', { name: 'Close' }).click();
+});
+
+test('edit: name, notes and access end are saved, a past date shows expired, End sessions is offered', async ({ page, stack }) => {
+  await signIn(page, stack, 'admin');
+  await page.goto('/gateway/admin');
+  const row = () => page.locator('tr', { hasText: 'Dana Example' });
+  await row().getByRole('button', { name: 'Edit' }).click();
+  const dlg = page.locator('dialog');
+  await dlg.locator('#fName').fill('Dana Renamed');
+  await dlg.locator('#fNotes').fill('contractor, ends in spring');
+  await dlg.locator('#fExpires').fill('2020-01-01');
+  await dlg.locator('#fSave').click();
+  await expect(dlg).toBeHidden();
+  await expect(page.locator('tr', { hasText: 'Dana Renamed' })).toContainText('expired');
+  await page.locator('tr', { hasText: 'Dana Renamed' }).getByRole('button', { name: 'Edit' }).click();
+  await expect(dlg.locator('#fNotes')).toHaveValue('contractor, ends in spring');
+  await dlg.locator('details.acts summary').click();
+  await expect(dlg.getByRole('button', { name: 'End sessions' })).toBeVisible();
+  await dlg.getByRole('button', { name: 'End sessions' }).click();
+  await expect(dlg).toBeHidden();
+  await page.locator('tr', { hasText: 'Dana Renamed' }).getByRole('button', { name: 'Edit' }).click();
+  await dlg.locator('#fExpires').fill('');
+  await dlg.locator('#fName').fill('Dana Example');
+  await dlg.locator('#fSave').click();
+  await expect(dlg).toBeHidden();
+  await expect(row()).not.toContainText('expired');
 });
 
 test('delete needs the typed username and names the data loss', async ({ page, stack }) => {
