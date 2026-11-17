@@ -125,6 +125,7 @@ def _run_as(box, uid: int, argv: list[str], timeout: float = 60.0, env: dict | N
             memory: int | None = 256 * 2**20, procs: int | None = 8) -> int:
     proc = PerAccountLauncher(box["mgr"]).launch(LaunchSpec(uid, argv, Path("C:\\Windows\\System32"), env or {},
                                                             memory, procs))
+    box['last_method'] = proc.method
     try:
         deadline = time.time() + timeout
         while proc.poll() is None and time.time() < deadline:
@@ -329,7 +330,8 @@ def test_diagnose_worker_dll_load_failures(box):
         code = _run_as(box, uid, [box["python"], "-E", "-s", "-c", _stage(body), str(out)], env={}, memory=memory,
                        procs=procs)
         seen = out.read_text(encoding="utf-8") if out.exists() else "(no file written)"
-        report.append(f"[{label}] exit={(code or 0) & 0xFFFFFFFF:#010x}" + chr(10) + seen.replace(chr(10), " / "))
+        report.append(f"[{label}] exit={(code or 0) & 0xFFFFFFFF:#010x} via {box.get('last_method')}" + chr(10)
+                      + seen.replace(chr(10), " / "))
 
     for memory, procs in ((None, None), (256 * mib, 8), (1024 * mib, 8), (256 * mib, None)):
         run(f"import _ctypes, memory={memory and memory // mib}MiB procs={procs}", "import _ctypes; note('ok')",

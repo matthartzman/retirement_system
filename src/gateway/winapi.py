@@ -433,6 +433,11 @@ def create_process_as(token: int, command_line: str, *, cwd: str, env: dict[str,
     a = _advapi()
     si = _STARTUPINFOW()
     si.cb = ctypes.sizeof(si)
+    # An empty (not NULL) desktop name: the child does NOT inherit the gateway's WinSta0Default, which a batch-logon
+    # account cannot open. Windows creates a window station for the new logon session instead. With a NULL desktop
+    # user32/gdi32 initialisation fails in the child, so any DLL that links them (_ctypes via oleaut32, _ssl via
+    # libcrypto) dies with "DLL initialization routine failed" (keyring, ssl and ctypes all need them).
+    si.lpDesktop = ""
     pi = _PROCESS_INFORMATION()
     flags = CREATE_SUSPENDED | CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP | CREATE_UNICODE_ENVIRONMENT
     cmd = ctypes.create_unicode_buffer(command_line)
