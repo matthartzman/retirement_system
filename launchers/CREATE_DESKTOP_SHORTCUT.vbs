@@ -41,6 +41,18 @@ oShortcut.WindowStyle      = 1
 If fso.FileExists(strIcon) Then oShortcut.IconLocation = strIcon
 oShortcut.Save
 
+' --- Shortcut 3: Retirement Planner Admin (separate app, loopback 127.0.0.1:5056) ---
+' The planner's launcher never starts this; it is opened only from this shortcut.
+Dim strBat3
+strBat3 = strRoot & "admin_app\launchers\START_ADMIN_APP.bat"
+Set oShortcut = WshShell.CreateShortcut(strDesktop & "\Retirement Planner Admin.lnk")
+oShortcut.TargetPath       = strBat3
+oShortcut.WorkingDirectory = Left(strRoot, Len(strRoot) - 1)
+oShortcut.WindowStyle      = 1
+If fso.FileExists(strIcon) Then oShortcut.IconLocation = strIcon
+oShortcut.Save
+
 MsgBox "Desktop shortcuts created:" & vbCrLf & _
        "  - Retirement Planner" & vbCrLf & _
-       "  - Retirement Planner - Reset Local Mode", 64, "Done"
+       "  - Retirement Planner - Reset Local Mode" & vbCrLf & _
+       "  - Retirement Planner Admin", 64, "Done"

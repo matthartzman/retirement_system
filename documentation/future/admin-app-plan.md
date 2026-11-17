@@ -1,6 +1,6 @@
 # Admin App: Design and Implementation Plan
 
-Status: draft
+Status: implemented (merged: PRs #446, #447, #448, #449; Phase 6 in this branch)
 Date: 2026-11-16
 
 ## Goal
