@@ -52,7 +52,7 @@ test('add a person with Financial Insights access, then change their grants', as
   await dialog.locator('#fUser').fill('Ann');
   await dialog.locator('#fPw').fill('correct horse battery');
   await dialog.locator('#gMoney').selectOption('percent');
-  await dialog.getByRole('button', { name: 'Add person' }).click();
+  await dialog.locator('#fSave').click();
 
   const row = page.locator('tr[data-user]', { hasText: 'ann' });
   await expect(row).toContainText('Ann Example');
@@ -66,7 +66,7 @@ test('add a person with Financial Insights access, then change their grants', as
   await dialog.locator('[data-view="trends"]').uncheck();
   await dialog.locator('[data-view="projections"]').uncheck();
   await dialog.locator('#gPlanner').check();
-  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  await dialog.locator('#fSaveTop').click(); // the sticky top button saves through the same path as the bottom one
   await expect(dialog).toBeHidden();
   await expect(row).toContainText('Dollars');
   await expect(row).toContainText('Retirement Planner');
@@ -75,6 +75,8 @@ test('add a person with Financial Insights access, then change their grants', as
   await row.getByRole('button', { name: 'Edit' }).click();
   await expect(dialog.locator('[data-view="live"]')).toBeChecked();
   await expect(dialog.locator('[data-view="trends"]')).not.toBeChecked();
+  await expect(dialog.locator('#gPlanner')).toBeChecked();
+  await expect(dialog.locator('#fAdded')).not.toBeEmpty();
   await dialog.getByRole('button', { name: 'Close' }).click();
   await page.goto(`${BASE}/#audit`);
   await expect(page.locator('tbody')).toContainText('user.add');
@@ -88,6 +90,6 @@ test('a duplicate username is refused with a visible message', async ({ page }) 
   await dialog.locator('#fName').fill('Ann Again');
   await dialog.locator('#fUser').fill('ann');
   await dialog.locator('#fPw').fill('correct horse battery');
-  await dialog.getByRole('button', { name: 'Add person' }).click();
+  await dialog.locator('#fSave').click();
   await expect(dialog.locator('#formErr')).toContainText('already in use');
 });

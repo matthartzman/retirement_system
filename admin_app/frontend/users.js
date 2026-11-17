@@ -53,33 +53,32 @@
     main.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openForm(users.find((u) => u.id === Number(b.dataset.edit)))));
   }
 
+  const tog = (label, checked, attrs, hint) => `<label class="tog"><input type="checkbox" ${attrs}${checked ? " checked" : ""}><span>${label}${hint ? ` <small class="note">${hint}</small>` : ""}</span></label>`;
+  const field = (label, input) => `<label class="field"><span>${label}</span>${input}</label>`;
+  const sec = (title, body, open) => `<details class="sec"${open ? " open" : ""}><summary>${title}</summary><div class="secbody">${body}</div></details>`;
+
   function formHtml(u) {
     const ins = u ? u.grants.find((g) => g.app === "insights") : { money_view: "percent", views: null };
-    const planner = u ? u.grants.some((g) => g.app === "planner") : false;
-    const insOn = u ? !!ins : true;
     const allowed = ins && ins.views ? ins.views : meta.views;
-    return `<form id="userForm" novalidate><h2 id="dlgTitle">${u ? `Edit ${esc(u.display_name)}` : "Add person"}</h2>
-      <label class="field"><span>Name</span><input id="fName" value="${esc(u ? u.display_name : "")}" autocomplete="off"></label>
-      <label class="field"><span>Username</span><input id="fUser" value="${esc(u ? u.username : "")}" autocomplete="off" ${u ? "readonly" : ""}></label>
-      ${u ? "" : `<label class="field"><span>Temporary password (${MIN_PW}+ characters; they choose their own at first sign-in)</span><input id="fPw" type="password" autocomplete="new-password"></label>`}
-      <label class="field"><span>Role</span><select id="fRole"><option value="user"${u && u.role === "user" || !u ? " selected" : ""}>User</option><option value="admin"${u && u.role === "admin" ? " selected" : ""}>Administrator</option></select></label>
-      <label class="field"><span>Access ends after (blank = never)</span><input id="fExpires" type="date" value="${esc(dateValue(u && u.expires_at))}"></label>
-      <label><input type="checkbox" id="fTotp"${!u || u.totp_required ? " checked" : ""}> Require two-factor sign-in (Financial Insights)${u && u.totp_enrolled ? " &mdash; already set up" : ""}</label>
+    const save = u ? "Save changes" : "Add person";
+        const account = `<section class="acct"><h3>Account</h3>
+      <div class="row2">${field("Name", `<input id="fName" value="${esc(u ? u.display_name : "")}" autocomplete="off">`)}
+      ${field("Username", `<input id="fUser" value="${esc(u ? u.username : "")}" autocomplete="off" ${u ? "readonly" : ""}>`)}</div>
+      ${u ? "" : field(`Temporary password (${MIN_PW}+ characters; they choose their own at first sign-in)`, '<input id="fPw" type="password" autocomplete="new-password">')}
+      <div class="row3">${field("Role", `<select id="fRole"><option value="user"${u && u.role === "admin" ? "" : " selected"}>User</option><option value="admin"${u && u.role === "admin" ? " selected" : ""}>Administrator</option></select>`)} ${field("Access ends after (blank = never)", `<input id="fExpires" type="date" value="${esc(dateValue(u && u.expires_at))}">`)} ${field("Added", `<output id="fAdded">${esc(day(u ? u.created_at : Date.now() / 1000))}</output>`)}</div>
+      ${u ? `<details class="acts"><summary>Password, sessions and removal</summary>
+        ${field("New temporary password", '<input id="fResetPw" type="password" autocomplete="new-password">')}
+        <div class="actions"><button type="button" data-act="reset-password">Reset password</button><button type="button" data-act="end-sessions">End sessions</button><button type="button" data-act="reset-totp">Reset two-factor</button>
+        <button type="button" data-act="${u.status === "disabled" ? "enable" : "disable"}">${u.status === "disabled" ? "Enable" : "Disable"}</button><button type="button" class="danger" data-act="delete">Delete</button></div></details>` : ""}</section>`;
+    const planner = sec("Retirement Planner", tog("Can use the Retirement Planner", u ? u.grants.some((g) => g.app === "planner") : false, 'id="gPlanner"', "stored now; enforced when the multi-user server arrives"), true);
+    const insights = sec("Financial Insights", `${field("Money shown as", `<select id="gMoney">${Object.entries(MONEY).map(([v, l]) => `<option value="${v}"${(ins ? ins.money_view : "percent") === v ? " selected" : ""}>${l}</option>`).join("")}</select>`)}
+      ${tog("Can sign in", u ? !!ins : true, 'id="gInsights"')} ${tog("Require two-factor sign-in", !u || u.totp_required, 'id="fTotp"', u && u.totp_enrolled ? "already set up" : "")}
+      ${meta.views.map((v) => tog(esc(v), allowed.includes(v), `data-view="${esc(v)}"`)).join("")}`, true);
+    return `<form id="userForm" novalidate><header class="dhead"><h2 id="dlgTitle">${u ? `Edit ${esc(u.display_name)}` : "Add person"}</h2>
+      <button type="submit" class="primary" id="fSaveTop">${save}</button><div class="err" id="formErr" role="alert"></div></header>
+      ${account}${planner}${insights}${u ? sec(`Activity for ${esc(u.display_name)}`, '<div id="userActivity" class="note">Loading&hellip;</div>') : ""}
       <label class="field"><span>Notes</span><textarea id="fNotes" rows="2" maxlength="500">${esc(u ? u.notes : "")}</textarea></label>
-      <fieldset><legend>Financial Insights</legend>
-        <label><input type="checkbox" id="gInsights"${insOn ? " checked" : ""}> Can sign in</label>
-        <label>Money shown as <select id="gMoney">${Object.entries(MONEY).map(([v, l]) => `<option value="${v}"${(ins ? ins.money_view : "percent") === v ? " selected" : ""}>${l}</option>`).join("")}</select></label>
-        <div>${meta.views.map((v) => `<label><input type="checkbox" data-view="${esc(v)}"${allowed.includes(v) ? " checked" : ""}> ${esc(v)}</label>`).join("")}</div></fieldset>
-      <fieldset><legend>Retirement Planner</legend><label><input type="checkbox" id="gPlanner"${planner ? " checked" : ""}> Has access (stored now; enforced when the multi-user server arrives)</label></fieldset>
-      <div class="err" id="formErr" role="alert"></div>
-      ${u ? `<fieldset><legend>Account</legend>
-        <label class="field"><span>New temporary password</span><input id="fResetPw" type="password" autocomplete="new-password"></label>
-        <div class="actions"><button type="button" data-act="reset-password">Reset password</button>
-        <button type="button" data-act="end-sessions">End sessions</button><button type="button" data-act="reset-totp">Reset two-factor</button>
-        <button type="button" data-act="${u.status === "disabled" ? "enable" : "disable"}">${u.status === "disabled" ? "Enable" : "Disable"}</button>
-        <button type="button" class="danger" data-act="delete">Delete</button></div></fieldset>
-        <details><summary>Activity for ${esc(u.display_name)}</summary><div id="userActivity" class="note">Loading&hellip;</div></details>` : ""}
-      <div class="foot"><button type="button" id="fCancel">Close</button><button type="submit" class="primary" id="fSave">${u ? "Save changes" : "Add person"}</button></div></form>`;
+      <div class="foot"><button type="button" id="fCancel">Close</button><button type="submit" class="primary" id="fSave">${save}</button></div></form>`;
   }
 
   function readGrants() {

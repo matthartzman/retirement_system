@@ -239,7 +239,7 @@ class IdentityStore:
             grants = self.list_grants(r["id"])
             out.append({
                 "id": r["id"], "display_name": r["display_name"], "username": r["username"], "role": r["role"],
-                "status": r["status"], "expires_at": r["expires_at"], "notes": r["notes"],
+                "status": r["status"], "expires_at": r["expires_at"], "notes": r["notes"], "created_at": r["created_at"],
                 "expired": r["expires_at"] is not None and r["expires_at"] <= now,
                 "last_signin_at": r["last_signin_at"], "must_change": bool(r["must_change"]),
                 "locked": r["locked_until"] > now, "session_epoch": r["session_epoch"],
