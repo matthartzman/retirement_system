@@ -230,3 +230,15 @@ Output: `C:\Windows\Temp\rpw_isolation_installed.txt`. Only that run can confirm
 route and logout/kill checks behaving the same with each worker as its own account, and the workers reading the
 installed code and runtime under the locked ACLs). The skip behaviour, argument handling and unchanged default are
 tested in CI.
+
+**Owner run, 2026-11-17 (installed build `C:\RetirementPlanner\app`, per-account workers, SYSTEM): 38 passed, 0
+failed.** The three isolation modules and the elevated worker-account suite all pass on the installed build, the
+installed folder stayed clean, and no throwaway account or folder was left. It found and fixed three product bugs that
+only per-account, installed-venv operation exposes: the worker's parent watchdog read "access denied" on the SYSTEM
+gateway as "parent gone" (workers exited with code 3), the supervisor refused every worker because a venv's
+`python.exe` is a launcher that starts the real interpreter as a child (pid mismatch; now accepted when the pid is in
+the worker's Job Object), and the gateway console entry point did not stop cleanly (it now handles Ctrl+Break so the
+worker profiles are unloaded). Not covered: two same-account-only checks (secret-store refusal, Monarch connector
+unavailable) return early in per-account mode and are not a per-account proof; one profile folder (`rpwtest_2`) stays
+loaded by Windows until a reboot because `test_logout_stops_the_users_worker_and_gateway_exit_stops_the_rest` kills the
+gateway on purpose (reported as a warning). Condition 6 is met for the isolation gate and the elevated suite.
