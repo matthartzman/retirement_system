@@ -1,10 +1,10 @@
 # Multi-user server: Phase 7 verification and security review
 
-Status: draft (review of the stack through Phase 6, dated 2026-11-16; the owner-run checks listed under "Did not run" are open)
+Status: draft (review of the stack through Phase 6, dated 2026-11-16; the owner-run checks listed under "Did not run" are open; P7-O1 and P7-O3 fixed on branch `claude/gateway-preauth-limits-totp-encryption-d0120d`)
 Date: 2026-11-16
 Branch: `claude/multi-user-phase-7-verification-f1a555`, based on the Phase 6 branch.
 
-## Verdict: NO-GO for real users today; GO once the six conditions below are met
+## Verdict: NO-GO for real users today; GO once the conditions below are met (4 and 5 are now met in code; 1, 2, 3 and 6 remain)
 
 Cross-user leakage is the risk the plan names, and this review found and fixed three ways one user could reach
 another user's data or permissions (P7-01, P7-02, P7-03), all through paths the earlier phases had not covered.
@@ -22,11 +22,12 @@ Before putting real users on the server:
    (P7-O2), and confirm with a recursive ACL listing, not just `acl check`, which inspects only the top folder.
 3. **Remove the standard-account read access to `C:\RetirementPlanning\Version 12`** (Phase 0 finding), or run the
    gateway from a clean install folder with no owner data.
-4. **Decide on pre-authentication exhaustion (P7-O3):** either cap request bodies and concurrent connections in the
-   gateway, or confirm Funnel's own limits make the listener safe. As built, an unauthenticated client can hold
-   memory and threads.
-5. **Encrypt the TOTP secrets at rest** (P7-O1), or accept in writing that anyone who can read `gateway.db`
-   (backups included) can mint codes.
+4. **Pre-authentication exhaustion (P7-O3): met in code (`f5ff6323`).** The gateway gates on the headers
+   before reading a body, caps gateway-owned bodies, bounds connections and password hashing, and enforces a total read
+   deadline. Still worth one owner measurement through Funnel (defaults: 128 connections, 4 hashes, 30 s, 32 KiB).
+5. **Encrypt the TOTP secrets at rest (P7-O1): met in code (`0a84422f`).** Only an elevated run as LocalSystem confirms
+   the service seals with its own account's DPAPI scope; the tests ran as the developer's account. Backups taken before the
+   upgrade still hold clear-text secrets until they age out of `--backup-keep`; delete them or re-key if that matters.
 6. **Re-run the isolation gate and the elevated tests on the installed (frozen or clean-folder) build**, because
    everything here ran from the source tree with the same-account launcher. *Tooling now exists (opt-in per-account
    mode in the three isolation modules plus `tools/run_isolation_on_installed_build.ps1`); the owner's elevated run
@@ -65,14 +66,14 @@ Severity is my judgement for this deployment (10 mutually untrusted users, publi
 | P7-12 | Low | Log housekeeping read a whole multi-GB console log into gateway memory. | Code reading. | `387f2f9d` |
 | P7-13 | Low | The Funnel guard ignored foreground serve sessions and accepted a target on another machine. | Reproduced with synthetic status documents. | `52f9eb0a` |
 | P7-14 | Low | The download filename root went unsanitised into `Content-Disposition` (header injection into the user's own response). | Code reading plus unit test. | `c0bbb101` |
+| P7-O1 | Medium | TOTP secrets were plain text in `gateway.db`, and so in every backup. | Read from the schema; the new tests read the raw column, the database file, its WAL and a restored archive. | `0a84422f`: DPAPI-sealed column (`secret_box.py`), migrated in place at service start, idempotent. Chose DPAPI over a key derived from the backup key file; see the gateway design. |
+| P7-O3 | Medium | Pre-authentication exhaustion: unbounded threads, a 64 MiB body read before the gate, a per-read socket timeout a slow sender could reset, scrypt (32 MiB) with no concurrency cap. | Real-socket tests: an unauthenticated 60 MiB upload was read before being refused; no connection cap; no hashing cap. Not load-tested at scale. | `f5ff6323`: gate on the headers first, 32 KiB cap on gateway-owned bodies (64 MiB only for authenticated forwarded routes), 128 connections then 503, 4 concurrent hashes then 503, 30 s total read deadline; all configurable. |
 
 ### Open (not fixed here)
 
 | Id | Sev | Finding | Failure scenario | Proposed fix |
 |---|---|---|---|---|
-| P7-O1 | Medium | TOTP secrets are plain text in `gateway.db` (known). The file is in every backup. | Anyone who reads `gateway.db` or a restored backup can mint codes; passwords still need cracking, so it is one factor, not both. | Encrypt the column with the DPAPI scheme already used for worker passwords, or a key from the backup key file; migrate in place. |
 | P7-O2 | High if the install is writable | The service runs as LocalSystem from `sys.executable` and a `--config` file; `acl check` inspects only the install folder's own ACL. | If Python (stdlib, site-packages, DLLs) or the config sits under an inherited Authenticated-Users:Modify folder, a worker can overwrite a module and gain SYSTEM at the next service start. Code reading only; not reproduced. | Install Python and code in an admin-only folder; extend `acl check` to walk the Python home, the install tree and the config file and fail on any worker-writable ACE. |
-| P7-O3 | Medium | Pre-authentication exhaustion: unbounded threads, a 64 MiB body read before the gate, a per-read (not total) socket timeout that a slow sender can reset, scrypt (32 MiB) with no concurrency cap. | An unauthenticated client opens many connections, or sends many logins at once, and exhausts memory or CPU for all users. Not reproduced at scale. Funnel may absorb some of it; that is unmeasured. | Run the gate on headers before reading the body, cap gateway-owned bodies at tens of KiB, bound concurrent connections, add a semaphore around password hashing, add a total read deadline. |
 | P7-O4 | Medium | The global login throttle (50 failures per 10 minutes, then up to 60 s delay for everyone) lets three or four addresses lock all logins out. | Login denial of service against every user including admins. | Throttle per username and per address; make the global limit only slow, not refuse, known-good sessions; alert on it. |
 | P7-O5 | Medium | No per-user limits beyond memory: a 256 MiB response buffered per request, no disk quota (uploaded plans are kept in `saved_plans/`), no CPU limit, no cap on parallel builds in the worker itself. | One user fills the shared disk or the gateway's memory. | Stream or cap responses, per-user quota and plan count, Job Object CPU rate limit. |
 | P7-O6 | Medium | Job Objects are the only containment; processes started through Task Scheduler or WMI escape them, and removing an account never kills its remaining processes. | A compromised worker keeps running after logout, disable or delete. Not reproduced (needs elevation). | Kill every process whose token SID equals the account before disable and delete; deny the batch-logon scheduling rights where possible. |
@@ -194,7 +195,6 @@ From the Phase 3 to 6 notes, none closed by this review:
 - The frozen exe has no worker entry point, so workers run from source.
 - Phase 0: standard accounts could read `C:\RetirementPlanning\Version 12` (inherited permissions).
 - Phase 6 owner measurements (Funnel bandwidth, reboot survival): see `multi-user-server-operations-measurements.md`.
-- TOTP secrets in clear (P7-O1).
 
 ## Did not run, and how to run it
 

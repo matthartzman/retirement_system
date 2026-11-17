@@ -22,7 +22,7 @@ from src.access_core import FailureThrottle, KeyedThrottle, has_proxy_headers, i
 from src.http_runtime.wsgi_facade import Flask, HeaderMap, LocalRequest, Response, request
 
 from . import totp
-from .store import Actor, GatewayStore, LastAdminError
+from .store import Actor, GatewayStore, HashBusyError, LastAdminError
 from .upstream import Identity, PlaceholderUpstream, Upstream
 
 LOG = logging.getLogger("retirement.gateway")
@@ -51,6 +51,10 @@ class GatewayConfig:
     ip_max_delay: float = 300.0
     global_free_failures: int = 50
     global_max_delay: float = 60.0
+    # P7-O3: bodies the gateway itself reads (login, two-factor, password, admin forms) are small. Only a request
+    # that passed the gate and is forwarded to a worker may carry a plan upload.
+    max_body_bytes: int = 32 * 1024
+    proxy_body_bytes: int = 64 * 1024 * 1024
 
 
 class GatewayLifecycle(Protocol):
@@ -63,6 +67,9 @@ class GatewayLifecycle(Protocol):
     def signed_out(self, user_id: int, sessions_left: int) -> None: ...
 
 
+PREFLIGHT_OK_HEADER = "X-Gateway-Preflight"
+
+
 class GatewayListener:
     """Tags each request with the listener it arrived on ("funnel" or "local") and that listener's port."""
 
@@ -70,6 +77,19 @@ class GatewayListener:
         if kind not in ("funnel", "local"):
             raise ValueError("listener must be funnel or local")
         self.app, self.kind, self.port = app, kind, int(port)
+
+    def preflight(self, method: str, target: str, headers: dict | None = None,
+                  remote_addr: str = "127.0.0.1") -> tuple[Response | None, int]:
+        """Run the gate on the request line and headers alone, before any body is read (P7-O3).
+
+        ``(refusal, 0)`` when the request must be refused as it stands, else ``(None, limit)``: the largest body
+        the server may then read for it."""
+        req = LocalRequest(method, target, HeaderMap(headers or {}), b"", remote_addr=remote_addr,
+                           environ={"listener": self.kind, "listener_port": self.port, "gateway_preflight": True})
+        resp = self.app.dispatch_request(req)
+        if resp.headers.get(PREFLIGHT_OK_HEADER) == "ok":
+            return None, int(req.environ["gateway_body_limit"])
+        return resp, 0
 
     def handle_http(self, method: str, target: str, headers: dict | None = None, body: bytes = b"",
                     remote_addr: str = "127.0.0.1") -> Response:
@@ -173,7 +193,14 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
 
     @app.before_request
     def _gate():
+        verdict = _run_gate()
+        if request.environ.get("gateway_preflight") and verdict is None:
+            return Response(b"", status=204, headers={PREFLIGHT_OK_HEADER: "ok"})
+        return verdict
+
+    def _run_gate():
         env = request.environ
+        env["gateway_body_limit"] = cfg.max_body_bytes
         listener = env.setdefault("listener", "local")
         port = int(env.get("listener_port") or 0)
         path, method = request.path, request.method
@@ -230,6 +257,9 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
             return _refused("admins only")
         if _is_gateway_path(path):
             return None
+        env["gateway_body_limit"] = cfg.proxy_body_bytes
+        if env.get("gateway_preflight"):
+            return None
         return up.forward(request._get(), ident)  # the Phase 3 seam
 
     @app.after_request
@@ -249,6 +279,13 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         error_id = secrets.token_hex(6)
         LOG.error("gateway error %s", error_id, exc_info=exc)
         return _json({"success": False, "error": "Something went wrong.", "error_id": error_id}, 500)
+
+    # Registered after the catch-all: handlers are tried newest first.
+    @app.errorhandler(HashBusyError)
+    def _hash_busy(_exc):
+        resp = _refused("The server is busy. Try again in a moment.", 503)
+        resp.headers["Retry-After"] = "5"
+        return resp
 
     # ---- pages ----
     @app.route("/login", methods=["GET"])

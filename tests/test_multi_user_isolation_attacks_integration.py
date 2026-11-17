@@ -162,7 +162,8 @@ def test_duplicate_and_oversized_headers_and_bodies_are_refused_cleanly(gateway,
     out = _raw(port, (base + "X-Big: " + "a" * 70000 + "\r\n\r\n").encode())
     assert out.split(b"\r\n", 1)[0].split()[1] in (b"400", b"431"), out[:200]
     big = f"POST /api/config/rows HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Length: {70 * 1024 * 1024}\r\n\r\n"
-    assert _raw(port, big.encode()).split(b"\r\n", 1)[0].split()[1] == b"413"
+    # P7-O3: the gate now runs on the headers first, so this originless POST is refused (403) before its size is looked at
+    assert _raw(port, big.encode()).split(b"\r\n", 1)[0].split()[1] in (b"403", b"413")
     neg = f"POST /api/config/rows HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Length: -5\r\n\r\n"
     # read as an empty body, then refused by the gate (no Origin): never accepted
     assert _raw(port, neg.encode()).split(b"\r\n", 1)[0].split()[1] in (b"400", b"403")

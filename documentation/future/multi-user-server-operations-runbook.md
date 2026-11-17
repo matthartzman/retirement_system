@@ -172,6 +172,13 @@ damaged or truncated archive is refused with exit 1 and **nothing is changed**.
 **Restore `gateway.db`**: `restore --archive <file> --gateway-db-out C:\RetirementPlanner\state\gateway.restored.db`
 (never writes over the live file), then with the service stopped rename the old file aside and the new one into place.
 
+**Restoring on a rebuilt machine (or another account):** `gateway.db` holds DPAPI blobs, which open only for the account
+and machine that sealed them: the worker account passwords (the gateway recreates them) and, since P7-O1, every user's
+TOTP secret. After the swap the service starts and logs `the TOTP secret of user id(s) ... cannot be opened here`; those
+users cannot pass the second factor until an admin resets their two-factor on the Users page and they enrol again. Their
+passwords and plans are unaffected. Restoring on the same machine and account needs nothing. Archives written before the
+upgrade still contain clear-text TOTP secrets until they age out of `--backup-keep`.
+
 **Drill** (do it once now, then quarterly): restore a throwaway user from last night's archive with the *offline copy*
 of the key, and confirm the plan opens.
 
@@ -227,6 +234,8 @@ folders and profiles lists and "clean". Afterwards `net user` should show no `rp
 | Symptom | First look |
 |---|---|
 | Nobody can sign in from outside | `ops funnel check`; `tailscale status`; `service status`; health page from the server's own browser |
+| Many users get "The server is busy" or 503 | too many connections or password checks at once: `--max-connections`, `--hash-concurrency` in `gateway.json`; look for a flood in `gateway.log` first |
+| Log says a TOTP secret "cannot be opened here" | `gateway.db` came from another machine or account: reset that user's two-factor (section 4, rebuilt machine) |
 | Gateway will not start | the end of `gateway.log` (a refused backup destination or key prints the reason); exit code 2 means configuration |
 | `acl check` fails | the listed folder; never widen a permission to make it pass |
 | Health warns "no complete backup" | `ops backup run`; check disk space; check the key file is readable by SYSTEM |

@@ -14,6 +14,7 @@ planner is not connected and authenticated requests get the Phase 2 placeholder.
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import logging
 import os
@@ -43,22 +44,117 @@ LOG = logging.getLogger("retirement.gateway.server")
 # cannot connect: they have no private credential store (``src/secrets_store._remote_mode_guard``).
 MONARCH_CONNECTOR_ENV = "RETIREMENT_SYSTEM_MONARCH_CONNECTOR"
 CLIENT_SOCKET_TIMEOUT = 60.0
+# P7-O3 defaults. 128 connections: ten users with a browser's six connections each is 60, and a proxied request
+# holds its thread while the worker answers. 30 s is a generous total for a request line, headers and a body.
+DEFAULT_MAX_CONNECTIONS = 128
+DEFAULT_REQUEST_DEADLINE = 30.0
+_BUSY = (b"HTTP/1.0 503 Service Unavailable\r\nRetry-After: 5\r\nContent-Type: text/plain\r\nContent-Length: 38\r\n"
+         b"Connection: close\r\n\r\nThe server is busy. Try again shortly.\n")
+
+
+class _DeadlineReader(io.RawIOBase):
+    """Reads the socket under one overall deadline: each read may wait only for what is left of it, so a sender
+    who dribbles a byte at a time cannot keep resetting a per-read timeout."""
+
+    def __init__(self, sock: socket.socket, deadline_seconds: float, per_read: float) -> None:
+        self._sock, self._per_read = sock, per_read
+        self._deadline = time.monotonic() + deadline_seconds
+
+    def readable(self) -> bool:
+        return True
+
+    def readinto(self, buffer) -> int:  # noqa: ANN001
+        left = self._deadline - time.monotonic()
+        if left <= 0:
+            raise TimeoutError("the request was not received in time")
+        self._sock.settimeout(min(left, self._per_read))
+        return self._sock.recv_into(buffer)
+
+    def done(self) -> None:
+        """The request is fully read: later socket operations (the reply) use the ordinary timeout again."""
+        self._sock.settimeout(self._per_read)
 
 
 class _GatewayHandler(_Handler):
-    """A slow or silent client cannot hold a gateway thread for ever."""
+    """Gate on the headers first, read a bounded body under a total deadline, then handle the request."""
 
     timeout = CLIENT_SOCKET_TIMEOUT
 
+    def setup(self) -> None:
+        super().setup()
+        self._reader = _DeadlineReader(self.connection, getattr(self.server, "request_deadline", DEFAULT_REQUEST_DEADLINE),
+                                       self.timeout)
+        self.rfile = io.BufferedReader(self._reader)
+
+    def _refuse(self, status: int, message: str) -> None:
+        self._reader.done()
+        self.send_response(status)
+        self.send_header("Content-Length", "0")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        LOG.info("refused %s %s: %s", self.command, status, message)
+        self.close_connection = True
+
+    def _handle(self) -> None:
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length < 0:
+            return self._refuse(400, "bad Content-Length")
+        app = self.server.retirement_app
+        headers = {k: v for k, v in self.headers.items()}
+        remote = self.client_address[0] if self.client_address else "127.0.0.1"
+        refusal, limit = app.preflight(self.command, self.path, headers, remote)
+        if refusal is not None:  # refused on the headers alone; the body is never read
+            self._reader.done()
+            self.close_connection = True
+            refusal.headers["Connection"] = "close"
+            return self._send_response(refusal)
+        if length > limit:
+            return self._refuse(413, "body over the limit")
+        try:
+            body = self.rfile.read(length) if length else b""
+        except (TimeoutError, OSError):
+            self.close_connection = True
+            return None
+        self._reader.done()
+        self._send_response(app.handle_http(self.command, self.path, headers, body, remote))
+
 
 class _GatewayHTTPServer(LocalHTTPServer):
-    """No address reuse: on Windows SO_REUSEADDR lets a second process bind the same port."""
+    """No address reuse: on Windows SO_REUSEADDR lets a second process bind the same port. At most
+    ``max_connections`` connections are served at once; the next one is refused with a 503 on the accept thread."""
 
     allow_reuse_address = False
 
-    def __init__(self, server_address: tuple[str, int], app) -> None:  # noqa: ANN001
+    def __init__(self, server_address: tuple[str, int], app, *, max_connections: int = DEFAULT_MAX_CONNECTIONS,  # noqa: ANN001
+                 request_deadline: float = DEFAULT_REQUEST_DEADLINE) -> None:
         ThreadingHTTPServer.__init__(self, server_address, _GatewayHandler)
         self.retirement_app = app
+        self.request_deadline = float(request_deadline)
+        self._slots = threading.BoundedSemaphore(max(1, int(max_connections)))
+
+    def process_request(self, request, client_address) -> None:  # noqa: ANN001
+        if not self._slots.acquire(blocking=False):
+            try:
+                request.settimeout(1.0)
+                request.sendall(_BUSY)
+            except OSError:
+                pass
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address) -> None:  # noqa: ANN001
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._slots.release()
 
     def server_bind(self) -> None:
         if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
@@ -90,6 +186,12 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--funnel-port", type=int, default=None, help="loopback port Tailscale Funnel points at")
     p.add_argument("--local-port", type=int, default=None, help="optional loopback port for use on this machine")
     p.add_argument("--public-origin", action="append", default=[], help="https origin users reach through Funnel")
+    p.add_argument("--max-connections", type=int, default=DEFAULT_MAX_CONNECTIONS,
+                   help="connections served at once per listener; the next gets a 503 (default 128)")
+    p.add_argument("--request-deadline", type=float, default=DEFAULT_REQUEST_DEADLINE,
+                   help="seconds allowed in total to receive one request's line, headers and body")
+    p.add_argument("--hash-concurrency", type=int, default=4,
+                   help="password hashes (32 MiB each) running at once; others wait, then get a 503")
     p.add_argument("--no-tailscale-check", action="store_true", help="skip the 'tailscale serve status' check (tests)")
     p.add_argument("--ready-file", help="also write the READY JSON to this file (the Windows service has no console)")
     w = p.add_argument_group("workers (Phase 3; all off without --data-root)")
@@ -122,6 +224,19 @@ def _parser() -> argparse.ArgumentParser:
     w.add_argument("--backup-hours", type=float, default=24.0)
     w.add_argument("--backup-keep", type=int, default=14)
     return p
+
+
+def protect_totp_at_startup(store: GatewayStore) -> None:
+    """Seal clear-text TOTP secrets (P7-O1) and name any user whose sealed secret this account cannot open."""
+    try:
+        store.protect_totp_secrets()
+    except Exception:  # noqa: BLE001 - never stop sign-in over this, but say so loudly
+        LOG.error("could not seal the TOTP secrets in gateway.db; they are still in clear text", exc_info=True)
+    unreadable = store.unreadable_totp_users()
+    if unreadable:
+        LOG.warning("the TOTP secret of user id(s) %s cannot be opened here (gateway.db from another machine or "
+                    "account?); reset their two-factor from the Users page so they can enrol again",
+                    ", ".join(str(u) for u in unreadable))
 
 
 class _Runtime:
@@ -243,7 +358,8 @@ def run_gateway(argv: list[str] | None, stop_event: threading.Event) -> int:
 
     if not logging.getLogger().handlers:
         logging.basicConfig(level=logging.INFO, stream=err)
-    store = GatewayStore(args.db)
+    store = GatewayStore(args.db, hash_concurrency=args.hash_concurrency)
+    protect_totp_at_startup(store)
     runtime = None
     try:
         runtime = _Runtime(args, store) if args.data_root else None
@@ -256,7 +372,8 @@ def run_gateway(argv: list[str] | None, stop_event: threading.Event) -> int:
     for kind, port in (("funnel", args.funnel_port), ("local", args.local_port)):
         if port is None:
             continue
-        srv = _GatewayHTTPServer(("127.0.0.1", int(port)), None)
+        srv = _GatewayHTTPServer(("127.0.0.1", int(port)), None, max_connections=args.max_connections,
+                                 request_deadline=args.request_deadline)
         srv.retirement_app = GatewayListener(app, kind, srv.server_address[1])
         servers[kind] = srv
     ready = {"host": "127.0.0.1", "funnel_port": servers["funnel"].server_address[1] if "funnel" in servers else None,
