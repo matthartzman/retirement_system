@@ -215,6 +215,15 @@ def test_deleting_a_user_while_its_worker_runs_removes_everything(box):
         sup.shutdown()
 
 
+def _app_copy(box) -> Path:
+    """A copy of ``src`` in the throwaway folder, which the worker accounts can read. The repository itself may sit
+    in a folder only its owner can read (a per-user ACL), and the probe imports ``src.secrets_store``."""
+    app = box["base"] / "app"
+    if not app.exists():
+        shutil.copytree(ROOT / "src", app / "src", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    return app
+
+
 _CRED_PROBE = chr(10).join([
     "import sys",
     "try:",
@@ -237,13 +246,17 @@ def test_a_stored_credential_survives_password_rotation_and_goes_with_the_user(b
     """The question Phase 3 left open: NetUserChangePassword (a change, not a reset) should keep the DPAPI master
     keys, so a Credential Manager entry the worker account stored is still readable after rotation; deleting the
     user (NetUserDel + DeleteProfileW) removes it with the profile."""
+    if _process_session(os.getpid()) != 0:
+        pytest.skip("run this as SYSTEM (session 0), like the gateway service: workers started from an interactive "
+                    "session by CreateProcessWithTokenW cannot initialise user32, so ctypes, ssl and keyring fail "
+                    "(see tools/run_elevated_tests_as_system.ps1)")
     mgr, uid = box["mgr"], 907
     ws = _ws(box, uid)
     mgr.ensure(uid, ws)
     value = "probe-" + secrets.token_hex(4)
     env = {"RETIREMENT_SYSTEM_REMOTE_MODE": "1"}
     out = ws / "cred.txt"
-    argv = [box["python"], "-E", "-s", "-c", _CRED_PROBE, str(ROOT)]
+    argv = [box["python"], "-E", "-s", "-c", _CRED_PROBE, str(_app_copy(box))]
     assert _run_as(box, uid, argv + ["set", str(out), value], env=env) == 0
     assert out.read_text(encoding="utf-8") == f"WinVaultKeyring {value}"
     profile = Path("C:\\Users") / mgr.account_name(uid)
