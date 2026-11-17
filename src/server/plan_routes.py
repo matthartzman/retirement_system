@@ -69,7 +69,7 @@ except ImportError:
         request,
     )
 from ..active_plan import active_plan_path, peek_plan_data
-from .. import plan_registry
+from .. import plan_limits, plan_manage, plan_registry
 from .. import remote_mode
 from ..http_runtime.wsgi_facade import Response as _Response
 from ..version import VERSION
@@ -2309,8 +2309,14 @@ def plan_download():
         return denied
     if not _runtime_config().allow_downloads:
         return jsonify({"success": False, "error": "Downloads are disabled"}), 403
+    wanted = str(request.args.get("plan_id") or "").strip()
     try:
-        data, filename = _plan_file_feature_service().download_active()
+        if wanted:
+            data, filename = _plan_file_feature_service().download_plan(plan_manage.plan_file_for(wanted), wanted)
+        else:
+            data, filename = _plan_file_feature_service().download_active()
+    except plan_registry.PlanRegistryError:
+        return jsonify({"success": False, "error": plan_manage.NOT_FOUND}), 404
     except FileNotFoundError:
         return jsonify({"success": False, "error": "No active plan file found"}), 404
     _audit("plan_downloaded", {"bytes": len(data)})
@@ -2333,7 +2339,10 @@ def plan_upload():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    payload, status = _plan_file_feature_service().upload(request.get_json(silent=True) or {})
+    try:
+        payload, status = _plan_file_feature_service().upload(request.get_json(silent=True) or {})
+    except plan_limits.PlanLimitError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 409
     return jsonify(payload), status
 
 
@@ -2343,14 +2352,25 @@ def _plan_registry_result(fn):
         return jsonify({"success": True, **(fn() or {})})
     except plan_registry.PlanRegistryError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
+    except plan_limits.PlanLimitError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 409
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)}), 500
 
 
 def _plans_payload():
     plans = plan_registry.list_plans()
+    if remote_mode.enabled():  # a remote user never sees server paths
+        plans = [{k: v for k, v in p.items() if k != "path"} for p in plans]
     active = next((p for p in plans if p["active"]), None)
-    return {"plans": plans, "active": active, "demo_active": bool(active and active["kind"] == "demo")}
+    return {"plans": plans, "active": active, "demo_active": bool(active and active["kind"] == "demo"),
+            "limits": plan_limits.usage()}
+
+
+def _build_running() -> bool:
+    from .workbook_routes import _BUILD_JOBS  # noqa: PLC0415 - the build registry lives with the build routes
+
+    return bool(_BUILD_JOBS.has_running())
 
 
 _CONVERSION_SERVICE = None
@@ -2430,10 +2450,65 @@ def plans_rename():
         return denied
 
     def run():
-        plan_registry.rename(_plan_id_from_body(), str((request.get_json(silent=True) or {}).get("name") or ""))
+        plan_manage.rename_plan(_plan_id_from_body(), (request.get_json(silent=True) or {}).get("name"))
         return _plans_payload()
 
     return _plan_registry_result(run)
+
+
+@app.route("/api/plans/create", methods=["POST"])
+def plans_create():
+    """A new plan from the sample (``from: demo``) or with the household cleared (``blank``); it becomes the active plan."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+
+    def run():
+        body = request.get_json(silent=True) or {}
+        rec = plan_manage.create_plan(body.get("name"), body.get("from"))
+        rec = plan_registry.activate(rec["plan_id"], check=False)
+        _after_plan_switch(Path(rec["path"]))
+        _audit("plan_created", {"plan_id": rec["plan_id"], "source": body.get("from")})
+        return {**_plans_payload(), "plan": _public_plan(rec)}
+
+    return _plan_registry_result(run)
+
+
+@app.route("/api/plans/duplicate", methods=["POST"])
+def plans_duplicate():
+    """An independent copy of a plan. The active plan does not change."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+
+    def run():
+        body = request.get_json(silent=True) or {}
+        rec = plan_manage.duplicate_plan(_plan_id_from_body(), body.get("name"))
+        _audit("plan_duplicated", {"plan_id": rec["plan_id"]})
+        return {**_plans_payload(), "plan": _public_plan(rec)}
+
+    return _plan_registry_result(run)
+
+
+@app.route("/api/plans/delete", methods=["POST"])
+def plans_delete():
+    """Hard-delete a plan (file, outputs and registry row). Needs the plan name typed as ``confirm_name``."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+
+    def run():
+        body = request.get_json(silent=True) or {}
+        plan_id = _plan_id_from_body()
+        plan_manage.delete_plan(plan_id, confirm_name=body.get("confirm_name"), build_running=_build_running())
+        _audit("plan_deleted", {"plan_id": plan_id})
+        return _plans_payload()
+
+    return _plan_registry_result(run)
+
+
+def _public_plan(rec):
+    return {k: rec.get(k) for k in ("plan_id", "name", "kind", "last_opened")}
 
 
 @app.route("/api/plans/forget", methods=["POST"])
