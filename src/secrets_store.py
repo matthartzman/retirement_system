@@ -27,6 +27,7 @@ SERVICE_NAME = "RetirementSystem"
 DEDICATED_ACCOUNT_ENV = "RETIREMENT_SYSTEM_DEDICATED_ACCOUNT"
 _REMOTE_BACKENDS = frozenset({"keyring.backends.Windows.WinVaultKeyring"})
 NAMES_KEY = "secrets.names"
+MACHINE_KEY = "secrets.machine"  # remote mode: {name: base64 of a machine-scope DPAPI blob}, in the worker's own app.db
 LEGACY_FILE_NAME = "secrets.local.json"
 
 
@@ -48,6 +49,47 @@ def legacy_secrets_path() -> Path:
 
 
 secrets_path = legacy_secrets_path  # backwards-compatible name; the file is legacy-only now
+
+
+def _machine_store_active() -> bool:
+    """A dedicated server worker keeps its secrets in its own ``app.db`` under machine-scope DPAPI, not in Windows
+    Credential Manager: user-scope keys do not reliably survive the account's password rotation
+    (``src/dpapi_machine.py``). The same guard as before decides who may use it: only a worker the per-account
+    launcher marked as running as its own account. A same-account worker still gets the refusal from
+    ``_remote_mode_guard`` through the keyring path."""
+    from . import remote_mode
+    return remote_mode.enabled() and (os.environ.get(DEDICATED_ACCOUNT_ENV) or "").strip() == "1"
+
+
+def _entropy(name: str) -> bytes:
+    return f"{SERVICE_NAME}|{name}".encode("utf-8")
+
+
+def _machine_blobs() -> dict[str, str]:
+    from .app_state import open_app_store
+    store = open_app_store()
+    try:
+        raw: Any = store.get_setting(MACHINE_KEY, {})
+    finally:
+        store.close()
+    return {str(k): str(v) for k, v in raw.items()} if isinstance(raw, dict) else {}
+
+
+def _machine_write(blobs: dict[str, str]) -> None:
+    from .app_state import open_app_store
+    store = open_app_store()
+    try:
+        store.set_setting(MACHINE_KEY, dict(sorted(blobs.items())))
+    finally:
+        store.close()
+
+
+def _machine_op(op: str, fn):
+    from . import dpapi_machine
+    try:
+        return fn(dpapi_machine)
+    except dpapi_machine.DpapiUnavailable as exc:
+        raise SecretStoreUnavailable(f"The server's secret store failed to {op} ({exc}).") from exc
 
 
 def _keyring():
@@ -122,6 +164,12 @@ def _write_names(names) -> None:
 
 def encryption_status(*args, **kwargs) -> dict:
     """Whether a real OS credential store is active. Never raises."""
+    if _machine_store_active():
+        try:
+            _machine_op("start", lambda d: d.unprotect(d.protect(b"probe", _entropy("probe")), _entropy("probe")))
+        except SecretStoreUnavailable as exc:
+            return {"mode": "machine-dpapi", "encrypted": False, "store_active": False, "error": str(exc)}
+        return {"mode": "machine-dpapi", "encrypted": True, "store_active": True, "backend": "DPAPI (machine scope)"}
     try:
         _, backend = _keyring()
     except SecretStoreUnavailable as exc:
@@ -136,16 +184,35 @@ def require_secure_master_key(*args, **kwargs) -> bool:
 
 def set_secret(name: str, value: str, workspace_id: str = 'local', db_path=None) -> None:
     name = str(name)
+    if _machine_store_active():
+        import base64
+        blob = _machine_op("save the secret", lambda d: d.protect(str(value).encode("utf-8"), _entropy(name)))
+        _machine_write({**_machine_blobs(), name: base64.b64encode(blob).decode("ascii")})
+        _write_names(set(_read_names()) | {name})
+        return
     _call("save the secret", lambda k: k.set_password, SERVICE_NAME, name, str(value))
     _write_names(set(_read_names()) | {name})
 
 
 def get_secret(name: str, workspace_id: str = 'local', db_path=None) -> str:
+    if _machine_store_active():
+        import base64
+        text = _machine_blobs().get(str(name))
+        if not text:
+            return ''
+        return _machine_op("read the secret", lambda d: d.unprotect(base64.b64decode(text), _entropy(str(name)))
+                           ).decode("utf-8")
     return str(_call("read the secret", lambda k: k.get_password, SERVICE_NAME, str(name)) or '')
 
 
 def delete_secret(name: str, workspace_id: str = 'local', db_path=None) -> None:
     name = str(name)
+    if _machine_store_active():
+        blobs = _machine_blobs()
+        blobs.pop(name, None)
+        _machine_write(blobs)
+        _write_names(set(_read_names()) - {name})
+        return
     from keyring.errors import PasswordDeleteError
     try:
         _call("delete the secret", lambda k: k.delete_password, SERVICE_NAME, name)
@@ -179,7 +246,8 @@ def migrate_legacy_secrets_file(path: str | Path | None = None, *, delete_file: 
     except Exception as exc:
         result["error"] = f"legacy secrets file is unreadable ({exc}); left in place"
         return result
-    _keyring()  # fail early and loudly before touching anything
+    if not _machine_store_active():
+        _keyring()  # fail early and loudly before touching anything
     for name, value in data.items():
         name, value = str(name), str(value)
         try:

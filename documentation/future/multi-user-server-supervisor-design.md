@@ -119,6 +119,10 @@ AccountManager.ensure(user_id) / disable(user_id, flag) / remove(user_id) / rota
   `SeAssignPrimaryTokenPrivilege`; when that is missing, as in an elevated admin shell, it falls back to
   `CreateProcessWithTokenW`, which needs only `SeImpersonatePrivilege` and still uses the batch token, unlike
   `CreateProcessWithLogonW`, which logs on interactively). The profile is unloaded after the worker exits.
+  Measured: a worker started through that fallback from an **interactive** session cannot initialise `user32.dll`,
+  so `_ctypes`, `_ssl`, `keyring` and HTTPS calls fail in it; the same launch as SYSTEM in session 0 (the gateway as a
+  service) works. The fallback also limits the command line to 1024 characters. Run the gateway as a service
+  (`tools/run_elevated_tests_as_system.ps1` reproduces that setting for the elevated tests).
 - `WindowsAccountManager`: `NetUserAdd` (standard account `rpw_<id>`, random 32-character password, password never
   expires), `LsaAddAccountRights` for `SeBatchLogonRight`, `SeDenyInteractiveLogonRight`,
   `SeDenyRemoteInteractiveLogonRight` and `SeDenyNetworkLogonRight`, then the data-folder ACL. Disable sets

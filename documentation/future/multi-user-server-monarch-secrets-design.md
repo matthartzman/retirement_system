@@ -61,28 +61,56 @@ accounts get their admin-suggested match, and a match the user already saved or 
 kept. Mappings stay per user and editable (`/api/reconcile/map`, `/api/reconcile/seed`). Changing the admin file
 later affects only users created afterwards.
 
-## 3. Per-user secrets (built: guard only)
+## 3. Per-user secrets (built)
 
-`src/secrets_store.py` is unchanged in behaviour for a worker that runs as its own Windows account with its
-profile loaded: `keyring` picks `WinVaultKeyring` and the Credential Manager is that account's own (measured in
-Phase 0). What could fall back to a shared store, and what this phase does about it:
+A worker that runs as its own Windows account keeps its secrets in **its own `app.db` under machine-scope DPAPI**
+(`src/dpapi_machine.py`, used by `src/secrets_store.py` in remote mode). It was first built on Windows Credential
+Manager, which is that account's own store (Phase 0), but the elevated runs measured it losing entries when the
+account's password is rotated (section 3.1), so Credential Manager is **not** used in remote mode. Desktop mode is
+unchanged (keyring). What could fall back to a shared store, and what this phase does about it:
 
 | Path | Risk | Remote-mode rule |
 |---|---|---|
 | Same-account launcher (CI, development) | every worker shares the gateway account's Credential Manager | `secrets_store` refuses (`SecretStoreUnavailable`) unless the worker was started by the per-account launcher, which sets `RETIREMENT_SYSTEM_DEDICATED_ACCOUNT=1`. The supervisor refuses that name in `--worker-env`, so it cannot be faked. |
-| Another keyring backend (a `keyrings.alt` file, a `PYTHON_KEYRING_BACKEND` override) | a file in a shared or readable place | remote mode accepts only `WinVaultKeyring`; worker environments are built from nothing, so an override is not inherited either. |
+| Another keyring backend (a `keyrings.alt` file, a `PYTHON_KEYRING_BACKEND` override) | a file in a shared or readable place | a dedicated worker does not use `keyring` at all (it uses the DPAPI store above), and a same-account worker is refused before any backend is looked at; worker environments are built from nothing, so an override is not inherited either. |
 | Machine-scope `FMP_API_KEY` etc. | every user gets a key nobody chose to give them | workers get only the OS essentials (`launchers.os_env`) plus what the gateway passes; tested. |
 | Key fingerprints in `/api/prices/test-symbol` and the pricing diagnostics | a stable identifier of the shared key | `None` in remote mode. |
 
-The fallback "per-user encrypted secrets in the user's own database" is **not built**: the credential store is
-reliable under the per-account launcher, and an encrypted blob in `app.db` would be readable by the same user's
-worker anyway, so it adds no protection over Credential Manager. Revisit only if the elevated rotation test
-below fails.
+### 3.1 What the elevated runs measured (2026-11-16, Windows 11 10.0.26300, owner's machine)
 
-**Deletion.** Credential Manager entries live in the account's profile (`AppData\...\Microsoft\Credentials`,
-`Vault`). Deleting a user already does `NetUserDel` + `DeleteProfileW` (`src/gateway/accounts.py`), so stored
-secrets and any connector tokens go with the profile. The elevated test stores a credential as a throwaway
-account, rotates the password, reads it back, deletes the user and checks the profile is gone.
+1. **Credential Manager works for a batch-logon worker** (`WinVaultKeyring` with the profile loaded: set, get and
+   delete all succeeded, and a fresh logon, a pause and four reads in a row all still saw the entry).
+2. **It does not reliably survive a password rotation.** `NetUserChangePassword` with the old password, with no
+   logon session open, lost the stored entry in **5 of 9 rotations**; once lost it stayed lost over four further
+   reads. Which rotations kept it did not follow any pattern the runs could isolate (a read before the rotation
+   kept it twice, but that is two data points).
+3. **Launching from an interactive elevated shell is the wrong place to test a worker.** There the gateway process
+   has no `SeAssignPrimaryTokenPrivilege`, so `PerAccountLauncher` falls back to `CreateProcessWithTokenW`, and the
+   worker cannot initialise `user32.dll` ("not enough memory resources"; `ole32` and `uxtheme` fail too), so
+   `_ctypes`, `_ssl` and so `keyring` and any HTTPS call fail with "DLL initialization routine failed". Job limits,
+   file ACLs and the desktop name (NULL, empty, `WinSta0\Default`, with and without a Job) made no difference.
+   The same worker started as SYSTEM in session 0, which is how the gateway service runs, loads all of them.
+   `CreateProcessWithTokenW` also caps the command line at 1024 characters. The elevated credential test therefore
+   runs as SYSTEM (`tools/run_elevated_tests_as_system.ps1`) and fails with a clear message elsewhere.
+4. The throwaway accounts could not read the repository folder (`C:\RetirementPlanning` is readable by the owner,
+   Administrators and SYSTEM only), so the test copies `src` into its own readable folder.
+
+Because user-scope DPAPI keys (and a user-DPAPI file) hang off the same account password, the smallest alternative
+that survives rotation is a machine-scope key. **Trade-off, stated plainly:** any local account that can read the
+blob can decrypt it, so the protection is the ACL on the worker's data folder (only that account and the gateway;
+`acl check` verifies it) and a per-secret entropy that ties a blob to its name. It protects against a stolen or
+copied `app.db`/backup on another machine, not against code running as another local account that can already
+read the file (which the isolation design prevents). Plain text is never written. A worker's secrets go with its
+workspace when the user is deleted.
+
+**Not yet confirmed by an elevated run:** the new store itself under the rotation loop. The updated test
+`test_a_stored_credential_survives_repeated_password_rotation_and_goes_with_the_user` rotates four times and must
+be run as SYSTEM by the owner; the unit tests cover the store with the real machine-scope DPAPI of the
+unelevated account.
+
+**Deletion.** The secrets are rows in the worker's `app.db` inside its workspace. Deleting a user does
+`NetUserDel` + `DeleteProfileW` and removes the workspace (`src/gateway/accounts.py`), so they go with it; the
+elevated test asserts the profile and the workspace are gone.
 
 ## 4. Shared price-provider key (built)
 
@@ -178,11 +206,12 @@ Settings > MCP Connector lists any granted access.
 
 ## 7. What did not run (needs the owner)
 
-- The elevated test `test_a_stored_credential_survives_password_rotation_and_goes_with_the_user`
-  (`tests/test_worker_accounts_elevated_integration.py`): skipped by default, needs an elevated shell with
-  `RETIREMENT_ELEVATED_TESTS=1`. Until it passes, "a stored credential survives worker-account password
-  rotation" stays unverified. If it fails, either stop rotating (`--account-rotate-days 0`) or build the
-  per-user encrypted fallback in section 3.
+- The elevated test `test_a_stored_credential_survives_repeated_password_rotation_and_goes_with_the_user`
+  (`tests/test_worker_accounts_elevated_integration.py`): skipped by default; run it as SYSTEM with
+  `powershell -ExecutionPolicy Bypass -File tools\run_elevated_tests_as_system.ps1 -Filter credential`. The
+  Credential Manager version of this test failed (section 3.1), which is why the store moved to machine-scope
+  DPAPI; "a stored credential survives worker-account password rotation" is unverified for the new store until
+  this passes.
 - The day-later refresh check and the probe cleanup (section 6, "Remaining owner steps").
 - A live connector sign-in through the built routes (the probe exercised the same calls from a script; the
   routes are tested only against the fake).
