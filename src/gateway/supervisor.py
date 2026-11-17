@@ -225,6 +225,15 @@ class Supervisor:
         LOG.info("worker for user %s ready on port %s (pid %s, %s) in %.1f s", uid, slot.endpoint.port, proc.pid,
                  proc.method, self._clock() - started)
 
+    @staticmethod
+    def _pid_in_worker_job(proc: WorkerProcess, pid: int) -> bool:
+        """A venv's ``python.exe`` is a launcher that starts the real interpreter as a child, so the worker that
+        writes the port file is not the pid the launcher returned. Accept it only when it is inside the Job Object
+        of the process we started: another user's worker, or any process outside the job, never qualifies."""
+        if not pid or proc.job is None or not winapi.IS_WINDOWS:
+            return False
+        return winapi.pid_in_job(proc.job, pid)
+
     def _wait_ready(self, proc: WorkerProcess, port_file: Path, token: str, uid: int) -> Endpoint:
         deadline = time.monotonic() + self.config.start_timeout
         info = None
@@ -238,11 +247,14 @@ class Supervisor:
                     info = json.loads(port_file.read_text(encoding="utf-8"))
                 except (OSError, ValueError):
                     info = None
-                if info is not None and int(info.get("pid") or 0) != proc.pid:
-                    LOG.error("port file for user %s names pid %s, not the started pid %s", uid, info.get("pid"), proc.pid)
-                    raise WorkerUnavailable("Your planner could not be started. Please try again shortly.")
+                if info is not None:
+                    worker_pid = int(info.get("pid") or 0)
+                    if worker_pid != proc.pid and not self._pid_in_worker_job(proc, worker_pid):
+                        LOG.error("port file for user %s names pid %s, not the started pid %s", uid, info.get("pid"),
+                                  proc.pid)
+                        raise WorkerUnavailable("Your planner could not be started. Please try again shortly.")
             if info is not None:
-                ep = Endpoint(uid, int(info["port"]), proc.pid, token)
+                ep = Endpoint(uid, int(info["port"]), int(info["pid"]), token)
                 if self.port_owner_ok(ep):
                     try:
                         status, _ = call_worker(ep, "GET", "/api/ping", timeout=5)
