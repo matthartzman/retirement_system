@@ -28,7 +28,9 @@ Before putting real users on the server:
 5. **Encrypt the TOTP secrets at rest** (P7-O1), or accept in writing that anyone who can read `gateway.db`
    (backups included) can mint codes.
 6. **Re-run the isolation gate and the elevated tests on the installed (frozen or clean-folder) build**, because
-   everything here ran from the source tree with the same-account launcher.
+   everything here ran from the source tree with the same-account launcher. *Tooling now exists (opt-in per-account
+   mode in the three isolation modules plus `tools/run_isolation_on_installed_build.ps1`); the owner's elevated run
+   is still open, see "Did not run".*
 
 ## Scope and method
 
@@ -206,6 +208,25 @@ pytest tests/test_worker_accounts_elevated_integration.py -v -rfE > elevated.txt
 
 The suite creates throwaway `rpwtest_` accounts and a throwaway `C:\rpwtest_*` folder and removes them; check that
 `net user` shows none afterwards. It covers the per-account folder isolation, the Job Object kill, password
-rotation, deleting a user while its worker runs, and credential survival across rotation. The three isolation
-modules start the gateway with the same-account launcher only; running them per-account needs a launcher option
-added to `launch_gateway` (a gap, not done here), so the elevated suite is the per-account proof for now.
+rotation, deleting a user while its worker runs, and credential survival across rotation. 
+
+**Condition 6: isolation gate and elevated suite on the installed build.** The three isolation modules have an
+opt-in per-account mode (`RETIREMENT_ISOLATION_LAUNCHER=per-account`, `RETIREMENT_ISOLATION_INSTALL_DIR`,
+`RETIREMENT_ISOLATION_PYTHON`; see `tests/isolation_per_account.py`). The default (PR CI, same-account, source tree)
+is unchanged, and the mode skips unless `RETIREMENT_ELEVATED_TESTS=1` in an elevated shell. In that mode the gateway
+runs from the installed folder with `--launcher per-account --install-dir <installed> --python <installed venv>`,
+every user's worker is a throwaway `rpwtest_<n>` account, and the data root, gateway db and logs sit in a throwaway
+`C:\rpwtest_<hex>` folder (the tests refuse `C:\RetirementPlanner\data` and `\state`). Teardown removes the
+accounts, profiles and folder and asserts none remain. One owner command, from an elevated PowerShell, runs the
+three isolation modules and the elevated suite as SYSTEM from the installed folder, with a throwaway test venv
+(the installed venv has no pytest and stays untouched), then prints leftovers and whether the installed folder
+stayed clean:
+
+```
+powershell -ExecutionPolicy Bypass -File C:\RetirementPlanner\app\tools\run_isolation_on_installed_build.ps1
+```
+
+Output: `C:\Windows\Temp\rpw_isolation_installed.txt`. Only that run can confirm the per-account results (the attack,
+route and logout/kill checks behaving the same with each worker as its own account, and the workers reading the
+installed code and runtime under the locked ACLs). The skip behaviour, argument handling and unchanged default are
+tested in CI.

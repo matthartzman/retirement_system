@@ -6,6 +6,9 @@ data root, the same-account launcher and no elevation. It shows that user A cann
 plan through the gateway, through a guessed worker port without the token, with a forged Host or Origin,
 or with client-supplied credential headers, and that logout and gateway exit stop the workers.
 
+Opt-in per-account mode (elevated, installed build): see ``tests/isolation_per_account.py`` and
+``tools/run_isolation_on_installed_build.ps1``.
+
 Slow-ish (two worker starts, about 5-15 s) and Windows-sensitive: run it once per change, not in a loop.
 """
 from __future__ import annotations
@@ -20,6 +23,7 @@ from pathlib import Path
 
 import pytest
 
+import isolation_per_account as ipa
 from src.gateway import totp
 from src.gateway.store import Actor, GatewayStore
 
@@ -137,33 +141,53 @@ def gateway(tmp_path_factory):
 
 
 def launch_gateway(base: Path, roles: dict[str, str]):
-    """Start the gateway (and through it the workers) with these enrolled users; yields the info dict, then stops it."""
+    """Start the gateway (and through it the workers) with these enrolled users; yields the info dict, then stops it.
+
+    Default: same-account launcher, source tree, temp data root. With ``RETIREMENT_ISOLATION_LAUNCHER=per-account``
+    (elevated only, see ``tests/isolation_per_account.py``) it runs the INSTALLED copy with per-account workers
+    under a throwaway ``C:\rpwtest_*`` root, and cleans up the accounts, profiles and folders afterwards."""
+    per = ipa.per_account_config()
+    box = None
+    if per:
+        pre = ipa.leftover_accounts()
+        assert not pre, f"throwaway accounts from an earlier run are still there: {pre}"
+        from src.gateway import acl, winapi  # noqa: PLC0415
+
+        box = ipa.new_box()
+        me = winapi.current_user_sid()
+        base, data_root = box / "gateway", box / "data"
+        for d in (base, data_root):
+            d.mkdir()
+            acl.lock_gateway_only(d, gateway_sid=me)
+        (data_root / "users").mkdir()
+        acl.lock_gateway_only(data_root / "users", gateway_sid=me)
+        python, cwd = per["python"], per["install_dir"]
+    else:
+        data_root = base / "data"
+        python, cwd = sys.executable, ROOT
     db = base / "gateway.db"
     store = GatewayStore(db, scrypt_n=2**12)
     users = {name: _enrolled_user(store, name, role) for name, role in roles.items()}
-    data_root = base / "data"
     ready_file = base / "ready.json"
     env = {k: v for k, v in os.environ.items() if not k.startswith("RETIREMENT_SYSTEM_")}
     env[SHARED_KEY_ENV] = SHARED_KEY  # the gateway holds the shared provider key; workers get it by --pass-env only
-    cmd = [sys.executable, "-m", "src.gateway", "--db", str(db), "--local-port", "0", "--funnel-port", "0",
-           "--public-origin", PUBLIC_ORIGIN, "--no-tailscale-check", "--data-root", str(data_root), "--provision", "demo",
-           "--ready-file", str(ready_file), "--build-concurrency", "1", "--pass-env", SHARED_KEY_ENV,
-           "--monarch-connector",
-           "--worker-env", "RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS=1",
-           "--worker-env", "RETIREMENT_SYSTEM_FROZEN_TODAY=2026-08-04"]
+    if per:
+        env["PYTHONDONTWRITEBYTECODE"] = "1"  # keep the installed folder clean
+    cmd = ipa.gateway_command(python, db, data_root, ready_file, public_origin=PUBLIC_ORIGIN,
+                              shared_key_env=SHARED_KEY_ENV, per_account=per)
     log = (base / "gateway.log").open("w", encoding="utf-8")
-    proc = subprocess.Popen(cmd, cwd=str(ROOT), env=env, stdout=log, stderr=subprocess.STDOUT)
-    deadline = time.time() + 60
-    while not ready_file.is_file():
-        if proc.poll() is not None or time.time() > deadline:
-            log.close()
-            pytest.fail("gateway did not start:\n" + (base / "gateway.log").read_text(encoding="utf-8")[-3000:])
-        time.sleep(0.1)
-    ready = json.loads(ready_file.read_text(encoding="utf-8"))
-    assert ready["workers"] is True
-    info = {"proc": proc, "ready": ready, "users": users, "data_root": data_root, "base": base, "store": store,
-            "log": base / "gateway.log"}
+    proc = subprocess.Popen(cmd, cwd=str(cwd), env=env, stdout=log, stderr=subprocess.STDOUT)
     try:
+        deadline = time.time() + (120 if per else 60)
+        while not ready_file.is_file():
+            if proc.poll() is not None or time.time() > deadline:
+                log.close()
+                pytest.fail("gateway did not start:\n" + (base / "gateway.log").read_text(encoding="utf-8")[-3000:])
+            time.sleep(0.1)
+        ready = json.loads(ready_file.read_text(encoding="utf-8"))
+        assert ready["workers"] is True
+        info = {"proc": proc, "ready": ready, "users": users, "data_root": data_root, "base": base, "store": store,
+                "log": base / "gateway.log", "per_account": bool(per)}
         yield info
     finally:
         proc.terminate()
@@ -172,6 +196,8 @@ def launch_gateway(base: Path, roles: dict[str, str]):
         except subprocess.TimeoutExpired:
             proc.kill()
         log.close()
+        if box is not None:
+            ipa.cleanup(box, store, data_root)
 
 
 @pytest.fixture(scope="module")

@@ -208,6 +208,20 @@ migrate lazily on their next sign-in.
 `gateway.db` beyond what the old code reads); put the previous release back into `app`; `acl check`; start the service.
 The rollback is tested with fixture users in `tests/test_gateway_ops_functional.py`.
 
+### 5.1 Verifying an installed build (isolation gate, per-account)
+
+After installing or upgrading, and before opening the server to users, run from an **elevated** PowerShell (owner's
+say-so; it creates and removes throwaway `rpwtest_` accounts and a `C:\rpwtest_*` folder, never `data` or `state`):
+
+```
+powershell -ExecutionPolicy Bypass -File C:\RetirementPlanner\app\tools\run_isolation_on_installed_build.ps1
+```
+
+Add `-Filter attacks` (any pytest `-k` expression) to run part of it, `-KeepVenv` to keep the throwaway test venv.
+It runs the three isolation modules and the worker-account suite as SYSTEM from the installed folder with real
+per-account workers. Read `C:\Windows\Temp\rpw_isolation_installed.txt`; the printout must end with empty accounts,
+folders and profiles lists and "clean". Afterwards `net user` should show no `rpwtest_` account.
+
 ## 6. Incident quick reference
 
 | Symptom | First look |
