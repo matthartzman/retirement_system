@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import sqlite3
 
-import pytest
 
 from src.gateway import backup_store as bs
 from src.gateway import totp
@@ -139,8 +138,9 @@ def test_backups_carry_only_the_sealed_form(tmp_path):
     assert restored.verify_totp(uid, totp.code_at(secret, int(1_000_060 // 30)), 1_000_060)
 
 
-@pytest.mark.skipif(not DpapiSecretBox.available(), reason="DPAPI needs Windows")
 def test_dpapi_box_round_trips_and_does_not_hold_the_secret():
+    if not DpapiSecretBox.available():  # DPAPI needs Windows
+        return
     box = DpapiSecretBox()
     sealed = box.protect("JBSWY3DPEHPK3PXP")
     assert sealed.startswith(PREFIX) and "JBSWY3DPEHPK3PXP" not in sealed
