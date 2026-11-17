@@ -13,8 +13,10 @@ elevated checks have never run), and a privilege-escalation path that depends on
 Before putting real users on the server:
 
 1. **Run the elevated suite with the owner** (`tests/test_worker_accounts_elevated_integration.py`, steps under
-   "Did not run"). The per-account folder isolation, the deny-logon rights and the credential survival across
-   password rotation are unverified; the same-account tests in this review prove only the application's own
+   "Did not run"). The owner's elevated run passed the folder isolation, deny-logon, job, rotation-usability and deletion checks; credential survival
+   across password rotation **failed** for Windows Credential Manager (entries lost in 5 of 9 rotations), so the
+   worker's secret store moved to machine-scope DPAPI (monarch-secrets design, section 3.1) and that store's
+   rotation test must be run as SYSTEM before real users are added; the same-account tests in this review prove only the application's own
    confinement.
 2. **Install the Python runtime, the gateway code and the service config where worker accounts cannot write**
    (P7-O2), and confirm with a recursive ACL listing, not just `acl check`, which inspects only the top folder.
@@ -184,7 +186,8 @@ The architecture diagram was regenerated for the new `src/gateway/fsguard.py`.
 From the Phase 3 to 6 notes, none closed by this review:
 
 - Phase 3's elevated check that one worker account cannot read another's folder under the new ACLs is unverified (the UAC prompt was cancelled).
-- The elevated test that a stored credential survives worker-account password rotation has not run.
+- Credential Manager lost a stored credential in 5 of 9 password rotations; secrets now use machine-scope DPAPI in the worker's own `app.db` (trade-off in the monarch-secrets design, section 3.1). The new store's rotation test (`tools/run_elevated_tests_as_system.ps1 -Filter credential`) has not been run by the owner yet.
+- A worker started by `CreateProcessWithTokenW` from an interactive session cannot initialise `user32` (ctypes, ssl and keyring fail), so the gateway must run as a service as SYSTEM; this was measured with a scheduled SYSTEM task, never on an installed service.
 - The Monarch connector UI was tested only with a faked API.
 - The frozen exe has no worker entry point, so workers run from source.
 - Phase 0: standard accounts could read `C:\RetirementPlanning\Version 12` (inherited permissions).

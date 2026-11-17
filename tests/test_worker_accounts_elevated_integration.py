@@ -213,39 +213,74 @@ def test_deleting_a_user_while_its_worker_runs_removes_everything(box):
         sup.shutdown()
 
 
+def _process_session(pid: int) -> int | None:
+    sid = ctypes.c_ulong()
+    k = ctypes.WinDLL("kernel32", use_last_error=True)
+    return int(sid.value) if k.ProcessIdToSessionId(ctypes.c_ulong(pid), ctypes.byref(sid)) else None
+
+
+def _app_copy(box) -> Path:
+    """A copy of ``src`` in the throwaway folder, which the worker accounts can read. The repository itself may sit
+    in a folder only its owner can read (a per-user ACL), and the probe imports ``src.secrets_store``."""
+    app = box["base"] / "app"
+    if not app.exists():
+        shutil.copytree(ROOT / "src", app / "src", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    return app
+
+
+# Runs the real ``src.secrets_store`` as a dedicated worker would (remote mode plus the per-account launcher's flag).
+# The result file always gets written: a traceback instead of the value if anything raised, because the child has no
+# stderr to read.
 _CRED_PROBE = chr(10).join([
-    "import sys, keyring",
-    "sys.path.insert(0, sys.argv[1])",
-    "from src import secrets_store as s",
-    "backend = keyring.get_keyring()",
-    "s._remote_mode_guard(backend)  # remote mode plus the per-account launcher's flag: must accept",
-    "if sys.argv[2] == 'set': keyring.set_password(s.SERVICE_NAME, 'elevated-probe', sys.argv[4])",
-    "got = keyring.get_password(s.SERVICE_NAME, 'elevated-probe') or ''",
-    "open(sys.argv[3], 'w', encoding='utf-8').write(type(backend).__name__ + ' ' + got)",
+    "import sys",
+    "try:",
+    "    sys.path.insert(0, sys.argv[1])",
+    "    from src import secrets_store as s",
+    "    if sys.argv[2] == 'set': s.set_secret('elevated-probe', sys.argv[4])",
+    "    result = s.encryption_status()['mode'] + ' ' + s.get_secret('elevated-probe')",
+    "except BaseException:",
+    "    import traceback",
+    "    result = 'PROBE FAILED ' + traceback.format_exc().replace(chr(10), ' | ')",
+    "open(sys.argv[3], 'w', encoding='utf-8').write(result)",
 ])
 
 
-def test_a_stored_credential_survives_password_rotation_and_goes_with_the_user(box):
-    """The question Phase 3 left open: NetUserChangePassword (a change, not a reset) should keep the DPAPI master
-    keys, so a Credential Manager entry the worker account stored is still readable after rotation; deleting the
-    user (NetUserDel + DeleteProfileW) removes it with the profile."""
+def test_a_stored_credential_survives_repeated_password_rotation_and_goes_with_the_user(box):
+    """The question Phase 3 left open. Measured on this machine (see the monarch-secrets design note): Windows
+    Credential Manager lost a stored entry in about half of the rotations, so a dedicated worker keeps its secrets
+    under machine-scope DPAPI in its own app.db (``src/secrets_store.py``). This runs the real store as the worker
+    account, rotates the password several times with no logon session open, and requires the secret every time.
+
+    Run it as SYSTEM in session 0, like the gateway service (``tools/run_elevated_tests_as_system.ps1``): a worker
+    started from an interactive admin shell by CreateProcessWithTokenW cannot initialise user32, so ctypes and
+    keyring fail there for a reason that has nothing to do with secrets."""
+    assert _process_session(os.getpid()) == 0, (
+        "run this test as SYSTEM (session 0), like the gateway service: powershell -ExecutionPolicy Bypass -File "
+        "tools/run_elevated_tests_as_system.ps1 -Filter credential. From an interactive session the worker cannot "
+        "initialise user32 and fails for a reason unrelated to secrets.")
     mgr, uid = box["mgr"], 907
     ws = _ws(box, uid)
     mgr.ensure(uid, ws)
     value = "probe-" + secrets.token_hex(4)
-    env = {"RETIREMENT_SYSTEM_REMOTE_MODE": "1"}
+    env = {"RETIREMENT_SYSTEM_REMOTE_MODE": "1", "RETIREMENT_SYSTEM_WORKSPACE_ROOT": str(ws)}
     out = ws / "cred.txt"
-    argv = [box["python"], "-E", "-s", "-c", _CRED_PROBE, str(ROOT)]
-    assert _run_as(box, uid, argv + ["set", str(out), value], env=env) == 0
-    assert out.read_text(encoding="utf-8") == f"WinVaultKeyring {value}"
-    profile = Path("C:\\Users") / mgr.account_name(uid)
-    mgr.rotate(uid)
-    out.unlink()
-    assert _run_as(box, uid, argv + ["get", str(out)], env=env) == 0
-    assert out.read_text(encoding="utf-8") == f"WinVaultKeyring {value}", "the credential did not survive rotation"
+    argv = [box["python"], "-E", "-s", "-c", _CRED_PROBE, str(_app_copy(box))]
+    expected = f"machine-dpapi {value}"
+
+    def run(*extra) -> str:
+        out.unlink(missing_ok=True)
+        assert _run_as(box, uid, argv + [extra[0], str(out), *extra[1:]], env=env) == 0
+        return out.read_text(encoding="utf-8")
+
+    assert run("set", value) == expected
+    profile = Path("C:/Users") / mgr.account_name(uid)
+    for n in range(1, 5):
+        mgr.rotate(uid)
+        assert run("get") == expected, f"the secret did not survive password rotation number {n}"
     sup = _supervisor(box)
     try:
         sup.user_deleted(uid)
     finally:
         sup.shutdown()
-    assert not profile.exists(), "the profile (and its Credential Manager vault) outlived the user"
+    assert not profile.exists(), "the profile outlived the user"
+    assert not ws.exists(), "the workspace (and the secrets in its app.db) outlived the user"
