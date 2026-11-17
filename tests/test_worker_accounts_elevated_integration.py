@@ -485,3 +485,49 @@ def test_diagnose_worker_user32_by_desktop_and_job(box):
     text = chr(10).join(report)
     Path(os.environ.get("TEMP", r"C:\Windows\Temp"), "rpw_user32_diag.txt").write_text(text, encoding="utf-8")
     print(chr(10) + text)
+
+
+def test_diagnose_credential_persistence(box):
+    """Diagnostic, not a gate (run as SYSTEM): where does the stored credential go missing? Writes it once, then reads
+    it from fresh logons with no rotation, after a pause, and after rotation, and lists the account's vault and DPAPI
+    folders. Output: terminal (-s) and ``%TEMP%\rpw_persist_diag.txt``."""
+    if _process_session(os.getpid()) != 0:
+        pytest.skip("run as SYSTEM (tools/run_elevated_tests_as_system.ps1)")
+    mgr, uid = box["mgr"], 912
+    ws = _ws(box, uid)
+    mgr.ensure(uid, ws)
+    value = "probe-" + secrets.token_hex(4)
+    env = {"RETIREMENT_SYSTEM_REMOTE_MODE": "1"}
+    out = ws / "cred.txt"
+    argv = [box["python"], "-E", "-s", "-c", _CRED_PROBE, str(_app_copy(box))]
+    profile = Path("C:\Users") / mgr.account_name(uid)
+    report = []
+
+    def step(label, mode):
+        out.unlink(missing_ok=True)
+        extra = [value] if mode == "set" else []
+        code = _run_as(box, uid, argv + [mode, str(out)] + extra, env=env)
+        got = out.read_text(encoding="utf-8") if out.exists() else "(no file)"
+        report.append(f"[{label}] exit={code} -> {got!r} (expected value {value!r})")
+
+    def tree(label):
+        lines = []
+        for sub in ("AppData\Local\Microsoft\Credentials", "AppData\Local\Microsoft\Vault",
+                    "AppData\Roaming\Microsoft\Credentials", "AppData\Roaming\Microsoft\Protect",
+                    "AppData\Roaming\Microsoft\Vault"):
+            p = profile / sub
+            names = [f"{q.relative_to(profile)} ({q.stat().st_size})" for q in sorted(p.rglob("*")) if q.is_file()]                 if p.exists() else ["(missing)"]
+            lines.append(f"  {sub}: {names}")
+        report.append(f"[files {label}]" + chr(10) + chr(10).join(lines))
+
+    step("A set (and read back in the same process)", "set")
+    tree("after set")
+    step("B get from a fresh logon, no rotation", "get")
+    time.sleep(8)
+    step("C get after an 8 second pause", "get")
+    mgr.rotate(uid)
+    step("D get after rotation", "get")
+    tree("after rotation")
+    text = chr(10).join(report)
+    Path(os.environ.get("TEMP", r"C:\Windows\Temp"), "rpw_persist_diag.txt").write_text(text, encoding="utf-8")
+    print(chr(10) + text)
