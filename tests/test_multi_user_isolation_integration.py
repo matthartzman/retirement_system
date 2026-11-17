@@ -151,6 +151,7 @@ def launch_gateway(base: Path, roles: dict[str, str]):
     if per:
         pre = ipa.leftover_accounts()
         assert not pre, f"throwaway accounts from an earlier run are still there: {pre}"
+        ipa.sweep_profiles()  # profiles an earlier killed run left loaded (their accounts are already gone)
         from src.gateway import acl, winapi  # noqa: PLC0415
 
         box = ipa.new_box()
@@ -355,7 +356,9 @@ def test_one_users_monarch_upload_is_invisible_to_the_other(gateway, signed_in):
     assert ALICE_MERCHANT.encode() not in bob_files and ALICE_ACCOUNT.encode() not in bob_files
 
 
-def test_the_secret_store_ui_is_refused_and_a_same_account_worker_stores_nothing(signed_in):
+def test_the_secret_store_ui_is_refused_and_a_same_account_worker_stores_nothing(gateway, signed_in):
+    if gateway["per_account"]:
+        return  # premise is a same-account worker; per-account workers have their own secret store (elevated suite)
     for name in ("alice", "bob"):
         status, body = signed_in[name].json("POST", "/api/secrets", {"name": "fmp_api_key", "value": "user-key"})
         assert status == 403, body
@@ -363,8 +366,10 @@ def test_the_secret_store_ui_is_refused_and_a_same_account_worker_stores_nothing
         assert status == 200 and body.get("encryption", {}).get("store_active") is not True, body.get("encryption")
 
 
-def test_the_monarch_connector_never_signs_in_on_a_same_account_worker(signed_in):
+def test_the_monarch_connector_never_signs_in_on_a_same_account_worker(gateway, signed_in):
     """--monarch-connector is on, but these workers share the gateway's credential store: no tokens may go there."""
+    if gateway["per_account"]:
+        return  # premise is a same-account worker; a per-account worker may use the connector
     for name in ("alice", "bob"):
         status, body = signed_in[name].json("GET", "/api/monarch/connector")
         assert status == 200 and body["available"] is False and body["connected"] is False, body

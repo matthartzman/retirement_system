@@ -15,6 +15,7 @@ import os
 import secrets
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -116,6 +117,26 @@ def force_rmtree(path: Path) -> None:
     shutil.rmtree(path, ignore_errors=True)
 
 
+_SWEEP = r"""
+Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like 'C:\Users\rpwtest_*' } | ForEach-Object {
+    $sid = $_.SID
+    foreach ($key in @("HKU\$sid", "HKU\${sid}_Classes")) { reg unload $key 2>&1 | Out-Null }
+    Remove-CimInstance -InputObject $_ -ErrorAction SilentlyContinue
+}
+"""
+
+
+def sweep_profiles() -> None:
+    """Unload and delete every ``C:\\Users\\rpwtest_*`` profile. The tests end the gateway with TerminateProcess, so
+    the worker accounts' registry hives stay loaded (the gateway never ran its own unload) and DeleteProfile cannot
+    remove them until they are unloaded. Retried because the dead workers' handles close a moment after the kill."""
+    for _ in range(4):
+        subprocess.run(["powershell", "-NoProfile", "-Command", _SWEEP], capture_output=True)
+        if not any(p.name.lower().startswith(PREFIX) for p in Path("C:\\Users").iterdir()):
+            return
+        time.sleep(2)
+
+
 DIAG_ENV = "RETIREMENT_ISOLATION_DIAG_DIR"
 
 
@@ -142,6 +163,7 @@ def cleanup(box: Path, store, data_root: Path) -> None:
     from src.gateway import accounts  # noqa: PLC0415
 
     save_diagnostics(box, data_root)
+    sweep_profiles()  # unload the hives the killed gateway left loaded, so account removal can delete the profiles
     mgr = accounts.WindowsAccountManager(store, data_root, prefix=PREFIX, rotate_days=0)
     for row in store.list_worker_accounts():
         try:
@@ -149,6 +171,7 @@ def cleanup(box: Path, store, data_root: Path) -> None:
         except OSError:
             pass
     force_rmtree(box)
+    sweep_profiles()
     for p in Path("C:\\Users").iterdir():
         if p.name.lower().startswith(PREFIX):
             force_rmtree(p)
