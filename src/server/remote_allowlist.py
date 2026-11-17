@@ -24,6 +24,7 @@ _SERVER_PATH = "takes a server-side file path; use upload and download instead"
 _SSE = "event stream buffers until the build ends and pins a thread; poll the progress route"
 _SYNC_BUILD = "synchronous build holds a request thread; use /api/build/start"
 _DESKTOP = "desktop window exit hook"
+_FORGET = "leaves an orphaned plan file that still counts toward your disk quota; use delete"
 _GATEWAY = "login, logout and the CSRF session belong to the gateway"
 
 ALLOWED: frozenset[tuple[str, str]] = frozenset({
@@ -129,7 +130,9 @@ ALLOWED: frozenset[tuple[str, str]] = frozenset({
     ("POST", "/api/plan/tier"),
     ("POST", "/api/plan/upload"),
     ("GET", "/api/plans"),
-    ("POST", "/api/plans/forget"),
+    ("POST", "/api/plans/create"),
+    ("POST", "/api/plans/delete"),
+    ("POST", "/api/plans/duplicate"),
     ("POST", "/api/plans/rename"),
     ("POST", "/api/plans/switch"),
     ("GET", "/api/portfolio/drift"),
@@ -285,6 +288,7 @@ REFUSED: dict[tuple[str, str], str] = {
     ("POST", "/api/conversion/run"): _CONVERSION,
     ("GET", "/api/conversion/status"): _CONVERSION,
     ("POST", "/api/plan/exit-snapshot"): _DESKTOP,
+    ("POST", "/api/plans/forget"): _FORGET,
     ("POST", "/api/auth/login"): _GATEWAY,
     ("POST", "/api/auth/logout"): _GATEWAY,
     ("GET", "/api/auth/logout"): _GATEWAY,

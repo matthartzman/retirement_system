@@ -67,6 +67,7 @@ from ..schema_registry import load_schema as _load_schema_registry, validate_val
 from ..server_services import build_job_service, build_service, holdings_service, blank_plan_service, plan_forms_service, report_service, spending_service
 
 from ..local_store import list_kpi_snapshots, compare_kpi_snapshots
+from .. import plan_limits
 from ..active_plan import active_plan_path, clear_build_results, peek_plan_data, plan_db_env
 
 
@@ -230,6 +231,10 @@ def build_start():
     refused = _empty_plan_refusal()
     if refused:
         return refused
+    try:
+        plan_limits.check_can_build()  # disk quota (multi-user): no builds while the workspace is over it
+    except plan_limits.PlanLimitError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 409
 
     # QA-001: never start a build while preflight reports blockers (blank required values,
     # schema validation issues); the build would otherwise run on parser fallbacks.

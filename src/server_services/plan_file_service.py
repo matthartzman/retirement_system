@@ -27,7 +27,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from .. import plan_registry, platform_runtime, remote_mode
+from .. import plan_limits, plan_registry, platform_runtime, remote_mode
 from ..plan_db_replace import PLAN_FILE_TABLES, copy_sqlite_file, remove_sidecars, replace_active_db, validate_plan_file
 from ..active_plan import read_build_results
 from ..app_state import app_store_path
@@ -207,7 +207,10 @@ class PlanFileService:
     def download_active(self) -> tuple[bytes, str]:
         """The active plan file as one consistent, self-contained ``.rpx`` (WAL folded in through
         the SQLite backup API) and a download name taken from the plan's registry name."""
-        src = self.ctx.plan_db()
+        return self.download_plan(self.ctx.plan_db(), None)
+
+    def download_plan(self, src: Path, plan_id: str | None) -> tuple[bytes, str]:
+        """:meth:`download_active` for any registered plan file (``plan_id`` None: the active plan)."""
         if not src.exists():
             raise FileNotFoundError("No active plan file found")
         tmp_dir = Path(tempfile.mkdtemp(prefix="plan_download_", dir=str(src.parent)))
@@ -218,7 +221,7 @@ class PlanFileService:
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
         try:
-            name = str(plan_registry.active_record().get("name") or "")
+            name = str((plan_registry.get_plan(plan_id) if plan_id else plan_registry.active_record()).get("name") or "")
         except Exception:  # noqa: BLE001 - the name only labels the download
             name = ""
         return data, f"{_safe_stem(name or src.stem)}.rpx"
@@ -245,6 +248,8 @@ class PlanFileService:
             return {"success": False, "error": "content_base64 is not valid base64"}, 400
         if not data.startswith(b"SQLite format 3\x00"):
             return {"success": False, "error": "That file is not a plan file (.rpx)."}, 400
+        if mode == "open":
+            plan_limits.check_can_add_plan(extra_bytes=len(data))  # PlanLimitError: the route answers 409
         saved_dir = platform_runtime.workspace_root() / "saved_plans"
         saved_dir.mkdir(parents=True, exist_ok=True)
         fd, tmp_name = tempfile.mkstemp(prefix="upload_", suffix=".rpx.tmp", dir=str(saved_dir))
@@ -267,6 +272,7 @@ class PlanFileService:
                 rec = self._switch_to(rec["plan_id"])
             except plan_registry.PlanRegistryError as exc:
                 return {"success": False, "error": str(exc)}, 400
+            plan_limits.invalidate()
             self.ctx.audit("plan_uploaded", {"plan_id": rec["plan_id"], "bytes": len(data)})
             return {"success": True, "plan": self._plan_view(rec)}, 200
         finally:

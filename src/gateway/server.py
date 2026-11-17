@@ -209,6 +209,8 @@ def _parser() -> argparse.ArgumentParser:
     w.add_argument("--worker-memory-mb", type=int, default=1792, help="Job Object memory cap per worker tree (0: none)")
     w.add_argument("--build-concurrency", type=int, default=2, help="builds running at once across all users")
     w.add_argument("--build-pool-max", type=int, default=4, help="process pool size per build (0: the build's default)")
+    w.add_argument("--max-plans-per-user", type=int, default=10, help="plans one user may keep, the demo excluded (0: no limit)")
+    w.add_argument("--user-disk-quota-mb", type=int, default=1024, help="disk one user's workspace may use (0: no limit)")
     w.add_argument("--max-build-minutes", type=float, default=30.0)
     w.add_argument("--worker-env", type=_env_pair, action="append", default=[],
                    help="NAME=VALUE passed to every worker (never a secret: use --pass-env)")
@@ -261,6 +263,7 @@ class _Runtime:
             data_root=data_root, install_dir=Path(args.install_dir), python=args.python, provision=args.provision,
             idle_seconds=args.idle_minutes * 60, start_timeout=args.worker_start_timeout,
             memory_limit_mb=args.worker_memory_mb or None, build_pool_max=args.build_pool_max or None,
+            max_plans_per_user=args.max_plans_per_user, user_disk_quota_mb=args.user_disk_quota_mb,
             extra_env=extra_env,
             monarch_mapping_csv=Path(args.monarch_mapping_csv).resolve() if args.monarch_mapping_csv else None)
         if args.launcher == "per-account":

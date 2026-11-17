@@ -44,7 +44,6 @@ SWEEP_SKIPS = {
     ("POST", "/api/plan/exit-demo"): "swaps Alice's active plan",
     ("POST", "/api/plan/snapshot/restore"): "has its own crafted-snapshot test",
     ("POST", "/api/plan/upload"): "has its own crafted-upload test",
-    ("POST", "/api/plans/forget"): "unregisters Alice's plan",
 }
 
 

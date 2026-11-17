@@ -590,9 +590,7 @@ Object.assign(HOUSING_OPT_FIELD_HELP, {
   },
 });
 
-// ---------------------------------------------------------------------------
 // Layout primitives
-// ---------------------------------------------------------------------------
 
 // `key` is both the control's id and its help-registry key, so the DOM, the
 // help registry and the persistence snapshot (Task 15) all agree on one name.
@@ -614,9 +612,7 @@ function housingOptSelect(id, options, extraAttrs) {
   return `<select id="${id}"${extraAttrs ? " " + extraAttrs : ""}>${opts}</select>`;
 }
 
-// ---------------------------------------------------------------------------
 // Shared option sets (§6.2, §6.3, §7.1)
-// ---------------------------------------------------------------------------
 //
 // The concrete value/label pairs live in HOUSING_DWELLING_OPTIONS
 // (dashboard_shared_helpers.js), read here as a bare global via that file's
@@ -688,9 +684,7 @@ const HOUSING_OPT_OBJECTIVE_LABELS = {
   mc_success_rate: "Monte Carlo success rate",
 };
 
-// ---------------------------------------------------------------------------
 // Anchors (§9.3)
-// ---------------------------------------------------------------------------
 
 function housingOptAnchorCityOptionsHtml() {
   return (
@@ -829,7 +823,6 @@ export async function loadHousingOptTopCities() {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Persistence (§9.6)
 //
 // Follows the scenarioWriteSets pattern (dashboard_decomp_housing_scenarios.js
@@ -849,7 +842,6 @@ export async function loadHousingOptTopCities() {
 // housingOptHydratePanelHtml() below, and missing keys leave the
 // already-rendered default in place, so the shape can grow without a
 // migration.
-// ---------------------------------------------------------------------------
 
 export function loadHousingOptInputs() {
   try {
@@ -1035,9 +1027,7 @@ function housingOptHydratePanelHtml(html, stored) {
   return out;
 }
 
-// ---------------------------------------------------------------------------
 // Help (§9.5) -- Task 14 supplies the content.
-// ---------------------------------------------------------------------------
 
 export function showHousingOptFieldHelp(key) {
   const entry = HOUSING_OPT_FIELD_HELP[key] || HOUSING_OPT_FIELD_HELP._panel;
@@ -1059,9 +1049,7 @@ export function showHousingOptFieldHelp(key) {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Toggles
-// ---------------------------------------------------------------------------
 
 export function toggleHousingOptMove2Fields() {
   const el = document.getElementById("housingOptMove2Fields");
@@ -1129,9 +1117,7 @@ export function toggleHousingOptDispositionFields() {
   if (note) note.hidden = !keep;
 }
 
-// ---------------------------------------------------------------------------
 // Panel markup (§9.2)
-// ---------------------------------------------------------------------------
 
 function housingOptMoveWhereRowHtml(n) {
   const p = `housingOptMove${n}`;
@@ -1537,9 +1523,7 @@ export function renderHousingOptimizePanelHtml() {
   return housingOptHydratePanelHtml(gated, housingOptStored);
 }
 
-// ---------------------------------------------------------------------------
 // Shortlist preview (§7.3)
-// ---------------------------------------------------------------------------
 
 // Reads one move's search spec off the DOM. Task 12 builds the full optimize
 // request on top of this; the preview endpoint takes the same `search` object
@@ -1713,9 +1697,7 @@ export function toggleHousingOptZipSelection(moveIndex, zip) {
   debouncedSaveHousingOptInputs();
 }
 
-// ---------------------------------------------------------------------------
 // Results (§9.4)
-// ---------------------------------------------------------------------------
 
 // Human labels for the emptying-funnel field a relaxation hint names, so the
 // suggestion reads as "the population cap" rather than the raw field name --
@@ -2102,7 +2084,6 @@ function housingOptResultRowHtml(c, objective, baselineValue) {
   </tr>`;
 }
 
-// ---------------------------------------------------------------------------
 // #329 P6 / §4.3 (W10c): Housing is the design's STRUCTURAL ADOPTION case --
 // the only optimizer whose patch is not a set of edits to rows that obviously
 // exist. A winning candidate spans the sale year, then per move a step type,
@@ -2118,7 +2099,6 @@ function housingOptResultRowHtml(c, objective, baselineValue) {
 // ratio. The one honest caveat, recorded in the strip's own copy: because
 // that re-scaling is a ratio, undoing a price change restores the price
 // exactly but returns the estimated costs to within rounding, not bit-for-bit.
-// ---------------------------------------------------------------------------
 export const HOUSING_OPTIMIZER_ID = "housing_trajectory_comparison";
 
 // The last successful /api/housing/optimize payload. The results table is
@@ -2361,9 +2341,7 @@ export function renderHousingOptimizeResultsHtml(payload) {
   );
 }
 
-// ---------------------------------------------------------------------------
 // Request building (§7.1) and inline validation (§8)
-// ---------------------------------------------------------------------------
 //
 // validateHousingOptForm() fires the same rules as src/housing/api.py's
 // validate_request, in the same order, with character-identical messages
@@ -2713,7 +2691,6 @@ export function debouncedRefreshHousingOptValidation() {
   housingOptValidationTimer = setTimeout(refreshHousingOptValidation, 200);
 }
 
-// ---------------------------------------------------------------------------
 // Run
 // ---------------------------------------------------------------------------
 

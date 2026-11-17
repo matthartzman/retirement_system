@@ -87,7 +87,6 @@ export function setAllocationSelectionMode(mode) {
   renderMain();
 }
 
-// ---------------------------------------------------------------------------
 // #329 P6 / §4.3 (W10c): Asset Allocation is the design's POLICY ADOPTION vs
 // SCHEDULE FREEZE pair -- the one place §4.3's two named actions are both
 // real, because both ends are ordinary plan rows:
@@ -110,7 +109,6 @@ export function setAllocationSelectionMode(mode) {
 // pair there would mean one real button and one that cannot deliver. They
 // are left to the session that adds their own result panels, with the patch
 // contract now proven on all three shapes.
-// ---------------------------------------------------------------------------
 export const ALLOCATION_OPTIMIZER_ID = "allocation_policy";
 const ALLOCATION_DEFAULT_LIVE_MODE = "optimizer_recommendation";
 
@@ -966,9 +964,7 @@ export function renderRothMissingNotice() {
   return `<div class="missing-list"><h3>Roth controls need to be backfilled</h3><p>The page is missing ${missing.length} primary control${missing.length === 1 ? "" : "s"}: ${missing.map(humanLabel).join(", ")}. Reload the current plan or start the app again; v11 now backfills these rows into the plan's policy rows without overwriting existing values.</p></div>`;
 }
 
-// ---------------------------------------------------------------------------
 // #329 §4.5 path 1 (W10a): the Roth optimizer's RESULT, on screen
-// ---------------------------------------------------------------------------
 //
 // §1.3's map of this app's Optimize screen: "Roth Conversion --
 // renderRothConversion() -- Input form. Policy/guardrail/calibration rows. No

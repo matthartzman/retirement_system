@@ -204,7 +204,6 @@ function stepSearchText(s) {
   return text.toLowerCase();
 }
 
-
 // ACRONYMS/ACRONYM_DEFINITIONS moved to dashboard_decomp_row_model.js: their
 // only consumers (formatAcronyms/acronymDefinitionsHtml/titleWord) live
 // there now. That module's <script> tag loads before this one, so bare
@@ -580,7 +579,6 @@ function fieldLabelNoteHtml(row) {
 // "Member_1_IRA" into "Matt's IRA" form (choice-option lists in field notes
 // use this compound form, e.g. "Husband_IRA | Husband_401k | Wife_IRA").
 
-
 // fmtMoney lives in dashboard_shared_helpers.js (A13), loaded first.
 
 // fmtPct lives in dashboard_shared_helpers.js (A13), loaded first.
@@ -590,7 +588,6 @@ function finiteOrNull(v) {
   const n = Number(String(v).replace(/[^0-9.-]/g, ""));
   return Number.isFinite(n) ? n : null;
 }
-
 
 function deriveTotalRothConversions(summary) {
   summary = summary || {};
@@ -624,7 +621,6 @@ function closeChartModal() {
   if (modal) closeStaticDialog(modal); // WI-502: also restores focus to the opener
   document.body.classList.remove("chart-modal-open");
 }
-
 
 function artifactHashFromPreflight(preflight, fileName) {
   const artifacts =
@@ -785,7 +781,6 @@ const BUILD_IMPACT_SOURCE_STEP_IDS = [
   "system_configuration",
 ];
 
-
 function stepIdForRow(row) {
   return sourceStepForRow(row);
 }
@@ -847,8 +842,6 @@ function noteSpecialSessionChange(label) {
 // (the old admin-only renderer) was removed as dead code once that was its
 // only caller.
 
-
-
 function parseDollarLike(v) {
   const n = Number(
     String(v ?? "")
@@ -874,8 +867,6 @@ function chatMessageHtml(m) {
     : "";
   return `<div class="chat-msg ${role}"><div class="chat-meta">${esc(label)}</div>${esc(m.content || "")}${source}</div>`;
 }
-
-
 
 function planningCaseNowIso() {
   return window.RetirementPlanningWorkbench.nowIso();
@@ -1110,7 +1101,6 @@ async function revertLastBuildChanges() {
   }
 }
 
-
 function sectionFlagEnabled(sectionName, subsectionName, labelName) {
   const row = rows.find(
     (r) =>
@@ -1125,7 +1115,6 @@ function sectionFlagEnabled(sectionName, subsectionName, labelName) {
     .toUpperCase();
   return ["TRUE", "YES", "1", "ON", "ENABLED"].includes(v);
 }
-
 
 function rowIsRetirementWellness(r) {
   const lbl = norm(r.label);
@@ -1154,7 +1143,6 @@ function rowIsRetirementWellness(r) {
           ].includes(lbl))))
   );
 }
-
 
 function baseHomeSaleYearRow() {
   return (
@@ -1229,7 +1217,6 @@ function optionalModuleState(row) {
   return null;
 }
 
-
 const RECOMMENDATION_ENGINE_VERSION = "page_recommendations_v1";
 const RECOMMENDATION_STEP_IDS = new Set([
   "roth_conversion",
@@ -1252,8 +1239,6 @@ const RECOMMENDATION_STEP_IDS = new Set([
 // This is a bug CLASS, not one call site: anything that scrolls to a row can
 // hit it whenever the target is nested in a collapsed container. Route every
 // such call through here rather than fixing the one path that was reported.
-
-
 
 function pageSaveMode(stepId) {
   const autosave =
@@ -1325,7 +1310,6 @@ function detailedProgressHtml(compact = false) {
   return `<div class="detail-progress ${compact ? "compact" : ""}"><div class="detail-progress-top"><b>${esc(phase)}</b><span>Est. ${Math.round(pct)}%</span></div><div class="detail-progress-bar"><span style="width:${pct}%"></span></div><div class="detail-progress-detail">${esc(detail)}</div></div>`;
 }
 
-
 function setDetailedResultsNavOpen(open) {
   return window.RetirementReportsUI.setDetailedResultsNavOpen(
     reportsUiContext(),
@@ -1337,7 +1321,6 @@ function renderDetailedResultsNav() {
     reportsUiContext(),
   );
 }
-
 
 function openNavDrawer() {
   document.body.classList.add("nav-open");
@@ -1394,7 +1377,6 @@ function renderMeta() {
   document.getElementById("planSource").textContent = planSource;
 }
 
-
 // decimalTrim/numberFromDisplay/formatNumberValue/currencyDisplay/percentDisplay
 // live in dashboard_shared_helpers.js (A13), loaded first.
 function decimalsFromText(value) {
@@ -1449,8 +1431,6 @@ function percentDisplayDecimals(row, value) {
   );
 }
 
-
-
 // Display-only: translate a stored field VALUE that is entirely a person
 // placeholder token — "Member 1", "Husband", "Wife_Trust", "Member_2_Trust"
 // — into nickname form ("Matt" / "Pat's Trust"). Anchored to the whole
@@ -1481,7 +1461,6 @@ function saveValueForRow(row, value) {
     );
   return String(value ?? "");
 }
-
 
 const FIELD_TOOLTIPS = {
   holding_period_allocation_enabled:
@@ -1780,13 +1759,8 @@ function renderFieldFinderGroups(rs) {
   return travelPointer + html;
 }
 
-
 // True for any mode where the plan is driven by a computed recommendation
 // rather than the user's manually-entered target_pct rows.
-
-
-
-
 
 // Legacy regression marker: target_pct rows are inactive in optimizer mode and now appear in the Inactive values summary instead of the active allocation table.
 function allocationPreviewRowsForPost() {
@@ -1836,7 +1810,6 @@ function allocationTargetsValid() {
   return Math.abs(allocationTargetTotalPct() - 100) <= 0.01;
 }
 
-
 function validateAllocationTargetsOrMessage() {
   const mode = allocationSelectionMode();
   if (mode === "user_target" && !allocationTargetsValid()) {
@@ -1867,7 +1840,6 @@ const PERSON_TABLE_LABELS = [
   "retirement_date",
   "mortality_age",
 ];
-
 
 function personNickPlaceholder(nameRow) {
   const first =
@@ -1952,7 +1924,6 @@ function renderEstateWithAnnuityLink() {
 // Workbook formatting (Settings → Manage Workbook Formatting) moved to
 // dashboard_decomp_workbook_formatting.js (first modularization increment).
 
-
 const DEFAULT_TRAVEL_TYPES = ["Wedding", "Large Gifts", "Other"];
 /* Large Discretionary Expenses (travel extras), liquidity reserve buffers, and
    forced Roth conversions moved to frontend/js/dashboard_decomp_supplemental_tables.js
@@ -1969,7 +1940,6 @@ function renderAssetsCashReserves() {
   return html;
 }
 // #266: housing-estimate apply/restore helpers live in dashboard_decomp_misc.js.
-
 
 let liabilityRowsCache = null;
 function parseCsvLine(line) {
@@ -1992,11 +1962,9 @@ function parseCsvLine(line) {
   return out;
 }
 
-
 // Account-label formatting is used well beyond the holdings feature (QDRO
 // labels, YTD account dropdowns, Plan Data Summary) -- stays a shared
 // dashboard.js utility rather than moving into dashboard_decomp_holdings.js.
-
 
 const LIABILITY_HEADER = [
   "liability_id",
@@ -2013,9 +1981,6 @@ const LIABILITY_HEADER = [
 ];
 // Fields revealed per type. balance + interest_rate are always shown; payment-style
 // fields differ by how each liability is forecast.
-
-
-
 
 // #215: carrier-illustration schedules for Life policies -- the plan's
 // projection years are read from the existing Annuity Death Benefits matrix
@@ -2099,7 +2064,6 @@ function boolishValue(r) {
   return ["1", "true", "yes", "y", "on"].includes(v);
 }
 
-
 const SCENARIO_SET_STORAGE_KEY = "retirement.scenario_sets.v1";
 
 function scenarioRowKeyFromParts(section, subsection, label) {
@@ -2107,11 +2071,6 @@ function scenarioRowKeyFromParts(section, subsection, label) {
     "::",
   );
 }
-
-
-
-
-
 
 function ytdAccountMoneyDisplay(v) {
   return ytdTxnMoneyDisplay(v);
@@ -2144,9 +2103,6 @@ function hideYtdLoadOverlay() {
   if (overlay) overlay.classList.remove("no-cancel");
   hideBuildOverlay();
 }
-
-
-
 
 async function deleteYtdAccount(i) {
   if (
@@ -2241,7 +2197,6 @@ async function rollForwardYtdAccounts() {
     showMessage("Error starting new-year tracking: " + e.message, "error");
   }
 }
-
 
 function ytdInvestmentHoldingAccounts() {
   return [
@@ -2379,7 +2334,6 @@ function addManualYtdAccount() {
 // Rows matching the currently selected actuals period, independent of the
 // search/category/account filters -- used to tell "no transactions for this
 // period" apart from "the current filters matched nothing".
-
 
 function detailedSheetByName(name) {
   const key = String(name || "");
@@ -2721,7 +2675,6 @@ function renderNav() {
   return window.RetirementNavigation.renderNav(navigationContext());
 }
 
-
 function showSpendingModelLoadOverlay() {
   setBuildOverlay(
     true,
@@ -2737,7 +2690,6 @@ function hideSpendingModelLoadOverlay() {
   if (overlay) overlay.classList.remove("no-cancel");
   hideBuildOverlay();
 }
-
 
 function catEffectiveBudget(catId, y) {
   if (categoryBudgetMode[catId] === "detail" || catDetailLines(catId).length) return catDetailSum(catId, y); // #344: lines win; stored total may hold other years
@@ -2760,7 +2712,6 @@ function groupModelData(tt, grp) {
     ) || null
   );
 }
-
 
 function restoreGroupBudgetModes() {
   groupBudgetMode = {};
@@ -3121,7 +3072,6 @@ let renderMain = function() {
   window.RPHooks?.run("renderMain");
 };
 
-
 function wireStepNavigation() {
   return window.RetirementNavigation.wireStepNavigation(navigationContext());
 }
@@ -3138,7 +3088,6 @@ function setCombinedSearch(q) {
   return window.RetirementNavigation.setCombinedSearch(navigationContext(), q);
 }
 let statusTimer = null;
-
 
 // Contextual help Phase 1: help_registry.js (RPHelp) decides the open state on arrival and keeps
 // pinned field/section help across re-renders; force = an explicit "?" / Step Help request.
@@ -5928,7 +5877,6 @@ async function _checkAppStatusRun(show) {
   return false;
 }
 
-
 function normalizeValueForSave(row, value) {
   return saveValueForRow(row, value);
 }
@@ -5997,7 +5945,6 @@ async function saveYtdPending() {
   if (_anyChanged) spendingData = null;
   return { updated: 0 };
 }
-
 
 async function buildWithDesktopProgress(buildBody) {
   const started = await api("/api/build/start", {

@@ -81,6 +81,8 @@ class SupervisorConfig:
     memory_limit_mb: int | None = 1792
     active_process_limit: int | None = 64
     build_pool_max: int | None = 4
+    max_plans_per_user: int | None = 10  # 0/None: unlimited (src/plan_limits.py)
+    user_disk_quota_mb: int | None = 1024  # 0/None: unlimited
     extra_env: dict[str, str] = field(default_factory=dict)
     monarch_mapping_csv: Path | None = None  # copied into each new workspace (MAPPING_SEED_RELPATH)
     max_crashes: int = 3
@@ -198,6 +200,11 @@ class Supervisor:
         env.update({TOKEN_ENV: token, "TEMP": str(tmp), "TMP": str(tmp), "PYTHONIOENCODING": "utf-8"})
         if cfg.build_pool_max:
             env[POOL_ENV] = str(int(cfg.build_pool_max))
+        for name, value in (("RETIREMENT_SYSTEM_MAX_PLANS", cfg.max_plans_per_user),
+                            ("RETIREMENT_SYSTEM_USER_DISK_QUOTA_MB", cfg.user_disk_quota_mb)):
+            env.pop(name, None)  # the gateway's setting wins over --worker-env
+            if value:
+                env[name] = str(int(value))
         argv = [cfg.python, "-E", "-s", "-B", "-X", "utf8", "-m", "src.remote_worker", "--workspace", str(workspace),
                 "--provision", cfg.provision, "--port-file", str(workspace / PORT_FILE), "--parent-pid", str(os.getpid()),
                 "--console-log", str(workspace / CONSOLE_LOG)]
