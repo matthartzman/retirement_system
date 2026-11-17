@@ -96,7 +96,7 @@ def test_unknown_paths_and_methods_stay_closed(app):
     assert call(app, "GET", "/access.js", OK_HEADERS) == 404
     assert call(app, "GET", "/..%2fsrc/identity/store.py", OK_HEADERS) == 404
     assert call(app, "DELETE", "/api/users", JSON_HEADERS) == 404
-    assert sorted(PAGES) == ["/", "/admin.css", "/admin.js", "/settings_renderer.css", "/settings_renderer.js", "/users.js"]  # the only files ever read from disk
+    assert sorted(PAGES) == ["/", "/admin.css", "/admin.js", "/processes.js", "/settings_renderer.css", "/settings_renderer.js", "/users.js"]  # the only files ever read from disk
 
 
 def _tailscale(stdout: str):
