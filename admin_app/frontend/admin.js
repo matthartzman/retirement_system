@@ -45,7 +45,7 @@ const ADMIN_HELP = {
   },
   app_settings: {
     title: "App settings",
-    purpose: "Review the local desktop app address, port, and start commands.",
+    purpose: "Start and stop the Retirement Planner and Financial Insights, see each app's port and process id, and see who is signed in.",
     impact:
       "These settings affect whether the local User UI and System Configuration can connect and whether workbook builds run from the browser.",
     consider:
@@ -183,61 +183,15 @@ function setAdminStep(id) {
   }
 }
 
-function modeCard(key, m, current) {
-  return `<div class="mode-card active"><h3>${esc(m.title)}</h3><p>${esc(m.description)}</p><p><b>Host:</b> <span class="code">${esc(m.host)}</span></p><p><b>Start:</b> <span class="code">${esc(m.command)}</span></p></div>`;
-}
-async function showAppSettings() {
-  setAdminStep("app_settings");
-  const s = await api("/api/system/status");
-  document.getElementById("main").innerHTML =
-    `<h2>App settings</h2><div class="row"><span class="pill">Mode: Local desktop</span><span class="pill">URL: ${esc("http://" + s.host + ":" + s.port)}</span></div><div class="mode-grid">${Object.entries(
-      s.modes || {},
-    )
-      .map(([k, v]) => modeCard(k, v, s.app_mode))
-      .join(
-        "",
-      )}</div><button class="primary" onclick="showSystemConfig('build_timeout')">Edit build timeout / max_build_seconds</button><h3>Start commands</h3><table><tr><th>Command</th><th>Purpose</th></tr>${Object.entries(
-      s.commands || {},
-    )
-      .map(
-        ([k, v]) =>
-          `<tr><td>${esc(k)}</td><td><code>${esc(v)}</code></td></tr>`,
-      )
-      .join(
-        "",
-      )}</table><button class="danger" onclick="shutdown()">Shut down app</button> <button onclick="clearAppCache()">Clear cache</button>`;
-  msg("App settings loaded");
-}
 async function clearAppCache() {
-  if (
-    !(await adminConfirm(
-      "Clear saved UI state (Build History, workbench layout, etc.) and the app's render cache? This cannot be undone.",
-      "Clear cache",
-    ))
-  )
-    return;
-  try {
-    localStorage.clear();
-  } catch (_e) {}
-  const out = await api("/api/system/clear-webview-cache", {
-    method: "POST",
-    body: "{}",
-  });
+  if (!(await adminConfirm("Clear saved UI state (Build History, workbench layout, etc.) and the app's render cache? This cannot be undone.", "Clear cache"))) return;
+  try { localStorage.clear(); } catch (_e) {}
+  const out = await api("/api/system/clear-webview-cache", { method: "POST", body: "{}" });
   const cleared = (out && out.cleared) || [];
   const skipped = (out && out.skipped) || [];
-  let text = cleared.length
-    ? `Cleared: ${cleared.join(", ")}.`
-    : "No render-cache folders needed clearing.";
-  if (skipped.length)
-    text += ` ${skipped.length} folder(s) are in use by this running window and could not be cleared -- fully close and reopen the app to finish.`;
+  let text = cleared.length ? `Cleared: ${cleared.join(", ")}.` : "No render-cache folders needed clearing.";
+  if (skipped.length) text += ` ${skipped.length} folder(s) are in use by this running window and could not be cleared -- fully close and reopen the app to finish.`;
   msg(text);
-}
-function openPlanner() {
-  msg("Start the Retirement Planner from its own launcher; this Admin app does not open it.");
-}
-async function shutdown() {
-  const out = await api("/api/system/planner-shutdown", { method: "POST", body: "{}" }).catch((e) => ({ success: false, error: e.message }));
-  msg(out.success ? "Shutdown requested. The planner will close." : out.error, !out.success);
 }
 async function shutdownAdmin() {
   if (!(await adminConfirm("Stop the Admin app? You can start it again from its launcher.", "Stop Admin app"))) return;
@@ -306,7 +260,7 @@ function adminNavItems() {
     id: "app_settings",
     group: "System",
     title: "App settings",
-    desc: "Local host, port, start commands, status of each app, and shutdown / cache tools",
+    desc: "Start, stop and status of each app, who is signed in, cache tools",
     action: "showAppSettings()",
     helpKey: "app_settings",
   });
@@ -577,22 +531,7 @@ window.addEventListener("beforeunload", (e) => {
 });
 renderAdminNav();
 updateAdminSearchToggle();
-// system_review 2026-08-31 item 3.11: showAppSettings()/checkApp() fire real
-// fetch() calls (through api()) and used to run as bare top-level statements
-// here, synchronously, during this classic script's own execution. That was
-// fine while pywebview_bridge.js was ALSO classic -- classic scripts run in
-// document order, and its tag comes first. Once pywebview_bridge.js became
-// type="module" (frontend/admin.html), its fetch()/EventSource patch moved
-// to the deferred-module phase, which runs strictly after every classic
-// script -- including this one. Firing these calls unchanged would race the
-// unpatched native fetch under pywebview, the same failure shape
-// test_dashboard_startup_race_and_script_order.py guards against for
-// dashboard.js. DOMContentLoaded fires only after all deferred/module
-// scripts have run, so waiting for it here is what actually closes the race
-// (a queueMicrotask, dashboard.js's own boot-defer mechanism, does NOT --
-// microtasks queued during a classic script's execution flush within that
-// same pre-parsing-complete phase, before any deferred module runs).
-// See tests/test_pywebview_bridge_load_order_regression.py.
+// Boot waits for DOMContentLoaded so it runs after every deferred script (see tests/test_pywebview_bridge_load_order_regression.py).
 function openUsersPage(id) {
   if (location.hash === "#" + id) window.dispatchEvent(new HashChangeEvent("hashchange"));
   else location.hash = "#" + id;
@@ -619,8 +558,6 @@ window.addEventListener("hashchange", syncAdminStepFromHash);
 if (document.readyState === "loading") {
   window.addEventListener("DOMContentLoaded", _bootAppStatus, { once: true });
 } else {
-  // Classic scripts always run before parsing finishes, so this branch is
-  // not expected in a real page load -- kept only so a script injected after
-  // DOMContentLoaded (e.g. a test harness) still boots instead of hanging.
+  // Only a script injected after DOMContentLoaded (a test harness) reaches this branch.
   _bootAppStatus();
 }

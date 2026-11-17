@@ -7,6 +7,7 @@ Schema version starts at 3 so it continues from ``access.db``'s ``user_version =
 """
 from __future__ import annotations
 
+import hashlib
 import hmac
 import json
 import sqlite3
@@ -79,6 +80,15 @@ CREATE TABLE IF NOT EXISTS activity (
     details TEXT NOT NULL DEFAULT '',
     source TEXT NOT NULL DEFAULT '',
     app TEXT NOT NULL DEFAULT 'insights'
+);
+CREATE TABLE IF NOT EXISTS live_sessions (
+    key TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    app TEXT NOT NULL,
+    listener TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT '',
+    started_at REAL NOT NULL,
+    last_seen REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS admin_audit (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -308,6 +318,7 @@ class IdentityStore:
     def end_sessions(self, user_id: int) -> int:
         """Bump the epoch so every app ends this person's sessions on its next request."""
         self._run("UPDATE users SET session_epoch=session_epoch+1 WHERE id=?", (user_id,))
+        self.drop_user_sessions(user_id)
         return self.session_epoch(user_id) or 0
 
     def reset_totp(self, user_id: int) -> bool:
@@ -320,6 +331,43 @@ class IdentityStore:
     def session_epoch(self, user_id: int) -> int | None:
         rows = self._run("SELECT session_epoch FROM users WHERE id=?", (user_id,)).fetchall()
         return int(rows[0]["session_epoch"]) if rows else None
+
+    # ---- live session registry: a read-only mirror so the Admin app can list who is signed in ----
+    # An app registers a session when it creates one, refreshes ``last_seen`` on person-driven activity and
+    # drops the row when the session ends. The row key is a hash of the cookie token (the token itself is never
+    # stored); ending a session is still the epoch bump above, which every app already honours.
+    @staticmethod
+    def session_key(token: str) -> str:
+        return hashlib.sha256(token.encode("utf-8")).hexdigest()[:24]
+
+    def register_session(self, token: str, user_id: int, app: str, listener: str, source: str = "",
+                         now: float | None = None) -> None:
+        now = self._now(now)
+        self._run("INSERT OR REPLACE INTO live_sessions(key, user_id, app, listener, source, started_at, last_seen)"
+                  " VALUES (?,?,?,?,?,?,?)", (self.session_key(token), user_id, app, listener, source[:100], now, now))
+
+    def touch_session(self, token: str, last_seen: float) -> None:
+        self._run("UPDATE live_sessions SET last_seen=MAX(last_seen, ?) WHERE key=?", (last_seen, self.session_key(token)))
+
+    def drop_session(self, token: str | None) -> None:
+        if token:
+            self._run("DELETE FROM live_sessions WHERE key=?", (self.session_key(token),))
+
+    def drop_user_sessions(self, user_id: int) -> int:
+        return self._run("DELETE FROM live_sessions WHERE user_id=?", (user_id,)).rowcount
+
+    def clear_app_sessions(self, app: str) -> None:
+        """An app that restarted holds no sessions, so its rows are stale."""
+        self._run("DELETE FROM live_sessions WHERE app=?", (app,))
+
+    def list_live_sessions(self, now: float | None = None, max_idle: float = 900.0) -> list[dict]:
+        """Sessions seen within ``max_idle`` seconds, newest activity first; older rows are pruned."""
+        now = self._now(now)
+        self._run("DELETE FROM live_sessions WHERE last_seen < ?", (now - 86400,))
+        rows = self._run("SELECT s.app, s.listener, s.source, s.started_at, s.last_seen, u.id AS user_id, u.display_name,"
+                         " u.username FROM live_sessions s JOIN users u ON u.id = s.user_id WHERE s.last_seen >= ?"
+                         " ORDER BY s.last_seen DESC", (now - max_idle,)).fetchall()
+        return [dict(r) for r in rows]
 
     def touch_last_signin(self, user_id: int, now: float) -> None:
         self._run("UPDATE users SET last_signin_at=? WHERE id=?", (now, user_id))

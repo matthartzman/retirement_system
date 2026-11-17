@@ -95,3 +95,25 @@ def test_source_recorded_from_x_forwarded_for_when_present(tmp_path):
     rig.call(rig.remote, "POST", "/api/signin", {"username": "ann", "password": PW}, headers={"X-Forwarded-For": "203.0.113.9"})
     ev = [e for e in _events(rig) if e["event"] == "signed in"][0]
     assert ev["source"] == "203.0.113.9"
+
+
+def test_sessions_are_mirrored_to_the_identity_store_for_the_admin_app(tmp_path):
+    rig = Rig(tmp_path)
+    rig.add()
+    _, token = rig.signin()
+    rows = rig.store.list_live_sessions(now=rig.now[0])
+    assert [(r["username"], r["app"], r["where"] if "where" in r else r["listener"]) for r in rows] == [("ann", "insights", "remote")]
+    rig.now[0] += 120
+    rig.call(rig.remote, "POST", "/api/ping", {"idle_ms": 30_000}, cookie=token)
+    assert rig.store.list_live_sessions(now=rig.now[0])[0]["last_seen"] == rig.now[0] - 30
+    rig.call(rig.remote, "POST", "/api/signout", {}, cookie=token)
+    assert rig.store.list_live_sessions(now=rig.now[0]) == []
+
+
+def test_ending_a_persons_sessions_clears_the_mirror_and_the_next_request_is_refused(tmp_path):
+    rig = Rig(tmp_path)
+    uid = rig.add()
+    _, token = rig.signin()
+    rig.store.end_sessions(uid)
+    assert rig.store.list_live_sessions(now=rig.now[0]) == []
+    assert rig.call(rig.remote, "GET", "/api/history", cookie=token).status_code == 401

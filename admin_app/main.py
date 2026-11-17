@@ -25,6 +25,8 @@ from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 from src.identity import DB_FILENAME, LEGACY_ACCESS_DB, IdentityStore, open_identity_store  # noqa: E402
 
 from admin_app import DEFAULT_PORT  # noqa: E402
+from admin_app.processes import ProcessManager
+from admin_app.routes_processes import register_processes
 from admin_app.routes_system import register_system  # noqa: E402
 from admin_app.routes_users import register_users  # noqa: E402
 from admin_app.settings import SettingsService  # noqa: E402
@@ -34,7 +36,8 @@ LOOPBACK = "127.0.0.1"
 FRONTEND = Path(__file__).resolve().parent / "frontend"
 # Served files: exactly these and nothing else, so a path can never reach outside the frontend folder.
 PAGES = {"/": (FRONTEND / "index.html", "text/html"), "/users.js": (FRONTEND / "users.js", "text/javascript"),
-         "/admin.js": (FRONTEND / "admin.js", "text/javascript"), "/admin.css": (FRONTEND / "admin.css", "text/css"),
+         "/admin.js": (FRONTEND / "admin.js", "text/javascript"),
+         "/processes.js": (FRONTEND / "processes.js", "text/javascript"), "/admin.css": (FRONTEND / "admin.css", "text/css"),
          # the settings renderer is shared with the planner's Plan assumptions page: one file, served from the repo
          "/settings_renderer.js": (_REPO_ROOT / "frontend" / "js" / "settings_renderer.js", "text/javascript"),
          "/settings_renderer.css": (_REPO_ROOT / "frontend" / "css" / "settings_renderer.css", "text/css")}
@@ -48,7 +51,8 @@ def legacy_access_path(retirement_system_dir: Path) -> Path:
     return Path(retirement_system_dir) / "financial_trends_reporter" / "data" / LEGACY_ACCESS_DB
 
 
-def create_app(store: IdentityStore, clock=time.time, settings: SettingsService | None = None) -> Flask:
+def create_app(store: IdentityStore, clock=time.time, settings: SettingsService | None = None,
+               processes: ProcessManager | None = None) -> Flask:
     app = Flask("admin_app", static_folder=str(FRONTEND))
     app.before_request(check_request)
     app.after_request(add_security_headers)
@@ -67,6 +71,8 @@ def create_app(store: IdentityStore, clock=time.time, settings: SettingsService 
     register_users(app, store, clock)
     if settings is not None:
         register_system(app, store, settings, clock)
+        register_processes(app, store, processes or ProcessManager(
+            settings.root, settings.planner_port, graceful_stop=lambda: bool(settings.shutdown_planner().get("success"))), clock)
     return app
 
 

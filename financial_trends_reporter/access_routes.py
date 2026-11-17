@@ -65,6 +65,8 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
         source = str(request.headers.get("X-Forwarded-For", "") or "").split(",")[0].strip() if current_listener() == "remote" else ""
         store.log_event(person or env.get("person") or "(not signed in)", current_listener(), event, details, source, now=clock())
 
+    store.clear_app_sessions("insights")  # a restarted app holds no sessions; mirror rows from before are stale
+
     def _log_timeouts() -> None:
         while sessions.expired_user_ids:
             user = store.get_user(sessions.expired_user_ids.pop())
@@ -117,6 +119,7 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
         if sess is None or user is None:
             if sess is not None:
                 sessions.end(token)
+                store.drop_session(token)
             if path.startswith("/api/"):
                 return _json({"success": False, "error": "sign in required"}, 401)
             resp = Response(b"", status=302)
@@ -206,6 +209,8 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
             return _json({"success": False, "error": "Incorrect username or password."}, 401)
         store.touch_last_signin(result.user_id, now)
         token = sessions.create(result.user_id, store.session_epoch(result.user_id) or 0)
+        store.register_session(token, result.user_id, "insights", current_listener(),
+                               str(request.headers.get("X-Forwarded-For", "") or "").split(",")[0].strip(), now=now)
         who = store.get_user(result.user_id)["display_name"]
         if totp_lib.looks_like_recovery(code):
             _log("recovery code used", person=who)
@@ -221,6 +226,7 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
             if request.environ.get("token"):
                 _log("signed out")
             sessions.end(request.environ.get("token"))
+            store.drop_session(request.environ.get("token"))
             resp.delete_cookie(COOKIE)
         return resp
 
@@ -337,6 +343,7 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
             except (TypeError, ValueError):
                 idle_ms = 0
             sessions.note_interaction(token, idle_ms)
+            store.touch_session(token, clock() - max(0, idle_ms) / 1000.0)
         return _json({"success": True})
 
     # ---- local-only (the gate answers 404 for these on the remote listener) ----
