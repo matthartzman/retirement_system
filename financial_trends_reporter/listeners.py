@@ -12,7 +12,7 @@ from typing import Any, Literal
 from src.access_core import has_proxy_headers, is_loopback_host, tailscale_serves_port  # noqa: F401 - re-exported
 from src.http_runtime.wsgi_facade import HeaderMap, LocalRequest, request
 
-Listener = Literal["local", "remote"]
+Listener = Literal["local", "remote", "worker"]
 
 
 class ListenerApp:

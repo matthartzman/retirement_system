@@ -150,7 +150,7 @@ def _move_account(conn: sqlite3.Connection, old: str, new: str) -> None:
     conn.execute("DELETE FROM accounts WHERE account_key=?", (old,))
 
 
-def _record(conn: sqlite3.Connection, now: datetime, source: Path, status: str, *, rows=0, accounts=0, latest=None, detail=None) -> None:
+def _record(conn: sqlite3.Connection, now: datetime, source: Path | str, status: str, *, rows=0, accounts=0, latest=None, detail=None) -> None:
     conn.execute(
         "INSERT INTO import_runs (run_at, source_file, rows, accounts, latest_date, status, detail) VALUES (?,?,?,?,?,?,?)",
         (now.isoformat(timespec="seconds"), str(source), rows, accounts, latest, status, detail),
@@ -161,58 +161,81 @@ def _record(conn: sqlite3.Connection, now: datetime, source: Path, status: str, 
 def import_balances(db_path: str | Path, csv_path: str | Path, *, today: date | None = None, now: datetime | None = None) -> dict[str, Any]:
     """Validate and upsert one balances file. Never raises for bad input."""
     csv_path = Path(csv_path)
-    today = today or date.today()
     now = now or datetime.now(timezone.utc)
     with closing(connect(db_path)) as conn:
-        def reject(reason: str) -> dict[str, Any]:
-            _record(conn, now, csv_path, "rejected", detail=reason)
-            return {"success": False, "status": "rejected", "error": reason}
-
         if not csv_path.exists():
-            return reject(f"balances file not found: {csv_path}")
+            return _reject(conn, now, csv_path, f"balances file not found: {csv_path}")
         try:
             rows = _read_rows(csv_path)
         except (ValueError, OSError) as exc:
-            return reject(str(exc))
+            return _reject(conn, now, csv_path, str(exc))
+        return _import_rows(conn, rows, str(csv_path), today=today or date.today(), now=now)
 
-        keys = {r[1] for r in rows}
-        latest = max(r[0] for r in rows)
+
+def import_balance_rows(db_path: str | Path, rows: list[tuple[str, str, str, float]], source: str, *,
+                        now: datetime | None = None, mirror: bool = False) -> dict[str, Any]:
+    """Upsert already-parsed ``(date, account_key, account, balance)`` rows. The staleness and account-drop guards are
+    skipped: the caller's rows were accepted by the plan's own guarded import. ``mirror`` makes the store hold exactly
+    these accounts: a key that is not in ``rows`` (and not a rename) is dropped with its history and preferences."""
+    now = now or datetime.now(timezone.utc)
+    with closing(connect(db_path)) as conn:
+        return _import_rows(conn, rows, source, today=None, now=now, mirror=mirror)
+
+
+def _reject(conn: sqlite3.Connection, now: datetime, source: str | Path, reason: str) -> dict[str, Any]:
+    _record(conn, now, str(source), "rejected", detail=reason)
+    return {"success": False, "status": "rejected", "error": reason}
+
+
+def _import_rows(conn: sqlite3.Connection, rows: list[tuple[str, str, str, float]], source: str, *,
+                 today: date | None, now: datetime, mirror: bool = False) -> dict[str, Any]:
+    if not rows:
+        return _reject(conn, now, source, "balances file contained no rows")
+    keys = {r[1] for r in rows}
+    latest = max(r[0] for r in rows)
+    if today is not None:  # the guards of a fresh export; a mirror of rows the plan already accepted skips them
         if date.fromisoformat(latest) < today - timedelta(days=1):
-            return reject(f"stale export: latest date {latest} is older than yesterday ({today - timedelta(days=1)})")
+            return _reject(conn, now, source, f"stale export: latest date {latest} is older than yesterday ({today - timedelta(days=1)})")
         prev = conn.execute("SELECT accounts FROM import_runs WHERE status='ok' ORDER BY id DESC LIMIT 1").fetchone()
         if prev and prev["accounts"] and len(keys) < prev["accounts"] * (1 - MAX_ACCOUNT_DROP):
-            return reject(f"account count fell from {prev['accounts']} to {len(keys)} (more than {int(MAX_ACCOUNT_DROP * 100)}% drop)")
+            return _reject(conn, now, source, f"account count fell from {prev['accounts']} to {len(keys)} (more than {int(MAX_ACCOUNT_DROP * 100)}% drop)")
 
-        # Display name = the name on each key's latest row.
-        names: dict[str, tuple[str, str]] = {}
-        for d, key, name, _ in rows:
-            if key not in names or d >= names[key][0]:
-                names[key] = (d, name)
-        renames = _detect_renames(conn, rows)
-        with conn:
-            conn.executemany(
-                "INSERT INTO balances (date, account_key, balance) VALUES (?,?,?) "
-                "ON CONFLICT(date, account_key) DO UPDATE SET balance=excluded.balance",
-                [(d, k, b) for d, k, _, b in rows],
-            )
-            for key, (_, name) in names.items():
-                conn.execute(
-                    "INSERT INTO accounts (account_key, display_name, first_seen, last_seen) VALUES (?,?,?,?) "
-                    "ON CONFLICT(account_key) DO UPDATE SET display_name=excluded.display_name",
-                    (key, name, latest, latest),
-                )
-            for old, new in renames:
-                _move_account(conn, old, new)
-            # first/last seen and active come from the stored history, not just this file.
+    # Display name = the name on each key's latest row.
+    names: dict[str, tuple[str, str]] = {}
+    for d, key, name, _ in rows:
+        if key not in names or d >= names[key][0]:
+            names[key] = (d, name)
+    renames = _detect_renames(conn, rows)
+    with conn:
+        conn.executemany(
+            "INSERT INTO balances (date, account_key, balance) VALUES (?,?,?) "
+            "ON CONFLICT(date, account_key) DO UPDATE SET balance=excluded.balance",
+            [(d, k, b) for d, k, _, b in rows],
+        )
+        for key, (_, name) in names.items():
             conn.execute(
-                "UPDATE accounts SET "
-                "first_seen=(SELECT MIN(date) FROM balances b WHERE b.account_key=accounts.account_key), "
-                "last_seen=(SELECT MAX(date) FROM balances b WHERE b.account_key=accounts.account_key)"
+                "INSERT INTO accounts (account_key, display_name, first_seen, last_seen) VALUES (?,?,?,?) "
+                "ON CONFLICT(account_key) DO UPDATE SET display_name=excluded.display_name",
+                (key, name, latest, latest),
             )
-            overall = conn.execute("SELECT MAX(date) FROM balances").fetchone()[0]
-            conn.execute("UPDATE accounts SET active = CASE WHEN last_seen = ? THEN 1 ELSE 0 END", (overall,))
-        _record(conn, now, csv_path, "ok", rows=len(rows), accounts=len(keys), latest=latest)
-        return {"success": True, "status": "ok", "rows": len(rows), "accounts": len(keys), "latest_date": latest}
+        for old, new in renames:
+            _move_account(conn, old, new)
+        if mirror:
+            for (old,) in conn.execute("SELECT account_key FROM accounts").fetchall():
+                if old not in keys:
+                    conn.execute("DELETE FROM balances WHERE account_key=?", (old,))
+                    conn.execute("DELETE FROM account_prefs WHERE account_key=?", (old,))
+                    conn.execute("DELETE FROM accounts WHERE account_key=?", (old,))
+        # first/last seen and active come from the stored history, not just this file.
+        conn.execute(
+            "UPDATE accounts SET "
+            "first_seen=(SELECT MIN(date) FROM balances b WHERE b.account_key=accounts.account_key), "
+            "last_seen=(SELECT MAX(date) FROM balances b WHERE b.account_key=accounts.account_key)"
+        )
+        overall = conn.execute("SELECT MAX(date) FROM balances").fetchone()[0]
+        conn.execute("UPDATE accounts SET active = CASE WHEN last_seen = ? THEN 1 ELSE 0 END", (overall,))
+    _record(conn, now, str(source), "ok", rows=len(rows), accounts=len(keys), latest=latest)
+    return {"success": True, "status": "ok", "rows": len(rows), "accounts": len(keys), "latest_date": latest}
 
 
 def freshness(db_path: str | Path) -> dict[str, Any]:

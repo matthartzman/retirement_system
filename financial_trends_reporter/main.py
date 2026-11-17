@@ -35,8 +35,8 @@ from src.stores import SchemaVersionError  # noqa: E402
 from financial_trends_reporter import account_registry, balance_series, flows, liquid_change, live_snapshot, percent_view, plan_annuity_values, projections, realized_view, spending_window  # noqa: E402
 from financial_trends_reporter.access_routes import register_access  # noqa: E402
 from financial_trends_reporter.access_store import DB_FILENAME as ACCESS_DB_FILENAME  # noqa: E402
-from financial_trends_reporter.admin_launch import ensure_admin_app  # noqa: E402
 from src.identity.store import DB_FILENAME as IDENTITY_DB_FILENAME, IdentityStore, open_identity_store  # noqa: E402
+from financial_trends_reporter import worker_mode  # noqa: E402
 from financial_trends_reporter.listeners import ListenerApp, check_funnel_target  # noqa: E402
 from financial_trends_reporter.sessions import SessionTable  # noqa: E402
 from financial_trends_reporter.app_sync import sync_from_app  # noqa: E402
@@ -75,7 +75,9 @@ def _parse_spending_window(args) -> tuple[date, date]:
 
 
 def create_app(retirement_system_dir: Path, log_path: Path | None = None, access_store: IdentityStore | None = None,
-               sessions: SessionTable | None = None, clock=time.time, percent_basis=None, open_admin=None) -> Flask:
+               sessions: SessionTable | None = None, clock=time.time, percent_basis=None, mode: str = "desktop") -> Flask:
+    """``mode="worker"``: served by a user's own planner worker (multi-user server); see ``worker_mode``."""
+    worker = mode == "worker"
     app = Flask("financial_trends_reporter", static_folder=str(_APP_ROOT / "frontend"))
     resolved_log_path = log_path or default_log_path(_APP_ROOT)
 
@@ -190,7 +192,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
 
     @app.route("/api/history", methods=["GET"])
     def history():
-        return Response(json.dumps(read_history(resolved_log_path)), content_type="application/json")
+        return Response(json.dumps(read_history(_log_path())), content_type="application/json")
 
     @app.route("/api/passthrough-decision", methods=["POST"])
     def passthrough_decision():
@@ -198,17 +200,25 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
         # on the next snapshot (the update the page starts after a decision), which re-reads them.
         body = request.get_json(silent=True) or {}
         try:
-            save_decision(decisions_path_for_log(resolved_log_path), str(body.get("key") or ""), str(body.get("decision") or ""))
+            save_decision(decisions_path_for_log(_log_path()), str(body.get("key") or ""), str(body.get("decision") or ""))
         except ValueError as exc:
             return Response(json.dumps({"success": False, "error": str(exc)}), status=400, content_type="application/json")
         return Response(json.dumps({"success": True}), content_type="application/json")
 
-    balances_db = resolved_log_path.with_name(DB_FILENAME)
+    def _log_path() -> Path:
+        # Worker mode: the active plan's own folder, so each plan keeps its own history and balances.
+        return worker_mode.log_path() if worker else resolved_log_path
+
+    def _balances_db() -> Path:
+        db = _log_path().with_name(DB_FILENAME)
+        if worker:
+            worker_mode.ensure_synced(retirement_system_dir, db)  # the plan's Monarch rows -> this store
+        return db
 
     def _freshness():
         # Balance-import freshness plus why the extractor's latest scrape failed, when known.
         from src import monarch_autoupdate
-        data = freshness(balances_db)
+        data = freshness(_balances_db())
         data["extractor_failure"] = monarch_autoupdate.get_extractor_failure(retirement_system_dir)
         return data
 
@@ -219,7 +229,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
     def accounts():
         # Monarch accounts with type, app-account mapping and per-chart toggles.
         return _json({
-            "accounts": account_registry.list_accounts(balances_db),
+            "accounts": account_registry.list_accounts(_balances_db()),
             "types": list(account_registry.TYPES),
             "charts": list(account_registry.CHARTS),
             "freshness": _freshness(),
@@ -228,16 +238,16 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
     @app.route("/api/balances", methods=["GET"])
     def balances():
         # Full per-account daily series (client re-sums on toggle) + merged Monarch/plan points.
-        payload = balance_series.balances_payload(balances_db, read_history(resolved_log_path),
-                                                  plan_annuity_values.account_values(retirement_system_dir, balances_db))
+        payload = balance_series.balances_payload(_balances_db(), read_history(_log_path()),
+                                                  plan_annuity_values.account_values(retirement_system_dir, _balances_db()))
         payload["freshness"] = _freshness()
         return _json(payload)
 
     @app.route("/api/flows", methods=["GET"])
     def flows_endpoint():
         # Monthly investment flows from the latest log entry, toggled by the registry's Flows prefs.
-        history = read_history(resolved_log_path)
-        return _json(flows.flows_payload(history[-1] if history else None, account_registry.list_accounts(balances_db)))
+        history = read_history(_log_path())
+        return _json(flows.flows_payload(history[-1] if history else None, account_registry.list_accounts(_balances_db())))
 
     liquid_change_cache: dict = {}
 
@@ -249,7 +259,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
             if plan_path_for_workspace(retirement_system_dir).exists() else None
         if key is None or liquid_change_cache.get("key") != key:
             liquid_change_cache.update(key=key, body=json.dumps(liquid_change.payload(
-                retirement_system_dir / "input", retirement_system_dir, balances_db)))
+                retirement_system_dir / "input", retirement_system_dir, _balances_db())))
         return Response(liquid_change_cache["body"], content_type="application/json")
 
     # /api/spending: the Spending card for any window. Results are cached per (from, to) and the
@@ -322,8 +332,8 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
         # ?from=YYYY-MM-DD is the Time scope's first day (returns are measured from the close before it).
         force = str(request.args.get("refresh") or "") in {"1", "true"}
         try:
-            inputs = live_snapshot.load_inputs(retirement_system_dir, resolved_log_path, balances_db)
-            return _json(live_snapshot.build(inputs=inputs, data_dir=resolved_log_path.parent, force=force,
+            inputs = live_snapshot.load_inputs(retirement_system_dir, _log_path(), _balances_db())
+            return _json(live_snapshot.build(inputs=inputs, data_dir=_log_path().parent, force=force,
                                              start_from=request.args.get("from")))
         except Exception as exc:  # noqa: BLE001 - the page shows the cause and keeps its last good values
             logging.getLogger(__name__).exception("current snapshot failed")
@@ -366,7 +376,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
         body = request.get_json(silent=True) or {}
         try:
             updated = account_registry.set_account(
-                balances_db, str(body.get("account_key") or ""),
+                _balances_db(), str(body.get("account_key") or ""),
                 type=body.get("type"), app_account=body.get("app_account"),
             )
         except ValueError as exc:
@@ -380,7 +390,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
         if not isinstance(items, list):
             return _json({"success": False, "error": "items must be a list"}, 400)
         try:
-            count = account_registry.set_prefs(balances_db, items)
+            count = account_registry.set_prefs(_balances_db(), items)
         except ValueError as exc:
             return _json({"success": False, "error": str(exc)}, 400)
         return _json({"success": True, "updated": count})
@@ -394,7 +404,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
     def _execute_run():
         try:
             cancel_requested.clear()
-            result = run_trends_job(retirement_system_dir, log_path=resolved_log_path, cancel=cancel_requested.is_set)
+            result = run_trends_job(retirement_system_dir, log_path=_log_path(), cancel=cancel_requested.is_set, worker=worker)
         except SchemaVersionError as exc:
             # This process loaded its code before the app database was upgraded.
             logging.getLogger(__name__).exception("run-now: reporter code is older than the app database")
@@ -408,7 +418,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
 
     @app.route("/api/run-status", methods=["GET"])
     def run_status():
-        history_rows = read_history(resolved_log_path)
+        history_rows = read_history(_log_path())
         last = history_rows[-1].get("run_at") if history_rows else None
         return _json({"running": bool(current_run), "last_run_at": last or None, "fresh_seconds": FRESH_RUN_SECONDS})
 
@@ -449,16 +459,18 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
         # Exit never stops the server; remote guests end their session through /api/signout.
         return _json({"success": True})
 
+    if worker:
+        worker_mode.register_worker(app)
+        return app
     register_access(
         app,
         access_store or open_identity_store(Path(retirement_system_dir) / "local_state" / IDENTITY_DB_FILENAME,
-                                            legacy_access_path=resolved_log_path.with_name(ACCESS_DB_FILENAME)),
+                                            legacy_access_path=_log_path().with_name(ACCESS_DB_FILENAME)),
         sessions or SessionTable(),
         clock=clock,
         percent_basis=percent_basis or (lambda: percent_view.scale_basis(
-            balances_db, read_history(resolved_log_path),
-            plan_annuity_values.account_values(retirement_system_dir, balances_db))),
-        open_admin=open_admin or (lambda: ensure_admin_app(Path(retirement_system_dir))),
+            _balances_db(), read_history(_log_path()),
+            plan_annuity_values.account_values(retirement_system_dir, _balances_db()))),
     )
     return app
 

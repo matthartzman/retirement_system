@@ -74,8 +74,3 @@ def test_view_change_ends_the_session_and_applies_at_next_sign_in(tmp_path):
     assert rig.call(rig.remote, "GET", "/api/test-money", cookie=t["ann"]).status_code == 401
     token = rig.signin("ann")[1]
     assert rig.call(rig.remote, "GET", "/api/test-money", cookie=token).get_json() == {"total": 5000.0, "days": 3}
-
-
-def test_remote_still_404s_open_admin_for_percent_user(tmp_path):
-    rig, t = _rig(tmp_path)
-    assert rig.call(rig.remote, "POST", "/api/open-admin", {}, cookie=t["ann"]).status_code == 404
