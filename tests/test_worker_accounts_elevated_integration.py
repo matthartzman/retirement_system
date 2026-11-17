@@ -533,3 +533,34 @@ def test_diagnose_credential_persistence(box):
     text = chr(10).join(report)
     Path(os.environ.get("TEMP", r"C:\Windows\Temp"), "rpw_persist_diag.txt").write_text(text, encoding="utf-8")
     print(chr(10) + text)
+
+
+@pytest.mark.parametrize("variant,uid", [("immediate", 913), ("pause10", 914), ("read_first", 915), ("immediate_again", 916)])
+def test_diagnose_credential_rotation_timing(box, variant, uid):
+    """Diagnostic, not a gate (run as SYSTEM): does the stored credential survive a rotation done straight after the
+    writing process exits, after a pause, or after an intervening read? Output: terminal (-s)."""
+    if _process_session(os.getpid()) != 0:
+        pytest.skip("run as SYSTEM (tools/run_elevated_tests_as_system.ps1)")
+    mgr = box["mgr"]
+    ws = _ws(box, uid)
+    mgr.ensure(uid, ws)
+    value = "probe-" + secrets.token_hex(4)
+    env = {"RETIREMENT_SYSTEM_REMOTE_MODE": "1"}
+    out = ws / "cred.txt"
+    argv = [box["python"], "-E", "-s", "-c", _CRED_PROBE, str(_app_copy(box))]
+
+    def run(mode):
+        out.unlink(missing_ok=True)
+        extra = [value] if mode == "set" else []
+        code = _run_as(box, uid, argv + [mode, str(out)] + extra, env=env)
+        return code, (out.read_text(encoding="utf-8") if out.exists() else "(no file)")
+
+    first = run("set")
+    if variant == "pause10":
+        time.sleep(10)
+    if variant == "read_first":
+        run("get")
+    mgr.rotate(uid)
+    after = run("get")
+    print(f"RESULT variant={variant} set={first} get_after_rotation={after} expected={value!r}")
+    assert after[1].endswith(value), f"{variant}: the credential did not survive rotation: {after}"
