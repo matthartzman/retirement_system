@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 UPPER_LAYERS = ("server", "server_services", "http_runtime", "gateway")
-ALLOWED_ADAPTERS = {"desktop_api.py", "remote_worker.py"}
+ALLOWED_ADAPTERS = {"desktop_api.py", "remote_worker.py", "remote_insights_mount.py"}
 FORBIDDEN_APPS = ("financial_trends_reporter",)
 
 
