@@ -68,3 +68,15 @@ dt { color: var(--muted); font-size: 0.85rem; }
 dd { margin: 0 0 8px; font-weight: 600; }
 .row { display: flex; flex-wrap: wrap; gap: 0 12px; }
 .row > div { flex: 1 1 180px; }
+
+.pw-wrap { position: relative; display: block; }
+.pw-wrap > input { padding-right: 44px; }
+.pw-wrap > button.pw-eye.pw-eye {
+  position: absolute; top: 50%; right: 4px; transform: translateY(-50%); margin: 0; padding: 6px;
+  width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 0; border-radius: 6px; color: var(--muted); cursor: pointer;
+}
+.pw-wrap > button.pw-eye.pw-eye:hover { color: var(--fg); }
+.pw-wrap > button.pw-eye.pw-eye:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+.pw-eye .eye-off, .pw-eye[aria-pressed="true"] .eye-on { display: none; }
+.pw-eye[aria-pressed="true"] .eye-off { display: inline; }
