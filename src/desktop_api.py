@@ -118,7 +118,11 @@ class DesktopApi:
         if url.rstrip("/") in ("", "/", "/frontend"):
             target = root / "frontend" / "index.html"
         elif "/admin" in url or "/system-configuration" in url:
-            target = root / "frontend" / "admin.html"
+            # System configuration lives in the Admin app: open it in the system browser, not this window.
+            import webbrowser  # noqa: PLC0415
+
+            webbrowser.open("http://127.0.0.1:5056/")
+            return
         else:
             return
         window.load_url(target.as_uri())

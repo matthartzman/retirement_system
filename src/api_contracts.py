@@ -342,15 +342,15 @@ CONTRACTS: tuple[EndpointContract, ...] = (
         notes="Canonical financial/planning-term glossary (src/glossary.py) -- the single source of truth the front end merges over its local fallback and the workbook's Glossary sheet also renders from.",
     ),
     EndpointContract(
-        "/api/admin/system-config", "GET", "system_config_rows_v1",
+        "/api/plan/engine-assumptions", "GET", "system_config_rows_v1",
         response_fields=(_f("success", "bool", True), _f("path", "str", True), _f("rows", "list", True), _f("csv_content", "str")),
-        notes="Advanced maintenance row contract used by preview-first batch configuration editing.",
+        notes="The plan's engine-knob rows (Plan assumptions pages and preview-first batch editing). Install-wide settings are the Admin app's /api/settings.",
     ),
     EndpointContract(
-        "/api/admin/system-config", "POST", "system_config_rows_update_v1",
+        "/api/plan/engine-assumptions", "POST", "system_config_rows_update_v1",
         request_fields=(_f("rows", "list"), _f("csv_content", "str")),
         response_fields=(_f("success", "bool", True), _f("path", "str", True), _f("change_event", "dict")),
-        notes="Writes runtime rows to app.db settings and engine rows to the active plan after explicit preview/confirmation in the user UI.",
+        notes="Writes engine rows to the active plan; any install-wide row is refused with 400.",
     ),
 )
 

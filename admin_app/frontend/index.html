@@ -8,16 +8,10 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<header class="top"><h1>Admin</h1><span class="note">This computer only. No sign-in.</span></header>
-<div class="layout">
-  <nav aria-label="Admin sections">
-    <h2>Users &amp; access</h2>
-    <a href="#users" data-page="users">Users</a>
-    <a href="#activity" data-page="activity">Activity</a>
-    <a href="#audit" data-page="audit">Admin audit</a>
-  </nav>
-  <main id="main" tabindex="-1"><p class="note">Loading&hellip;</p></main>
-</div>
+<header><div class="head"><div class="brand"><div class="brand-row"><h1>Admin</h1><div id="adminAppStatus" class="status">Admin</div></div><p>This computer only. No sign-in. Users, install-wide settings and system tools.</p></div><div class="head-actions"><div id="msg" class="message" role="status" aria-live="polite" aria-atomic="true">Loading admin...</div><button class="btn" onclick="shutdownAdmin()">Stop Admin app</button></div></div></header>
+<main class="admin-shell"><aside class="card side nav" aria-label="Admin areas navigation"><div class="search-scope"><button type="button" class="btn primary" data-admin-search-scope="nav" onclick="setAdminSearchScope('nav')">Navigation</button><button type="button" class="btn" data-admin-search-scope="page" onclick="setAdminSearchScope('page')">Page</button></div><input id="adminCombinedSearch" class="search" placeholder="Search navigation..." aria-label="Search navigation" oninput="setAdminCombinedSearch(this.value)"><h2>Admin areas</h2><div class="steps" id="adminSteps"></div></aside><section id="main" class="card content" tabindex="-1"><p class="note">Loading&hellip;</p></section><aside class="card help" aria-label="Guidance"><h2>Guidance</h2><div id="adminHelp"></div></aside></main>
+<script src="/settings_renderer.js"></script>
+<script src="/admin.js"></script>
 <script src="/users.js"></script>
 </body>
 </html>

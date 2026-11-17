@@ -10,7 +10,6 @@ from .app_core import (
     _record_admin_config_change,
     _require,
     _runtime_config,
-    _set_system_config_values,
     _system_config_path,
     _workspace_id,
     app,
@@ -32,22 +31,40 @@ except Exception:
     from src.server_services import admin_service
 
 
+ADMIN_APP_URL = "http://127.0.0.1:5056/"
+_HAND_OFF_PAGE = (
+    "<!doctype html><meta charset=\"utf-8\"><title>System configuration moved</title>"
+    "<body style=\"font:16px system-ui;max-width:40em;margin:3em auto;padding:0 1em\">"
+    "<h2>System configuration now lives in the Admin app</h2>"
+    "<p>Users, install-wide settings and system tools moved out of the planner. Start the Admin app "
+    "(<code>python -m admin_app</code>, or its launcher), then open "
+    "<a href=\"" + ADMIN_APP_URL + "\">" + ADMIN_APP_URL + "</a>.</p>"
+    "<p>Plan-level engine settings are on the planner's <b>Plan assumptions</b> pages.</p></body>"
+)
+
+
+def _admin_app_running() -> bool:
+    import urllib.error
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(ADMIN_APP_URL + "api/ping", timeout=0.4):  # noqa: S310 - fixed loopback URL
+            return True
+    except urllib.error.HTTPError:
+        return True
+    except (urllib.error.URLError, OSError):
+        return False
+
+
 @app.route("/admin")
 @app.route("/system-configuration")
 def admin_index():
     denied = _require("manage_clients")
     if denied:
         return denied
-    p = BASE_DIR / "frontend" / "admin.html"
-    if p.exists():
-        # Redirect under /frontend/ (like "/" -> "/frontend/index.html") so
-        # admin.html's relative css/admin.css, js/admin.js, and
-        # js/pywebview_bridge.js references resolve against a URL the
-        # /frontend/<path:filename> route actually serves.
-        qs = request.query_string
-        target = "/frontend/admin.html" + (f"?{qs}" if qs else "")
-        return redirect(target, code=302)
-    return "<h3>System Configuration UI not found.</h3>", 404
+    if _admin_app_running():
+        return redirect(ADMIN_APP_URL, code=302)
+    return Response(_HAND_OFF_PAGE, status=200, content_type="text/html; charset=utf-8")
 
 
 @app.route("/api/admin/tax-law-dashboard", methods=["GET"])
@@ -68,40 +85,13 @@ def admin_tax_law_dashboard():
     return jsonify({"success": True, "version": VERSION if 'VERSION' in globals() else "9", "rows": rows, "max_lag_years": max_lag})
 
 
+@app.route("/api/workspace/diagnostics", methods=["GET"])
 @app.route("/api/admin/diagnostics", methods=["GET"])
 def admin_diagnostics():
     denied = _require("manage_clients")
     if denied:
         return denied
     return jsonify(admin_service.diagnostics_payload(workspace_output_dir(_workspace_id(), BASE_DIR)))
-
-
-@app.route("/api/admin/clear-webview-cache", methods=["POST"])
-def admin_clear_webview_cache():
-    denied = _require("manage_clients")
-    if denied:
-        return denied
-    result = admin_service.clear_webview_disk_cache(BASE_DIR)
-    _audit("admin_webview_cache_cleared", {"cleared": result.get("cleared", []), "skipped_count": len(result.get("skipped", []))})
-    return jsonify(result)
-
-
-@app.route("/api/admin/server", methods=["GET"])
-def admin_server_status():
-    denied = _require("manage_clients")
-    if denied:
-        return denied
-    return jsonify(admin_service.server_status_payload(version=VERSION, cfg=_runtime_config(), system_config_path=_system_config_path()))
-
-
-@app.route("/api/admin/mode", methods=["POST"])
-def admin_set_mode():
-    denied = _require("manage_clients")
-    if denied:
-        return denied
-    _set_system_config_values(admin_service.local_mode_updates())
-    _audit("admin_local_mode_confirmed", {"mode": "LOCAL"})
-    return jsonify({"success": True, "mode": "LOCAL", "restart_required": True, "system_config": str(_system_config_path())})
 
 
 @app.route("/api/admin/server/shutdown", methods=["POST"])
@@ -118,28 +108,29 @@ def admin_shutdown_server():
     return jsonify({"success": True, "status": "shutting down"})
 
 
-@app.route("/api/admin/system-config", methods=["GET"])
-def admin_get_system_config():
+@app.route("/api/plan/engine-assumptions", methods=["GET"])
+def plan_engine_assumptions():
     denied = _require("manage_clients")
     if denied:
         return denied
-    return jsonify(admin_service.system_config_payload(_system_config_path()))
+    return jsonify(admin_service.engine_assumptions_payload())
 
 
-@app.route("/api/admin/system-config", methods=["POST"])
-def admin_save_system_config():
+@app.route("/api/plan/engine-assumptions", methods=["POST"])
+def save_plan_engine_assumptions():
     denied = _require("manage_clients")
     if denied:
         return denied
-    payload, status, before_rows, after_rows = admin_service.save_system_config(request.get_json(silent=True) or {}, _system_config_path())
+    payload, status, before_rows, after_rows = admin_service.save_engine_assumptions(request.get_json(silent=True) or {})
     if status != 200:
         return jsonify(payload), status
-    change_event = _record_admin_config_change("system", _system_config_path().name, str(_system_config_path()), before_rows, after_rows)
+    change_event = _record_admin_config_change("plan", "engine_assumptions", "active plan", before_rows, after_rows)
     payload["change_event"] = change_event
-    _audit("admin_system_config_saved", {"path": str(_system_config_path()), "change_count": (change_event or {}).get("change_count", 0)})
+    _audit("plan_engine_assumptions_saved", {"change_count": (change_event or {}).get("change_count", 0)})
     return jsonify(payload)
 
 
+@app.route("/api/workspace/csv-backup", methods=["GET"])
 @app.route("/api/admin/csv-backup", methods=["GET"])
 def admin_csv_backup():
     denied = _require("manage_clients")

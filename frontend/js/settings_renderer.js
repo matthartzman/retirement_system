@@ -1,4 +1,4 @@
-// Shared settings renderer (section settings, field help, CSV grid); classic script loaded before admin.js and by the planner.
+let SETTINGS_ENDPOINT = "/api/admin/system-config"; // shared settings renderer; the host page may point it elsewhere
 const COLUMN_HELPERS = {
   target_allocation: {
     asset_class:
@@ -1157,13 +1157,13 @@ function toggleRawEditor() {
     document.getElementById("rawCsv").value = rowsToCsv(activeEditor.rows);
 }
 async function loadCsvEditor(def, backAction = "showAppSettings()") {
-  const out = await api("/api/admin/system-config");
+  const out = await api(SETTINGS_ENDPOINT);
   const rows =
     out.rows && out.rows.length ? out.rows : parseCsv(out.csv_content || "");
   activeEditor = {
     ...def,
     rows,
-    route: "/api/admin/system-config",
+    route: SETTINGS_ENDPOINT,
     title: def.title || def.file,
     changed: false,
     backAction,

@@ -17,16 +17,23 @@ def test_admin_route_still_serves_admin_shell_and_uses_local_admin_permission():
     perms = (ROOT / "src/permissions.py").read_text(encoding="utf-8")
 
     assert '@app.route("/admin")' in routes
-    # /admin and /system-configuration redirect to /frontend/admin.html (like
-    # "/" -> "/frontend/index.html") so admin.html's relative css/admin.css,
-    # js/admin.js, and js/pywebview_bridge.js references resolve against a
-    # URL the /frontend/<path:filename> route actually serves, instead of
-    # 404ing when admin.html is served directly at /admin or
-    # /system-configuration.
-    assert 'redirect(target, code=302)' in routes
-    assert '"/frontend/admin.html"' in routes
     assert '"manage_clients"' in perms
     assert '"manage_users"' in perms
+
+
+def test_admin_routes_hand_off_to_the_admin_app(monkeypatch):
+    """/admin and /system-configuration redirect to the Admin app when it runs, else explain how to start it."""
+    from src.server import admin_routes, create_app
+
+    client = create_app().test_client()
+    for path in ("/admin", "/system-configuration"):
+        monkeypatch.setattr(admin_routes, "_admin_app_running", lambda: True)
+        running = client.get(path, headers={"X-User-Role": "admin"})
+        assert running.status_code == 302 and running.headers["Location"] == admin_routes.ADMIN_APP_URL
+        monkeypatch.setattr(admin_routes, "_admin_app_running", lambda: False)
+        stopped = client.get(path, headers={"X-User-Role": "admin"})
+        assert stopped.status_code == 200
+        assert admin_routes.ADMIN_APP_URL in stopped.get_data(as_text=True)
 
 
 def test_html_permission_denials_do_not_render_blank_json_window():

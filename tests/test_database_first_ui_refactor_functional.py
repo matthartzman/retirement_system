@@ -62,7 +62,7 @@ def test_primary_workflow_is_database_first_not_csv_folder_save_load():
 def test_system_configuration_route_replaces_separate_admin_workflow():
     routes = (ROOT / "src/server/admin_routes.py").read_text(encoding="utf-8")
     assert '@app.route("/system-configuration")' in routes
-    assert "System Configuration UI not found" in routes
+    assert "Admin app" in routes
     assert "removed-client-registry" not in routes
 
 

@@ -43,11 +43,11 @@ def test_batch_tools_have_styles_and_output_asset_copy():
 
 def test_system_config_api_contracts_are_registered():
     keys = set(CONTRACT_BY_KEY)
-    assert "GET /api/admin/system-config" in keys
-    assert "POST /api/admin/system-config" in keys
+    assert "GET /api/plan/engine-assumptions" in keys
+    assert "POST /api/plan/engine-assumptions" in keys
     ok = validate_payload(
         "GET",
-        "/api/admin/system-config",
+        "/api/plan/engine-assumptions",
         {"success": True, "path": "system_config.csv", "rows": []},
     )
     assert ok == []
@@ -56,5 +56,5 @@ def test_system_config_api_contracts_are_registered():
 def test_docs_mark_batch_assumption_editing_complete():
     api = read("documentation/reference/API_CONTRACTS.md")
     changelog = read("documentation/reference/GOLDEN_MASTER_CHANGELOG.md")
-    assert "`/api/admin/system-config`" in api
+    assert "`/api/plan/engine-assumptions`" in api
     assert "Roadmap continuation: batch assumption editing" in changelog
