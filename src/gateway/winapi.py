@@ -361,6 +361,20 @@ def close_handle(handle: int | None) -> None:
         _kernel32().CloseHandle(w.HANDLE(handle))
 
 
+def pid_in_job(job: "Job", pid: int) -> bool:
+    """True when process ``pid`` is in ``job`` (False when it cannot be opened or does not exist)."""
+    k = _kernel32()
+    ph = k.OpenProcess(_PROCESS_QUERY_LIMITED, False, int(pid))
+    if not ph:
+        return False
+    try:
+        return job.contains(ph)
+    except OSError:
+        return False
+    finally:
+        k.CloseHandle(ph)
+
+
 @dataclass
 class LoadedProfile:
     token: int

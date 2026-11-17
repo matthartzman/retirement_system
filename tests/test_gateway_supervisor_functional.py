@@ -33,6 +33,9 @@ tok = os.environ["RETIREMENT_SYSTEM_SERVER_API_TOKEN"]
 (ws / "argv.json").write_text(json.dumps(sys.argv), encoding="utf-8")
 if (ws / "fail_start").exists():
     sys.exit(5)
+if (ws / "relay").exists() and "STUB_RELAY_CHILD" not in os.environ:
+    # like a venv's python.exe launcher: the process we were started as only runs the real worker as a child
+    sys.exit(subprocess.call([sys.executable] + sys.argv, env={**os.environ, "STUB_RELAY_CHILD": "1"}))
 if (ws / "spawn_child").exists():
     child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
     (ws / "child.pid").write_text(str(child.pid), encoding="utf-8")
@@ -184,6 +187,21 @@ def test_a_worker_that_exits_or_lies_about_its_pid_is_unavailable(make):
         with pytest.raises(WorkerUnavailable):
             sup.endpoint(uid)
         assert not sup.is_running(uid)
+
+
+def test_a_worker_started_through_a_launcher_process_is_accepted_via_its_job(make):
+    """A venv's python.exe starts the real interpreter as a child: the port file names the child, which is in the job."""
+    sup = make()
+    ws = sup.workspace(8)
+    ws.mkdir(parents=True)
+    (ws / "relay").write_text("1")
+    ep = sup.endpoint(8)
+    started = sup._slots[8].process.pid
+    assert ep.pid != started, "the stub should have run the worker as a child of the started process"
+    assert call_worker(ep, "GET", "/api/ping")[0] == 200
+    assert sup.port_owner_ok(ep)
+    assert winapi.pid_in_job(sup._slots[8].process.job, ep.pid)
+    assert not winapi.pid_in_job(sup._slots[8].process.job, os.getpid())  # this test process is not in the worker's job
 
 
 def test_a_crashed_worker_restarts_and_a_crash_loop_cools_down(make):
