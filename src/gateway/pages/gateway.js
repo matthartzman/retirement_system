@@ -281,6 +281,66 @@
     });
   }
 
+  // ---- show/hide (eye) button on every password field, including ones a page adds later (the Admin console's dialogs).
+  // The value is only ever read and written by the browser's own input; nothing here stores, logs or sends it.
+  var EYE_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<g class="eye-on"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></g>' +
+    '<g class="eye-off"><path d="M17.9 17.9A10.9 10.9 0 0 1 12 19C5 19 1 12 1 12a19.8 19.8 0 0 1 5.1-5.9M9.9 5.1A10.4 10.4 0 0 1 12 5c7 0 11 7 11 7a19.9 19.9 0 0 1-3.2 4.2M14.1 14.1a3 3 0 1 1-4.2-4.2"/><path d="M1 1l22 22"/></g></svg>';
+
+  function setEye(input, btn, shown) {
+    input.type = shown ? "text" : "password";
+    btn.setAttribute("aria-pressed", shown ? "true" : "false");
+    btn.setAttribute("aria-label", shown ? "Hide password" : "Show password");
+    btn.title = btn.getAttribute("aria-label");
+  }
+
+  function addEye(input) {
+    if (input.getAttribute("data-eye")) { return; }
+    input.setAttribute("data-eye", "1");
+    var box = document.createElement("span");
+    box.className = "pw-wrap";
+    input.parentNode.insertBefore(box, input);
+    box.appendChild(input);
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "pw-eye";
+    btn.innerHTML = EYE_SVG;
+    setEye(input, btn, false);
+    btn.addEventListener("click", function () { setEye(input, btn, input.type === "password"); });
+    box.appendChild(btn);
+  }
+
+  function hideAllPasswords() {
+    var boxes = document.querySelectorAll(".pw-wrap");
+    for (var i = 0; i < boxes.length; i++) {
+      var input = boxes[i].querySelector("input[data-eye]"), btn = boxes[i].querySelector("button.pw-eye");
+      if (input && btn && input.type !== "password") { setEye(input, btn, false); }
+    }
+  }
+
+  function addEyes(root) {
+    var found = root.querySelectorAll ? root.querySelectorAll('input[type="password"]:not([data-eye])') : [];
+    for (var i = 0; i < found.length; i++) { addEye(found[i]); }
+  }
+
+  addEyes(document);
+  new MutationObserver(function (muts) {
+    for (var i = 0; i < muts.length; i++) {
+      for (var j = 0; j < muts[i].addedNodes.length; j++) {
+        var n = muts[i].addedNodes[j];
+        if (n.nodeType === 1) { addEyes(n); }
+      }
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true });
+  // Hidden again after any submit or any other button (a refused save keeps the field on screen), and when the page
+  // comes back from the back/forward cache.
+  document.addEventListener("submit", hideAllPasswords, true);
+  document.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest ? e.target.closest("button") : null;
+    if (b && !b.classList.contains("pw-eye")) { hideAllPasswords(); }
+  }, true);
+  window.addEventListener("pageshow", function (e) { if (e.persisted) { hideAllPasswords(); } });
+
   var pages = { login: initLogin, enrol: initEnrol, account: initAccount, users: initUsers };
   var page = document.body.getAttribute("data-page");
   if (pages[page]) { pages[page](); }

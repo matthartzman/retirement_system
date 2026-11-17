@@ -234,3 +234,28 @@ def test_disabling_a_user_ends_their_session_and_stops_their_worker(gateway, cli
     root_id = gateway["users"]["root"][0]
     status, _body = clients["alice"].json("POST", f"/api/auth/admin/users/{root_id}/disabled", {"disabled": True})
     assert status == 403  # a non-admin cannot do this to anyone
+
+
+def test_the_admin_console_is_closed_to_ordinary_users_and_open_to_the_admin(gateway, clients):
+    """The Admin console hosted by the gateway: no page, script, list or change for a user, on the real gateway."""
+    alice, root = clients["alice"], clients["root"]
+    bob_id, alice_id = gateway["users"]["bob"][0], gateway["users"]["alice"][0]
+    api = "/api/auth/admin/console"
+    static, ext, css = "/gateway/admin/static/", "js", "css"
+    for path in ("/gateway/admin", f"{static}users.{ext}", f"{static}admin.{css}", "/gateway/users",
+                 f"{api}/users", f"{api}/audit"):
+        assert alice.request("GET", path)[0] == 403, path
+    for suffix, body in (("", {"username": "mallory", "display_name": "M", "role": "admin", "temp_password": "a long enough password"}),
+                         ("/update", {"id": alice_id, "role": "admin"}), ("/disable", {"id": bob_id}),
+                         ("/enable", {"id": bob_id}), ("/unlock", {"id": bob_id}), ("/reset-totp", {"id": bob_id}),
+                         ("/reset-password", {"id": bob_id, "temp_password": "a long enough password"}),
+                         ("/delete", {"id": bob_id, "confirm_username": "bob"})):
+        assert alice.json("POST", f"{api}/users{suffix}", body)[0] == 403, suffix
+    assert gateway["store"].find_user("mallory") is None
+    assert gateway["store"].get_user(alice_id)["role"] == "user" and gateway["store"].get_user(bob_id) is not None
+    status, body = root.json("GET", f"{api}/users")
+    assert status == 200 and {u["username"] for u in body["users"]} >= {"alice", "bob", "root"}
+    status, headers, _raw = root.request("GET", "/gateway/admin")
+    assert status == 200 and "default-src 'self'" in headers["content-security-policy"]
+    assert root.request("GET", f"{static}users.{ext}")[0] == 200
+    assert root.request("GET", f"{static}admin.{ext}")[0] == 404

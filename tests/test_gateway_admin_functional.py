@@ -32,7 +32,7 @@ def test_no_self_signup_route(rig):
 
 def test_admin_creates_user_who_must_enrol_and_change_password(rig):
     admin, aid = rig.signed_in("root", role="admin")
-    assert admin.get("/gateway/users").status_code == 200
+    assert admin.get("/gateway/admin").status_code == 200  # /gateway/users redirects here (see the console tests)
     r = admin.post("/api/auth/admin/users", json={"username": "Ann", "display_name": "Ann A", "role": "user",
                                                     "temp_password": "temporary password 1"})
     assert r.status_code == 200, r.get_data(as_text=True)

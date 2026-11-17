@@ -22,6 +22,7 @@ from src.access_core import FailureThrottle, KeyedThrottle, has_proxy_headers, i
 from src.http_runtime.wsgi_facade import Flask, HeaderMap, LocalRequest, Response, request
 
 from . import totp
+from .admin_console import register_admin_console
 from .store import Actor, GatewayStore, HashBusyError, LastAdminError
 from .upstream import Identity, PlaceholderUpstream, Upstream
 
@@ -29,6 +30,9 @@ LOG = logging.getLogger("retirement.gateway")
 COOKIE_NAME = "__Host-rp_session"
 PAGES_DIR = Path(__file__).resolve().parent / "pages"
 PAGES = {"login": "login.html", "enrol": "enrol.html", "account": "account.html", "users": "users.html"}
+# Deny by default: every path under these prefixes (compared case-insensitively, and as a prefix so a sibling such as
+# /gateway/administrator is refused too) needs an active admin session. The gate checks this before any route runs.
+ADMIN_PREFIXES = ("/gateway/admin", "/api/auth/admin", "/gateway/users")
 STATIC = {"gateway.js": "text/javascript; charset=utf-8", "gateway.css": "text/css; charset=utf-8"}
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 BODY_TYPES = frozenset({"application/json", "text/plain"})
@@ -142,6 +146,10 @@ def _client_ip() -> str:
     return str(request.remote_addr or "")[:64]
 
 
+def is_admin_path(path: str) -> bool:
+    return str(path).lower().startswith(ADMIN_PREFIXES)
+
+
 def _is_gateway_path(path: str) -> bool:
     return path == "/login" or path.startswith("/gateway/") or path.startswith("/api/auth/")
 
@@ -253,7 +261,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
             if path.startswith("/api/"):
                 return _json({"success": False, "must_change": True, "error": "choose a new password first"}, 409)
             return _redirect("/gateway/account")
-        if (path.startswith("/api/auth/admin/") or path == "/gateway/users") and not ident.is_admin:
+        if is_admin_path(path) and not ident.is_admin:
             return _refused("admins only")
         if _is_gateway_path(path):
             return None
@@ -308,7 +316,18 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
 
     @app.route("/gateway/users", methods=["GET"])
     def users_page():
-        return _page(PAGES["users"])
+        """The old Users page: kept (admin only) until phase 3; people are managed in the Admin console now."""
+        return _redirect("/gateway/admin#users")
+
+    def _file_page(path: Path, ctype: str) -> Response:
+        key = str(path)
+        if key not in page_cache:
+            try:
+                page_cache[key] = path.read_text(encoding="utf-8")
+            except OSError:
+                LOG.error("admin console file missing: %s", path.name)
+                return _refused("Not found", 404)
+        return Response(page_cache[key], content_type=ctype)
 
     @app.route("/gateway/static/<name>", methods=["GET"])
     def static_file(name: str):
@@ -541,4 +560,6 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
             limit = 200
         return _json({"success": True, "events": store.read_audit(limit=limit)})
 
+    register_admin_console(app, store, clock=clock, actor=_actor, admin_call=_admin_call, notify=_notify,
+                           refused=_refused, page=_page, file_page=_file_page, json_response=_json)
     return app

@@ -1,7 +1,7 @@
 """Start a real gateway plus per-user workers for the remote-mode Playwright spec.
 
 Same stack as ``tests/test_multi_user_isolation_integration.py`` (gateway subprocess, same-account launcher, no
-elevation, temp data root, demo-provisioned plan), with one enrolled user. Prints one JSON line
+elevation, temp data root, demo-provisioned plan), with one enrolled user and one enrolled admin (same password). Prints one JSON line
 ``{"port": ..., "username": ..., "password": ..., "totp_secret": ...}`` when ready, then runs until stopped.
 The password is a throwaway test value that exists only in this temp gateway database.
 """
@@ -31,6 +31,10 @@ def main() -> int:
     uid = store.create_user("carol", "Carol", "user", PASSWORD, now=now, actor=Actor(None, "e2e"), must_change=False)
     secret = store.begin_totp_enrolment(uid, now - 3600)
     assert store.confirm_totp(uid, totp.code_at(secret, int((now - 3600) // 30)), now - 3600)
+    # An admin too, for the Admin console journeys (tests/e2e_gateway/admin-console.spec.js).
+    admin_id = store.create_user("root", "Root Admin", "admin", PASSWORD, now=now, actor=Actor(None, "e2e"), must_change=False)
+    admin_secret = store.begin_totp_enrolment(admin_id, now - 3600)
+    assert store.confirm_totp(admin_id, totp.code_at(admin_secret, int((now - 3600) // 30)), now - 3600)
     env = {k: v for k, v in __import__("os").environ.items() if not k.startswith("RETIREMENT_SYSTEM_")}
     cmd = [sys.executable, "-m", "src.gateway", "--db", str(db), "--local-port", "0", "--funnel-port", "0",
            "--public-origin", "https://node.example.ts.net:8443", "--no-tailscale-check",
@@ -44,7 +48,8 @@ def main() -> int:
             return 1
         time.sleep(0.1)
     ready = json.loads(ready_file.read_text(encoding="utf-8"))
-    print(json.dumps({"port": ready["local_port"], "username": "carol", "password": PASSWORD, "totp_secret": secret}), flush=True)
+    print(json.dumps({"port": ready["local_port"], "username": "carol", "password": PASSWORD, "totp_secret": secret,
+                      "admin_username": "root", "admin_totp_secret": admin_secret}), flush=True)
     try:
         proc.wait()
     except KeyboardInterrupt:

@@ -1,0 +1,18 @@
+/* Gateway skin for the shared Users UI: gives admin.css the tokens it expects (it was written for the planner's
+   stylesheet) and the few element styles that stylesheet normally provides. */
+:root {
+  --surface: #ffffff; --ink: #1d2129; --danger: #b3261e;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --surface: #1e232b; --ink: #e6e9ee; --danger: #ff8a80; }
+}
+body[data-page="admin"] main { max-width: 1100px; }
+body[data-page="admin"] table { width: 100%; border-collapse: collapse; }
+body[data-page="admin"] th, body[data-page="admin"] td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+body[data-page="admin"] button { font: inherit; padding: 7px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--fg); cursor: pointer; }
+body[data-page="admin"] button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+body[data-page="admin"] button.danger { color: var(--danger); border-color: var(--danger); }
+body[data-page="admin"] button:disabled { opacity: .5; cursor: not-allowed; }
+body[data-page="admin"] nav a[aria-current="page"] { font-weight: 700; text-decoration: none; }
+body[data-page="admin"] dialog input, body[data-page="admin"] dialog select { width: 100%; }
+.delbox { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
