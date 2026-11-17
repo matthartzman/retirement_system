@@ -226,6 +226,19 @@ def _parser() -> argparse.ArgumentParser:
     return p
 
 
+def protect_totp_at_startup(store: GatewayStore) -> None:
+    """Seal clear-text TOTP secrets (P7-O1) and name any user whose sealed secret this account cannot open."""
+    try:
+        store.protect_totp_secrets()
+    except Exception:  # noqa: BLE001 - never stop sign-in over this, but say so loudly
+        LOG.error("could not seal the TOTP secrets in gateway.db; they are still in clear text", exc_info=True)
+    unreadable = store.unreadable_totp_users()
+    if unreadable:
+        LOG.warning("the TOTP secret of user id(s) %s cannot be opened here (gateway.db from another machine or "
+                    "account?); reset their two-factor from the Users page so they can enrol again",
+                    ", ".join(str(u) for u in unreadable))
+
+
 class _Runtime:
     """The supervisor, proxy and backups, built from the command line."""
 
@@ -346,6 +359,7 @@ def run_gateway(argv: list[str] | None, stop_event: threading.Event) -> int:
     if not logging.getLogger().handlers:
         logging.basicConfig(level=logging.INFO, stream=err)
     store = GatewayStore(args.db, hash_concurrency=args.hash_concurrency)
+    protect_totp_at_startup(store)
     runtime = None
     try:
         runtime = _Runtime(args, store) if args.data_root else None

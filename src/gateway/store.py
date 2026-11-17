@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import re
 import secrets
 import sqlite3
@@ -22,6 +23,10 @@ from src import access_core
 from src.access_core import LOCK_SECONDS, MAX_FAILED_BEFORE_LOCK  # noqa: F401 - part of this module's API
 
 from . import totp
+from .secret_box import PREFIX as SEALED_PREFIX
+from .secret_box import SecretBox, default_secret_box
+
+LOG = logging.getLogger("retirement.gateway.store")
 
 SCHEMA_VERSION = 2
 ROLES = ("admin", "user")
@@ -135,7 +140,9 @@ def _token_hash(token: str) -> str:
 
 class GatewayStore:
     def __init__(self, path: Path | str, scrypt_n: int = access_core.DEFAULT_SCRYPT_N, *,
-                 hash_concurrency: int = DEFAULT_HASH_CONCURRENCY, hash_wait: float = HASH_WAIT_SECONDS) -> None:
+                 hash_concurrency: int = DEFAULT_HASH_CONCURRENCY, hash_wait: float = HASH_WAIT_SECONDS,
+                 secret_box: SecretBox | None = None) -> None:
+        self._box = secret_box if secret_box is not None else default_secret_box()
         self.path = Path(path)
         self._n = int(scrypt_n)
         self._hash_slots = threading.BoundedSemaphore(max(1, int(hash_concurrency)))
@@ -407,8 +414,39 @@ class GatewayStore:
         return rows[0] if rows else None
 
     def _totp_secret(self, user_id: int) -> str | None:
+        """The clear secret, or None when there is none or this account cannot open the sealed one."""
         row = self._totp_row(user_id)
-        return row["secret"] if row else None
+        return self._box.unprotect(row["secret"]) if row else None
+
+    def protect_totp_secrets(self) -> int:
+        """Seal every clear-text TOTP secret in place (P7-O1); the number sealed. Safe to repeat.
+
+        Run by the gateway service at start-up, never by a CLI run as another account: DPAPI seals for the account
+        that calls it. Freed pages are overwritten and the WAL is truncated so the old clear text does not linger."""
+        sealed = 0
+        with self._tx() as conn:
+            conn.execute("PRAGMA secure_delete=ON")
+            rows = conn.execute("SELECT user_id, secret FROM totp_secrets WHERE substr(secret, 1, ?) <> ?",
+                                (len(SEALED_PREFIX), SEALED_PREFIX)).fetchall()
+            for row in rows:
+                blob = self._box.protect(row["secret"])
+                if self._box.unprotect(blob) != row["secret"]:
+                    raise RuntimeError("a sealed TOTP secret did not read back; leaving the database unchanged")
+                conn.execute("UPDATE totp_secrets SET secret=? WHERE user_id=?", (blob, row["user_id"]))
+                sealed += 1
+        if sealed:
+            conn = self._connect()
+            try:
+                conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            finally:
+                conn.close()
+            LOG.info("sealed %d TOTP secret(s) in gateway.db", sealed)
+        return sealed
+
+    def unreadable_totp_users(self) -> list[int]:
+        """Users whose sealed TOTP secret this account cannot open (a database restored on another machine)."""
+        rows = self._read("SELECT user_id, secret FROM totp_secrets ORDER BY user_id")
+        return [int(r["user_id"]) for r in rows if self._box.unprotect(r["secret"]) is None]
 
     def totp_status(self, user_id: int) -> Literal["none", "pending", "enrolled"]:
         row = self._totp_row(user_id)
@@ -422,9 +460,13 @@ class GatewayStore:
             if row is not None and row["enrolled_at"] is not None:
                 raise ValueError("two-factor is already set up; an admin can reset it")
             if row is not None:
-                return str(row["secret"])
+                existing = self._box.unprotect(str(row["secret"]))
+                if existing is not None:
+                    return existing
+                conn.execute("DELETE FROM totp_secrets WHERE user_id=?", (int(user_id),))  # sealed elsewhere: start over
             secret = totp.new_secret()
-            conn.execute("INSERT INTO totp_secrets(user_id, secret, created_at) VALUES (?,?,?)", (int(user_id), secret, now))
+            conn.execute("INSERT INTO totp_secrets(user_id, secret, created_at) VALUES (?,?,?)",
+                         (int(user_id), self._box.protect(secret), now))
             return secret
 
     def _use_code(self, user_id: int, code: str, now: float, enrolled: bool) -> bool:
@@ -432,7 +474,11 @@ class GatewayStore:
             row = conn.execute("SELECT * FROM totp_secrets WHERE user_id=?", (int(user_id),)).fetchone()
             if row is None or (row["enrolled_at"] is not None) != enrolled:
                 return False
-            step = totp.verify(row["secret"], code, now, row["last_used_step"])
+            secret = self._box.unprotect(row["secret"])
+            if secret is None:
+                LOG.error("the TOTP secret of user %s cannot be opened on this machine; an admin must reset it", user_id)
+                return False
+            step = totp.verify(secret, code, now, row["last_used_step"])
             if step is None:
                 return False
             conn.execute("UPDATE totp_secrets SET last_used_step=?, enrolled_at=COALESCE(enrolled_at, ?) WHERE user_id=?",
