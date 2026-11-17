@@ -52,8 +52,36 @@ transaction each, so later phases append a step. WAL mode, foreign keys on.
   listener)`. Usernames are copied as text so deleting a user keeps the history readable. Never holds passwords,
   codes, secrets or cookie values.
 
-The TOTP secret is stored in clear in `gateway.db`; Phase 3's folder permissions make `gateway.db` readable only by
-the gateway account, and Phase 6's backup encrypts it.
+The TOTP secret is **sealed** in `gateway.db` (P7-O1): the same TEXT column holds `dpapi1:<base64 DPAPI blob>`
+(`src/gateway/secret_box.py`, the scheme `accounts.py` uses for worker passwords: user scope of the service account).
+A row without the prefix is a legacy clear-text secret; `GatewayStore.protect_totp_secrets()` seals those in place
+at service start (idempotent, round-trip checked, `secure_delete` on and the WAL truncated so no clear copy lingers).
+It runs only in the service process: DPAPI seals for the calling account, so a CLI run as the owner must not do it.
+Backups copy the file as it is, so they hold only the sealed form (older archives keep the clear text until they age
+out). A sealed secret that cannot be opened (a `gateway.db` restored on a rebuilt machine, or under another account)
+fails closed: the code is refused, startup logs the affected user ids, and an admin resets their two-factor
+(`reset-totp`; the user enrols again). **Why DPAPI and not a key from the backup key file:** the backup key is optional
+(backups can be off), is a file an operator copies around and must then be protected like the secrets, and would make
+every restore depend on it. DPAPI needs no new secret, matches the existing scheme and protects against the real
+threat (a copied `gateway.db` or archive); its cost is the rebuilt-machine reset above, which is small for ten users
+and keeps a stolen backup useless. Off Windows (development) the box falls back to clear text with a logged warning.
+
+## Pre-authentication limits (P7-O3)
+
+The gate runs twice: once on the request line and headers (`GatewayListener.preflight`) before any body is read, then
+again with the body. A request refused at the first stage is answered and closed without reading the body.
+
+- **Body caps.** Gateway-owned routes (login, two-factor, password, admin) accept at most `GatewayConfig.max_body_bytes`
+  (32 KiB); only an authenticated, forwarded route may carry up to `proxy_body_bytes` (64 MiB, the plan upload). Over
+  the cap: 413 on the declared `Content-Length`, unread.
+- **Connections.** `--max-connections` (default 128 per listener); the next gets `503` with `Retry-After` on the accept
+  thread, no handler thread is started.
+- **Total deadline.** `--request-deadline` (default 30 s) covers the request line, headers and body together; a reader
+  that dribbles bytes cannot reset it. The 60 s per-read timeout still applies to writing the reply.
+- **Hashing.** `GatewayStore` allows `--hash-concurrency` (default 4, about 128 MiB) scrypt runs at once; a caller waits
+  up to 20 s, then the request gets `503`.
+
+Defaults suit ten users (a browser opens about six connections); raise `--max-connections` for more.
 
 ## Login, two-factor and sessions
 
