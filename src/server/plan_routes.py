@@ -2364,7 +2364,7 @@ def _plans_payload():
         plans = [{k: v for k, v in p.items() if k != "path"} for p in plans]
     active = next((p for p in plans if p["active"]), None)
     return {"plans": plans, "active": active, "demo_active": bool(active and active["kind"] == "demo"),
-            "limits": plan_limits.usage()}
+            "limits": plan_limits.usage(), "manageable": remote_mode.enabled()}
 
 
 def _build_running() -> bool:
