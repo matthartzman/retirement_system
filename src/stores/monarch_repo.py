@@ -131,6 +131,12 @@ class MonarchRepo:
         with self._store._read() as con:
             return int(con.execute("SELECT COUNT(*) FROM monarch_balances").fetchone()[0])
 
+    def all_balances(self) -> list[tuple[str, str, str, float]]:
+        """Every stored ``(date, account_key, account, balance)`` row, oldest first, in one query."""
+        with self._store._read() as con:
+            return [(str(d), str(k), str(a), float(b)) for d, k, a, b in
+                    con.execute("SELECT date, account_key, account, balance FROM monarch_balances ORDER BY date, account_key")]
+
     def latest_date(self) -> str | None:
         with self._store._read() as con:
             return con.execute("SELECT MAX(date) FROM monarch_balances").fetchone()[0]

@@ -37,7 +37,7 @@ COOKIE = "trends_session"
 OWNER_NAME = "owner (PC)"
 CHANGE_PASSWORD_HTML_PATH = Path(__file__).resolve().parent / "frontend" / "change_password.html"
 SIGNIN_HTML_PATH = Path(__file__).resolve().parent / "frontend" / "signin.html"
-LOCAL_ONLY_PREFIXES = ("/api/open-admin",)
+LOCAL_ONLY_PREFIXES: tuple[str, ...] = ()  # paths the remote listener answers 404 for; none now that people live in the Admin app
 PUBLIC_REMOTE = {("GET", "/signin"), ("POST", "/api/signin")}
 MUST_CHANGE_ALLOWED = {"/api/change-password", "/api/signout", "/api/whoami"}
 ENROL_ALLOWED = {"/api/totp/begin", "/api/totp/confirm", "/api/change-password", "/api/signout", "/api/whoami"}
@@ -58,8 +58,7 @@ def _json(payload, status=200, headers=None) -> Response:
 
 
 def register_access(app, store: IdentityStore, sessions: SessionTable, clock=time.time,
-                    percent_basis: Callable[[], float | None] = lambda: None,
-                    open_admin: Callable[[], bool] = lambda: False) -> None:
+                    percent_basis: Callable[[], float | None] = lambda: None) -> None:
     def _log(event: str, details: str = "", person: str | None = None) -> None:
         env = request.environ
         source = str(request.headers.get("X-Forwarded-For", "") or "").split(",")[0].strip() if current_listener() == "remote" else ""
@@ -346,7 +345,3 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
             store.touch_session(token, clock() - max(0, idle_ms) / 1000.0)
         return _json({"success": True})
 
-    # ---- local-only (the gate answers 404 for these on the remote listener) ----
-    @app.route("/api/open-admin", methods=["POST"])
-    def open_admin_app():
-        return _json({"success": bool(open_admin())})

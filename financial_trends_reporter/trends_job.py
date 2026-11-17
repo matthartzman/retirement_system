@@ -84,6 +84,10 @@ def refresh_prices(base_dir: Path, *, timeout: float = PRICE_REFRESH_TIMEOUT_SEC
             result, _ = json.JSONDecoder().raw_decode(text[start:])
         except ValueError:
             result = {}
+    return _pricing_status(result, proc.returncode)
+
+
+def _pricing_status(result: dict[str, Any], returncode: Any) -> dict[str, Any]:
     live = int(result.get("live_prices_resolved") or 0)
     status: dict[str, Any] = {
         "refreshed": live > 0,
@@ -93,25 +97,58 @@ def refresh_prices(base_dir: Path, *, timeout: float = PRICE_REFRESH_TIMEOUT_SEC
         "symbols_requested": int(result.get("symbols_requested") or 0),
     }
     if live == 0:
-        status["error"] = str(result.get("pricing_best_guess_cause") or f"no live prices (exit code {proc.returncode})")
+        status["error"] = str(result.get("pricing_best_guess_cause") or f"no live prices (exit code {returncode})")
     return status
 
 
+def refresh_prices_in_worker(workspace: Path, *, timeout: float = PRICE_REFRESH_TIMEOUT_SECONDS) -> dict[str, Any]:
+    """The same refresh the planner's allowed ``/api/prices/refresh`` runs inside a worker: the install's tool, the
+    scrubbed remote-mode environment and the worker's own settings database (its price cache and provider key).
+    Never raises; a failure just marks the snapshot's prices as stale."""
+    try:
+        from src import app_state
+        from src.server_services import pricing_service
+
+        out = pricing_service.refresh_prices(base_dir=_REPO_ROOT, output_dir=Path(workspace) / "output",
+                                             app_db=app_state.app_store_path(), max_build_seconds=timeout)
+    except Exception as exc:  # noqa: BLE001 - timeout, OS error, missing tool
+        return {"refreshed": False, "stale": True, "error": f"price refresh failed: {exc.__class__.__name__}"}
+    return _pricing_status(out.get("result") or {}, out.get("returncode"))
+
+
 def run(retirement_system_base_dir: str | Path, *, log_path: str | Path | None = None, today: date | None = None,
-        refresh: bool = True, cancel=None) -> dict[str, Any]:
+        refresh: bool = True, cancel=None, worker: bool = False) -> dict[str, Any]:
     """``cancel``: optional callable; when it turns true the run stops at the next step and returns
-    ``{"success": False, "cancelled": True}`` without writing the log."""
+    ``{"success": False, "cancelled": True}`` without writing the log.
+
+    ``worker``: running inside a user's planner worker (multi-user server): prices refresh through the planner's own
+    route code, the balance store is mirrored from the plan's Monarch rows (there is no extractor CSV), and the
+    plan is opened read-only for the whole run."""
     base_dir = Path(retirement_system_base_dir)
+    if worker:
+        from src import active_plan
+
+        with active_plan.read_only_plan_access():
+            return _run(base_dir, log_path=log_path, today=today, refresh=refresh, cancel=cancel, worker=True)
+    return _run(base_dir, log_path=log_path, today=today, refresh=refresh, cancel=cancel, worker=False)
+
+
+def _run(base_dir: Path, *, log_path, today, refresh, cancel, worker: bool) -> dict[str, Any]:
     input_dir = base_dir / "input"
 
-    if input_dir.exists():
+    if input_dir.exists() and not worker:
         source_files = sorted(input_dir.glob("*.csv"))
         guard_errors = onedrive_guard.check_files_safe_to_read(source_files)
         if guard_errors:
             return {"success": False, "errors": guard_errors}
 
     try:
-        pricing = refresh_prices(base_dir, cancel=cancel) if refresh else {"refreshed": False, "stale": False, "skipped": True}
+        if not refresh:
+            pricing = {"refreshed": False, "stale": False, "skipped": True}
+        elif worker:
+            pricing = refresh_prices_in_worker(base_dir)
+        else:
+            pricing = refresh_prices(base_dir, cancel=cancel)
     except RunCancelled:
         return {"success": False, "cancelled": True, "error": "Cancelled."}
     path = Path(log_path) if log_path else default_log_path(_APP_ROOT)
@@ -119,7 +156,13 @@ def run(retirement_system_base_dir: str | Path, *, log_path: str | Path | None =
     # missing/rejected file must not fail the snapshot (the result just reports it).
     balances_db = path.with_name(DB_FILENAME)
     try:
-        balances = import_balances(balances_db, default_source_path(base_dir), today=today)
+        if worker:
+            from . import plan_balance_sync
+
+            balances = plan_balance_sync.sync(base_dir, balances_db)
+            balances.setdefault("status", "ok" if balances.get("success") else "error")
+        else:
+            balances = import_balances(balances_db, default_source_path(base_dir), today=today)
     except Exception as exc:  # noqa: BLE001 - a locked/unwritable store must not stop the snapshot
         balances = {"success": False, "status": "error", "error": f"{exc.__class__.__name__}: {exc}"}
     if cancel and cancel():

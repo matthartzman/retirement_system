@@ -25,6 +25,7 @@ copy, its bridge and the JSON/YAML mirrors). Two entries:
 """
 from __future__ import annotations
 
+import contextvars
 import os
 import threading
 from contextlib import contextmanager
@@ -161,6 +162,25 @@ def _refresh_pin(path: str | Path) -> None:
         read.refresh()
 
 
+_READ_ONLY: contextvars.ContextVar[bool] = contextvars.ContextVar("plan_read_only_access", default=False)
+
+
+class PlanReadOnlyError(PermissionError):
+    """A write was attempted while :func:`read_only_plan_access` was in force."""
+
+
+@contextmanager
+def read_only_plan_access() -> Iterator[None]:
+    """For the current thread/context: every plan read opens the file read-only (no schema upgrade, no
+    writable connection) and every plan write raises :class:`PlanReadOnlyError`. The multi-user
+    Financial Insight wraps each request in it, so it is a view of the plan and cannot change it."""
+    token = _READ_ONLY.set(True)
+    try:
+        yield
+    finally:
+        _READ_ONLY.reset(token)
+
+
 @contextmanager
 def _reading(path: str | Path, *, create: bool = False, readonly: bool = False) -> Iterator[PlanStore]:
     """The build's pinned store when ``path`` is the plan it reads, else a store opened for the call."""
@@ -168,6 +188,8 @@ def _reading(path: str | Path, *, create: bool = False, readonly: bool = False) 
     if store is not None:
         yield store
         return
+    if _READ_ONLY.get():
+        readonly, create = True, False
     with PlanStore.open(path, create=create, readonly=readonly) as opened:
         yield opened
 
@@ -175,6 +197,8 @@ def _reading(path: str | Path, *, create: bool = False, readonly: bool = False) 
 @contextmanager
 def _writing(path: str | Path, *, create: bool = True) -> Iterator[PlanStore]:
     """A writable store on ``path``; afterwards a build reading that plan sees the write."""
+    if _READ_ONLY.get():
+        raise PlanReadOnlyError("the plan is read-only in this context")
     try:
         with PlanStore.open(path, create=create) as store:
             yield store

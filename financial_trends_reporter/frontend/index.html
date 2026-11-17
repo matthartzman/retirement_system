@@ -36,8 +36,6 @@
   .unit { font-size: 11px; font-weight: 400; color: #888; text-transform: none; letter-spacing: 0; margin-left: 4px; }
   .unit-line { margin: 0 0 6px; }
   .live-card.pm .col-day { display: none; }
-  #peopleBtn { margin-left: auto; }
-  #peopleBtn + #exitBtn { margin-left: 0; }
   svg text { fill: currentColor; font-size: 12px; }
   .chart-dot { cursor: pointer; }
   .chart-dot:hover { r: 5; }
@@ -1010,19 +1008,6 @@ document.addEventListener("click", (e) => {
 });
 reportView("trends");
 let whoami = { listener: "local", must_change: false };
-// People are managed in the Admin app (127.0.0.1:5056); the server starts it if it is not running.
-function addManagePeople() {
-  const btn = document.createElement("button");
-  btn.id = "peopleBtn"; btn.type = "button"; btn.textContent = "Manage people"; btn.title = "Open the Admin app";
-  btn.addEventListener("click", async () => {
-    const tab = window.open("about:blank", "_blank");
-    let ok = false;
-    try { ok = (await (await fetch("/api/open-admin", { method: "POST" })).json()).success; } catch (err) { /* shown below */ }
-    if (!ok) { if (tab) tab.close(); return alert("The Admin app could not be started. Run START_ADMIN_APP.bat."); }
-    setTimeout(() => { if (tab) tab.location.href = "http://127.0.0.1:5056/#users"; }, 1500);  // give a fresh start a moment to listen
-  });
-  document.getElementById("exitBtn").before(btn);
-}
 // A grant can limit the tabs a person sees; hide the rest and move off one that is hidden.
 function hideViewsOutsideGrant(views) {
   const allowed = new Set(views || []);
@@ -1039,8 +1024,7 @@ async function signOut() {
 (async () => {
   try { whoami = await (await fetch("/api/whoami")).json(); } catch (err) { return; }
   if (whoami.listener === "remote") document.getElementById("exitBtn").textContent = "Sign out";
-  if (whoami.listener === "local") addManagePeople();
-  else hideViewsOutsideGrant(whoami.views);
+  if (whoami.listener !== "local") hideViewsOutsideGrant(whoami.views);
   if (whoami.must_change) location.href = "/change-password";
 })();
 document.getElementById("exitBtn").addEventListener("click", async () => {
