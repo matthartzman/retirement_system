@@ -335,3 +335,22 @@ holds it for the whole request, and `trends_job.run(worker=True)` holds it for t
 writable connection. Tests: `tests/test_insights_worker_mode_functional.py` (9) and the 984 related existing tests pass;
 `tools/fast_gates.py` passes. Not done here (later phases): the token/Host/Origin mount (Phase 2), gateway flag and
 polling policy (Phase 3), frontend prefix and planner link (Phase 4).
+
+## 15. Phase 2 results (2026-11-17, branch `claude/insights-worker-mount-57c2b9`)
+
+Built: `src/remote_insights_mount.py` (`PrefixMount`, `insights_enabled`, constant `INSIGHTS_ENV`) and
+`remote_worker.build_app(workspace, planner_app)`, which mounts FI only when the worker's environment has
+`RETIREMENT_SYSTEM_INSIGHTS=1`; otherwise the planner app is used unchanged and `/insights/` is a planner 404. The
+variable is read from the process environment only, is not in `FORBIDDEN_ENV`, and no request can set it.
+
+The mount enforces, before FI code runs and only for `/insights` paths: the worker token (`X-API-Token` or Bearer,
+`/api/ping` included; no configured token refuses everything), a loopback `Host`, and the planner's Origin/Referer rule
+(`host_guard.origin_netloc_allowed`). `/insights` without a slash is a 302 to `/insights/` (query kept) after the token
+check. On the way out it scrubs JSON bodies with `remote_mode.scrub` and replaces the `error` of any 5xx JSON body, or
+an exception escaping FI, with `remote_mode.GENERIC_ERROR`. Planner paths (including `/insightsfoo`) are passed through
+byte for byte; the planner route table, `remote_allowlist.py` and the route manifest did not change. The FI deny-by-default
+allow-list (Phase 1) still applies behind the mount, and a regression test drives the refused routes through it.
+
+Tests: `tests/test_insights_worker_mount_functional.py` (19) and `tests/test_insights_worker_mount_allowlist_regression.py`
+(8). Not done here: gateway flag, redirect and poll policy (Phase 3); frontend prefix and planner link (Phase 4);
+two-user isolation (Phase 5).

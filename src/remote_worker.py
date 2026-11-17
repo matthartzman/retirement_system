@@ -90,6 +90,20 @@ def provision(workspace: Path, how: str) -> str:
     return how
 
 
+def build_app(workspace: Path, planner_app):
+    """The planner app, with Financial Insight mounted under ``/insights/`` only when the supervisor set
+    ``RETIREMENT_SYSTEM_INSIGHTS=1`` (a request can never set it). Otherwise ``/insights/`` is a planner 404."""
+    from src import remote_insights_mount  # noqa: PLC0415
+
+    if not remote_insights_mount.insights_enabled():
+        return planner_app
+    from financial_trends_reporter.main import create_app as create_insights_app  # noqa: PLC0415
+    from financial_trends_reporter.worker_mode import WorkerListenerApp  # noqa: PLC0415
+
+    insights = WorkerListenerApp(create_insights_app(workspace, mode="worker"))
+    return remote_insights_mount.PrefixMount(planner_app, insights)
+
+
 def _parent_alive(pid: int) -> bool:
     if os.name == "nt":
         import ctypes  # noqa: PLC0415
@@ -216,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
     from src.server import create_app  # noqa: PLC0415
 
     assert_safe_to_bind("127.0.0.1", remote_mode.worker_token())
-    server = _exclusive_server_class()(("127.0.0.1", 0), create_app())
+    server = _exclusive_server_class()(("127.0.0.1", 0), build_app(workspace, create_app()))
     info = {"port": int(server.server_address[1]), "pid": os.getpid(), "provisioned": provisioned}
     if args.port_file:
         _write_port_file(Path(args.port_file), info)

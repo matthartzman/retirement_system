@@ -5243,6 +5243,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_switcher.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "rows",
       "file": "frontend/js/dashboard_decomp_plan_tiers.js",
       "kind": "read",
