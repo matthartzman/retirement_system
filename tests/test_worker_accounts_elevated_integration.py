@@ -121,11 +121,9 @@ def test_batch_logon_works_with_the_deny_rights_and_interactive_logon_is_refused
                             workers={901: (name, sid)}, gateway_db=box["gw"] / "gateway.db") == []
 
 
-def _run_as(box, uid: int, argv: list[str], timeout: float = 60.0, env: dict | None = None,
-            memory: int | None = 256 * 2**20, procs: int | None = 8) -> int:
+def _run_as(box, uid: int, argv: list[str], timeout: float = 60.0, env: dict | None = None) -> int:
     proc = PerAccountLauncher(box["mgr"]).launch(LaunchSpec(uid, argv, Path("C:\\Windows\\System32"), env or {},
-                                                            memory, procs))
-    box['last_method'] = proc.method
+                                                            256 * 2**20, 8))
     try:
         deadline = time.time() + timeout
         while proc.poll() is None and time.time() < deadline:
@@ -215,6 +213,12 @@ def test_deleting_a_user_while_its_worker_runs_removes_everything(box):
         sup.shutdown()
 
 
+def _process_session(pid: int) -> int | None:
+    sid = ctypes.c_ulong()
+    k = ctypes.WinDLL("kernel32", use_last_error=True)
+    return int(sid.value) if k.ProcessIdToSessionId(ctypes.c_ulong(pid), ctypes.byref(sid)) else None
+
+
 def _app_copy(box) -> Path:
     """A copy of ``src`` in the throwaway folder, which the worker accounts can read. The repository itself may sit
     in a folder only its owner can read (a per-user ACL), and the probe imports ``src.secrets_store``."""
@@ -224,17 +228,16 @@ def _app_copy(box) -> Path:
     return app
 
 
+# Runs the real ``src.secrets_store`` as a dedicated worker would (remote mode plus the per-account launcher's flag).
+# The result file always gets written: a traceback instead of the value if anything raised, because the child has no
+# stderr to read.
 _CRED_PROBE = chr(10).join([
     "import sys",
     "try:",
-    "    import keyring",
     "    sys.path.insert(0, sys.argv[1])",
     "    from src import secrets_store as s",
-    "    backend = keyring.get_keyring()",
-    "    s._remote_mode_guard(backend)  # remote mode plus the per-account launcher's flag: must accept",
-    "    if sys.argv[2] == 'set': keyring.set_password(s.SERVICE_NAME, 'elevated-probe', sys.argv[4])",
-    "    got = keyring.get_password(s.SERVICE_NAME, 'elevated-probe') or ''",
-    "    result = type(backend).__name__ + ' ' + got",
+    "    if sys.argv[2] == 'set': s.set_secret('elevated-probe', sys.argv[4])",
+    "    result = s.encryption_status()['mode'] + ' ' + s.get_secret('elevated-probe')",
     "except BaseException:",
     "    import traceback",
     "    result = 'PROBE FAILED ' + traceback.format_exc().replace(chr(10), ' | ')",
@@ -242,357 +245,42 @@ _CRED_PROBE = chr(10).join([
 ])
 
 
-def test_a_stored_credential_survives_password_rotation_and_goes_with_the_user(box):
-    """The question Phase 3 left open: NetUserChangePassword (a change, not a reset) should keep the DPAPI master
-    keys, so a Credential Manager entry the worker account stored is still readable after rotation; deleting the
-    user (NetUserDel + DeleteProfileW) removes it with the profile."""
-    if _process_session(os.getpid()) != 0:
-        pytest.skip("run this as SYSTEM (session 0), like the gateway service: workers started from an interactive "
-                    "session by CreateProcessWithTokenW cannot initialise user32, so ctypes, ssl and keyring fail "
-                    "(see tools/run_elevated_tests_as_system.ps1)")
+def test_a_stored_credential_survives_repeated_password_rotation_and_goes_with_the_user(box):
+    """The question Phase 3 left open. Measured on this machine (see the monarch-secrets design note): Windows
+    Credential Manager lost a stored entry in about half of the rotations, so a dedicated worker keeps its secrets
+    under machine-scope DPAPI in its own app.db (``src/secrets_store.py``). This runs the real store as the worker
+    account, rotates the password several times with no logon session open, and requires the secret every time.
+
+    Run it as SYSTEM in session 0, like the gateway service (``tools/run_elevated_tests_as_system.ps1``): a worker
+    started from an interactive admin shell by CreateProcessWithTokenW cannot initialise user32, so ctypes and
+    keyring fail there for a reason that has nothing to do with secrets."""
+    assert _process_session(os.getpid()) == 0, (
+        "run this test as SYSTEM (session 0), like the gateway service: powershell -ExecutionPolicy Bypass -File "
+        "tools/run_elevated_tests_as_system.ps1 -Filter credential. From an interactive session the worker cannot "
+        "initialise user32 and fails for a reason unrelated to secrets.")
     mgr, uid = box["mgr"], 907
     ws = _ws(box, uid)
     mgr.ensure(uid, ws)
     value = "probe-" + secrets.token_hex(4)
-    env = {"RETIREMENT_SYSTEM_REMOTE_MODE": "1"}
+    env = {"RETIREMENT_SYSTEM_REMOTE_MODE": "1", "RETIREMENT_SYSTEM_WORKSPACE_ROOT": str(ws)}
     out = ws / "cred.txt"
     argv = [box["python"], "-E", "-s", "-c", _CRED_PROBE, str(_app_copy(box))]
-    assert _run_as(box, uid, argv + ["set", str(out), value], env=env) == 0
-    assert out.read_text(encoding="utf-8") == f"WinVaultKeyring {value}"
-    profile = Path("C:\\Users") / mgr.account_name(uid)
-    mgr.rotate(uid)
-    out.unlink()
-    assert _run_as(box, uid, argv + ["get", str(out)], env=env) == 0
-    assert out.read_text(encoding="utf-8") == f"WinVaultKeyring {value}", "the credential did not survive rotation"
+    expected = f"machine-dpapi {value}"
+
+    def run(*extra) -> str:
+        out.unlink(missing_ok=True)
+        assert _run_as(box, uid, argv + [extra[0], str(out), *extra[1:]], env=env) == 0
+        return out.read_text(encoding="utf-8")
+
+    assert run("set", value) == expected
+    profile = Path("C:/Users") / mgr.account_name(uid)
+    for n in range(1, 5):
+        mgr.rotate(uid)
+        assert run("get") == expected, f"the secret did not survive password rotation number {n}"
     sup = _supervisor(box)
     try:
         sup.user_deleted(uid)
     finally:
         sup.shutdown()
-    assert not profile.exists(), "the profile (and its Credential Manager vault) outlived the user"
-
-
-# Each stage runs in its own process as the worker account and appends one flushed line per step to a file, so a
-# process killed by the loader (0xC0000142) still leaves the last step it reached. The child has no stdio, so the
-# file is the only channel.
-_STAGE_HEADER = chr(10).join([
-    "import sys, os, traceback",
-    "def note(msg):",
-    "    with open(sys.argv[1], 'a', encoding='utf-8') as f:",
-    "        f.write(msg + chr(10)); f.flush(); os.fsync(f.fileno())",
-    "note('start')",
-    "try:",
-])
-
-
-def _stage(body: str) -> str:
-    lines = [("    " + ln) for ln in body.splitlines()]
-    tail = ["except BaseException:", "    note('EXC ' + traceback.format_exc().replace(chr(10), ' | '))", "note('end')"]
-    return chr(10).join([_STAGE_HEADER, *lines, *tail])
-
-
-_DIAG_STAGES = {
-    "0 bare python": "note('ok')",
-    "1 window station and desktop": chr(10).join([
-        "import ctypes, ctypes.wintypes as w",
-        "u = ctypes.WinDLL('user32', use_last_error=True)",
-        "u.GetProcessWindowStation.restype = ctypes.c_void_p",
-        "u.GetUserObjectInformationW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, w.DWORD, ctypes.c_void_p]",
-        "buf = ctypes.create_unicode_buffer(256); n = w.DWORD()",
-        "ok = u.GetUserObjectInformationW(u.GetProcessWindowStation(), 2, buf, 512, ctypes.byref(n))",
-        "note('window station ok=%s name=%r' % (ok, buf.value))",
-    ]),
-    "2 import platform; platform.uname()": "import platform; note(str(platform.uname()))",
-    "3 import keyring": "import keyring; note('keyring ' + keyring.__file__)",
-    "4 keyring.get_keyring()": "import keyring; note(type(keyring.get_keyring()).__name__)",
-    "5 WinVault set and get": chr(10).join([
-        "import keyring",
-        "keyring.set_password('RetirementSystemDiag', 'u', 'v'); note('set ok')",
-        "note('get ' + str(keyring.get_password('RetirementSystemDiag', 'u')))",
-        "keyring.delete_password('RetirementSystemDiag', 'u'); note('delete ok')",
-    ]),
-}
-
-
-def test_diagnose_worker_credential_manager_stages(box):
-    """Diagnostic, not a gate: runs each step of the credential probe in its own process as a worker account and
-    reports the exit code and what each reached. Output goes to the terminal (use -s) and to
-    ``%TEMP%\rpw_cred_diag.txt`` for pasting back."""
-    uid = 908
-    ws = _ws(box, uid)
-    box["mgr"].ensure(uid, ws)
-    report = []
-    for label, body in _DIAG_STAGES.items():
-        out = ws / "stage.txt"
-        out.unlink(missing_ok=True)
-        code = _run_as(box, uid, [box["python"], "-E", "-s", "-c", _stage(body), str(out)],
-                       env={"RETIREMENT_SYSTEM_REMOTE_MODE": "1"})
-        seen = out.read_text(encoding="utf-8") if out.exists() else "(no file written)"
-        report.append(f"[{label}] exit={code} hex={(code or 0) & 0xFFFFFFFF:#010x}{chr(10)}{seen}")
-    text = (chr(10) * 2).join(report)
-    Path(os.environ.get("TEMP", r"C:\Windows\Temp"), "rpw_cred_diag.txt").write_text(text, encoding="utf-8")
-    print(chr(10) + text)
-
-
-def test_diagnose_worker_dll_load_failures(box):
-    """Diagnostic, not a gate: which of the job limits, the runtime copy's ACLs or the DLLs themselves makes
-    ``import _ctypes`` fail for a worker account. Output: terminal (-s) and ``%TEMP%\rpw_dll_diag.txt``."""
-    uid = 909
-    ws = _ws(box, uid)
-    box["mgr"].ensure(uid, ws)
-    out = ws / "stage.txt"
-    mib = 2**20
-    report = []
-
-    def run(label, body, memory, procs):
-        out.unlink(missing_ok=True)
-        code = _run_as(box, uid, [box["python"], "-E", "-s", "-c", _stage(body), str(out)], env={}, memory=memory,
-                       procs=procs)
-        seen = out.read_text(encoding="utf-8") if out.exists() else "(no file written)"
-        report.append(f"[{label}] exit={(code or 0) & 0xFFFFFFFF:#010x} via {box.get('last_method')}" + chr(10)
-                      + seen.replace(chr(10), " / "))
-
-    for memory, procs in ((None, None), (256 * mib, 8), (1024 * mib, 8), (256 * mib, None)):
-        run(f"import _ctypes, memory={memory and memory // mib}MiB procs={procs}", "import _ctypes; note('ok')",
-            memory, procs)
-    for mod in ("_wmi", "sqlite3", "_ssl", "_socket", "_overlapped", "_decimal"):
-        run(f"import {mod} (no limits)", f"import {mod}; note('ok')", None, None)
-    py = Path(box["python"]).parent
-    for target in (py / "DLLs", py / "DLLs" / "_ctypes.pyd", py / "python312.dll", py / "vcruntime140_1.dll", py):
-        r = subprocess.run(["icacls", str(target)], capture_output=True, text=True)
-        report.append(f"[icacls {target}]" + chr(10) + r.stdout.strip())
-    r = subprocess.run(["powershell", "-NoProfile", "-Command",
-                        "Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='Application Error'} "
-                        "-MaxEvents 4 | ForEach-Object { $_.Message }"], capture_output=True, text=True)
-    report.append("[recent Application Error events]" + chr(10) + r.stdout.strip())
-    text = (chr(10) * 2).join(report)
-    Path(os.environ.get("TEMP", r"C:\Windows\Temp"), "rpw_dll_diag.txt").write_text(text, encoding="utf-8")
-    print(chr(10) + text)
-
-
-def test_diagnose_worker_loads_each_dll(box):
-    """Diagnostic, not a gate: load each DLL on its own (``sqlite3.load_extension`` needs no ctypes) as the worker
-    account and as the admin running this test, to name the DLL whose initialisation fails.
-    Output: terminal (-s) and ``%TEMP%\rpw_dll_each.txt``."""
-    uid = 910
-    ws = _ws(box, uid)
-    box["mgr"].ensure(uid, ws)
-    py = Path(box["python"]).parent
-    system = ["kernel32", "vcruntime140", "ucrtbase", "advapi32", "bcrypt", "ws2_32", "crypt32", "user32", "gdi32",
-              "ole32", "oleaut32", "propsys", "uxtheme", "shell32"]
-    bundled = ["DLLs\\sqlite3.dll", "DLLs\\libffi-8.dll", "DLLs\\libcrypto-3.dll", "DLLs\\libssl-3.dll",
-               "python312.dll", "vcruntime140.dll"]
-    targets = [str(py / b) for b in bundled]
-    targets += [str(py / "DLLs" / "libffi-8.dll"), str(py / "DLLs" / "_ctypes.pyd")]
-    targets += system
-    code = chr(10).join([
-        "import sqlite3",
-        "con = sqlite3.connect(':memory:'); con.enable_load_extension(True)",
-        "for t in open(sys.argv[2], encoding='utf-8').read().splitlines():",
-        "    try:",
-        "        con.load_extension(t); note('LOADED ' + t)",
-        "    except Exception as e:",
-        "        note('RESULT ' + t + ' :: ' + str(e))",
-    ])
-    out = ws / "each.txt"
-    out.unlink(missing_ok=True)
-    listing = ws / "targets.txt"  # CreateProcessWithTokenW caps the command line at 1024 characters
-    listing.write_text(chr(10).join(targets), encoding="utf-8")
-    rc = _run_as(box, uid, [box["python"], "-E", "-s", "-c", _stage(code), str(out), str(listing)],
-                 env={}, memory=None, procs=None)
-    report = [f"[as worker account] exit={(rc or 0) & 0xFFFFFFFF:#010x} via {box.get('last_method')}",
-              out.read_text(encoding="utf-8") if out.exists() else "(no file written)"]
-    probe = chr(10).join([
-        "import sqlite3, sys",
-        "con = sqlite3.connect(':memory:'); con.enable_load_extension(True)",
-        "for t in sys.argv[1:]:",
-        "    try: con.load_extension(t); print('LOADED', t)",
-        "    except Exception as e: print('RESULT', t, '::', e)",
-    ])
-    r = subprocess.run([box["python"], "-E", "-s", "-c", probe] + targets, capture_output=True, text=True)
-    report += ["[as the admin running the test, same runtime copy] exit=%s" % r.returncode, r.stdout, r.stderr]
-    text = chr(10).join(report)
-    Path(os.environ.get("TEMP", r"C:\Windows\Temp"), "rpw_dll_each.txt").write_text(text, encoding="utf-8")
-    print(chr(10) + text)
-
-
-def _process_session(pid: int) -> int | None:
-    sid = ctypes.c_ulong()
-    k = ctypes.WinDLL("kernel32", use_last_error=True)
-    return int(sid.value) if k.ProcessIdToSessionId(ctypes.c_ulong(pid), ctypes.byref(sid)) else None
-
-
-def _launch_raw(box, uid: int, argv: list[str], desktop: str | None, use_job: bool) -> int | None:
-    """Logon, load the profile, start ``argv`` as the account with the given ``lpDesktop`` and optionally in a Job."""
-    name, pw = box["mgr"].credentials(uid)
-    token = winapi.logon(name, pw, winapi.LOGON32_LOGON_BATCH)
-    del pw
-    profile = winapi.load_profile(token, name)
-    started = job = None
-    try:
-        env = winapi.environment_block(token)
-        started = winapi.create_process_as(token, subprocess.list2cmdline(argv), cwd=r"C:\Windows\System32",
-                                           env=env, desktop=desktop)
-        if use_job:
-            job = winapi.Job()
-            job.assign(started.process_handle)
-        box["child_session"] = _process_session(started.pid)
-        winapi.resume_thread(started.thread_handle)
-        deadline = time.time() + 60
-        while winapi.process_exit_code(started.process_handle) is None and time.time() < deadline:
-            time.sleep(0.1)
-        return winapi.process_exit_code(started.process_handle)
-    finally:
-        if started is not None:
-            winapi.terminate_process(started.process_handle)
-            winapi.close_handle(started.process_handle)
-            winapi.close_handle(started.thread_handle)
-        if job is not None:
-            job.close()
-        profile.unload()
-        winapi.close_handle(token)
-
-
-def test_diagnose_worker_user32_by_desktop_and_job(box):
-    """Diagnostic, not a gate: does ``user32`` initialise for the worker account with a NULL, empty or explicit
-    desktop, with and without a Job Object? Output: terminal (-s) and ``%TEMP%\rpw_user32_diag.txt``."""
-    uid = 911
-    ws = _ws(box, uid)
-    box["mgr"].ensure(uid, ws)
-    out = ws / "u32.txt"
-    code = chr(10).join([
-        "import sqlite3",
-        "con = sqlite3.connect(':memory:'); con.enable_load_extension(True)",
-        "for t in ('user32', 'gdi32', 'ole32'):",
-        "    try: con.load_extension(t)",
-        "    except Exception as e: note(t + ' :: ' + str(e))",
-    ])
-    report = []
-    for desktop in (None, "", r"WinSta0\Default"):
-        for use_job in (False, True):
-            out.unlink(missing_ok=True)
-            rc = _launch_raw(box, uid, [box["python"], "-E", "-s", "-c", _stage(code), str(out)], desktop, use_job)
-            seen = out.read_text(encoding="utf-8").replace(chr(10), " / ") if out.exists() else "(no file written)"
-            report.append(f"[desktop={desktop!r} job={use_job}] exit={(rc or 0) & 0xFFFFFFFF:#010x}" + chr(10) + seen)
-    reg = subprocess.run(["reg", "query", r"HKLM\System\CurrentControlSet\Control\Session Manager\SubSystems",
-                          "/v", "Windows"], capture_output=True, text=True).stdout
-    report.append(f"[sessions] this test process={_process_session(os.getpid())} worker child={box.get('child_session')} "
-                  f"(a mismatch means the worker's user32 cannot attach to this session's desktop)")
-    report.append("[desktop heap registry]" + chr(10) + " ".join(reg.split()).split("SharedSection")[-1][:60])
-    me = subprocess.run(["whoami", "/priv"], capture_output=True, text=True).stdout
-    report.append("[gateway privileges incl. AssignPrimaryToken]" + chr(10) + chr(10).join(
-        ln for ln in me.splitlines() if "Assign" in ln or "Impersonate" in ln))
-    text = chr(10).join(report)
-    Path(os.environ.get("TEMP", r"C:\Windows\Temp"), "rpw_user32_diag.txt").write_text(text, encoding="utf-8")
-    print(chr(10) + text)
-
-
-def test_diagnose_credential_persistence(box):
-    """Diagnostic, not a gate (run as SYSTEM): where does the stored credential go missing? Writes it once, then reads
-    it from fresh logons with no rotation, after a pause, and after rotation, and lists the account's vault and DPAPI
-    folders. Output: terminal (-s) and ``rpw_persist_diag.txt`` in the TEMP folder."""
-    if _process_session(os.getpid()) != 0:
-        pytest.skip("run as SYSTEM (tools/run_elevated_tests_as_system.ps1)")
-    mgr, uid = box["mgr"], 912
-    ws = _ws(box, uid)
-    mgr.ensure(uid, ws)
-    value = "probe-" + secrets.token_hex(4)
-    env = {"RETIREMENT_SYSTEM_REMOTE_MODE": "1"}
-    out = ws / "cred.txt"
-    argv = [box["python"], "-E", "-s", "-c", _CRED_PROBE, str(_app_copy(box))]
-    profile = Path("C:/Users") / mgr.account_name(uid)
-    report = []
-
-    def step(label, mode):
-        out.unlink(missing_ok=True)
-        extra = [value] if mode == "set" else []
-        code = _run_as(box, uid, argv + [mode, str(out)] + extra, env=env)
-        got = out.read_text(encoding="utf-8") if out.exists() else "(no file)"
-        report.append(f"[{label}] exit={code} -> {got!r} (expected value {value!r})")
-
-    def tree(label):
-        lines = []
-        for sub in ("AppData/Local/Microsoft/Credentials", "AppData/Local/Microsoft/Vault",
-                    "AppData/Roaming/Microsoft/Credentials", "AppData/Roaming/Microsoft/Protect",
-                    "AppData/Roaming/Microsoft/Vault"):
-            p = profile / sub
-            names = ["(missing)"]
-            if p.exists():
-                names = [f"{q.relative_to(profile)} ({q.stat().st_size})" for q in sorted(p.rglob("*")) if q.is_file()]
-            lines.append(f"  {sub}: {names}")
-        report.append(f"[files {label}]" + chr(10) + chr(10).join(lines))
-
-    step("A set (and read back in the same process)", "set")
-    tree("after set")
-    step("B get from a fresh logon, no rotation", "get")
-    time.sleep(8)
-    step("C get after an 8 second pause", "get")
-    mgr.rotate(uid)
-    step("D get after rotation", "get")
-    tree("after rotation")
-    text = chr(10).join(report)
-    Path(os.environ.get("TEMP", r"C:\Windows\Temp"), "rpw_persist_diag.txt").write_text(text, encoding="utf-8")
-    print(chr(10) + text)
-
-
-@pytest.mark.parametrize("variant,uid", [("immediate", 913), ("pause10", 914), ("read_first", 915), ("immediate_again", 916)])
-def test_diagnose_credential_rotation_timing(box, variant, uid):
-    """Diagnostic, not a gate (run as SYSTEM): does the stored credential survive a rotation done straight after the
-    writing process exits, after a pause, or after an intervening read? Output: terminal (-s)."""
-    if _process_session(os.getpid()) != 0:
-        pytest.skip("run as SYSTEM (tools/run_elevated_tests_as_system.ps1)")
-    mgr = box["mgr"]
-    ws = _ws(box, uid)
-    mgr.ensure(uid, ws)
-    value = "probe-" + secrets.token_hex(4)
-    env = {"RETIREMENT_SYSTEM_REMOTE_MODE": "1"}
-    out = ws / "cred.txt"
-    argv = [box["python"], "-E", "-s", "-c", _CRED_PROBE, str(_app_copy(box))]
-
-    def run(mode):
-        out.unlink(missing_ok=True)
-        extra = [value] if mode == "set" else []
-        code = _run_as(box, uid, argv + [mode, str(out)] + extra, env=env)
-        return code, (out.read_text(encoding="utf-8") if out.exists() else "(no file)")
-
-    first = run("set")
-    if variant == "pause10":
-        time.sleep(10)
-    if variant == "read_first":
-        run("get")
-    mgr.rotate(uid)
-    after = run("get")
-    print(f"RESULT variant={variant} set={first} get_after_rotation={after} expected={value!r}")
-    assert after[1].endswith(value), f"{variant}: the credential did not survive rotation: {after}"
-
-
-@pytest.mark.parametrize("variant,uid", [("control_pause_no_rotation", 917), ("retry_a", 918), ("retry_b", 919),
-                                         ("retry_c", 920)])
-def test_diagnose_credential_after_rotation_retries(box, variant, uid):
-    """Diagnostic, not a gate (run as SYSTEM): is a missing credential after rotation permanent or only the first
-    logon after it? ``control_pause_no_rotation`` pauses without rotating, to separate persistence from rotation."""
-    if _process_session(os.getpid()) != 0:
-        pytest.skip("run as SYSTEM (tools/run_elevated_tests_as_system.ps1)")
-    mgr = box["mgr"]
-    ws = _ws(box, uid)
-    mgr.ensure(uid, ws)
-    value = "probe-" + secrets.token_hex(4)
-    env = {"RETIREMENT_SYSTEM_REMOTE_MODE": "1"}
-    out = ws / "cred.txt"
-    argv = [box["python"], "-E", "-s", "-c", _CRED_PROBE, str(_app_copy(box))]
-
-    def run(mode):
-        out.unlink(missing_ok=True)
-        extra = [value] if mode == "set" else []
-        _run_as(box, uid, argv + [mode, str(out)] + extra, env=env)
-        got = out.read_text(encoding="utf-8") if out.exists() else "(no file)"
-        return "OK" if got.endswith(value) else repr(got)
-
-    seq = [("set", run("set"))]
-    time.sleep(10)
-    if variant != "control_pause_no_rotation":
-        mgr.rotate(uid)
-    for label, gap in (("get1", 0), ("get2", 0), ("get3", 5), ("get4", 0)):
-        time.sleep(gap)
-        seq.append((label, run("get")))
-    print(f"RESULT variant={variant} " + " ".join(f"{k}={v}" for k, v in seq))
+    assert not profile.exists(), "the profile outlived the user"
+    assert not ws.exists(), "the workspace (and the secrets in its app.db) outlived the user"

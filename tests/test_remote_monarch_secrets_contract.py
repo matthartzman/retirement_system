@@ -10,6 +10,8 @@ import base64
 from pathlib import Path
 
 import keyring
+import sys
+
 import pytest
 from keyring.backend import KeyringBackend
 
@@ -170,17 +172,58 @@ def test_a_same_account_worker_never_uses_the_shared_credential_store(fake_keyri
     assert secrets_store.encryption_status()["store_active"] is False
 
 
-def test_a_dedicated_worker_uses_only_the_windows_credential_manager(fake_keyring, monkeypatch):
+_windows_only = pytest.mark.skipif(sys.platform != "win32", reason="machine-scope DPAPI is Windows only")
+
+
+@_windows_only
+def test_a_dedicated_worker_keeps_secrets_under_machine_dpapi_not_credential_manager(fake_keyring, monkeypatch):
+    """User-scope DPAPI (Credential Manager) did not reliably survive the account's password rotation in the elevated
+    runs, so a dedicated worker uses machine-scope DPAPI in its own app.db and never touches keyring."""
     monkeypatch.setenv(remote_mode.REMOTE_MODE_ENV, "1")
     monkeypatch.setenv(secrets_store.DEDICATED_ACCOUNT_ENV, "1")
-    other = _MemoryKeyring()  # e.g. a keyrings.alt file backend
-    fake_keyring(other)
-    with pytest.raises(secrets_store.SecretStoreUnavailable, match="Credential Manager"):
-        secrets_store.get_secret("k")
     vault = _winvault_like()
     fake_keyring(vault)
-    secrets_store.set_secret("k", "v")
-    assert secrets_store.get_secret("k") == "v" and vault.data == {(secrets_store.SERVICE_NAME, "k"): "v"}
+    secrets_store.set_secret("k", "s3cret-value")
+    assert secrets_store.get_secret("k") == "s3cret-value"
+    assert vault.data == {}, "a dedicated worker must not write to Windows Credential Manager"
+    assert secrets_store.list_secrets() == ["k"]
+    status = secrets_store.encryption_status()
+    assert status["store_active"] is True and status["encrypted"] is True and status["mode"] == "machine-dpapi"
+    secrets_store.delete_secret("k")
+    assert secrets_store.get_secret("k") == "" and secrets_store.list_secrets() == []
+
+
+@_windows_only
+def test_machine_dpapi_secrets_are_never_stored_in_plain_text_and_are_bound_to_their_name(fake_keyring, monkeypatch):
+    import base64
+    from src import dpapi_machine
+
+    monkeypatch.setenv(remote_mode.REMOTE_MODE_ENV, "1")
+    monkeypatch.setenv(secrets_store.DEDICATED_ACCOUNT_ENV, "1")
+    fake_keyring(_winvault_like())
+    secrets_store.set_secret("alpha", "plain-text-marker-123")
+    raw = secrets_store._machine_blobs()["alpha"]
+    assert "plain-text-marker-123" not in raw
+    blob = base64.b64decode(raw)
+    assert b"plain-text-marker-123" not in blob
+    with pytest.raises(dpapi_machine.DpapiUnavailable):  # another name's entropy cannot open this blob
+        dpapi_machine.unprotect(blob, secrets_store._entropy("beta"))
+    assert dpapi_machine.unprotect(blob, secrets_store._entropy("alpha")) == b"plain-text-marker-123"
+
+
+def test_a_dedicated_worker_without_dpapi_gets_a_clear_refusal(fake_keyring, monkeypatch):
+    from src import dpapi_machine
+
+    monkeypatch.setenv(remote_mode.REMOTE_MODE_ENV, "1")
+    monkeypatch.setenv(secrets_store.DEDICATED_ACCOUNT_ENV, "1")
+
+    def boom(*args, **kwargs):
+        raise dpapi_machine.DpapiUnavailable("CryptProtectData failed (Windows error 5)")
+
+    monkeypatch.setattr(dpapi_machine, "protect", boom)
+    with pytest.raises(secrets_store.SecretStoreUnavailable, match="failed to save"):
+        secrets_store.set_secret("k", "v")
+    assert secrets_store.encryption_status()["store_active"] is False
 
 
 def test_price_lookup_treats_a_refused_store_as_no_key(fake_keyring, monkeypatch):
