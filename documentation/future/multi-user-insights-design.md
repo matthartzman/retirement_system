@@ -354,3 +354,18 @@ allow-list (Phase 1) still applies behind the mount, and a regression test drive
 Tests: `tests/test_insights_worker_mount_functional.py` (19) and `tests/test_insights_worker_mount_allowlist_regression.py`
 (8). Not done here: gateway flag, redirect and poll policy (Phase 3); frontend prefix and planner link (Phase 4);
 two-user isolation (Phase 5).
+
+## 16. Phase 3 results (2026-11-17, branch `claude/insights-gateway-phase3`)
+
+Built, all in `src/gateway/`: the `--insights` flag (default off) which sets `RETIREMENT_SYSTEM_INSIGHTS=1` in every
+worker's environment and `GatewayConfig.insights`; for a signed-in user `/insights` (GET or HEAD) is a 302 to `/insights/`
+with the query kept, and `/insights/...` otherwise goes through the existing forwarding to that user's own worker (no new
+route type or lookup); `GET /api/auth/session` gains `insights` (true only when the flag is on and the session is active);
+one audit event `insights_opened` per session (on the first page load, details are the path only).
+
+Polling policy: a request carrying `X-Background-Poll: 1` to a `/insights/` path (flag on) is forwarded normally but does
+not call `store.touch_session` or `supervisor.touch`, so an idle tab times out at the normal idle limit; the 12 h cap is
+unchanged. The header is ignored on planner paths and when the flag is off. No change to login, TOTP, CSRF, throttling,
+the build queue or the supervisor lifecycle. Not done here: FI sends the header and the planner link (Phase 4).
+
+Tests: `tests/test_gateway_insights_proxy_functional.py` (14); the whole `test_gateway_*` set and the mount tests pass (325).

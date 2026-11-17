@@ -117,7 +117,8 @@ class WorkerProxy:
         except Exception:
             LOG.exception("could not start the worker for user %s", uid)
             return _error(req, "Your planner could not be started. Please try again shortly.", 503)
-        self.supervisor.touch(uid)
+        if not req.environ.get("gateway_background_poll"):  # a background poll must not keep the worker alive
+            self.supervisor.touch(uid)
         if not self.supervisor.port_owner_ok(ep):
             self.supervisor.mark_dead(uid, ep, "its port is no longer held by the worker process")
             return _error(req, "Your planner restarted. Please try again.", 503)

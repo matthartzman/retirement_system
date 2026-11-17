@@ -30,12 +30,12 @@ class RecordingUpstream:
 
 
 class Rig:
-    def __init__(self, tmp_path: Path, upstream="recording") -> None:
+    def __init__(self, tmp_path: Path, upstream="recording", insights=False) -> None:
         self.now = [1_000_000.0]
         self.store = GatewayStore(tmp_path / "gateway.db", scrypt_n=2**4)
         self.upstream = RecordingUpstream() if upstream == "recording" else None
         kwargs = {"upstream": self.upstream} if self.upstream is not None else {}
-        self.app = create_gateway_app(self.store, config=GatewayConfig(public_origins=(PUBLIC_ORIGIN,)),
+        self.app = create_gateway_app(self.store, config=GatewayConfig(public_origins=(PUBLIC_ORIGIN,), insights=insights),
                                       clock=lambda: self.now[0], **kwargs)
         self.funnel = GatewayListener(self.app, "funnel", FUNNEL_PORT)
         self.local = GatewayListener(self.app, "local", LOCAL_PORT)

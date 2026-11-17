@@ -44,6 +44,9 @@ LOG = logging.getLogger("retirement.gateway.server")
 # Turns on the worker's Monarch MCP connector (``src/monarch_connector.ENABLE_ENV``). Same-account workers still
 # cannot connect: they have no private credential store (``src/secrets_store._remote_mode_guard``).
 MONARCH_CONNECTOR_ENV = "RETIREMENT_SYSTEM_MONARCH_CONNECTOR"
+# Turns on Financial Insight in every worker (``src/remote_insights_mount.INSIGHTS_ENV``): the worker mounts it
+# under /insights/. Set by this flag only; a request cannot set it.
+INSIGHTS_ENV = "RETIREMENT_SYSTEM_INSIGHTS"
 CLIENT_SOCKET_TIMEOUT = 60.0
 # P7-O3 defaults. 256 connections: a Funnel (HTTP/2) page load can open ~130 at once and ten users at six each is 60; a proxied request
 # holds its thread while the worker answers. 30 s is a generous total for a request line, headers and a body.
@@ -224,6 +227,8 @@ def _parser() -> argparse.ArgumentParser:
                    "backups are enabled only when this is given. Kept outside the backup folder")
     w.add_argument("--monarch-connector", action="store_true",
                    help="let users connect Monarch's read-only MCP connector (needs --launcher per-account)")
+    w.add_argument("--insights", action="store_true",
+                   help="serve each user a view-only Financial Insight of their own active plan under /insights/")
     w.add_argument("--backup-hours", type=float, default=24.0)
     w.add_argument("--backup-keep", type=int, default=14)
     return p
@@ -259,6 +264,8 @@ class _Runtime:
                 extra_env[name] = os.environ[name]
         if args.monarch_connector:
             extra_env[MONARCH_CONNECTOR_ENV] = "1"  # src/monarch_connector.py ENABLE_ENV
+        if args.insights:
+            extra_env[INSIGHTS_ENV] = "1"
         cfg = SupervisorConfig(
             data_root=data_root, install_dir=Path(args.install_dir), python=args.python, provision=args.provision,
             idle_seconds=args.idle_minutes * 60, start_timeout=args.worker_start_timeout,
@@ -371,7 +378,7 @@ def run_gateway(argv: list[str] | None, stop_event: threading.Event) -> int:
         print(f"Cannot start the workers: {exc}", file=err)
         return 2
     kwargs = {"upstream": runtime.proxy, "lifecycle": runtime.supervisor, "health": runtime.health} if runtime else {}
-    app = create_gateway_app(store, config=GatewayConfig(public_origins=origins), **kwargs)
+    app = create_gateway_app(store, config=GatewayConfig(public_origins=origins, insights=bool(args.insights)), **kwargs)
     servers: dict[str, _GatewayHTTPServer] = {}
     for kind, port in (("funnel", args.funnel_port), ("local", args.local_port)):
         if port is None:

@@ -59,6 +59,8 @@ class GatewayConfig:
     # that passed the gate and is forwarded to a worker may carry a plan upload.
     max_body_bytes: int = 32 * 1024
     proxy_body_bytes: int = 64 * 1024 * 1024
+    # Financial Insight under /insights/ (the workers mount it when the supervisor sets their flag).
+    insights: bool = False
 
 
 class GatewayLifecycle(Protocol):
@@ -150,6 +152,15 @@ def is_admin_path(path: str) -> bool:
     return str(path).lower().startswith(ADMIN_PREFIXES)
 
 
+INSIGHTS_PREFIX = "/insights"
+BACKGROUND_POLL_HEADER = "X-Background-Poll"
+_AUDITED_SESSIONS_MAX = 10000
+
+
+def _is_insights_path(path: str) -> bool:
+    return path == INSIGHTS_PREFIX or path.startswith(INSIGHTS_PREFIX + "/")
+
+
 def _is_gateway_path(path: str) -> bool:
     return path == "/login" or path.startswith("/gateway/") or path.startswith("/api/auth/")
 
@@ -163,6 +174,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
     ip_throttle = KeyedThrottle(cfg.throttle_window, cfg.ip_free_failures, cfg.ip_max_delay)
     global_throttle = FailureThrottle(cfg.throttle_window, cfg.global_free_failures, cfg.global_max_delay)
     page_cache: dict[str, str] = {}
+    insights_audited: set[str] = set()
 
     def _notify(event: str, user_id: int, *args) -> str | None:
         """Run a lifecycle hook; a failure is logged and audited, never shown with details."""
@@ -254,7 +266,13 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
             if store.totp_status(sess["user_id"]) != "enrolled":
                 return _redirect("/gateway/enrol")
             return _unauthenticated(path)
-        store.touch_session(token, now)
+        # A Financial Insight page left open polls in the background; those requests must not keep the session
+        # (or the worker) alive, so an idle tab signs out like any other. Only /insights/ requests may say so.
+        background = (cfg.insights and _is_insights_path(path)
+                      and str(request.headers.get(BACKGROUND_POLL_HEADER, "") or "").strip() == "1")
+        env["gateway_background_poll"] = background
+        if not background:
+            store.touch_session(token, now)
         ident = Identity(sess["user_id"], sess["username"], sess["display_name"], sess["role"])
         env["gateway_identity"] = ident
         if sess["must_change"] and path not in MUST_CHANGE_ALLOWED:
@@ -268,7 +286,23 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         env["gateway_body_limit"] = cfg.proxy_body_bytes
         if env.get("gateway_preflight"):
             return None
+        if cfg.insights and _is_insights_path(path):
+            early = _insights_entry(path, method, token, now)
+            if early is not None:
+                return early
         return up.forward(request._get(), ident)  # the Phase 3 seam
+
+    def _insights_entry(path: str, method: str, token: str, now: float) -> Response | None:
+        """``/insights`` -> ``/insights/`` (relative URLs need the slash), and one audit event per session."""
+        if path == INSIGHTS_PREFIX and method in ("GET", "HEAD"):
+            query = str(request.query_string or "")
+            return _redirect(INSIGHTS_PREFIX + "/" + ("?" + query if query else ""))
+        if path == INSIGHTS_PREFIX + "/" and method == "GET" and token not in insights_audited:
+            if len(insights_audited) >= _AUDITED_SESSIONS_MAX:
+                insights_audited.clear()
+            insights_audited.add(token)
+            store.audit("insights_opened", now=now, actor=_actor(), details=path)  # the path only, never data
+        return None
 
     @app.after_request
     def _headers(resp: Response) -> Response:
@@ -459,7 +493,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
             return _json({"success": False, "authenticated": False}, 401)
         return _json({
             "success": True, "authenticated": sess["stage"] == "active", "stage": sess["stage"],
-            "csrf_token": sess["csrf_token"],
+            "csrf_token": sess["csrf_token"], "insights": bool(cfg.insights and sess["stage"] == "active"),
             "user": {"id": sess["user_id"], "username": sess["username"], "display_name": sess["display_name"],
                      "role": sess["role"], "must_change": bool(sess["must_change"])},
         })
