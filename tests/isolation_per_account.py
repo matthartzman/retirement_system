@@ -116,10 +116,32 @@ def force_rmtree(path: Path) -> None:
     shutil.rmtree(path, ignore_errors=True)
 
 
+DIAG_ENV = "RETIREMENT_ISOLATION_DIAG_DIR"
+
+
+def save_diagnostics(box: Path, data_root: Path, environ=None) -> None:
+    """Copy the gateway log and every worker's logs (small text files only) to ``RETIREMENT_ISOLATION_DIAG_DIR``
+    before teardown deletes them, so a SYSTEM run that fails can be read by the owner. Best effort."""
+    dest = (environ if environ is not None else os.environ).get(DIAG_ENV, "").strip()
+    if not dest:
+        return
+    out = Path(dest) / box.name
+    try:
+        out.mkdir(parents=True, exist_ok=True)
+        for src in [*box.glob("gateway/*.log"), *data_root.glob("users/*/local_state/logs/*.log")]:
+            if src.is_file() and src.stat().st_size < 2_000_000:
+                rel = src.relative_to(box)
+                target = out / "__".join(rel.parts)
+                shutil.copyfile(src, target)
+    except OSError:
+        pass
+
+
 def cleanup(box: Path, store, data_root: Path) -> None:
     """Remove the throwaway accounts the gateway created, their profiles and folders, then assert none are left."""
     from src.gateway import accounts  # noqa: PLC0415
 
+    save_diagnostics(box, data_root)
     mgr = accounts.WindowsAccountManager(store, data_root, prefix=PREFIX, rotate_days=0)
     for row in store.list_worker_accounts():
         try:

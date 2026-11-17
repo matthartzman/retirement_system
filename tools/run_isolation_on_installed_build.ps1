@@ -40,6 +40,11 @@ $setup = "C:\Windows\Temp\rpw_isolation_setup.txt"
 $log = "C:\Windows\Temp\rpw_isolation_installed.txt"
 $basetemp = "C:\Windows\Temp\rpw_isolation_basetemp"
 $script = "C:\Windows\Temp\rpw_isolation_run.cmd"
+# A readable copy of the logs (the Temp files are SYSTEM-owned): worker and gateway logs are saved here before
+# teardown deletes them, so a failed run can be diagnosed afterwards.
+$diag = "C:\Users\Public\rpw_isolation"
+Remove-Item $diag -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory $diag | Out-Null
 Remove-Item $log, $setup -ErrorAction SilentlyContinue
 Remove-Item $venv, $basetemp -Recurse -Force -ErrorAction SilentlyContinue
 
@@ -62,10 +67,11 @@ set RETIREMENT_ISOLATION_LAUNCHER=per-account
 set RETIREMENT_ISOLATION_INSTALL_DIR=@INSTALL@
 set RETIREMENT_ISOLATION_PYTHON=@PY@
 set PYTHONDONTWRITEBYTECODE=1
+set RETIREMENT_ISOLATION_DIAG_DIR=@DIAG@
 cd /d "@INSTALL@"
 "@VPY@" -m pytest -p no:cacheprovider --basetemp="@BASETEMP@" --timeout=900 @FILES@ @K@ -s -v -rfE > "@LOG@" 2>&1
 '@
-$body = $template.Replace("@INSTALL@", $InstallDir).Replace("@PY@", $py).Replace("@VPY@", $vpy).Replace("@BASETEMP@", $basetemp).Replace("@FILES@", $files).Replace("@K@", $k).Replace("@LOG@", $log)
+$body = $template.Replace("@INSTALL@", $InstallDir).Replace("@PY@", $py).Replace("@VPY@", $vpy).Replace("@BASETEMP@", $basetemp).Replace("@FILES@", $files).Replace("@K@", $k).Replace("@LOG@", $log).Replace("@DIAG@", $diag)
 $body = ($body -replace "`r?`n", "`r`n")
 Set-Content $script $body -Encoding ascii -NoNewline
 
@@ -77,6 +83,9 @@ while ((Get-ScheduledTask rpw_isolation_run).State -eq "Running") { Start-Sleep 
 schtasks /delete /tn rpw_isolation_run /f | Out-Null
 Remove-Item $script -ErrorAction SilentlyContinue
 
+Copy-Item $log, $setup $diag -ErrorAction SilentlyContinue
+icacls $diag /grant "*S-1-5-32-545:(OI)(CI)R" /T /C /Q | Out-Null
+"Readable copies of all logs: $diag"
 "--- pytest tail ($log) ---"
 Get-Content $log -Tail 40
 

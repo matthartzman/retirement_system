@@ -63,3 +63,18 @@ def test_owner_data_and_state_folders_are_refused():
         with pytest.raises(ipa.PerAccountConfigError):
             ipa.assert_throwaway(Path(p))
     ipa.assert_throwaway(Path("C:/rpwtest_abc123/data"))
+
+
+def test_diagnostics_are_copied_only_when_a_destination_is_set(tmp_path):
+    box = tmp_path / "rpwtest_ab"
+    (box / "gateway").mkdir(parents=True)
+    (box / "gateway" / "gateway.log").write_text("gw")
+    logs = box / "data" / "users" / "1" / "local_state" / "logs"
+    logs.mkdir(parents=True)
+    (logs / "worker_console.log").write_text("boom")
+    ipa.save_diagnostics(box, box / "data", environ={})
+    assert not (tmp_path / "diag").exists()
+    ipa.save_diagnostics(box, box / "data", environ={ipa.DIAG_ENV: str(tmp_path / "diag")})
+    saved = {p.name: p.read_text() for p in (tmp_path / "diag" / "rpwtest_ab").iterdir()}
+    assert saved["gateway__gateway.log"] == "gw"
+    assert saved["data__users__1__local_state__logs__worker_console.log"] == "boom"
