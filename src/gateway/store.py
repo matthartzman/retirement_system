@@ -20,7 +20,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Literal
+from typing import Callable, Iterator, Literal
 
 from src import access_core
 from src.access_core import LOCK_SECONDS, MAX_FAILED_BEFORE_LOCK  # noqa: F401 - part of this module's API
@@ -31,14 +31,25 @@ from .secret_box import SecretBox, default_secret_box
 
 LOG = logging.getLogger("retirement.gateway.store")
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 ROLES = ("admin", "user")
+# Phase 9: an account is a planner member or a low-privilege viewer of shared Financial Insight views. Anything but
+# exactly "member" is treated as a viewer everywhere (fail closed); the column's CHECK admits these two only.
+KINDS = ("member", "viewer")
+MEMBER = "member"
+VIEWER = "viewer"
 MIN_PASSWORD_LENGTH = 12
 MAX_PASSWORD_LENGTH = 1024
 USERNAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{1,31}$")
 IDLE_SECONDS = 15 * 60
 ABSOLUTE_SECONDS = 12 * 3600
+VIEWER_IDLE_SECONDS = 10 * 60  # Phase 9 (design 5.7, decision 8); --viewer-idle-minutes
+VIEWER_ABSOLUTE_SECONDS = 2 * 3600  # --viewer-max-hours
 PENDING_SECONDS = 5 * 60
+# Every account must enrol its authenticator within this long of creation or of an admin reset, or it is locked
+# until an admin issues a new temporary password (Phase 9, design 5.7; residual risk R-5 extended it to members).
+ENROL_DEADLINE_SECONDS = 72 * 3600
+MAX_VIEWERS_PER_SPONSOR = 5
 TOUCH_EVERY_SECONDS = 30
 AUDIT_DETAILS_MAX = 300
 # scrypt (n=2**15, r=8) holds ~32 MiB while it runs: only this many password hashes at once, and a caller
@@ -116,6 +127,47 @@ _MIGRATIONS: list[tuple[int, list[str]]] = [
         "ALTER TABLE users ADD COLUMN notes TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE users ADD COLUMN modules TEXT NOT NULL DEFAULT '{}'",
     ]),
+    # Phase 9 (multi-user-shared-view-design.md 5.2): viewer accounts, shares and the owner's access log, plus the
+    # enrol-by deadline for every account (5.7). Additive: every existing row becomes a member.
+    (4, [
+        """ALTER TABLE users ADD COLUMN kind TEXT NOT NULL DEFAULT 'member'
+            CHECK (kind IN ('member', 'viewer') AND (kind = 'member' OR role = 'user'))""",
+        "ALTER TABLE users ADD COLUMN sponsor_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE",
+        "ALTER TABLE users ADD COLUMN enrol_by REAL",
+        """CREATE TABLE shares (
+            id TEXT PRIMARY KEY CHECK (length(id) = 32),
+            owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            grantee_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            plan_id TEXT NOT NULL DEFAULT '',
+            title TEXT NOT NULL,
+            money_view TEXT NOT NULL CHECK (money_view IN ('percent', 'dollars')),
+            views TEXT NOT NULL,
+            scope_rev INTEGER NOT NULL DEFAULT 1,
+            state TEXT NOT NULL DEFAULT 'active' CHECK (state IN ('active', 'suspended', 'revoked')),
+            state_reason TEXT NOT NULL DEFAULT '',
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            expires_at REAL NOT NULL,
+            published_at REAL,
+            published_rev INTEGER,
+            snapshot_sha256 TEXT,
+            snapshot_bytes INTEGER,
+            CHECK (owner_user_id <> grantee_user_id)
+        )""",
+        "CREATE INDEX shares_grantee ON shares(grantee_user_id, state)",
+        "CREATE INDEX shares_owner ON shares(owner_user_id, state)",
+        """CREATE TABLE share_access_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            share_id TEXT NOT NULL REFERENCES shares(id) ON DELETE CASCADE,
+            viewer_user_id INTEGER,
+            at REAL NOT NULL
+        )""",
+        "CREATE INDEX share_access_log_share ON share_access_log(share_id, at)",
+        # An account that has not enrolled when this step runs gets a fresh deadline from the upgrade (R-5).
+        lambda conn, now: conn.execute(
+            "UPDATE users SET enrol_by=? WHERE id NOT IN (SELECT user_id FROM totp_secrets WHERE enrolled_at IS NOT NULL)",
+            (now + ENROL_DEADLINE_SECONDS,)),
+    ]),
 ]
 
 
@@ -155,7 +207,7 @@ class Actor:
 class LoginCheck:
     ok: bool
     user_id: int | None
-    reason: Literal["ok", "bad", "locked", "unknown", "disabled"]
+    reason: Literal["ok", "bad", "locked", "unknown", "disabled", "expired", "enrol_overdue"]
 
 
 class LastAdminError(ValueError):
@@ -173,8 +225,12 @@ def _token_hash(token: str) -> str:
 class GatewayStore:
     def __init__(self, path: Path | str, scrypt_n: int = access_core.DEFAULT_SCRYPT_N, *,
                  hash_concurrency: int = DEFAULT_HASH_CONCURRENCY, hash_wait: float = HASH_WAIT_SECONDS,
-                 secret_box: SecretBox | None = None) -> None:
+                 secret_box: SecretBox | None = None, clock: Callable[[], float] = time.time) -> None:
         self._box = secret_box if secret_box is not None else default_secret_box()
+        self._clock = clock  # only for migrations; every other method takes ``now`` from its caller
+        # Viewer session limits (Phase 9); the gateway sets them from --viewer-idle-minutes and --viewer-max-hours.
+        self.viewer_idle_seconds = float(VIEWER_IDLE_SECONDS)
+        self.viewer_absolute_seconds = float(VIEWER_ABSOLUTE_SECONDS)
         self.path = Path(path)
         self._n = int(scrypt_n)
         self._hash_slots = threading.BoundedSemaphore(max(1, int(hash_concurrency)))
@@ -236,7 +292,10 @@ class GatewayStore:
                 if target <= version:
                     continue
                 for sql in statements:
-                    conn.execute(sql)
+                    if callable(sql):
+                        sql(conn, float(self._clock()))
+                    else:
+                        conn.execute(sql)
                 conn.execute(f"PRAGMA user_version = {int(target)}")
             # Version 3 gained ``modules`` after it was first written; a database already at 3 gets it here.
             if "modules" not in {r[1] for r in conn.execute("PRAGMA table_info(users)")}:
@@ -293,14 +352,60 @@ class GatewayStore:
             with self._tx() as conn:
                 cur = conn.execute(
                     "INSERT INTO users(username, display_name, role, pw_hash, pw_salt, scrypt_n, must_change, created_at,"
-                    " updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
-                    (name, display, role, digest, salt, self._n, int(bool(must_change)), now, now))
+                    " updated_at, enrol_by) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    (name, display, role, digest, salt, self._n, int(bool(must_change)), now, now,
+                     now + ENROL_DEADLINE_SECONDS))
                 uid = int(cur.lastrowid)
                 self.audit(event, now=now, actor=actor, target_user_id=uid, target_username=name, details=f"role {role}",
                            conn=conn)
         except sqlite3.IntegrityError:
             raise ValueError("that username is already in use") from None
         return uid
+
+    def create_viewer(self, username: str, display_name: str, password: str, *, sponsor_user_id: int, now: float,
+                      actor: Actor, expires_at: float | None = None, must_change: bool = True,
+                      max_per_sponsor: int = MAX_VIEWERS_PER_SPONSOR) -> int:
+        """A viewer account (Phase 9): role ``user``, kind ``viewer``, sponsored by one usable member.
+
+        It never runs the ``user_created`` lifecycle hook (no workspace, no Windows account, no worker)."""
+        name = self._norm_username(username)
+        display = (display_name or "").strip()[:80] or name
+        self.check_password(password)
+        if expires_at is not None:
+            self.check_profile(expires_at=expires_at)
+        salt = access_core.new_salt()
+        digest = self._hash(password, salt, self._n)
+        try:
+            with self._tx() as conn:
+                sponsor = conn.execute("SELECT id, kind, disabled, expires_at FROM users WHERE id=?",
+                                       (int(sponsor_user_id),)).fetchone()
+                if sponsor is None or sponsor["kind"] != MEMBER or sponsor["disabled"] \
+                        or _expired(sponsor["expires_at"], now):
+                    raise ValueError("the sponsor must be an active member")
+                count = int(conn.execute("SELECT COUNT(*) FROM users WHERE sponsor_user_id=?",
+                                         (sponsor["id"],)).fetchone()[0])
+                if max_per_sponsor and count >= int(max_per_sponsor):
+                    raise ValueError(f"a member can sponsor at most {int(max_per_sponsor)} viewers")
+                cur = conn.execute(
+                    "INSERT INTO users(username, display_name, role, kind, sponsor_user_id, pw_hash, pw_salt, scrypt_n,"
+                    " must_change, created_at, updated_at, expires_at, enrol_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (name, display, "user", VIEWER, sponsor["id"], digest, salt, self._n, int(bool(must_change)), now,
+                     now, expires_at, now + ENROL_DEADLINE_SECONDS))
+                uid = int(cur.lastrowid)
+                self.audit("viewer_created", now=now, actor=actor, target_user_id=uid, target_username=name,
+                           details=f"sponsor {int(sponsor['id'])}", conn=conn)
+        except sqlite3.IntegrityError:
+            raise ValueError("that username is already in use") from None
+        return uid
+
+    def is_member(self, user_id: int) -> bool:
+        """True only for an existing account whose kind is exactly 'member' (unknown ids are not members)."""
+        rows = self._read("SELECT kind FROM users WHERE id=?", (int(user_id),))
+        return bool(rows) and rows[0]["kind"] == MEMBER
+
+    def member_ids(self) -> set[int]:
+        """Accounts that have a workspace: per-workspace jobs (backups, the supervisor's known ids) use this."""
+        return {int(r[0]) for r in self._read("SELECT id FROM users WHERE kind='member'")}
 
     def get_user(self, user_id: int) -> dict | None:
         rows = self._read("SELECT * FROM users WHERE id=?", (int(user_id),))
@@ -312,9 +417,12 @@ class GatewayStore:
 
     def list_users(self, now: float) -> list[dict]:
         rows = self._read(
-            "SELECT u.id, u.username, u.display_name, u.role, u.disabled, u.locked_until, u.must_change, u.last_login_at,"
-            " u.created_at, u.expires_at, u.notes, u.modules, t.enrolled_at, t.user_id AS has_totp FROM users u LEFT JOIN totp_secrets t ON t.user_id = u.id"
-            " ORDER BY u.username")
+            "SELECT u.id, u.username, u.display_name, u.role, u.kind, u.sponsor_user_id, u.enrol_by, u.disabled,"
+            " u.locked_until, u.must_change, u.last_login_at, u.created_at, u.expires_at, u.notes, u.modules,"
+            " t.enrolled_at, t.user_id AS has_totp,"
+            " (SELECT COUNT(*) FROM shares s WHERE s.owner_user_id = u.id) AS shares_owned,"
+            " (SELECT COUNT(*) FROM shares s WHERE s.grantee_user_id = u.id) AS shares_received"
+            " FROM users u LEFT JOIN totp_secrets t ON t.user_id = u.id ORDER BY u.username")
         return [{
             "id": r["id"], "username": r["username"], "display_name": r["display_name"], "role": r["role"],
             "disabled": bool(r["disabled"]), "locked": r["locked_until"] > now, "must_change": bool(r["must_change"]),
@@ -322,6 +430,9 @@ class GatewayStore:
             "last_login_at": r["last_login_at"], "created_at": r["created_at"],
             "expires_at": r["expires_at"], "expired": _expired(r["expires_at"], now), "notes": r["notes"],
             "modules": modules_of(r["modules"]),
+            "kind": r["kind"], "sponsor_user_id": r["sponsor_user_id"],
+            "enrol_overdue": r["enrolled_at"] is None and r["enrol_by"] is not None and now >= r["enrol_by"],
+            "shares_owned": int(r["shares_owned"]), "shares_received": int(r["shares_received"]),
         } for r in rows]
 
     def count_active_admins(self, conn: sqlite3.Connection | None = None, now: float | None = None) -> int:
@@ -350,6 +461,8 @@ class GatewayStore:
             row = self._locked_user(conn, user_id)
             if row["role"] == role:
                 return
+            if row["kind"] != MEMBER:
+                raise ValueError("a viewer's role cannot be changed")
             if role != "admin":
                 self._guard_last_admin(conn, row, now)
             conn.execute("UPDATE users SET role=?, updated_at=? WHERE id=?", (role, now, row["id"]))
@@ -373,6 +486,10 @@ class GatewayStore:
         with self._tx() as conn:
             row = self._locked_user(conn, user_id)
             self._guard_last_admin(conn, row, now)
+            # The sponsored viewers go with their sponsor (the foreign key cascades); each is audited by id.
+            for v in conn.execute("SELECT id, username FROM users WHERE sponsor_user_id=?", (row["id"],)).fetchall():
+                self.audit("viewer deleted", now=now, actor=actor, target_user_id=v["id"], target_username=v["username"],
+                           details=f"sponsor {int(row['id'])} deleted", conn=conn)
             conn.execute("DELETE FROM users WHERE id=?", (row["id"],))
             self.audit("user deleted", now=now, actor=actor, target_user_id=row["id"], target_username=row["username"],
                        conn=conn)
@@ -461,8 +578,25 @@ class GatewayStore:
             row = self._locked_user(conn, user_id)
             conn.execute("UPDATE users SET pw_hash=?, pw_salt=?, scrypt_n=?, must_change=?, failed_count=0, locked_until=0,"
                          " updated_at=? WHERE id=?", (digest, salt, self._n, int(bool(must_change)), now, row["id"]))
+            if must_change:
+                # A temporary password (an admin or CLI reset) starts a fresh enrol-by deadline, and a viewer's
+                # shares wait for each owner to enable them again (design 5.7, C10 and C11).
+                conn.execute("UPDATE users SET enrol_by=? WHERE id=?", (now + ENROL_DEADLINE_SECONDS, row["id"]))
+                self._suspend_received_shares(conn, row, now, actor)
             self._end_user_sessions(conn, row["id"], except_hash=_token_hash(keep_session) if keep_session else None)
             self.audit(event, now=now, actor=actor, target_user_id=row["id"], target_username=row["username"], conn=conn)
+
+    def _suspend_received_shares(self, conn: sqlite3.Connection, row: sqlite3.Row, now: float, actor: Actor) -> None:
+        """An admin reset of a viewer's credentials suspends every active share granted to them (C11)."""
+        if row["kind"] == MEMBER:
+            return
+        ids = [r["id"] for r in conn.execute("SELECT id FROM shares WHERE grantee_user_id=? AND state='active'",
+                                             (row["id"],)).fetchall()]
+        for sid in ids:
+            conn.execute("UPDATE shares SET state='suspended', state_reason='credentials reset', updated_at=? WHERE id=?",
+                         (now, sid))
+            self.audit("share_suspended", now=now, actor=actor, target_user_id=row["id"],
+                       target_username=row["username"], details=f"share {sid} reason credentials reset", conn=conn)
 
     def unlock(self, user_id: int, *, now: float, actor: Actor, event: str | None = "user unlocked") -> None:
         with self._tx() as conn:
@@ -491,6 +625,8 @@ class GatewayStore:
             return LoginCheck(False, user["id"], "disabled")
         if matches and _expired(user["expires_at"], now):
             return LoginCheck(False, user["id"], "expired")  # same generic error as any failure; not a lockout count
+        if matches and self._enrol_overdue(user, now):
+            return LoginCheck(False, user["id"], "enrol_overdue")  # generic error; an admin issues a new password
         if matches:
             # Not cleared here: wrong second-factor codes keep counting until the sign-in completes
             # (``touch_login``), so re-entering the password cannot reset an attacker's guess budget.
@@ -523,6 +659,16 @@ class GatewayStore:
     def touch_login(self, user_id: int, now: float) -> None:
         with self._tx() as conn:
             conn.execute("UPDATE users SET last_login_at=?, failed_count=0 WHERE id=?", (now, int(user_id)))
+
+    def _enrol_overdue(self, user: dict | sqlite3.Row, now: float) -> bool:
+        """Not enrolled, and the enrol-by deadline has passed (C10)."""
+        if user["enrol_by"] is None or now < user["enrol_by"]:
+            return False
+        return self.totp_status(int(user["id"])) != "enrolled"
+
+    def enrol_overdue(self, user_id: int, now: float) -> bool:
+        user = self.get_user(user_id)
+        return bool(user) and self._enrol_overdue(user, now)
 
     # ---- TOTP ----
     def _totp_row(self, user_id: int) -> sqlite3.Row | None:
@@ -602,6 +748,8 @@ class GatewayStore:
             return True
 
     def confirm_totp(self, user_id: int, code: str, now: float) -> bool:
+        if self.enrol_overdue(user_id, now):  # a pending session opened just before the deadline cannot finish after it
+            return False
         return self._use_code(user_id, code, now, enrolled=False)
 
     def verify_totp(self, user_id: int, code: str, now: float) -> bool:
@@ -611,15 +759,24 @@ class GatewayStore:
         with self._tx() as conn:
             row = self._locked_user(conn, user_id)
             conn.execute("DELETE FROM totp_secrets WHERE user_id=?", (row["id"],))
+            conn.execute("UPDATE users SET enrol_by=? WHERE id=?", (now + ENROL_DEADLINE_SECONDS, row["id"]))
+            self._suspend_received_shares(conn, row, now, actor)
             self._end_user_sessions(conn, row["id"])
             if event:
                 self.audit(event, now=now, actor=actor, target_user_id=row["id"], target_username=row["username"], conn=conn)
 
     # ---- sessions ----
+    def _session_life(self, conn: sqlite3.Connection, user_id: int, stage: str) -> float:
+        """Absolute lifetime of a new session: pending 5 minutes; active by the account's kind (viewers shorter)."""
+        if stage == "pending":
+            return PENDING_SECONDS
+        row = conn.execute("SELECT kind FROM users WHERE id=?", (int(user_id),)).fetchone()
+        return ABSOLUTE_SECONDS if row is not None and row["kind"] == MEMBER else self.viewer_absolute_seconds
+
     def create_session(self, user_id: int, stage: str, now: float, client_ip: str) -> tuple[str, str]:
         token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
-        life = PENDING_SECONDS if stage == "pending" else ABSOLUTE_SECONDS
         with self._tx() as conn:
+            life = self._session_life(conn, user_id, stage)
             conn.execute("DELETE FROM sessions WHERE expires_at <= ? OR (stage='active' AND last_seen <= ?)",
                          (now, now - IDLE_SECONDS))
             conn.execute("INSERT INTO sessions(token_hash, user_id, stage, csrf_token, created_at, last_seen, expires_at,"
@@ -631,7 +788,8 @@ class GatewayStore:
         if not token:
             return None
         h = _token_hash(token)
-        rows = self._read("SELECT s.*, u.username, u.display_name, u.role, u.must_change, u.disabled, u.expires_at AS user_expires_at FROM sessions s"
+        rows = self._read("SELECT s.*, u.username, u.display_name, u.role, u.kind, u.sponsor_user_id, u.must_change,"
+                          " u.disabled, u.expires_at AS user_expires_at FROM sessions s"
                           " JOIN users u ON u.id = s.user_id WHERE s.token_hash=?", (h,))
         if not rows:
             return None
@@ -639,7 +797,8 @@ class GatewayStore:
         if _expired(sess.pop("user_expires_at"), now):
             self.end_session(token)
             return None
-        idle = sess["stage"] == "active" and now - sess["last_seen"] >= IDLE_SECONDS
+        idle_limit = IDLE_SECONDS if sess["kind"] == MEMBER else self.viewer_idle_seconds
+        idle = sess["stage"] == "active" and now - sess["last_seen"] >= idle_limit
         if now >= sess["expires_at"] or idle or sess["disabled"]:
             self.end_session(token)
             return None
@@ -653,11 +812,11 @@ class GatewayStore:
     def rotate_session(self, token: str, stage: str, now: float) -> tuple[str, str]:
         """Replace a session with a fresh cookie value and CSRF token (used when the stage changes)."""
         new_token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
-        life = PENDING_SECONDS if stage == "pending" else ABSOLUTE_SECONDS
         with self._tx() as conn:
             row = conn.execute("SELECT * FROM sessions WHERE token_hash=?", (_token_hash(token),)).fetchone()
             if row is None:
                 raise LookupError("no such session")
+            life = self._session_life(conn, row["user_id"], stage)
             conn.execute("DELETE FROM sessions WHERE token_hash=?", (row["token_hash"],))
             conn.execute("INSERT INTO sessions(token_hash, user_id, stage, csrf_token, created_at, last_seen, expires_at,"
                          " client_ip) VALUES (?,?,?,?,?,?,?,?)",

@@ -99,8 +99,12 @@ class InsightsScheduler:
         clock: Callable[[], float] = time.time,
         run_timeout: float = RUN_TIMEOUT_SECONDS,
         check_seconds: float = CHECK_SECONDS,
+        after_update: Callable[[int, Endpoint], None] | None = None,
     ) -> None:
         self._sup = supervisor
+        # Phase 9 (decision 10): republish the user's shared views after a successful update, with the worker this
+        # pass already holds and before it is released. A failure here never changes the update's own outcome.
+        self._after_update = after_update
         self._list_users = list_users
         self._session_count = session_count
         self._cutoff = cutoff
@@ -120,9 +124,13 @@ class InsightsScheduler:
 
     # ---- selection (pure apart from the injected user list) ----
     def eligible_users(self, now: float) -> list[int]:
-        """Active, non-disabled users (every one of them has FI when the gateway runs with --insights)."""
+        """Active, non-disabled members (every one of them has FI when the gateway runs with --insights).
+
+        Members only, by a positive test (Phase 9, C34): a viewer, or a row without a kind, is never offered to
+        ``_update_user``, which would start a worker for it."""
         users = self._list_users(now)
-        return sorted(int(u["id"]) for u in users if not u.get("disabled") and not u.get("expired"))
+        return sorted(int(u["id"]) for u in users
+                      if u.get("kind") == "member" and not u.get("disabled") and not u.get("expired"))
 
     # ---- one user ----
     @staticmethod
@@ -147,7 +155,13 @@ class InsightsScheduler:
             log.warning("could not start the worker for user %s", uid, exc_info=True)
             return "failed", "worker_start_failed"
         try:
-            return self._run_on_worker(ep, now)
+            outcome = self._run_on_worker(ep, now)
+            if outcome[0] == "updated" and self._after_update is not None:
+                try:
+                    self._after_update(uid, ep)
+                except Exception:  # noqa: BLE001
+                    log.warning("refreshing the shared views of user %s failed", uid, exc_info=True)
+            return outcome
         finally:
             if not was_running and self._session_count(uid, self._clock()) == 0:
                 try:

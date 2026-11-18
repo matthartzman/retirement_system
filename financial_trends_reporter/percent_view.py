@@ -150,6 +150,20 @@ def strip_detail(route: str, payload: Any) -> Any:
     return payload
 
 
+PERCENT_MARK = {"mode": "percent", "basis": "net_worth_today"}
+
+
+def percent_body(route: str, payload: Any, k: float) -> Any:
+    """The percent view of one ``/api/`` body: ``strip_detail`` then ``scale_payload``, and a dict is marked.
+
+    The one transform both the desktop remote listener's after-request hook and the shared-view snapshot use, so
+    the two cannot drift apart. ``payload`` is never mutated."""
+    scaled = scale_payload(strip_detail(route, payload), k)
+    if isinstance(scaled, dict):
+        scaled["money_view"] = dict(PERCENT_MARK)
+    return scaled
+
+
 def find_money_leaks(obj: Any, threshold: float = 50.0) -> list[str]:
     """Paths of numbers outside the allowlist with ``abs(v) > threshold``, and of ``$`` strings."""
     leaks: list[str] = []

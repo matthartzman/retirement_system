@@ -9,7 +9,7 @@ import pytest
 
 from src.gateway import store as gstore
 from src.gateway.store import Actor, GatewayStore, LastAdminError
-from tests.gateway_rig import CLI, PW, Rig
+from tests.gateway_rig import CLI, PW, Rig, build_old_gateway_db
 from tests.test_gateway_admin_console_functional import API, Recorder, rig  # noqa: F401 - the shared fixture
 
 DAY = 86400.0
@@ -26,21 +26,12 @@ def _user(store, name="ann", role="user", now=1000.0):
     return store.create_user(name, name.title(), role, PW, now=now, actor=CLI, must_change=False)
 
 
-def test_schema_is_version_three_and_an_old_database_migrates_without_losing_rows(tmp_path):
+def test_an_old_database_migrates_without_losing_rows(tmp_path):
     path = tmp_path / "gateway.db"
-    s = GatewayStore(path, scrypt_n=2**4)
-    uid = _user(s)
-    import sqlite3
-    con = sqlite3.connect(path)
-    con.execute("ALTER TABLE users DROP COLUMN expires_at")
-    con.execute("ALTER TABLE users DROP COLUMN notes")
-    con.execute("ALTER TABLE users DROP COLUMN modules")
-    con.execute("PRAGMA user_version = 2")
-    con.commit()
-    con.close()
+    build_old_gateway_db(path, 2)
     s2 = GatewayStore(path, scrypt_n=2**4)
-    assert s2.schema_version() == gstore.SCHEMA_VERSION == 3
-    row = s2.get_user(uid)
+    assert s2.schema_version() == gstore.SCHEMA_VERSION
+    row = s2.find_user("ann")
     assert row["username"] == "ann" and row["expires_at"] is None and row["notes"] == ""
 
 
@@ -282,14 +273,14 @@ def test_modules_validation(store):
 def test_a_database_already_at_version_three_without_modules_gains_the_column(tmp_path):
     import sqlite3
     path = tmp_path / "gateway.db"
-    s = GatewayStore(path, scrypt_n=2**4)
-    uid = _user(s)
+    build_old_gateway_db(path, 3)  # version 3 as first written: no modules column
     con = sqlite3.connect(path)
     con.execute("ALTER TABLE users DROP COLUMN modules")
     con.commit()
     con.close()
     s2 = GatewayStore(path, scrypt_n=2**4)
-    assert s2.schema_version() == 3
+    assert s2.schema_version() == gstore.SCHEMA_VERSION  # later steps (Phase 9's step 4) run as well
+    uid = s2.find_user("ann")["id"]
     assert next(u for u in s2.list_users(0.0) if u["id"] == uid)["modules"]["trends"] is False
 
 

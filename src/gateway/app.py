@@ -24,8 +24,12 @@ from src.http_runtime.wsgi_facade import Flask, HeaderMap, LocalRequest, Respons
 
 from . import totp
 from .admin_console import register_admin_console
-from .store import Actor, GatewayStore, HashBusyError, LastAdminError
+from .share_routes import register_share_routes
+from .share_store import ShareSettings, ShareStore
+from .store import MEMBER, Actor, GatewayStore, HashBusyError, LastAdminError
 from .upstream import Identity, PlaceholderUpstream, Upstream
+from .viewer_api import register_viewer_api
+from .viewer_routes import NOT_AVAILABLE_BODY, STATUS_RULE, VIEWER_HOME, viewer_may
 
 LOG = logging.getLogger("retirement.gateway")
 COOKIE_NAME = "__Host-rp_session"
@@ -68,6 +72,14 @@ class GatewayConfig:
     insights: bool = False
     # HH:MM server-local cutoff of the scheduled per-user FI update (src/gateway/insights_schedule.py); "" = off.
     insights_schedule: str = ""
+    # Phase 9: read-only shared views for viewer accounts (multi-user-shared-view-design.md). Off: every owner and
+    # viewer route answers 404 and nothing is published; stored rows and bodies are kept.
+    shared_views: bool = False
+    share_max_mb: int = 8
+    share_default_days: int = 90
+    share_max_days: int = 365
+    max_shares_per_owner: int = 10
+    max_viewers_per_sponsor: int = 5
 
 
 class GatewayLifecycle(Protocol):
@@ -174,14 +186,25 @@ def _is_api(path: str) -> bool:
 
 
 def _is_gateway_path(path: str) -> bool:
-    return path == "/login" or path.startswith("/gateway/") or path.startswith("/api/auth/")
+    """Paths the gateway answers itself (never forwarded); they get no-store, the CSP and the frame and referrer
+    headers. Phase 9 adds the viewer and owner share APIs (C25)."""
+    return (path == "/login" or path.startswith(("/gateway/", "/api/auth/", "/api/viewer/", "/api/share/"))
+            or path in ("/api/viewer", "/api/share"))
 
 
 def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = None, upstream: Upstream | None = None,
                        clock: Callable[[], float] = time.time, lifecycle: GatewayLifecycle | None = None,
-                       health: Callable[[], dict] | None = None) -> Flask:
+                       health: Callable[[], dict] | None = None, shares: ShareStore | None = None,
+                       publisher=None) -> Flask:  # noqa: ANN001 - src/gateway/share_publish.SharePublisher
     cfg = config or GatewayConfig()
+    if cfg.shared_views and not cfg.insights:
+        raise ValueError("shared views need Financial Insight (--insights)")
     up: Upstream = upstream or PlaceholderUpstream()
+    if shares is None:
+        shares = ShareStore(store, None, ShareSettings(max_shares_per_owner=cfg.max_shares_per_owner,
+                                                       default_days=cfg.share_default_days,
+                                                       max_days=cfg.share_max_days,
+                                                       max_bytes=cfg.share_max_mb * 1024 * 1024))
     app = Flask("retirement_gateway")
     signin = SignInThrottle(window=cfg.throttle_window, ip_free=cfg.ip_free_failures, ip_max_delay=cfg.ip_max_delay,
                             user_free=cfg.user_free_failures, user_max_delay=cfg.user_max_delay,
@@ -189,9 +212,14 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
     page_cache: dict[str, str] = {}
     insights_audited: set[str] = set()
 
-    def _notify(event: str, user_id: int, *args) -> str | None:
-        """Run a lifecycle hook; a failure is logged and audited, never shown with details."""
+    def _notify(event: str, user_id: int, *args, member: bool | None = None) -> str | None:
+        """Run a lifecycle hook; a failure is logged and audited, never shown with details.
+
+        Only members have a workspace and a worker: the hooks never run for a viewer (Phase 9, C3). ``member`` is
+        given by callers that act after the row is gone (delete)."""
         if lifecycle is None:
+            return None
+        if not (store.is_member(user_id) if member is None else member):
             return None
         try:
             getattr(lifecycle, event)(user_id, *args)
@@ -279,22 +307,40 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
             if store.totp_status(sess["user_id"]) != "enrolled":
                 return _redirect("/gateway/enrol")
             return _unauthenticated(path)
+        # Phase 9: anything but exactly "member" is a viewer (fail closed). A viewer's request is matched after
+        # routing, on the registered rule, against the viewer table.
+        kind = sess.get("kind")
+        member = kind == MEMBER
+        rule = None
+        if not member:
+            route, _kwargs = app._match(path, method)
+            rule = route.rule if route is not None else None
         # A Financial Insight page left open polls in the background; those requests must not keep the session
-        # (or the worker) alive, so an idle tab signs out like any other. Only /insights/ requests may say so.
-        background = (cfg.insights and _is_insights_path(path)
-                      and str(request.headers.get(BACKGROUND_POLL_HEADER, "") or "").strip() == "1")
+        # (or the worker) alive, so an idle tab signs out like any other. Only /insights/ requests (and a viewer's
+        # status poll) may say so.
+        background = ((cfg.insights and _is_insights_path(path)) or (not member and rule == STATUS_RULE)) \
+            and str(request.headers.get(BACKGROUND_POLL_HEADER, "") or "").strip() == "1"
         env["gateway_background_poll"] = background
         if not background:
             store.touch_session(token, now)
-        ident = Identity(sess["user_id"], sess["username"], sess["display_name"], sess["role"])
+        ident = Identity(sess["user_id"], sess["username"], sess["display_name"], sess["role"],
+                         kind if isinstance(kind, str) else "")
         env["gateway_identity"] = ident
         if sess["must_change"] and path not in MUST_CHANGE_ALLOWED:
             if _is_api(path):
                 return _json({"success": False, "must_change": True, "error": "choose a new password first"}, 409)
             return _redirect("/gateway/account")
+        if not member:
+            # The viewer branch (C1): before the admin check, the gateway-path return and the forward, so nothing
+            # below it, and no worker, ever sees a viewer's request. Body limit stays at the gateway's 32 KiB.
+            return _viewer_gate(path, method, rule)
         if is_admin_path(path) and not ident.is_admin:
             return _refused("admins only")
         if _is_gateway_path(path):
+            if app._match(path, method)[0] is None:
+                # Answered here rather than by the router, so an unknown gateway path gets the gateway's headers
+                # (no-store, the CSP, frame and referrer) like every other gateway response (C25).
+                return _refused("Not found", 404)
             return None
         env["gateway_body_limit"] = cfg.proxy_body_bytes
         if env.get("gateway_preflight"):
@@ -304,6 +350,14 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
             if early is not None:
                 return early
         return up.forward(request._get(), ident)  # the Phase 3 seam
+
+    def _viewer_gate(path: str, method: str, rule: str | None) -> Response | None:
+        request.environ["gateway_viewer"] = True  # every response to a viewer gets the protective headers (C25)
+        if viewer_may(method, rule):
+            return None
+        if _is_api(path):
+            return Response(NOT_AVAILABLE_BODY, status=404, content_type="application/json")
+        return _redirect(VIEWER_HOME)
 
     def _insights_entry(path: str, method: str, token: str, now: float) -> Response | None:
         """``/insights`` -> ``/insights/`` (relative URLs need the slash), and one audit event per session."""
@@ -322,7 +376,8 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         if request.environ.get("listener") == "funnel":
             resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
-        if _is_gateway_path(request.path) or resp.status_code in (302, 401, 403, 409, 421, 429):
+        if (_is_gateway_path(request.path) or request.environ.get("gateway_viewer")
+                or resp.status_code in (302, 401, 403, 409, 421, 429)):
             resp.headers["Cache-Control"] = "no-store"
             resp.headers["X-Frame-Options"] = "DENY"
             resp.headers["Referrer-Policy"] = "no-referrer"
@@ -495,9 +550,13 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         sess = request.environ["session"]
         store.end_session(request.environ["session_token"])
         store.audit("logout", now=clock(), actor=_actor(sess["user_id"], sess["username"]))
-        _notify("signed_out", sess["user_id"], store.count_user_sessions(sess["user_id"], clock()))
+        member = sess.get("kind") == MEMBER
+        if member:
+            _notify("signed_out", sess["user_id"], store.count_user_sessions(sess["user_id"], clock()), member=True)
         resp = _json({"success": True, "logged_out": True})
         resp.headers["Set-Cookie"] = _clear_cookie()
+        if not member:
+            resp.headers["Clear-Site-Data"] = '"cache"'  # a shared computer keeps no copy of a record (C26)
         return resp
 
     @app.route("/api/auth/session", methods=["GET"])
@@ -505,9 +564,12 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         sess = request.environ.get("session")
         if not sess:
             return _json({"success": False, "authenticated": False}, 401)
+        member = sess.get("kind") == MEMBER
         return _json({
             "success": True, "authenticated": sess["stage"] == "active", "stage": sess["stage"],
-            "csrf_token": sess["csrf_token"], "insights": bool(cfg.insights and sess["stage"] == "active"),
+            "csrf_token": sess["csrf_token"], "insights": bool(cfg.insights and member and sess["stage"] == "active"),
+            "shared_views": bool(cfg.shared_views and member and sess["stage"] == "active"),
+            "kind": MEMBER if member else "viewer",
             "user": {"id": sess["user_id"], "username": sess["username"], "display_name": sess["display_name"],
                      "role": sess["role"], "must_change": bool(sess["must_change"])},
         })
@@ -556,7 +618,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         return _admin_call(lambda: {"id": store.create_user(
             str(b.get("username") or ""), str(b.get("display_name") or ""), str(b.get("role") or "user"),
             str(b.get("temp_password") or ""), now=clock(), actor=_actor(), must_change=True)},
-            after=lambda r: _notify("user_created", r["id"]))
+            after=lambda r: _notify("user_created", r["id"], member=True))
 
     @app.route("/api/auth/admin/users/<int:uid>/role", methods=["POST"])
     def admin_role(uid: int):
@@ -571,10 +633,21 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         return _admin_call(lambda: store.set_disabled(uid, disabled, now=clock(), actor=_actor()),
                            after=lambda _r: _notify("user_disabled", uid, disabled))
 
+    def _delete_account(uid: int) -> Response:
+        """Delete an account. Captured first: whether it had a workspace, and the bodies of the shares it owns (the
+        rows cascade with the account; the bodies are removed here, with the sweep as the backstop, C36)."""
+        was_member = store.is_member(uid)
+        owned = [r["id"] for r in shares.owner_list(uid, clock())] if was_member else []
+
+        def after(_r):
+            for sid in owned:
+                shares.delete_body(sid)
+            return _notify("user_deleted", uid, member=was_member)
+        return _admin_call(lambda: store.delete_user(uid, now=clock(), actor=_actor()), after=after)
+
     @app.route("/api/auth/admin/users/<int:uid>/delete", methods=["POST"])
     def admin_delete(uid: int):
-        return _admin_call(lambda: store.delete_user(uid, now=clock(), actor=_actor()),
-                           after=lambda _r: _notify("user_deleted", uid))
+        return _delete_account(uid)
 
     @app.route("/api/auth/admin/users/<int:uid>/unlock", methods=["POST"])
     def admin_unlock(uid: int):
@@ -615,5 +688,12 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         return _json({"success": True, "events": store.read_audit(limit=limit)})
 
     register_admin_console(app, store, clock=clock, actor=_actor, admin_call=_admin_call, notify=_notify,
-                           refused=_refused, page=_page, file_page=_file_page, json_response=_json)
+                           refused=_refused, page=_page, file_page=_file_page, json_response=_json,
+                           delete_account=_delete_account, shared_views=cfg.shared_views,
+                           max_viewers_per_sponsor=cfg.max_viewers_per_sponsor)
+    register_viewer_api(app, store, shares, enabled=cfg.shared_views, clock=clock, actor=_actor, page=_page,
+                        file_page=_file_page, json_response=_json)
+    register_share_routes(app, store, shares, publisher, enabled=cfg.shared_views, clock=clock, actor=_actor,
+                          page=_page, file_page=_file_page, json_response=_json)
+    app.share_store = shares
     return app

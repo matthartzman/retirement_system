@@ -258,6 +258,9 @@ def check_layout(*, data_root: Path, gateway_sid: str, workers: dict[int, tuple[
             owner = workers.get(int(child.name)) if child.name.isdigit() else None
             allowed = core | ({owner[1]} if owner else set())
             findings += check_private(child, allowed=allowed, workers=names, what=f"data/users/{child.name}", walk=True)
+    shares_dir = data_root / "shares"  # Phase 9: published shared-view records, gateway-only (C31)
+    if shares_dir.exists():
+        findings += check_private(shares_dir, allowed=core, workers=names, what="data/shares", walk=True)
     if gateway_db is not None:
         findings += check_private(gateway_db.parent, allowed=core, workers=names, what="gateway.db folder")
         if gateway_db.exists():
@@ -300,6 +303,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             lock_gateway_only(args.data_root, gateway_sid=gateway_sid)
             lock_gateway_only(args.data_root / "users", gateway_sid=gateway_sid)
+            lock_gateway_only(args.data_root / "shares", gateway_sid=gateway_sid)  # Phase 9 shared-view records
             for uid, (_name, sid) in sorted(workers.items()):
                 lock_user_folder(args.data_root / "users" / str(uid), account_sid=sid, gateway_sid=gateway_sid)
             if args.gateway_db is not None:

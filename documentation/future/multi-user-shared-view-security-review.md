@@ -155,7 +155,7 @@ functions. Writing them first is part of each phase's exit criteria.
 | C2 | Proxy refuses an identity whose kind is not `member` | 5.1 | `test_gateway_viewer_gate_contract.py::test_proxy_refuses_a_viewer_identity` |
 | C3 | Supervisor refuses non-members in `endpoint`, `_start` and `user_created` | 5.1 | `test_gateway_viewer_gate_contract.py::test_supervisor_never_provisions_a_viewer`; `test_multi_user_isolation_shared_view_integration.py::test_no_worker_or_workspace_for_a_viewer` |
 | C4 | `VIEWER_ALLOWED` is a reviewed literal, derived from no other table | 5.6 | `test_gateway_viewer_gate_contract.py::test_viewer_table_is_exactly_the_reviewed_set` |
-| C5 | Session-scoped selection: viewer queries include `grantee_user_id = <session user>`, owner queries `owner_user_id = <session user>` | 5.6, 5.8 | `test_gateway_share_routes_functional.py::test_other_guests_share_id_gives_the_uniform_404`, `::test_owner_cannot_reach_another_owners_share`; slow `::test_id_guessing_and_replay_across_sessions` |
+| C5 | Session-scoped selection: viewer queries include `grantee_user_id = <session user>`, owner queries `owner_user_id = <session user>` | 5.6, 5.8 | `test_gateway_share_routes_functional.py::test_other_guests_share_id_gives_the_uniform_404`, `::test_owner_cannot_reach_another_owners_share`; `test_multi_user_isolation_shared_view_integration.py::test_id_guessing_and_replay_across_sessions` (slow) |
 | C6 | One byte-identical not-found response for unknown, malformed, revoked, expired and other people's ids | 5.6, 5.8 | `test_gateway_share_routes_functional.py::test_not_available_responses_are_byte_identical` |
 | C7 | Share ids are `secrets.token_hex(16)`, never sequential, never capabilities | 5.2 | `test_gateway_share_store_unit.py::test_share_ids_are_random_hex_and_never_reused` |
 | C8 | Mandatory TOTP and the existing stages apply to viewers | 5.7 | `test_gateway_viewer_session_functional.py::test_pending_viewer_reaches_only_the_second_factor`, `::test_viewer_must_change_password_first` |
@@ -181,14 +181,14 @@ functions. Writing them first is part of each phase's exit criteria.
 | C28 | CSRF and Origin on owner writes (the existing gate) | 5.8 | `test_gateway_share_routes_functional.py::test_owner_writes_need_csrf_and_origin` |
 | C29 | Sponsor rule: an owner lists and grants only viewers they sponsor | 5.2, 5.8 | `test_gateway_share_routes_functional.py::test_owner_cannot_grant_or_list_viewers_they_do_not_sponsor` |
 | C30 | Admins have no route that creates, reads or changes shares; the console shows counts only | 6.3 | `test_gateway_share_routes_functional.py::test_admin_cannot_read_or_create_shares` |
-| C31 | The shares folder is gateway-only and walked by `acl check` | 5.5 | `test_gateway_share_backup_functional.py::test_acl_check_reports_a_worker_readable_shares_folder` (Windows-only parts skip elsewhere); the owner's elevated run |
+| C31 | The shares folder is gateway-only and walked by `acl check` | 5.5 | `test_gateway_share_backup_functional.py::test_acl_check_reports_a_worker_readable_shares_folder` (portable: it feeds `check_layout` permissions; no Windows-only skip, which the skip ratchet forbids); the owner's elevated run |
 | C32 | Audit events and the access log hold ids, revisions and counts only | 5.9 | `test_gateway_share_lifecycle_functional.py::test_audit_and_access_log_hold_ids_only` |
 | C33 | Limits: shares per owner, viewers per sponsor, one publish per share per minute, two concurrent publishes, 32 KiB viewer bodies | 5.2, 5.4, 5.6 | `test_gateway_share_routes_functional.py::test_limits_refuse_with_409`, `::test_viewer_body_cap_is_the_gateway_cap` |
 | C34 | Migration step 4 (kind and role `CHECK`, sponsor); `member_ids()` for per-workspace jobs; Phase 8's `eligible_users` selects members only | 5.1, 5.2 | `test_gateway_share_store_unit.py::test_migration_keeps_every_row_as_a_member`, `::test_viewer_cannot_be_made_admin`, `::test_member_ids_exclude_viewers`; `test_gateway_viewer_gate_contract.py::test_insights_scheduler_never_selects_a_viewer` |
 | C35 | Plan delete revokes that plan's shares | 7 | `test_gateway_share_lifecycle_functional.py::test_deleting_the_plan_revokes_its_shares` |
 | C36 | Owner deletion removes shares, sponsored viewers and bodies | 7 | `test_gateway_share_lifecycle_functional.py::test_deleting_the_owner_removes_shares_viewers_and_bodies` |
 | C37 | With `--shared-views` off, every share and viewer route returns 404 | 5.10 | `test_gateway_share_lifecycle_functional.py::test_flag_off_serves_nothing` |
-| C38 | The viewer page fetches only its three routes | 6.1 | `gateway_viewer_render.test.mjs` ("the page fetches only its three routes") |
+| C38 | The viewer page fetches only its three record routes, plus `/api/auth/session` (its CSRF token) and `/api/auth/logout` | 6.1 | `gateway_viewer_render.test.mjs` ("the page fetches only its three routes, plus the session and sign-out") |
 
 Existing tests that must stay green: `tests/test_gateway_insights_schedule_unit.py` (Phase 8; 9a changes its user
 selection, so it gains a viewer case rather than losing one), `tests/test_multi_user_isolation_integration.py`,
@@ -243,28 +243,61 @@ Release sign-off (after 9e; `--shared-views` stays off until every box is ticked
       other `tests/test_trends_*` and `tests/test_gateway_*` tests (the three that need Windows also fail on main),
       `tests/test_multi_user_isolation_attacks_integration.py` (11 passed, forged `X-Forwarded-For` included) and
       `python tools/fast_gates.py`. Not run: the installed build on the owner's machine.
-- [ ] C10 covers members as well as viewers, including the fresh deadline at the 9a upgrade (the owner's answer to R-5).
-- [ ] Every test named in section 7 exists and passes. `VIEWER_ALLOWED` has been reviewed line by line against the
-      design's table (C4).
+- [x] C10 covers members as well as viewers, including the fresh deadline at the 9a upgrade (the owner's answer to R-5).
+      Done in 9a: `store.py` sets `enrol_by` at creation and at every admin reset, migration step 4 gives unenrolled
+      accounts 72 hours from the upgrade, and `test_gateway_viewer_session_functional.py` passes its three C10 tests
+      (in process, Linux). The deadline is not behind `--shared-views` (design section 15 records why).
+- [x] Every test named in section 7 exists and passes. `VIEWER_ALLOWED` has been reviewed line by line against the
+      design's table (C4). Done in 9e: a script checked that every module and function named in section 7 exists, and
+      all of them passed in a Linux container (section 11). The 16 `VIEWER_ALLOWED` pairs match design 5.6's table row
+      for row; the contract test holds a second typed copy. Real ACLs (C31) are only in the owner's elevated run below.
 - [ ] The existing tests listed at the end of section 7 pass; `python tools/fast_gates.py` passes; the system diagram
-      is regenerated.
-- [ ] `shared-view.spec.js` passes with zero CSP violations.
-- [ ] The slow module `test_multi_user_isolation_shared_view_integration.py` passes (two owners, two viewers, real
-      gateway and workers).
+      is regenerated. Fast gates pass and the diagram is regenerated. The listed tests pass in a Linux container, except
+      two that fail there on `main` too for Windows-only reasons (in `test_multi_user_isolation_integration.py` and
+      `test_multi_user_isolation_routes_integration.py`, section 11). On Windows, CI (`test (windows-latest, 3.14)`,
+      `pytest tests/ -m "not slow and not nightly"`) passed on `3372ff6`: every non-slow module, the new share and
+      viewer modules and the Windows-only tests above included. The slow isolation modules do not run there, so this
+      stays open until they pass on Windows (the owner's run).
+- [x] `shared-view.spec.js` passes with zero CSP violations. Done in 9c/9d: 2 tests, Chromium only, in a Linux
+      container against a real gateway and worker (with the container's pre-installed Chromium; see section 11).
+- [x] The slow module `test_multi_user_isolation_shared_view_integration.py` passes (two owners, two viewers, real
+      gateway and workers). Done in 9e: 7 passed on the first run, same-account launcher, Linux container. Per-account
+      mode is the next item.
 - [ ] The owner's elevated run on the installed build: `acl check` covers `<data_root>/shares` and reports nothing; the
       isolation modules, including the new one, pass in per-account mode (`tools/run_isolation_on_installed_build.ps1`
-      gains the new module).
+      gains the new module). The script change is done (9e); the run itself is the owner's. Step-by-step:
+      `multi-user-server-operations-runbook.md`, section 5.2 (it also covers the migration rehearsal and the restore
+      drill below).
+      Owner run, 2026-11-18, Part A (a test copy of the branch, not the live install): **46 passed** in per-account
+      mode as SYSTEM. That is the three earlier isolation modules, the shared-view module (7) and the worker-account
+      suite. Two clean-up checks were not clean:
+      - Windows still held one throwaway profile (`rpwtest_2`) loaded, which the tests warn clears only at a reboot.
+      - `__pycache__` folders appeared under the test copy's `src`. That copy, unlike the live install, is not locked
+        read-only for worker accounts, so a write the live ACLs would refuse could land there. The owner of every
+        folder was a throwaway worker account. The writer is the build child process
+        (`src/server_services/build_job_service.py` starts it without `-B`, and the worker's `-E` drops
+        `PYTHONDONTWRITEBYTECODE`). This predates Phase 9 and is harmless on the read-only live install. Runbook 5.2
+        step 3 now locks the test copy the same way.
+
+      An earlier attempt failed entirely: every worker failed to start because the copy's runtime used a
+      per-account Python. That was a runbook mistake, since fixed (section 1 and 5.2). Still open: the clean-up
+      checks, and Part B on the installed build (`acl check` over `data\shares`, the run on the real install).
 - [ ] Migration rehearsal: a copy of the live version 3 `gateway.db` migrates to version 4, every account reads as
       `member`, and sign-in works. Rollback is the pre-upgrade copy (an old gateway refuses version 4).
 - [ ] Restore drill: restoring `gateway.db` into a scratch root shows every share as "Suspended: restored".
-- [ ] Runbook lines added: the flag, backup scope, restore drill.
-- [ ] Measurements recorded: record size and publish time on a real plan; guest page load time.
-- [ ] This review is updated with the results (what ran, what did not), then the owner changes its status.
+- [x] Runbook lines added: the flag, backup scope, restore drill. Done in 9a and 9d
+      (`multi-user-server-operations-runbook.md`, sections 3, 4 and 5).
+- [ ] Measurements recorded: record size and publish time on a real plan; guest page load time. Partly: measured on
+      the demo plan and the test workspace only (section 11). The owner's real plan with live prices is not measured.
+      On Windows (owner run, per-account, demo plan): publish 1.13 s (percent) and 0.85 s (dollars), records 150 KB and
+      133 KB, guest record fetch 29 ms.
+- [ ] This review is updated with the results (what ran, what did not), then the owner changes its status. The
+      update is done (section 11, 2026-11-18); the status change is the owner's.
 
 ## 10. Not verified here
 
-- How the code behaves after the change: nothing is built; every control above is a design commitment until its test
-  exists and passes.
+- How the code behaves after the change: written at design stage, before anything was built. Since 9e every control
+  has a passing test in a Linux container (section 11); what is still not verified is listed there.
 - Whether FI's chart modules render from a data object without `index.html`'s inline script (design 9c step 0).
 - Whether `financial_trends_reporter.percent_view` imports cleanly inside the gateway (`percent_view.py:13` imports
   `balance_series`).
@@ -281,3 +314,66 @@ Release sign-off (after 9e; `--shared-views` stays off until every box is ticked
   throwaway, not a committed test. A Projections-only guest with `money_view` both saw only the Projections tab, no
   percent toggle and no Trends requests; the owner's page was unchanged. Not run on the owner's machine, through the
   real remote listener's Funnel address, or in other browsers.
+
+## 11. Build results and the sign-off review pass (2026-11-18, after 9e)
+
+Built on branch `claude/shared-view-build` (one draft pull request, #485), behind `--shared-views`, default off. Nothing
+enables it, and **the release checklist in section 9 is still open**. Design sections 15 to 19 hold the per-phase
+results. Everything below ran in a Linux container (no Windows, no installed build, no Funnel).
+
+**Every control has its named test, and all of them pass:**
+
+| Controls | Module (tests) | Result |
+|---|---|---|
+| C1-C4, C34 (selection) | `test_gateway_viewer_gate_contract.py` (8; written and committed before any viewer code) | pass |
+| C5, C6, C12, C25, C28-C30, C33, AC-13 | `test_gateway_share_routes_functional.py` (13) | pass |
+| C7, C34 (migration, CHECK, member_ids) | `test_gateway_share_store_unit.py` (8) | pass |
+| C8-C11, C26, C27, Add viewer | `test_gateway_viewer_session_functional.py` (11) | pass |
+| C14, C15, C19 (gateway), C20, C22 (gateway), C23, C24 (normalising), C33 (publish) | `test_gateway_share_publish_functional.py` (27) | pass |
+| C18, C19 (worker), C21, C22 (worker), C23 (header) | `test_insights_share_snapshot_functional.py` (12) | pass |
+| C12, C13, C32, C35-C37 | `test_gateway_share_lifecycle_functional.py` (9) | pass |
+| C16, C17, C31 (portable) | `test_gateway_share_backup_functional.py` (5) | pass |
+| C3, C5 and AC-1 to AC-6, AC-10, AC-12 through real HTTP | `test_multi_user_isolation_shared_view_integration.py` (7, slow; real gateway, two real workers) | pass, first run |
+| C24, C38 | `tests/frontend/gateway_viewer_render.test.mjs` (5) | pass |
+| C24 (CSP), C26, AC-7, AC-9 | `tests/e2e_gateway/shared-view.spec.js` (2, Chromium) | pass, zero CSP violations |
+
+Existing suites (one run each, Linux): every `tests/test_gateway_*.py`, every `tests/test_multi_user_isolation_*.py`,
+`tests/test_multi_plan_isolation_integration.py`, every `tests/test_insights_*.py` and `tests/test_trends_*.py`,
+`tests/test_realized_percent_view_unit.py`, `tests/test_remote_mode_contract.py` and
+`tests/test_admin_app_users_functional.py` pass. The exceptions are six tests that fail on `main` in the same container
+for Windows-only reasons (`cmd`, `_winapi`, junctions, the credential store):
+`test_gateway_backup_multi_plan_functional.py::test_a_junction_inside_the_workspace_is_not_followed`, two in
+`test_gateway_service_unit.py`, `test_remote_mode_contract.py::test_confine_path_inside_outside_and_escape`,
+`test_multi_user_isolation_integration.py::test_the_monarch_connector_never_signs_in_on_a_same_account_worker` and
+`test_multi_user_isolation_routes_integration.py::test_a_junction_inside_the_workspace_cannot_lead_to_the_other_users_folder`.
+All 29 gateway Playwright tests pass (`tests/e2e_gateway/`), as do the Node frontend suite (`npm test`, 1,940) and
+`python tools/fast_gates.py`. The browser runs used this container's pre-installed Chromium through a throwaway config,
+because the repository pins a different Playwright build. That config is not committed.
+
+**Measured** (the demo plan through the real stack; quotes from the providers are off in the test stack): a three-tab
+record is about 150 KB in the percent view and 133 KB in dollars, a publish takes about 0.6 s, and a guest's record fetch
+about 6 ms. On the larger test workspace a record is about 232 KB. All of these are far under the 8 MiB cap. The owner's
+real plan with live prices is not measured.
+
+**Findings of the review pass** (code read again after 9e: the gate branch, `VIEWER_ALLOWED`, the proxy and supervisor
+refusals, every share query, the publisher's validation and commit, the restore step, the guest page):
+
+| Id | Finding | Status |
+|---|---|---|
+| B1 | An unknown gateway path (for example `/api/share/x`) got the router's bare 404 without the gateway's protective headers, and the viewer gate's 404 for non-gateway paths (for example `/api/plans`) had no `no-store` either | Fixed in 9c. The gate answers both with the headers, and the contract test asserts them on every refusal (C25) |
+| B2 | `set_role` refused a viewer even for an unchanged role, which broke the console's Edit (it always sends the role) | Fixed in 9d |
+| B3 | Design 6.3 placed the viewer columns in `admin_app/frontend/users.js`, which is at its line ceiling | Built as a gateway-only `admin-viewers.js` instead; `users.js` and the desktop Admin app are unchanged |
+| B4 | The design allowed Windows-only parts of C31 to skip, but the skip ratchet forbids a new skip | The portable test feeds permissions to `check_layout`; real ACLs stay with the owner's elevated run (checklist) |
+| B5 | The enrol-by deadline (C10) is not behind `--shared-views`: it starts when this code is deployed (design 5.7's wording, and the owner's R-5 answer) | Recorded (design section 15). Deploying the build starts a 72-hour clock for every account that has not enrolled |
+| B6 | C38's "three routes": the page also needs `/api/auth/session` (its CSRF token) and `/api/auth/logout` | Wording updated in section 7; the render test checks exactly those five |
+| B7 | `Supervisor.endpoint` now reads the account kind on every forwarded request (one indexed SQLite read) | Accepted as the cost of C3; not measured under load |
+| B8 | A worker that answers 410 revokes its own owner's shares of that plan (decision 7). A broken worker can therefore revoke its owner's own shares, and nothing else | Accepted (fails toward less sharing) |
+
+Nothing found widens what a viewer can reach: in the walk, the slow module and the browser spec, no viewer request
+reached an upstream, a supervisor or a worker.
+
+**Still open before any rollout** (section 9): the existing listed tests on Windows, the owner's elevated run on the
+installed build (per-account mode, `acl check` over `<data_root>/shares`, now including the new module in
+`tools/run_isolation_on_installed_build.ps1`), the migration rehearsal on a copy of the live version 3 `gateway.db`,
+the restore drill on a real archive, measurements on the owner's real plan, and the owner's status change of this
+review.

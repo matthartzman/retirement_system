@@ -17,6 +17,36 @@ LOCAL_PORT = 5064
 CLI = Actor(None, "test")
 
 
+def build_old_gateway_db(path: Path, version: int, users: tuple[tuple[str, str], ...] = (("ann", "user"),),
+                         enrolled: tuple[str, ...] = ()) -> None:
+    """A gateway.db exactly as an older gateway left it: the schema steps up to ``version`` and a few user rows.
+
+    ``enrolled`` names users with a finished TOTP enrolment. Built from the migration list itself, so it is the same
+    SQL an old gateway ran, not a later schema with columns dropped."""
+    import sqlite3
+
+    from src.gateway import store as gstore
+
+    con = sqlite3.connect(path)
+    try:
+        for target, statements in gstore._MIGRATIONS:
+            if target > version:
+                break
+            for sql in statements:
+                con.execute(sql)
+        con.execute(f"PRAGMA user_version = {int(version)}")
+        for name, role in users:
+            cur = con.execute("INSERT INTO users(username, display_name, role, pw_hash, pw_salt, scrypt_n, must_change,"
+                              " created_at, updated_at) VALUES (?,?,?,?,?,?,0,1000,1000)",
+                              (name, name.title(), role, b"x" * 32, b"s" * 16, 16))
+            if name in enrolled:
+                con.execute("INSERT INTO totp_secrets(user_id, secret, created_at, enrolled_at) VALUES (?,?,1000,1000)",
+                            (cur.lastrowid, "JBSWY3DPEHPK3PXP"))
+        con.commit()
+    finally:
+        con.close()
+
+
 class RecordingUpstream:
     """Stands in for Phase 3's proxy: records what the gate let through."""
 
@@ -30,13 +60,27 @@ class RecordingUpstream:
 
 
 class Rig:
-    def __init__(self, tmp_path: Path, upstream="recording", insights=False) -> None:
+    def __init__(self, tmp_path: Path, upstream="recording", insights=False, shared_views=False, **app_kwargs) -> None:
         self.now = [1_000_000.0]
+        self.tmp_path = tmp_path
         self.store = GatewayStore(tmp_path / "gateway.db", scrypt_n=2**4)
-        self.upstream = RecordingUpstream() if upstream == "recording" else None
+        if upstream == "recording":
+            self.upstream = RecordingUpstream()
+        elif upstream is None:
+            self.upstream = None
+        else:
+            self.upstream = upstream
         kwargs = {"upstream": self.upstream} if self.upstream is not None else {}
-        self.app = create_gateway_app(self.store, config=GatewayConfig(public_origins=(PUBLIC_ORIGIN,), insights=insights),
-                                      clock=lambda: self.now[0], **kwargs)
+        from src.gateway.share_store import ShareStore  # noqa: PLC0415
+
+        self.shares = app_kwargs.pop("shares", None) or ShareStore(self.store, tmp_path / "shares")
+        kwargs["shares"] = self.shares
+        factory = app_kwargs.pop("publisher_factory", None)  # (rig) -> SharePublisher, built over this rig's store
+        if factory is not None:
+            self.publisher = kwargs["publisher"] = factory(self)
+        kwargs.update(app_kwargs)
+        cfg = GatewayConfig(public_origins=(PUBLIC_ORIGIN,), insights=insights or shared_views, shared_views=shared_views)
+        self.app = create_gateway_app(self.store, config=cfg, clock=lambda: self.now[0], **kwargs)
         self.funnel = GatewayListener(self.app, "funnel", FUNNEL_PORT)
         self.local = GatewayListener(self.app, "local", LOCAL_PORT)
 
@@ -46,6 +90,29 @@ class Rig:
     def add_user(self, username="ann", role="user", must_change=False, password=PW) -> int:
         return self.store.create_user(username, username.title(), role, password, now=self.now[0], actor=CLI,
                                       must_change=must_change)
+
+    def add_viewer(self, username="vic", sponsor: int | None = None, must_change=False, password=PW,
+                   expires_at: float | None = None) -> int:
+        """A viewer account (Phase 9), sponsored by ``sponsor`` (a member's id)."""
+        assert sponsor is not None, "a viewer needs a sponsor"
+        return self.store.create_viewer(username, username.title(), password, sponsor_user_id=sponsor,
+                                        now=self.now[0], actor=CLI, must_change=must_change, expires_at=expires_at)
+
+    def enrol(self, b: "Browser", uid: int) -> None:
+        """Finish first sign-in for a browser holding a pending session: enrol TOTP, become active."""
+        b.post("/api/auth/totp/enrol/start")
+        r = b.post("/api/auth/totp/enrol/confirm", json={"code": self.code(uid)})
+        assert r.status_code == 200, r.get_data(as_text=True)
+        b.refresh_csrf()
+        self.advance(31)
+
+    def signed_in_viewer(self, username="vic", sponsor: int | None = None, ip="203.0.113.9") -> tuple["Browser", int]:
+        """A browser with an active session for a new, enrolled viewer account."""
+        uid = self.add_viewer(username, sponsor)
+        b = self.browser(ip)
+        assert b.login(username).status_code == 200
+        self.enrol(b, uid)
+        return b, uid
 
     def browser(self, ip="203.0.113.5", listener="funnel") -> "Browser":
         return Browser(self, ip, listener)

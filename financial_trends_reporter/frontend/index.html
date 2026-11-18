@@ -364,7 +364,7 @@
   <input type="date" id="customTo" style="display:none" aria-label="Custom range end date">
   <span class="scope-label" id="scopeLabel" role="status"></span>
   <button id="exitBtn" title="Leave this page">Exit</button>
-  <span id="workerBar" class="worker-bar" hidden><span id="workerPlan"></span> <span id="workerAsOf"></span> <a href="/" id="workerPlanner">Planner</a> <button type="button" id="workerSignOut">Sign out</button></span>
+  <span id="workerBar" class="worker-bar" hidden><span id="workerPlan"></span> <span id="workerAsOf"></span> <a href="/" id="workerPlanner">Planner</a> <a href="/gateway/sharing" id="workerShare" hidden>Share…</a> <button type="button" id="workerSignOut">Sign out</button></span>
 </div>
 <div id="workerNote" class="price-note" role="status" hidden></div>
 <div id="workerEmpty" class="price-note" role="status" hidden>No balances yet for this plan. Open the Planner and upload your balances files, then come back and press Update.</div>
@@ -1036,6 +1036,10 @@ const whoamiReady = (async () => {
     document.getElementById("exitBtn").hidden = true;
     document.getElementById("workerBar").hidden = false;
     document.getElementById("workerPlan").textContent = (whoami.plan && whoami.plan.name) || "";
+    // Shared views (Phase 9): the gateway's session says whether this member may share. A page link, not a fetch.
+    fetch("/api/auth/session").then((r) => r.json()).then((s) => {
+      if (s && s.shared_views === true) document.getElementById("workerShare").hidden = false;
+    }).catch(() => {});
   }
   if (whoami.listener !== "local") hideViewsOutsideGrant(whoami.views);
   if (whoami.must_change) location.href = BASE + "/change-password";

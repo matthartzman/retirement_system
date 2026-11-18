@@ -32,7 +32,7 @@ from src.http_runtime.server import LocalHTTPServer, _configured_token  # noqa: 
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 from src.stores import SchemaVersionError  # noqa: E402
 
-from financial_trends_reporter import account_registry, balance_series, flows, liquid_change, live_snapshot, percent_view, plan_annuity_values, projections, realized_view, spending_window  # noqa: E402
+from financial_trends_reporter import account_registry, balance_series, flows, liquid_change, live_snapshot, percent_view, plan_annuity_values, projections, realized_view, share_snapshot, spending_window  # noqa: E402
 from financial_trends_reporter.access_routes import register_access  # noqa: E402
 from financial_trends_reporter.access_store import DB_FILENAME as ACCESS_DB_FILENAME  # noqa: E402
 from src.identity.store import DB_FILENAME as IDENTITY_DB_FILENAME, IdentityStore, open_identity_store  # noqa: E402
@@ -469,6 +469,11 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
 
     if worker:
         worker_mode.register_worker(app)
+        # Phase 9: the gateway's publisher renders shared views here (share_snapshot.py; worker mode only).
+        share_snapshot.register(app, basis=lambda: percent_view.scale_basis(
+            _balances_db(), read_history(_log_path()),
+            plan_annuity_values.account_values(retirement_system_dir, _balances_db())),
+            history=lambda: read_history(_log_path()), today=_today)
         return app
     register_access(
         app,

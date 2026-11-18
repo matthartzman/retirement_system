@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shared view</title>
+<link rel="stylesheet" href="/gateway/static/gateway.css">
+<link rel="stylesheet" href="/gateway/viewer/static/viewer.css">
+<script type="module" src="/gateway/viewer/static/viewer.js"></script>
+</head>
+<body data-page="viewer">
+<header class="top">
+  <h1>Shared view</h1>
+  <nav aria-label="Account">
+    <a href="/gateway/account">Your account</a>
+    <button id="logout" type="button" class="secondary small">Sign out</button>
+  </nav>
+</header>
+<main id="viewer-main">
+  <p id="viewer-status" role="status">Loading…</p>
+</main>
+</body>
+</html>

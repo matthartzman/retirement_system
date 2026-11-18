@@ -48,6 +48,7 @@ ALLOWLIST: dict[str, str] = {
     "src/gateway/supervisor.py": "reads a worker's port file (port and pid) and checks the admin Monarch mapping CSV header; not plan data",
     "src/gateway/server.py": "writes the gateway's READY JSON to --ready-file for the Windows service; not plan data",
     "src/gateway/backup_crypto.py": "reads and creates the backup key file; not plan data",
+    "src/gateway/share_store.py": "stores and serves published shared-view records under <data_root>/shares (Phase 9); never opens a plan",
     "src/gateway/backup_store.py": "writes and reads encrypted backup archives and restores a user's files from them; not a plan-data reader or writer",
     "src/gateway/logs.py": "trims worker console logs; not plan data",
     "src/gateway/ops.py": "operator CLI: key, report and state files; not plan data",

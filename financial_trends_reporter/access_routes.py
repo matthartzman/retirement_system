@@ -64,7 +64,7 @@ WITHHELD_FOR_PERCENT = {"/api/spending/transactions"}
 PASS_THROUGH_FOR_PERCENT = {"/api/whoami", "/api/ping", "/api/view", "/api/signin", "/api/signout", "/api/change-password",
                             "/api/run-status", "/api/run-cancel", "/api/passthrough-decision", "/api/account-prefs",
                             "/api/totp/begin", "/api/totp/confirm", "/api/totp/recovery-codes"}
-PERCENT_MARK = {"mode": "percent", "basis": "net_worth_today"}
+PERCENT_MARK = percent_view.PERCENT_MARK
 
 
 def _json(payload, status=200, headers=None) -> Response:
@@ -191,10 +191,7 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
         if k is None:
             return _json({"success": False, "error": "The percent view is not available until account balances are imported."}, 503)
         # resp's body may be a string shared through a cache: parse into a new structure, never edit it.
-        scaled = percent_view.scale_payload(percent_view.strip_detail(path, json.loads(resp.get_data(as_text=True))), k)
-        if isinstance(scaled, dict):
-            scaled["money_view"] = dict(PERCENT_MARK)
-        return _json(scaled, resp.status_code)
+        return _json(percent_view.percent_body(path, json.loads(resp.get_data(as_text=True)), k), resp.status_code)
 
     @app.route("/signin", methods=["GET"])
     def signin_page():

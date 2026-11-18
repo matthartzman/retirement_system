@@ -1,0 +1,6 @@
+/* The owner's Shared views page (Phase 9). */
+#share-form { display: grid; gap: 8px; max-width: 640px; }
+#share-form fieldset { border: 1px solid #ddd; }
+.warnings { font-size: 13px; color: #6b3d00; }
+.share-actions button { margin: 0 4px 4px 0; }
+#preview { border: 2px dashed #bbb; padding: 8px; }

@@ -622,12 +622,272 @@ start at 9a; rollout waits for the review's release checklist.
 ## 14. Not verified here
 
 - Whether FI's chart modules can render from a data object without `index.html`'s inline script (9c step 0).
-- Whether `financial_trends_reporter.percent_view` imports cleanly inside the gateway process (9b step 0).
+  **Decided in 9c: they cannot be reused safely** (section 17).
+- Whether `financial_trends_reporter.percent_view` imports cleanly inside the gateway process (9b step 0). **Checked
+  in 9b: it does** (section 16).
 - SQLite: the cross-column `CHECK` in `ADD COLUMN` and the self-referencing foreign key added by `ALTER` (expected to
-  work; the 9a migration test proves it).
+  work; the 9a migration test proves it). **Proved in 9a** (section 15).
 - Record size and publish time with a real plan and live prices.
-- The exact parameters of `/api/realized` and `/api/live-snapshot`, and which panel `realized` belongs to.
+- The exact parameters of `/api/realized` and `/api/live-snapshot`, and which panel `realized` belongs to. **Checked in
+  9b** (section 16).
 - Browser behaviour of `no-store` pages in the back-forward cache after sign-out, and `Clear-Site-Data` over Funnel.
 - Whether worker responses set `Cache-Control` themselves (the gateway adds `no-store` only on its own paths).
 - Per-account ACLs for the new folder on the installed service (the owner's elevated run, as in earlier phases).
 - The internals of `admin_app/frontend/users.js` (not read).
+
+## 15. Phase 9a results (2026-11-18, branch `claude/shared-view-build`)
+
+Built, behind `--shared-views` (default off; the gateway refuses to start with it unless `--insights` and
+`--data-root` are also given, `check_shared_view_args` in `src/gateway/server.py`):
+
+- **Order of work.** `tests/test_gateway_viewer_gate_contract.py` was written and committed first, before any code that
+  can create a viewer account (security review, condition 1 and hard rule 3 of the build brief).
+- **Migration step 4** (`src/gateway/store.py`, `_MIGRATIONS`): `kind` with the cross-column `CHECK`, `sponsor_user_id`
+  with `ON DELETE CASCADE`, `shares`, `share_access_log` and their indexes, as in 5.2, plus one column the section did
+  not list: `users.enrol_by` (the enrol-by deadline, 5.7). A migration step may now be a callable that receives the
+  connection and the store's clock; step 4 uses one to give every account that has not enrolled a fresh 72 hours from
+  the upgrade. `SCHEMA_VERSION` is 4. SQLite accepts the cross-column `CHECK` in `ADD COLUMN` and the self-referencing
+  foreign key added by `ALTER TABLE` (section 14's open point): `test_gateway_share_store_unit.py` builds a real
+  version 3 database from the migration list and proves both, including the cascade.
+- **Store methods:** `create_viewer` (sponsor must be a usable member; at most `--max-viewers-per-sponsor`, default 5;
+  always role `user`), `is_member` (false for unknown ids), `member_ids`, kind-aware `create_session`, `rotate_session`
+  and `get_session` (viewers 10 minutes idle and 2 hours absolute, `--viewer-idle-minutes`, `--viewer-max-hours`; any
+  kind but exactly `member` gets the viewer limits), `set_role` refuses viewers, `delete_user` audits each sponsored
+  viewer it cascades, and `list_users` reports kind, sponsor, share counts and `enrol_overdue`.
+- **Enrol-by deadline for every account (C10, R-5):** `create_user`, `create_viewer`, a temporary-password reset
+  (`set_password` with `must_change=True`, which is what the admin console, the old admin route and nothing else uses)
+  and `reset_totp` (admin console and break-glass) set `enrol_by` to now + 72 hours. `verify_password` refuses a correct
+  password once the deadline has passed and TOTP is not enrolled (reason `enrol_overdue`, the same generic error for the
+  user; the audit records the reason), and `confirm_totp` refuses after the deadline, so a pending session opened just
+  before it cannot finish after it. Enrolled accounts are never affected. **Choice recorded:** the deadline is not
+  behind `--shared-views`. It applies as soon as this code runs, because 5.7 says "an account that has not enrolled when
+  9a deploys gets a fresh 72 hours from the upgrade" and the owner closed R-5 by extending it to members. Deploying this
+  build therefore starts a 72-hour clock for every account that has not finished two-factor enrolment.
+- **Shares, by construction scoped:** `src/gateway/share_store.py` holds every share query. Owner queries include
+  `owner_user_id`, viewer queries `grantee_user_id`; the servable-row query also requires the owner to be a usable
+  member and the grantee not to be a member. Body storage (atomic write, digest, size, embedded id and revision check)
+  and housekeeping are in the same module, used from 9b.
+- **Admin resets suspend shares (C11):** inside the same transaction as the reset, every active share granted to that
+  viewer becomes `suspended` (`credentials reset`), audited `share_suspended` per share.
+- **The gate branch (C1):** `src/gateway/app.py`, `_run_gate`: after the stage and must-change checks, any session whose
+  kind is not exactly `member` is answered by `_viewer_gate` and never reaches the admin check, the gateway-path return
+  or the forward. A viewer's request is matched after routing, on the registered rule, against `VIEWER_ALLOWED`
+  (`src/gateway/viewer_routes.py`, a literal, C4). Refusals are one 404 JSON body (`NOT_AVAILABLE_BODY`) for API paths
+  and a 302 to `/gateway/viewer` for pages. `/api/viewer/` and `/api/share/` are gateway paths now (C25). The viewer
+  status route honours `X-Background-Poll: 1` (C27); a viewer's sign-out adds `Clear-Site-Data: "cache"` (C26); the
+  session JSON gains `kind` and reports `insights` false for viewers. Lifecycle hooks (`user_created`, `user_disabled`,
+  `signed_out`, `user_deleted`) never run for a viewer.
+- **The proxy (C2):** `WorkerProxy.forward` refuses any identity whose kind is not exactly `member` (503, generic body,
+  audit `viewer_forward_refused`). It also refuses every spelling of `/insights/api/share-snapshot` from a browser
+  (C23, used from 9b), and gains an `after_forward` hook (the plan-delete hook, 9b).
+- **The supervisor (C3):** `Supervisor(..., is_member=store.is_member)`; `endpoint` raises `WorkerUnavailable` and
+  `_start` and `user_created` raise for a non-member before any folder, Windows account or process exists;
+  `user_disabled` and `signed_out` do nothing for one. The gateway always passes the predicate; `None` (older callers
+  and tests) admits every id.
+- **Members-only selection (C34):** `server.py` gives backups and the supervisor's known ids `member_ids`; so do the
+  `ops backup` and `ops migrate-all` commands. Phase 8's `eligible_users` keeps a row only when `kind == "member"`.
+- **Admin console Add viewer:** `POST /api/auth/admin/console/viewers` (admin prefix, so the existing guard applies;
+  404 with the flag off): username, display name, temporary password, sponsor and access end (default 90 days). It runs
+  no lifecycle hook. The users list gains kind, sponsor and share counts behind `FEATURES["viewers"]`. The page script
+  (`admin_app/frontend/users.js`) is not changed in 9a; the console API is ready for it (done in 9d).
+- **The guest routes** are registered in `src/gateway/viewer_api.py` (list, one record, status, the page and its
+  static allowlist) and answer 404 with the flag off. They serve nothing until 9b publishes.
+
+Tests (all in process, no worker): `tests/test_gateway_viewer_gate_contract.py` (8: the walk covers every gateway route,
+every planner and FI rule, 47 hostile spellings, five methods each, and finds zero upstream and zero supervisor calls),
+`tests/test_gateway_share_store_unit.py` (8), `tests/test_gateway_viewer_session_functional.py` (11). Existing modules
+changed: `tests/test_gateway_admin_guard_contract.py` (the namespace includes the two new prefixes; a new test checks
+members reach none of the viewer routes), `tests/test_gateway_insights_schedule_unit.py` (its fake users carry
+`kind: member`), `tests/test_gateway_admin_phase2_functional.py` (its migration test now builds a real version 2
+database instead of dropping columns, which step 4's `CHECK` no longer allows), `tests/test_gateway_store_unit.py` (one
+TOTP test confirmed 11 days after account creation; it now confirms within the deadline).
+
+Not verified in 9a: anything on Windows (the container is Linux). Six existing tests fail in this container on `main`
+as well as on this branch, all for Windows-only reasons (`cmd`, `_winapi`, junctions, the credential store):
+`test_gateway_backup_multi_plan_functional.py::test_a_junction_inside_the_workspace_is_not_followed`, two in
+`test_gateway_service_unit.py`, `test_remote_mode_contract.py::test_confine_path_inside_outside_and_escape`,
+`test_multi_user_isolation_integration.py::test_the_monarch_connector_never_signs_in_on_a_same_account_worker` and
+`test_multi_user_isolation_routes_integration.py::test_a_junction_inside_the_workspace_cannot_lead_to_the_other_users_folder`.
+
+## 16. Phase 9b results (2026-11-18, branch `claude/shared-view-build`)
+
+**Step 0, checked before building:**
+
+1. `financial_trends_reporter.percent_view` imports cleanly in the gateway process. Measured with `python -I` from the
+   repository root: importing it loads only `financial_trends_reporter.balance_series`, `balance_store` and
+   `account_registry` (plus the standard library). It does no file or database work at import time, and it pulls in no
+   Flask, no planner `src` module and no FI app. The gateway's publisher therefore imports it directly for the second
+   leak check.
+2. Route parameters, read from `financial_trends_reporter/main.py` (the handlers) and the page's fetch sites:
+   - `/api/live-snapshot` takes `from=YYYY-MM-DD` (the Time scope's first day) and `refresh=1` (refetch quotes). The
+     record is rendered with `from` only, so prices are those cached at publish.
+   - `/api/realized` takes `from` **or** `tax_year=YYYY` (which replaces `from`), `group=symbol|account|term`
+     (comma-separated levels, default `symbol`), `taxable=1`, `wash=1` and `unconfirmed=1` (`realized.js`,
+     `realizedQuery`). The record holds `tax_year` for the current and the prior year with `group=symbol`.
+   - `/api/spending` takes `from` and `to` (both required; `_parse_spending_window`).
+   - **Which panel `realized` belongs to:** the Snapshot tab. The page draws it in `#realizedBody` next to `#liveBody`,
+     and `access_routes.VIEW_ROUTES` maps it to `live`.
+   - Each fixed Time scope's dates come from `charts.js` `scopeRange`, anchored on the latest data date. `week` is 7 days
+     back, `month`, `3m`, `6m` and `1y` use calendar months with month-end clamping, `ytd` starts on 1 January, and `all`
+     starts at `ALL_TIME_START` (2025-02-01). `share_snapshot.scope_ranges` implements the same rules, and a test pins the
+     clamping cases. The anchor is the newest history entry's date, else today. The page anchors on the newest row of
+     the series it charts (Monarch rows when present), so the two can differ by the gap between the last import and the
+     last update.
+
+**Built** (worker side, `financial_trends_reporter/`):
+
+- `share_snapshot.py`: `POST /api/share-snapshot`, registered only in worker mode (`main.py`), with one new
+  `worker_allowlist.ALLOWED` entry. It requires the gateway-only header `X-Gateway-Share-Publish: 1`, which the gateway
+  strips from every browser request (the `x-gateway-` prefix in `upstream.py`). Without it the route answers 404. It
+  checks the request (share id, revision, money view, tabs, expected plan). The active plan must be the share's plan:
+  409 `plan_not_active` otherwise, or 410 `plan_missing` when the plan is not registered at all. It dispatches FI's own
+  `GET` handlers in process, one per record key, for the granted tabs only (the `route_plan` table; transactions,
+  account settings, run status and whoami are never in it). A route that does not answer 200 becomes
+  `{"available": false}`. In the percent view each body goes through `percent_view.percent_body`, the record must pass
+  `find_money_leaks` (422 `money_leak` otherwise), and a missing basis gives 409 `no_basis`.
+- `percent_view.percent_body` is new: the desktop remote listener's after-request hook (`access_routes.py`) now calls
+  it, and so does the snapshot. The desktop's behaviour is unchanged (its percent tests pass), and the two can no longer
+  drift apart.
+- **Schema change from the 5.4 example, recorded:** the record has one more top-level key, `scopes` (each preset's
+  `from` and `to`, no amounts), so the guest page can label the presets. Record keys name the preset, not the dates
+  (`/api/spending?scope=ytd`, `/api/live-snapshot?scope=week`, `/api/realized?tax_year=2026`).
+
+**Built** (gateway side, `src/gateway/`):
+
+- `share_publish.py`, `SharePublisher`: row by id and owner, active only. At most one publish per share per minute,
+  one per owner at a time and two in the whole gateway (C33). The worker is always `supervisor.endpoint(<owner>)`, and
+  the endpoint's user id is checked. The request body is built from the row. `validate_record` treats the answer as
+  untrusted: status, `application/json`, the size cap (`call_worker` is asked for the cap plus one byte), the exact top-level
+  keys, share id, revision, money view and plan id equal to the row, tabs within the row's tabs, keys within each tab's
+  own pattern (a literal in the gateway, not imported from the worker), no unknown scope, and in the percent view
+  `find_money_leaks` again. Every string is then normalised (NFC; control, bidi-override and zero-width characters
+  removed; names capped at 200 characters and other strings at 2,000). The body is written atomically, its SHA-256 and
+  size go into the row with a conditional commit, and a lost race deletes the file it wrote (C14, C15). A 410 from the
+  worker revokes every share of that plan (decision 7).
+- `supervisor.call_worker` gains `max_bytes` (default unchanged, 8 MiB), and `call_worker_full` also returns the
+  Content-Type and takes extra headers.
+- **Proxy browser block (C23):** `WorkerProxy.forward` answers 404 for the snapshot path in any case, with a trailing
+  slash, or percent-encoded once or twice. The header requirement in the worker is the second layer.
+- **Plan-delete hook:** `WorkerProxy.after_forward`, set by `server.py` only with `--shared-views`. A successful
+  `POST /api/plans/delete` revokes that plan's shares for the requesting member. The refresh-time 410 is the backstop.
+- **Phase 8 refresh hook (decision 10):** `InsightsScheduler(after_update=...)` runs after an update that returned
+  `updated`, with the worker the pass already holds and before it is released. It republishes the owner's active shares,
+  and shares of another plan are skipped. A failing hook never changes the update's outcome.
+- **Housekeeping:** `ShareStore.housekeeping`, run hourly by a gateway thread when `--shared-views` is on. It deletes
+  bodies whose row is missing, revoked, expired or unpublished (and stray `.tmp` files), audits `share_expired` once per
+  expired share, and purges revoked and expired rows (with their access log) 90 days later.
+
+**Measured** (in process on the test workspace, which is not the demo plan, with quotes stubbed out): a record with all
+three tabs is about 232 KB in the percent view and 234 KB in dollars, far under the 8 MiB cap. A snapshot took under one
+second without network quotes. With live quotes, each of the seven live-snapshot presets shares one 30-second quote
+cache, so a publish costs about one quote fetch; the publisher waits up to 180 seconds. Size and time on the owner's
+real plan with live prices are **not measured** (release checklist).
+
+Tests: `tests/test_insights_share_snapshot_functional.py` (12) and `tests/test_gateway_share_publish_functional.py` (27,
+including one that renders a real record through FI in worker mode, then validates, stores and serves it), plus two new
+cases in `tests/test_gateway_insights_schedule_unit.py`. The existing FI worker-mode, mount allow-list, percent-view and
+tab-limit tests still pass.
+
+## 17. Phase 9c results (2026-11-18, branch `claude/shared-view-build`)
+
+**Step 0, decided before building:** FI's chart modules are **not** reused. Evidence (Grep, not a full read):
+`charts.js`, `live_snapshot.js`, `projections.js` and `realized.js` build HTML strings and insert them with `innerHTML`
+(10 sites), each tab module fetches its own `/api/` route (`live_snapshot.js:529`, `projections.js:142`,
+`realized.js:228`), and the Trends tab is driven by the module script inline in `index.html` (from line 401), which
+the gateway CSP (`default-src 'self'`, no inline script) would block. Reusing them would mean moving that script out,
+re-pointing every fetch, and proving that every template escapes owner text. A small renderer that builds the DOM with
+text nodes only is the safer, checkable choice (design 6.1's fallback).
+
+**Built:**
+
+- `src/gateway/pages/viewer.html`, `viewer.js` and `viewer.css` (the exact `VIEWER_STATIC` allowlist in
+  `viewer_api.py`). `viewer.js` is an ES module with no `innerHTML` anywhere. It renders a record's header ("Shared by",
+  the title, "As of" with a badge after 7 days, the percent basis line, the plan name), buttons for only the tabs the
+  record holds, a Time scope picker with only the presets it holds, and each route's panel as tables and definition
+  lists. Unavailable panels say so. Numbers in a percent record read "x.xx% of net worth"; ratio and count keys follow
+  `percent_view`'s rules. It polls status every 60 seconds as a background poll, and on a 404 it clears the content and
+  shows the one message. Sign-out also clears the content. A page restored from the back-forward cache clears itself
+  and reloads. An empty list shows the same "not available" text, so revocation reads the same however it is reached.
+- **What the page fetches (C38):** its three record routes, plus `/api/auth/session` (for the CSRF token) and
+  `/api/auth/logout`. The security review's C38 wording is updated to say so.
+- **Reordered from 9d into 9c** because the guest spec needs shares to exist: the owner routes (`src/gateway/share_routes.py`,
+  every route in 5.8) and the owner page (`src/gateway/pages/sharing.html`, `sharing.js`, `sharing.css`). The owner page
+  previews with the guest page's own renderer, so the preview is exactly what the guest sees. It takes
+  `expected_plan_id` from `/insights/api/whoami` (the owner's own worker).
+- **Gate fixes found by the new tests (C25):** an unknown gateway path (for example `/api/share/x`) used to get the
+  router's bare 404 without the gateway's headers. It is now answered by the gate with the headers. Every response the
+  viewer branch answers also carries `no-store`, the CSP, `X-Frame-Options` and `Referrer-Policy`, including its 404s for
+  non-gateway paths; the contract test now asserts this on every refusal.
+- `tools/gateway_e2e_server.py --shared-views` adds an enrolled viewer sponsored by the test user and turns the flag on
+  for that throwaway gateway only.
+
+Tests: `tests/frontend/gateway_viewer_render.test.mjs` (5: hostile strings render as text, with a fake DOM whose
+`innerHTML` throws; only present tabs and presets are offered; percent formatting; the fetched URLs are exactly the
+allowed set; the unavailable message), `tests/e2e_gateway/shared-view.spec.js` (Chromium, a real gateway and the
+owner's real worker: the owner shares a percent view and previews it, the guest signs in with TOTP and sees it, `/`
+takes the guest to their page, planner, FI, admin and owner routes answer 404 to the guest, a revoke shows "not
+available" on reload, Back after sign-out shows no data, and zero CSP violations), and
+`tests/test_gateway_share_routes_functional.py` (13, C5, C6, C12, C25, C28-C30, C33, AC-13).
+
+How the spec was run here: this container's pre-installed Chromium differs from the version the repository pins, so
+it ran once with a throwaway config that sets `launchOptions.executablePath` to that Chromium (not committed). It
+passed on the first run (4.7 s). Not run in other browsers or through Funnel.
+
+## 18. Phase 9d results (2026-11-18, branch `claude/shared-view-build`)
+
+The owner routes and the owner page were built in 9c (section 17). 9d added the rest:
+
+- **FI header link:** `financial_trends_reporter/frontend/index.html` gains a hidden **Share…** page link in the
+  worker bar. In worker mode the page asks the gateway's `/api/auth/session` (left unprefixed by the fetch wrapper,
+  `insights_client.js` `prefixUrl`) and shows the link only when `shared_views` is true, which needs the flag, an
+  active session and a member account. No FI route or fetch rule changed.
+- **`acl setup` and `acl check`** (`src/gateway/acl.py`): setup locks `<data_root>/shares` gateway-only, like
+  `data/users`. `check_layout` walks it (`check_private(..., walk=True)`) when it exists, so a worker account that can
+  read any record is a finding (C31).
+- **`restore_gateway_db` suspends shares** (`src/gateway/backup_store.py`, `suspend_restored_shares`): before the
+  restored file is moved into place, every active share becomes `suspended` (reason `restored`), and no share keeps a
+  published digest, since bodies are not archived (decision 6). Revoked shares stay revoked. A database from before
+  Phase 9 is left as it is. The journal mode is set to `DELETE` so nothing is left beside the restored copy (C16).
+  The archive format, its member families and `restore_user` are unchanged (C17).
+- **Admin console UI:** a new gateway-only script, `src/gateway/pages/admin-viewers.js` (in `ADMIN_STATIC`, loaded
+  after `users.js` by `admin.html`), adds an **Add viewer** dialog (name, username, temporary password, sponsoring
+  member, access end defaulting to 90 days), labels each person's kind, sponsor and share counts, and disables the role
+  when an admin edits a viewer (through `AdminHost.wire`). It does nothing unless the console API reports
+  `features.viewers === true`. **Choice recorded:** design 6.3 put the columns in `admin_app/frontend/users.js`, but
+  that folder is at its line ceiling (`tests/test_frontend_size_ratchet.py`) and the build rules forbid raising it, so
+  `users.js` is unchanged and the desktop Admin app is untouched. All strings are inserted as text. **Store fix found
+  here:** `set_role` refused a viewer even when the role did not change, and the console's Edit always sends the role;
+  the unchanged-role check now comes first.
+- **Runbook lines** (`multi-user-server-operations-runbook.md`): the flag and its settings, the backup scope (rows yes,
+  records no), what a restored `gateway.db` does to shares, and a restore drill.
+
+Tests: `tests/test_gateway_share_lifecycle_functional.py` (9: C12, C13, C32, C35-C37, plus a deleted or disabled viewer)
+and `tests/test_gateway_share_backup_functional.py` (5: C16, C17, C31 and an archive without shares). The ACL test feeds
+`check_layout` permissions on Linux. **Choice recorded:** the design allowed "Windows-only parts skip elsewhere", but
+the repository's skip-count ratchet (`tests/test_skip_count_ratchet_regression.py`) forbids a new skip. So there is no
+Windows-only test here, and real permissions on the installed build are checked by the owner's elevated run (release
+checklist). `tests/e2e_gateway/shared-view.spec.js` gains a second test: an admin adds a viewer in the console, the row
+shows Viewer for its sponsor, and the role is disabled in Edit. The first test now reaches the owner page through FI's
+**Share…** link. The existing `tests/e2e_gateway/admin-console.spec.js` (8) still passes.
+
+## 19. Phase 9e results (2026-11-18, branch `claude/shared-view-build`)
+
+- `tests/test_multi_user_isolation_shared_view_integration.py` (slow, 7 tests, about 6 s) starts the real gateway with
+  `--insights --shared-views` and two real workers (owners alice and bob), and adds one viewer for each. Through real
+  HTTP it shows:
+  - id guessing, a cookie replayed after sign-out and a request with no session all get the uniform answer;
+  - 20 planner, FI, admin and owner paths, including odd spellings, are refused to both viewers with `no-store`, and no
+    worker folder appears;
+  - no viewer ever has a workspace, a worker account or a supervisor log line;
+  - nobody enumerates another party's shares or viewers;
+  - the snapshot route cannot be reached from a browser;
+  - the published percent record passes the leak check;
+  - a revoke takes effect on the next request.
+
+  It passed on its first run. `tools/run_isolation_on_installed_build.ps1` now runs it in the owner's elevated,
+  per-account run.
+- The full results, the measurements and the review's findings are in the security review, section 11. Its release
+  checklist (section 9) has these items ticked: P7-O4 (on `main`), C10, every named test, the browser spec, the slow
+  module and the runbook. These stay open: the existing tests on Windows, the owner's elevated run, the migration
+  rehearsal, the restore drill on a real archive, measurements on the real plan, and the owner's status change.
+  `--shared-views` stays off.

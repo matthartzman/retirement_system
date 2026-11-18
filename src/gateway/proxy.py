@@ -17,6 +17,8 @@ import socket
 import threading
 import time
 from dataclasses import dataclass
+from typing import Callable
+from urllib.parse import unquote
 
 from src.http_runtime.wsgi_facade import HeaderMap, LocalRequest, Response
 
@@ -31,6 +33,16 @@ _SAFE_PATH = re.compile(r"^/[A-Za-z0-9._~!$&'()*+,;=:@%/-]*$")
 DROPPED_RESPONSE_HEADERS = HOP_BY_HOP | frozenset({"set-cookie", "content-length", "server", "date"})
 DROPPED_RESPONSE_PREFIXES = ("access-control-",)
 QUEUED_PHASE = "Waiting for a free build slot"
+# Financial Insight's share-snapshot route renders a record for the gateway's publisher only (Phase 9, C23); the
+# publisher calls the worker directly with call_worker, never through here.
+SNAPSHOT_PATHS = frozenset({"/insights/api/share-snapshot"})
+
+
+def _is_snapshot_path(path: str) -> bool:
+    """Any spelling of the snapshot route: percent-decoded (twice), any case, any trailing slash. The worker also
+    requires a gateway-only header that ``upstream_headers`` strips from every browser request."""
+    p = unquote(unquote(path)).lower()
+    return p.rstrip("/") in SNAPSHOT_PATHS or "share-snapshot" in p
 
 
 @dataclass(frozen=True)
@@ -58,10 +70,14 @@ def _error(req: LocalRequest, message: str, status: int) -> Response:
 
 
 class WorkerProxy:
-    def __init__(self, supervisor: Supervisor, build_queue: BuildQueue, config: ProxyConfig | None = None) -> None:
+    def __init__(self, supervisor: Supervisor, build_queue: BuildQueue, config: ProxyConfig | None = None, *,
+                 audit: Callable[[str, int, str], None] | None = None) -> None:
         self.supervisor = supervisor
         self.queue = build_queue
         self.config = config or ProxyConfig()
+        self._audit = audit  # (event, user id, details): ids only
+        # Called after a successful forwarded response (Phase 9: the plan-delete hook revokes that plan's shares).
+        self.after_forward: Callable[[LocalRequest, Identity, Response], None] | None = None
         self._gates: dict[int, threading.BoundedSemaphore] = {}
         self._gates_lock = threading.Lock()
         self._wake = threading.Event()
@@ -70,10 +86,20 @@ class WorkerProxy:
 
     # ---- the Upstream protocol ----
     def forward(self, req: LocalRequest, identity: Identity) -> Response:
+        if getattr(identity, "kind", None) != "member":
+            # Second layer behind the gate (Phase 9, C2): only an exact member ever reaches a worker.
+            if self._audit is not None:
+                try:
+                    self._audit("viewer_forward_refused", int(identity.user_id), "")
+                except Exception:  # noqa: BLE001 - the refusal stands whatever the audit does
+                    LOG.exception("could not audit a refused forward")
+            return _error(req, "This page is not available.", 503)
         uid = int(identity.user_id)
         path, method = req.path, req.method
         if not _SAFE_PATH.match(path) or "/../" in path + "/" or "//" in path:
             return _error(req, "That address is not valid.", 400)
+        if _is_snapshot_path(path):
+            return _error(req, "That address is not valid.", 404)
         if path.startswith("/api/build/events/"):
             return _error(req, "Live build events are not available here; the page checks progress instead.", 403)
         if path == "/api/build" and method == "POST":
@@ -88,7 +114,14 @@ class WorkerProxy:
         m = _CANCEL.match(path)
         if m and method == "POST":
             return self._build_cancel(req, uid, m.group(1))
-        return self._send(req, uid, path)
+        resp = self._send(req, uid, path)
+        hook = self.after_forward
+        if hook is not None and resp.status_code == 200:
+            try:
+                hook(req, identity, resp)
+            except Exception:  # noqa: BLE001 - never turns a served response into an error
+                LOG.exception("after-forward hook failed for user %s", uid)
+        return resp
 
     # ---- plain forwarding ----
     def _gate(self, uid: int) -> threading.BoundedSemaphore:

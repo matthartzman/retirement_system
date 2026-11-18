@@ -93,7 +93,7 @@ class FakeWorkers:
 
 
 def user(uid, **kw):
-    return {"id": uid, "username": f"u{uid}", "disabled": False, "expired": False, **kw}
+    return {"id": uid, "username": f"u{uid}", "kind": "member", "disabled": False, "expired": False, **kw}
 
 
 def build(monkeypatch, users, last_run, *, now=None, sessions=None, audit=None, sup=None, fail=()):
@@ -318,3 +318,25 @@ def test_health_report_carries_one_status_line(monkeypatch, tmp_path):
     assert rep["insights_schedule"]["last_run_at"] is not None
     assert any("Financial Insight" in w for w in rep["warnings"])
     assert gateway_health.build_health(**base)["insights_schedule"] == {"configured": False}
+
+
+# ---- Phase 9: the shared-view refresh hook (decision 10) and members-only selection ----
+def test_shared_view_refresh_runs_after_an_update_with_the_held_worker(monkeypatch):
+    users = [user(1), user(2), user(3), user(4, kind="viewer")]
+    s, _clock, workers, sup, _events = build(monkeypatch, users, {1: "due", 2: "current", 3: "due"}, fail=(3,))
+    hooked: list[tuple[int, int]] = []
+    s._after_update = lambda uid, ep: hooked.append((uid, ep.user_id))
+    s.run_pass()
+    assert hooked == [(1, 1)]  # updated only: not "current", not "failed", never the viewer
+    assert 4 not in {c[0] for c in workers.calls}
+    assert 1 in sup.released  # the worker is still released after the hook
+
+
+def test_a_failing_refresh_hook_does_not_change_the_update_outcome(monkeypatch):
+    s, _clock, _workers, sup, _events = build(monkeypatch, [user(1)], {1: "due"})
+
+    def boom(uid, ep):
+        raise RuntimeError("publish failed")
+    s._after_update = boom
+    summary = s.run_pass()
+    assert summary["updated"] == 1 and summary["failed"] == 0
