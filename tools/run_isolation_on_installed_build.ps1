@@ -1,4 +1,4 @@
-# Re-runs the isolation gate (three modules) and the elevated worker-account suite against the INSTALLED build,
+# Re-runs the isolation gate (four modules, Phase 9's shared views included) and the elevated worker-account suite against the INSTALLED build,
 # with real per-account workers, as SYSTEM in session 0 (the way the gateway service runs). Security review
 # condition 6. Run from an ELEVATED PowerShell, with the owner's approval; nothing needs a repository checkout:
 #   powershell -ExecutionPolicy Bypass -File "<this checkout>\tools\run_isolation_on_installed_build.ps1"
@@ -58,7 +58,7 @@ $vpy = Join-Path $venv "Scripts\python.exe"
 if ($LASTEXITCODE -ne 0) { throw "pip install failed; see $setup" }
 $ErrorActionPreference = "Stop"
 
-$files = "tests/test_multi_user_isolation_integration.py tests/test_multi_user_isolation_routes_integration.py tests/test_multi_user_isolation_attacks_integration.py tests/test_worker_accounts_elevated_integration.py"
+$files = "tests/test_multi_user_isolation_integration.py tests/test_multi_user_isolation_routes_integration.py tests/test_multi_user_isolation_attacks_integration.py tests/test_multi_user_isolation_shared_view_integration.py tests/test_worker_accounts_elevated_integration.py"
 $k = if ($Filter) { "-k `"$Filter`"" } else { "" }
 $template = @'
 @echo off

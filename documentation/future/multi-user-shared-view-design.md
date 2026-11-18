@@ -869,3 +869,25 @@ Windows-only test here, and real permissions on the installed build are checked 
 checklist). `tests/e2e_gateway/shared-view.spec.js` gains a second test: an admin adds a viewer in the console, the row
 shows Viewer for its sponsor, and the role is disabled in Edit. The first test now reaches the owner page through FI's
 **Share…** link. The existing `tests/e2e_gateway/admin-console.spec.js` (8) still passes.
+
+## 19. Phase 9e results (2026-11-18, branch `claude/shared-view-build`)
+
+- `tests/test_multi_user_isolation_shared_view_integration.py` (slow, 7 tests, about 6 s) starts the real gateway with
+  `--insights --shared-views` and two real workers (owners alice and bob), and adds one viewer for each. Through real
+  HTTP it shows:
+  - id guessing, a cookie replayed after sign-out and a request with no session all get the uniform answer;
+  - 20 planner, FI, admin and owner paths, including odd spellings, are refused to both viewers with `no-store`, and no
+    worker folder appears;
+  - no viewer ever has a workspace, a worker account or a supervisor log line;
+  - nobody enumerates another party's shares or viewers;
+  - the snapshot route cannot be reached from a browser;
+  - the published percent record passes the leak check;
+  - a revoke takes effect on the next request.
+
+  It passed on its first run. `tools/run_isolation_on_installed_build.ps1` now runs it in the owner's elevated,
+  per-account run.
+- The full results, the measurements and the review's findings are in the security review, section 11. Its release
+  checklist (section 9) has these items ticked: P7-O4 (on `main`), C10, every named test, the browser spec, the slow
+  module and the runbook. These stay open: the existing tests on Windows, the owner's elevated run, the migration
+  rehearsal, the restore drill on a real archive, measurements on the real plan, and the owner's status change.
+  `--shared-views` stays off.
