@@ -273,8 +273,11 @@ Release sign-off (after 9e; `--shared-views` stays off until every box is ticked
       suite. Two clean-up checks were not clean:
       - Windows still held one throwaway profile (`rpwtest_2`) loaded, which the tests warn clears only at a reboot.
       - `__pycache__` folders appeared under the test copy's `src`. That copy, unlike the live install, is not locked
-        read-only for worker accounts, so a write the live ACLs would refuse could land there. Not yet known which
-        process wrote them.
+        read-only for worker accounts, so a write the live ACLs would refuse could land there. The owner of every
+        folder was a throwaway worker account. The writer is the build child process
+        (`src/server_services/build_job_service.py` starts it without `-B`, and the worker's `-E` drops
+        `PYTHONDONTWRITEBYTECODE`). This predates Phase 9 and is harmless on the read-only live install. Runbook 5.2
+        step 3 now locks the test copy the same way.
 
       An earlier attempt failed entirely: every worker failed to start because the copy's runtime used a
       per-account Python. That was a runbook mistake, since fixed (section 1 and 5.2). Still open: the clean-up

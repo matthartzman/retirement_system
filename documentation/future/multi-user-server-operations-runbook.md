@@ -310,6 +310,14 @@ neither `data`, `state` nor the running service.
    $PY = "C:\rp-phase9-test\app\runtime\Scripts\python.exe"
    & $PY -m pip install -r C:\rp-phase9-test\app\requirements.txt -r C:\rp-phase9-test\app\requirements-gateway.txt
    ```
+   Then lock the copy the way `acl setup` locks the real install (read and run for every account, write for SYSTEM and
+   Administrators only). A folder under `C:\` otherwise inherits write access for every signed-in account. Worker
+   accounts could then write into the copy, which they cannot do on the real install. This uses the gateway's own
+   `acl.lock_install_readonly`; it changes only `C:\rp-phase9-test\app`.
+   ```powershell
+   cd C:\rp-phase9-test\app
+   & $PY -c "from pathlib import Path; from src.gateway import acl; acl.lock_install_readonly(Path(r'C:\rp-phase9-test\app'), gateway_sid='S-1-5-18')"
+   ```
 4. Run the per-account isolation run against the copy. It covers four isolation modules (the shared-view module
    included) and the worker-account suite, takes several minutes, and runs as SYSTEM. It creates and removes
    throwaway `rpwtest_` accounts and `C:\rpwtest_*` folders.
@@ -323,8 +331,11 @@ neither `data`, `state` nor the running service.
 
    Worker and gateway logs from a failed run are in `C:\Users\Public\rpw_isolation`. If every module fails with "Your
    planner could not be started" and no `worker_console.log` exists there, the workers never started. Check step 3's
-   base Python first (`Get-Content C:\rp-phase9-test\app\runtime\pyvenv.cfg`). Remove any `rpwtest_` profile left
-   behind before running again:
+   base Python first (`Get-Content C:\rp-phase9-test\app\runtime\pyvenv.cfg`). If the "installed folder must be
+   clean" check lists `__pycache__` folders, check step 3's lock. The build child that a worker starts
+   (`src/server_services/build_job_service.py`) does not pass `-B`, so it writes bytecode wherever the worker account
+   may write. A profile listed under "profiles" that Windows "held loaded until a reboot" clears after a reboot.
+   Remove any `rpwtest_` profile left behind before running again:
    `Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like '*\rpwtest_*' } | Remove-CimInstance`.
 6. Rehearse the migration on a copy of the live `gateway.db`. The copy is taken with SQLite's backup API, which only
    reads the live file, so it is safe while the service runs.
