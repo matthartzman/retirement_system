@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 import threading
 import time
 import uuid
@@ -60,6 +59,7 @@ from .app_core import (
 )
 from ..workspace_context import legacy_output_dir
 from .. import remote_mode
+from ..platform_runtime import python_child_argv
 from ..active_plan import plan_file_has_rows
 from ..http_runtime.wsgi_facade import Response
 from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
@@ -399,7 +399,7 @@ def build():
     env["RETIREMENT_SYSTEM_BUILD_STARTED_AT_TS"] = str(start)
     _clear_current_build_outputs(_workspace_output())
     try:
-        result = subprocess.run([sys.executable, str(BUILD_SCRIPT)], cwd=str(BASE_DIR), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=cfg.max_build_seconds, env=env)
+        result = subprocess.run(python_child_argv(BUILD_SCRIPT), cwd=str(BASE_DIR), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=cfg.max_build_seconds, env=env)
     except subprocess.TimeoutExpired:
         return jsonify({"success": False, "error": f"Build timed out after {cfg.max_build_seconds} seconds"}), 500
     elapsed = round(time.time() - start, 1)

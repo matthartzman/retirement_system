@@ -18,6 +18,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src import onedrive_guard  # noqa: E402
+from src.platform_runtime import python_child_argv  # noqa: E402
 
 from .app_sync import sync_from_app  # noqa: E402
 from .balance_store import DB_FILENAME, default_source_path, import_balances  # noqa: E402
@@ -66,7 +67,7 @@ def refresh_prices(base_dir: Path, *, timeout: float = PRICE_REFRESH_TIMEOUT_SEC
     if not script.exists():
         return {"refreshed": False, "stale": True, "error": "price refresh tool not found"}
     try:
-        cmd = [sys.executable, str(script)]
+        cmd = python_child_argv(script)
         if cancel is None:
             proc = subprocess.run(cmd, cwd=str(base_dir), capture_output=True, text=True,
                                   encoding="utf-8", errors="replace", timeout=timeout)

@@ -11,9 +11,10 @@ import json
 import re
 import os
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
+
+from ..platform_runtime import python_child_argv
 
 
 def drift_payload(
@@ -30,7 +31,7 @@ def drift_payload(
     env["RETIREMENT_SYSTEM_APP_DB"] = str(app_db)  # app_state.APP_DB_ENV: the runtime settings
     env["PYTHONIOENCODING"] = env.get("PYTHONIOENCODING", "utf-8:replace")
     result = subprocess.run(
-        [sys.executable, str(base_dir / "tools" / "analyze_drift.py")],
+        python_child_argv(base_dir / "tools" / "analyze_drift.py"),
         cwd=str(base_dir),
         capture_output=True,
         text=True,

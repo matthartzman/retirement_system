@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import re
 import subprocess
-import sys
 import threading
 import time
 from pathlib import Path
 from typing import Any, Callable
+
+from ..platform_runtime import python_child_argv
 
 CURRENT_BUILD_OUTPUT_FILES = [
     "retirement_plan.xlsx",
@@ -326,7 +327,7 @@ def run_build_progress_job(
     try:
         build_env = dict(env)
         build_env["PYTHONUNBUFFERED"] = "1"
-        build_cmd = [sys.executable, str(build_script)] if getattr(sys, "frozen", False) else [sys.executable, "-u", str(build_script)]
+        build_cmd = python_child_argv(build_script, unbuffered=True)
         proc = subprocess.Popen(
             build_cmd,
             cwd=str(base_dir),

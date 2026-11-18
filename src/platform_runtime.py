@@ -70,6 +70,27 @@ def is_frozen() -> bool:
     return bool(getattr(sys, "frozen", False))
 
 
+def python_child_argv(script: str | Path, *, unbuffered: bool = False) -> list[str]:
+    """Command line that runs ``script`` with this interpreter as a child process.
+
+    Interpreter flags are not inherited by a child started with
+    ``sys.executable``, and multi-user workers run under ``-E`` (which makes the
+    child ignore ``PYTHONDONTWRITEBYTECODE`` too), so a worker started with
+    ``-B`` would otherwise have its children write ``__pycache__`` folders into
+    the install. When this interpreter does not write bytecode, the child is
+    told not to either. A frozen executable takes no interpreter flags, so it
+    gets the script path alone.
+    """
+    if is_frozen():
+        return [sys.executable, str(script)]
+    flags = []
+    if sys.flags.dont_write_bytecode:
+        flags.append("-B")
+    if unbuffered:
+        flags.append("-u")
+    return [sys.executable, *flags, str(script)]
+
+
 def workspace_root() -> Path:
     """Directory that holds all writable data.
 
