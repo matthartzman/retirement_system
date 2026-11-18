@@ -18,7 +18,8 @@ from typing import Callable, Protocol
 from urllib.parse import quote
 
 import segno
-from src.access_core import FailureThrottle, KeyedThrottle, has_proxy_headers, is_loopback_host
+from src.access_core import has_proxy_headers, is_loopback_host
+from src.gateway.signin_throttle import SignInThrottle, login_username
 from src.http_runtime.wsgi_facade import Flask, HeaderMap, LocalRequest, Response, request
 
 from . import totp
@@ -53,8 +54,12 @@ class GatewayConfig:
     throttle_window: float = 600.0
     ip_free_failures: int = 10
     ip_max_delay: float = 300.0
+    # P7-O4: failures are also counted per username (unknown names alike, at most user_max_keys tracked). The
+    # gateway-wide count refuses no one: above global_free_failures in a window it raises one audit event.
+    user_free_failures: int = 10
+    user_max_delay: float = 300.0
+    user_max_keys: int = 10_000
     global_free_failures: int = 50
-    global_max_delay: float = 60.0
     # P7-O3: bodies the gateway itself reads (login, two-factor, password, admin forms) are small. Only a request
     # that passed the gate and is forwarded to a worker may carry a plan upload.
     max_body_bytes: int = 32 * 1024
@@ -178,8 +183,9 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
     cfg = config or GatewayConfig()
     up: Upstream = upstream or PlaceholderUpstream()
     app = Flask("retirement_gateway")
-    ip_throttle = KeyedThrottle(cfg.throttle_window, cfg.ip_free_failures, cfg.ip_max_delay)
-    global_throttle = FailureThrottle(cfg.throttle_window, cfg.global_free_failures, cfg.global_max_delay)
+    signin = SignInThrottle(window=cfg.throttle_window, ip_free=cfg.ip_free_failures, ip_max_delay=cfg.ip_max_delay,
+                            user_free=cfg.user_free_failures, user_max_delay=cfg.user_max_delay,
+                            user_max_keys=cfg.user_max_keys, surge_threshold=cfg.global_free_failures)
     page_cache: dict[str, str] = {}
     insights_audited: set[str] = set()
 
@@ -377,9 +383,8 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         return _page(name)
 
     # ---- sign-in ----
-    def _throttled(now: float) -> Response | None:
-        ip = request.environ["client_ip"]
-        wait = max(ip_throttle.retry_after(ip, now), global_throttle.retry_after(now))
+    def _throttled(now: float, username: str) -> Response | None:
+        wait = signin.retry_after(request.environ["client_ip"], username, now)
         if wait <= 0:
             return None
         store.audit("login throttled", now=now, actor=_actor(), details=f"{math.ceil(wait)} s")
@@ -387,21 +392,23 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         resp.headers["Retry-After"] = str(max(1, math.ceil(wait)))
         return resp
 
-    def _count_failure(now: float) -> None:
-        ip_throttle.record(request.environ["client_ip"], now)
-        global_throttle.record(now)
+    def _count_failure(now: float, username: str) -> None:
+        surge = signin.record(request.environ["client_ip"], username, now)
+        if surge is not None:  # detection only, once per window; nobody is refused for it
+            store.audit("login failure surge", now=now, actor=_actor(),
+                        details=f"{surge} failures in {round(cfg.throttle_window)} s")
 
     @app.route("/api/auth/login", methods=["POST"])
     def login():
         now = clock()
-        refused = _throttled(now)
+        body = request.get_json(silent=True) or {}
+        username = login_username(body.get("username"))
+        refused = _throttled(now, username)
         if refused is not None:
             return refused
-        body = request.get_json(silent=True) or {}
-        username = str(body.get("username") or "").strip().lower()[:64]
         check = store.verify_password(username, str(body.get("password") or ""), now)
         if not check.ok:
-            _count_failure(now)
+            _count_failure(now, username)
             event = "account locked" if check.reason == "locked" else "login failed"
             store.audit(event, now=now, actor=_actor(check.user_id, username), details=f"reason {check.reason}")
             return _refused(LOGIN_ERROR, 401)
@@ -432,7 +439,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         return resp
 
     def _code_failed(sess: dict, now: float) -> Response:
-        _count_failure(now)
+        _count_failure(now, sess["username"])
         locked = store.record_failure(sess["user_id"], now)
         actor = _actor(sess["user_id"], sess["username"])
         store.audit("totp failed", now=now, actor=actor)
@@ -450,7 +457,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
             return pending
         sess, token = pending
         now = clock()
-        refused = _throttled(now)
+        refused = _throttled(now, sess["username"])
         if refused is not None:
             return refused
         if store.is_locked(sess["user_id"], now):
@@ -511,7 +518,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         body = request.get_json(silent=True) or {}
         now = clock()
         if not store.check_current_password(ident.user_id, str(body.get("current") or "")):
-            _count_failure(now)
+            _count_failure(now, ident.username)
             store.record_failure(ident.user_id, now)
             return _refused("Your current password is not right.", 400)
         try:
@@ -591,7 +598,13 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         except Exception:
             LOG.exception("health report failed")
             return _json({"success": False, "error": "the health report could not be built"}, 500)
-        return _json({"success": True, **payload})
+        sign_in = signin.surge.status(clock())
+        warnings = list(payload.get("warnings") or [])
+        if sign_in["high"]:
+            warnings.append(f"many failed sign-ins: {sign_in['failures_in_window']} in the last "
+                            f"{sign_in['window_seconds']} s (no one is refused for it; see the audit log)")
+        status = "warning" if warnings and payload.get("status") == "ok" else payload.get("status")
+        return _json({"success": True, **payload, "status": status, "warnings": warnings, "sign_in": sign_in})
 
     @app.route("/api/auth/admin/audit", methods=["GET"])
     def admin_audit():
