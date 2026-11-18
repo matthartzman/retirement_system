@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import sqlite3
 import tarfile
 from datetime import datetime, timezone
@@ -69,7 +70,7 @@ def _run(server):
 
 def test_archive_holds_app_db_and_every_registered_plan_but_not_the_demo(server):
     manifest = bs.verify_archive(_run(server), server["key"])
-    assert manifest["format"] == 2
+    assert manifest["format"] == 3
     got = {m for m in manifest["members"] if m.startswith("users/1/")}
     assert got == {"users/1/app.db", "users/1/plan.rpx", f"users/1/plans/{HEX_A}.rpx", f"users/1/plans/{HEX_B}.rpx",
                    "users/1/saved_plans/Uploaded (2).rpx"}
@@ -172,3 +173,157 @@ def test_a_format_1_archive_still_restores_only_its_two_files(server):
     bs.restore_user(legacy, server["key"], data_root=server["data"], user_id=1, stamp="t4")
     assert (root / "plans" / f"{HEX_A}.rpx").read_bytes() == keep
     assert (root / "plan.rpx.before-restore-t4").is_file()
+
+
+# ---- format 3: each plan's Financial Insight files (trend log, pass-through decisions, live-snapshot settings) ----
+
+LOG, DEC, SET = bs.INSIGHT_FILES
+INS_A = Path("output") / "plans" / HEX_A / "insights"
+INS_P = Path("output") / "plans" / "plan" / "insights"
+
+
+def _insights(server, uid: int = 1) -> dict[str, bytes]:
+    root = server["data"] / "users" / str(uid)
+    files = {INS_A / LOG: b'{"as_of_date": "2026-10-30", "v": 1}\n{"as_of_date": "2026-10-31", "v": 2}\n',
+             INS_A / DEC: b'{"k1": "approve"}', INS_P / LOG: b'{"as_of_date": "2026-10-31", "u": %d}\n' % uid,
+             INS_P / SET: b'{"pre_tax_rate": "22%"}', INS_A / "monarch_balances.sqlite3": b"rebuilt from the export"}
+    for rel, data in files.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_bytes(data)
+    return {str(rel): data for rel, data in files.items()}
+
+
+def _tree(root: Path) -> dict[str, bytes]:
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+
+
+def _forge_bytes(server, members: dict[str, bytes], fmt: int) -> Path:
+    from src.gateway.backup_crypto import EncryptingWriter
+
+    dest = server["tmp"] / f"forged{fmt}.rpbak"
+    with open(dest, "wb") as sink:
+        writer = EncryptingWriter(sink, server["key"])
+        with tarfile.open(fileobj=writer, mode="w|") as tar:
+            for name, data in {**members, "manifest.json": json.dumps(
+                    {"format": fmt, "members": list(members), "users": [1], "errors": []}).encode()}.items():
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+        writer.finish()
+    return dest
+
+
+def test_insight_files_round_trip_byte_equal_and_the_balances_db_is_not_archived(server):
+    files = _insights(server)
+    u2 = _insights(server, 2)
+    archive = _run(server)
+    manifest = bs.verify_archive(archive, server["key"])
+    got = {m for m in manifest["members"] if "/insights/" in m}
+    assert got == {f"users/1/insights/{HEX_A}/{LOG}", f"users/1/insights/{HEX_A}/{DEC}", f"users/1/insights/plan/{LOG}",
+                   f"users/1/insights/plan/{SET}", f"users/2/insights/{HEX_A}/{LOG}", f"users/2/insights/{HEX_A}/{DEC}",
+                   f"users/2/insights/plan/{LOG}", f"users/2/insights/plan/{SET}"}
+    root = server["data"] / "users" / "1"
+    (root / INS_A / LOG).write_bytes(b'{"as_of_date": "2026-11-02"}\n')  # a later run
+    (root / INS_P / SET).unlink()
+    u2_tree = _tree(server["data"] / "users" / "2")
+    out = bs.restore_user(archive, server["key"], data_root=server["data"], user_id=1, stamp="t5")
+    for rel, data in files.items():
+        if not rel.endswith(".sqlite3"):
+            assert (root / rel).read_bytes() == data, rel
+    assert (root / INS_A / f"{LOG}.before-restore-t5").read_bytes() == b'{"as_of_date": "2026-11-02"}\n'
+    assert (root / INS_A / "monarch_balances.sqlite3").read_bytes() == b"rebuilt from the export"  # left alone
+    assert f"output/plans/{HEX_A}/insights/{LOG}" in out["restored"]
+    assert _tree(server["data"] / "users" / "2") == u2_tree
+    assert u2[str(INS_P / LOG)] == (server["data"] / "users" / "2" / INS_P / LOG).read_bytes()
+
+
+def test_a_format_3_restore_moves_aside_insight_files_made_after_the_backup(server):
+    archive = _run(server)  # no insight files yet
+    files = _insights(server)
+    root = server["data"] / "users" / "1"
+    bs.restore_user(archive, server["key"], data_root=server["data"], user_id=1, stamp="t6")
+    for rel, data in files.items():
+        if rel.endswith(".sqlite3"):
+            continue
+        assert not (root / rel).exists(), rel
+        assert (root / rel).with_name(Path(rel).name + ".before-restore-t6").read_bytes() == data
+
+
+def test_a_format_2_archive_restores_as_before_and_leaves_live_insight_files_untouched(server):
+    files = _insights(server)
+    root = server["data"] / "users" / "1"
+    plan = (root / "plan.rpx").read_bytes()
+    forged = _forge_bytes(server, {"users/1/plan.rpx": plan, f"users/1/insights/{HEX_A}/{LOG}": b'{"x": 1}\n'}, fmt=2)
+    before = _tree(root / "output")
+    out = bs.restore_user(forged, server["key"], data_root=server["data"], user_id=1, stamp="t7")
+    assert _tree(root / "output") == before
+    assert out["restored"] == ["plan.rpx"]
+    assert files[str(INS_A / LOG)] == (root / INS_A / LOG).read_bytes()
+
+
+@pytest.mark.parametrize("bad", [
+    f"users/1/insights/../../2/{LOG}", f"users/1/insights/{HEX_A}/../../../2/plan.rpx", f"users/1/insights/{'A' * 32}/{LOG}",
+    f"users/1/insights/{'a' * 31}/{LOG}", f"users/1/insights/{HEX_A}/monarch_balances.sqlite3",
+    f"users/1/insights/{HEX_A}/sub/{LOG}", f"users/1/insights/{HEX_A}/{LOG}.rejected", f"users/1/insights/{HEX_A}",
+    f"users/2/insights/{HEX_A}/{LOG}", f"users/01/insights/{HEX_A}/{LOG}", f"users/1/output/plans/{HEX_A}/insights/{LOG}",
+])
+def test_crafted_insight_member_names_are_never_extracted(server, bad):
+    root = server["data"] / "users" / "1"
+    forged = _forge_bytes(server, {"users/1/plan.rpx": (root / "plan.rpx").read_bytes(), bad: b'{"evil": 1}\n'}, fmt=3)
+    u2 = _tree(server["data"] / "users" / "2")
+    out = bs.restore_user(forged, server["key"], data_root=server["data"], user_id=1, stamp="t8")
+    assert out["restored"] == ["plan.rpx"]
+    assert _tree(server["data"] / "users" / "2") == u2
+    assert not any(p.read_bytes() == b'{"evil": 1}\n' for p in server["tmp"].rglob("*") if p.is_file() and p.suffix != ".rpbak")
+
+
+def test_an_oversize_insight_file_is_skipped_and_reported_on_backup_and_ignored_on_restore(server, monkeypatch):
+    _insights(server)
+    monkeypatch.setattr(bs, "INSIGHT_MAX_BYTES", 40)
+    _, report = bs.write_archive(server["tmp"] / "o.rpbak", server["key"], data_root=server["data"], user_ids=[1],
+                                 gateway_db=None, now=T0)
+    assert f"users/1/insights/{HEX_A}/{LOG}" not in report["members"]  # 72 bytes: over the cap, never truncated
+    assert f"users/1/insights/{HEX_A}/{DEC}" in report["members"]
+    assert any(f"insights/{HEX_A}/{LOG}: larger than" in e for e in report["errors"])
+    root = server["data"] / "users" / "1"
+    forged = _forge_bytes(server, {"users/1/plan.rpx": (root / "plan.rpx").read_bytes(),
+                                   f"users/1/insights/{HEX_B}/{LOG}": b"x" * 41}, fmt=3)
+    bs.restore_user(forged, server["key"], data_root=server["data"], user_id=1, stamp="t9")
+    assert not (root / "output" / "plans" / HEX_B).exists()
+
+
+def test_a_torn_last_log_line_is_left_out_and_reported(server):
+    root = server["data"] / "users" / "1"
+    (root / INS_A).mkdir(parents=True)
+    (root / INS_A / LOG).write_bytes(b'{"as_of_date": "2026-10-30"}\n{"as_of_date": "2026-10-3')
+    archive, report = bs.write_archive(server["tmp"] / "t.rpbak", server["key"], data_root=server["data"], user_ids=[1],
+                                       gateway_db=None, now=T0)
+    assert any("torn last line" in e for e in report["errors"])
+    (root / INS_A / LOG).unlink()
+    bs.restore_user(archive, server["key"], data_root=server["data"], user_id=1, stamp="t10")
+    assert (root / INS_A / LOG).read_bytes() == b'{"as_of_date": "2026-10-30"}\n'
+
+
+@pytest.mark.parametrize("what", ["file", "folder"])
+def test_a_linked_insight_file_or_folder_is_skipped_and_reported(server, what):
+    root = server["data"] / "users" / "1"
+    outside = server["tmp"] / "outside"
+    outside.mkdir()
+    (outside / LOG).write_bytes(b'{"secret": 1}\n')
+    (root / INS_A).parent.mkdir(parents=True)
+    try:
+        if what == "file":
+            (root / INS_A).mkdir()
+            os.symlink(outside / LOG, root / INS_A / LOG)
+        else:
+            os.symlink(outside, root / INS_A, target_is_directory=True)
+    except OSError:  # Windows without the symlink right: a junction (no right needed) on the folder instead
+        import subprocess
+
+        if (root / INS_A).is_dir():
+            (root / INS_A).rmdir()
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(root / INS_A), str(outside)], check=True, capture_output=True)
+    _, report = bs.write_archive(server["tmp"] / "l.rpbak", server["key"], data_root=server["data"], user_ids=[1],
+                                 gateway_db=None, now=T0)
+    assert not any("/insights/" in m for m in report["members"])
+    assert any(f"insights/{HEX_A}/{LOG}: link inside the workspace" in e for e in report["errors"])
