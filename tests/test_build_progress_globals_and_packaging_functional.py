@@ -58,7 +58,7 @@ def test_server_build_progress_uses_unbuffered_subprocess_and_zero_pct_start():
     route_text = WORKBOOK_ROUTES.read_text(encoding="utf-8")
     service_text = BUILD_JOB_SERVICE.read_text(encoding="utf-8")
     combined = route_text + "\n" + service_text
-    assert '[sys.executable, "-u", str(build_script)]' in service_text
+    assert "python_child_argv(build_script, unbuffered=True)" in service_text
     assert 'build_env["PYTHONUNBUFFERED"] = "1"' in service_text
     assert 'stderr=subprocess.STDOUT' in service_text
     assert 'progress = 0' in service_text

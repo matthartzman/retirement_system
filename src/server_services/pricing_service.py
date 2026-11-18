@@ -12,13 +12,14 @@ import json
 import re
 import os
 import subprocess
-import sys
 import threading
 import time
 import traceback
 import uuid
 from pathlib import Path
 from typing import Any, Callable
+
+from ..platform_runtime import python_child_argv
 
 
 def refresh_prices(
@@ -35,7 +36,7 @@ def refresh_prices(
     env["RETIREMENT_SYSTEM_APP_DB"] = str(app_db)  # app_state.APP_DB_ENV: the runtime settings
     env["PYTHONIOENCODING"] = env.get("PYTHONIOENCODING", "utf-8:replace")
     result = subprocess.run(
-        [sys.executable, str(base_dir / "tools" / "refresh_prices.py")],
+        python_child_argv(base_dir / "tools" / "refresh_prices.py"),
         cwd=str(base_dir),
         capture_output=True,
         text=True,

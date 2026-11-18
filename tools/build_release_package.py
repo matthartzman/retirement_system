@@ -113,7 +113,7 @@ def _run_prepackage_checks(stage: Path) -> None:
         ("build job service", "class BuildJobRegistry"),
         ("build job service", "threading.RLock()"),
         ("build job service", "subprocess.Popen"),
-        ("build job service", '[sys.executable, "-u", str(build_script)]'),
+        ("build job service", "python_child_argv(build_script, unbuffered=True)"),
         ("report service", "def detailed_results_payload"),
         ("report service", "def local_output_file_payload"),
         ("spending service", "class SpendingService"),

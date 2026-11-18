@@ -539,7 +539,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server/remote_allowlist.py` | — | — |
 | `src/server/route_manifest.py` | — | — |
 | `src/server/security_audit.py` | `account_numbers`, `app_state`, `http_runtime.wsgi_facade`, `permissions`, `security`, `server`, `workspace_context` | — |
-| `src/server/workbook_routes.py` | `active_plan`, `http_runtime.wsgi_facade`, `import_preview`, `local_store`, `reporting`, `schema_registry`, `server.app_core`, `server_forecast`, `server_services`, `workspace_context` | — |
+| `src/server/workbook_routes.py` | `active_plan`, `http_runtime.wsgi_facade`, `import_preview`, `local_store`, `platform_runtime`, `reporting`, `schema_registry`, `server.app_core`, `server_forecast`, `server_services`, `workspace_context` | — |
 | `src/server/wsgi.py` | `server` | — |
 
 ### Server Services
@@ -550,7 +550,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/admin_service.py` | `active_plan`, `engine_defaults`, `plan_file_io`, `secrets_store`, `system_config` | — |
 | `src/server_services/base_service.py` | `app_state` | — |
 | `src/server_services/blank_plan_service.py` | — | — |
-| `src/server_services/build_job_service.py` | — | — |
+| `src/server_services/build_job_service.py` | `platform_runtime` | — |
 | `src/server_services/build_service.py` | `schema_registry`, `server_services` | — |
 | `src/server_services/config_service.py` | `daf_optimizer`, `module_catalog`, `optimization`, `plan_interview`, `qlac_optimizer`, `report_compute`, `roth_ui_build_guard`, `schema_registry`, `server_services.plan_tier_service` | — |
 | `src/server_services/conversion_service.py` | `app_state`, `legacy_conversion`, `legacy_conversion.result` | — |
@@ -559,8 +559,8 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/plan_file_service.py` | `active_plan`, `app_state`, `build_snapshot`, `plan_db_replace` | — |
 | `src/server_services/plan_forms_service.py` | `active_plan`, `csv_exchange.plan_csv`, `plan_label_rules`, `roth_ui_build_guard`, `schema_registry`, `server_services.config_service` | — |
 | `src/server_services/plan_tier_service.py` | `feature_entry_counts` | — |
-| `src/server_services/portfolio_service.py` | — | — |
-| `src/server_services/pricing_service.py` | `config_backend`, `market_data`, `portfolio_analytics` | — |
+| `src/server_services/portfolio_service.py` | `platform_runtime` | — |
+| `src/server_services/pricing_service.py` | `config_backend`, `market_data`, `platform_runtime`, `portfolio_analytics` | — |
 | `src/server_services/rental_service.py` | `parsing.rental_properties`, `projection_stages.rental_property`, `rental_tax` | — |
 | `src/server_services/report_service.py` | `app_state`, `detailed_results`, `report_package`, `system_config` | — |
 | `src/server_services/secret_service.py` | `secrets_store` | — |
