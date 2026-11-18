@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 387 Python files under `src/`, 92 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 388 Python files under `src/`, 92 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (286 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (287 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (35 modules)"]
@@ -650,7 +650,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/gateway/accounts.py` | `gateway` | — |
 | `src/gateway/acl.py` | `gateway`, `gateway.store` | — |
 | `src/gateway/admin_console.py` | `gateway.store`, `http_runtime.wsgi_facade` | — |
-| `src/gateway/app.py` | `access_core`, `gateway`, `gateway.admin_console`, `gateway.share_routes`, `gateway.share_store`, `gateway.store`, `gateway.upstream`, `gateway.viewer_api`, `gateway.viewer_routes`, `http_runtime.wsgi_facade` | `segno` |
+| `src/gateway/app.py` | `access_core`, `gateway`, `gateway.admin_console`, `gateway.share_routes`, `gateway.share_store`, `gateway.signin_throttle`, `gateway.store`, `gateway.upstream`, `gateway.viewer_api`, `gateway.viewer_routes`, `http_runtime.wsgi_facade` | `segno` |
 | `src/gateway/backup_crypto.py` | — | `cryptography` |
 | `src/gateway/backup_dest.py` | — | — |
 | `src/gateway/backup_store.py` | `gateway`, `gateway.backup_crypto`, `remote_worker` | — |
@@ -673,6 +673,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/gateway/share_publish.py` | `gateway.share_store`, `gateway.store`, `gateway.supervisor` | `financial_trends_reporter` |
 | `src/gateway/share_routes.py` | `gateway.share_store`, `gateway.store`, `http_runtime.wsgi_facade` | — |
 | `src/gateway/share_store.py` | `gateway`, `gateway.store` | — |
+| `src/gateway/signin_throttle.py` | `access_core` | — |
 | `src/gateway/store.py` | `src`, `access_core`, `gateway`, `gateway.secret_box` | — |
 | `src/gateway/supervisor.py` | `gateway`, `gateway.build_queue`, `gateway.launchers` | — |
 | `src/gateway/totp.py` | — | — |

@@ -235,8 +235,14 @@ Design sign-off (before 9a starts):
 
 Release sign-off (after 9e; `--shared-views` stays off until every box is ticked):
 
-- [ ] P7-O4 is fixed: sign-in throttling is per username and per address, so no single party can slow everyone's
-      sign-in (the owner's condition on R-4).
+- [x] P7-O4 is fixed: sign-in throttling is per username and per address, so no single party can slow everyone's
+      sign-in (the owner's condition on R-4). Done 2026-11-18 in `76179eb` (branch `claude/p7-o4-signin-throttle`):
+      the gateway-wide count is detection only. Ran in a Linux container: `tests/test_gateway_signin_throttle_unit.py`,
+      `tests/test_gateway_auth_functional.py`, `tests/test_gateway_health_functional.py`,
+      `tests/test_gateway_second_factor_lockout_regression.py`, `tests/test_trends_access_store_unit.py` and the
+      other `tests/test_trends_*` and `tests/test_gateway_*` tests (the three that need Windows also fail on main),
+      `tests/test_multi_user_isolation_attacks_integration.py` (11 passed, forged `X-Forwarded-For` included) and
+      `python tools/fast_gates.py`. Not run: the installed build on the owner's machine.
 - [x] C10 covers members as well as viewers, including the fresh deadline at the 9a upgrade (the owner's answer to R-5).
       Done in 9a: `store.py` sets `enrol_by` at creation and at every admin reset, migration step 4 gives unenrolled
       accounts 72 hours from the upgrade, and `test_gateway_viewer_session_functional.py` passes its three C10 tests

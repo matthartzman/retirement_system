@@ -122,8 +122,16 @@ nearest proxy, so a client-supplied `X-Forwarded-For` cannot pick its own thrott
 left-most entry, but only for its activity log, never for a security decision. On the local listener
 `X-Forwarded-For` and `Tailscale-*` headers are refused (403) and the socket address is used.
 
-Per IP: 10 free failures in 10 minutes, then a doubling delay up to 5 minutes. Whole gateway: 50 free failures in
-10 minutes, then a doubling delay up to 60 s.
+Failures (wrong password, wrong code, wrong current password) are counted per IP and per username
+(`src/gateway/signin_throttle.py`, security review P7-O4). Per IP: 10 free failures in 10 minutes, then a doubling
+delay up to 5 minutes. Per username, normalised as login does (trimmed, lower case, 64 characters): the same 10 free
+failures and 5-minute cap; unknown usernames get a bucket exactly like known ones, so the 429 response does not reveal
+which names exist, and at most 10,000 usernames are tracked (the oldest are evicted). A sign-in is refused (429 with
+`Retry-After`) only when its own address or its own username is over the limit, so one address cannot slow other
+addresses and many addresses cannot slow other usernames. The whole-gateway count is detection only: above 50 failures
+in 10 minutes it writes one `login failure surge` audit event per window and the admin health report shows a
+`sign_in` block and a warning; it never refuses a sign-in. Config: `GatewayConfig.user_free_failures`,
+`user_max_delay`, `user_max_keys`, `global_free_failures` (the alert threshold).
 
 ## Unauthenticated requests
 

@@ -257,12 +257,60 @@ def test_local_listener_throttles_by_socket_address(rig):
     assert b.login("ann").status_code == 429
 
 
-def test_global_throttle(rig):
+def _surge_events(rig) -> list[dict]:
+    return [e for e in rig.store.read_audit(limit=500) if e["event"] == "login failure surge"]
+
+
+def test_a_global_surge_refuses_no_quiet_sign_in_and_is_audited_once_per_window(rig):
+    admin, _ = rig.signed_in("root", role="admin", ip="198.51.100.200")
     rig.add_user("ann")
-    for i in range(51):
+    for i in range(80):  # many addresses, many usernames: well past the gateway-wide alert threshold
         assert rig.browser(ip=f"192.0.2.{i}").login(f"nobody{i}").status_code == 401
-    r = rig.browser(ip="198.51.100.99").login("ann")
-    assert r.status_code == 429
+    assert rig.browser(ip="198.51.100.99").login("ann").status_code == 200  # quiet address, quiet username
+    assert len(_surge_events(rig)) == 1
+    health = admin.get("/api/auth/admin/health").get_json()
+    assert health["sign_in"]["high"] is True and health["sign_in"]["failures_in_window"] == 80
+    assert any("failed sign-ins" in w for w in health["warnings"])
+    rig.advance(601)
+    for i in range(60):
+        rig.browser(ip=f"192.0.3.{i}").login(f"other{i}")
+    assert len(_surge_events(rig)) == 2  # one more for the next window, not one per failure
+
+
+def test_one_address_against_many_usernames_slows_only_that_address(rig):
+    rig.add_user("ann")
+    attacker = rig.browser(ip="203.0.113.66")
+    for i in range(30):
+        attacker.login(f"nobody{i}")
+    assert attacker.login("ann").status_code == 429
+    for i in range(5):  # other addresses, including for usernames the attacker tried, are untouched
+        assert rig.browser(ip=f"198.51.100.{i}").login(f"nobody{i}", password="x" * 14).status_code == 401
+    assert rig.browser(ip="198.51.100.50").login("ann").status_code == 200
+
+
+def test_many_addresses_against_one_username_slow_only_that_username(rig):
+    rig.add_user("ann")
+    rig.add_user("bob")
+    for i in range(11):
+        assert rig.browser(ip=f"192.0.2.{i}").login("ANN ", password="x" * 14).status_code == 401  # normalised
+    r = rig.browser(ip="198.51.100.7").login("ann")
+    assert r.status_code == 429 and int(r.headers["Retry-After"]) >= 1
+    assert rig.browser(ip="198.51.100.8").login("bob").status_code == 200
+
+
+def test_unknown_and_known_usernames_get_identical_responses(rig):
+    rig.add_user("ann")
+
+    def run(name: str, net: str) -> list[tuple]:
+        out = []
+        for i in range(14):
+            r = rig.browser(ip=f"{net}.{i}").login(name, password="x" * 14)
+            out.append((r.status_code, r.get_data(as_text=True), r.headers.get("Retry-After")))
+        return out
+
+    known, unknown = run("ann", "192.0.2"), run("ghost", "198.51.100")
+    assert known == unknown
+    assert [c for c, _b, _r in known].count(429) == 3
 
 
 # ---- forced password change ----
