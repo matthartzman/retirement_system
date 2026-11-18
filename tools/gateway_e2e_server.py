@@ -39,7 +39,7 @@ def main() -> int:
     cmd = [sys.executable, "-m", "src.gateway", "--db", str(db), "--local-port", "0", "--funnel-port", "0",
            "--public-origin", "https://node.example.ts.net:8443", "--no-tailscale-check",
            "--data-root", str(base / "data"), "--provision", "demo", "--ready-file", str(ready_file),
-           "--build-concurrency", "1", "--worker-env", "RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS=1"]
+           "--build-concurrency", "1", "--insights", "--worker-env", "RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS=1"]
     proc = subprocess.Popen(cmd, cwd=str(ROOT), env=env)
     deadline = time.time() + 60
     while not ready_file.is_file():

@@ -50,7 +50,7 @@ def _json(payload: dict, status: int = 200) -> Response:
 
 
 def _error(req: LocalRequest, message: str, status: int) -> Response:
-    if req.path.startswith("/api/"):
+    if req.path.startswith(("/api/", "/insights/api/")):
         return _json({"success": False, "error": message}, status)
     html = ("<!doctype html><meta charset=utf-8><title>Retirement Planner</title>"
             f"<p>{message}</p><p><a href=\"/\">Try again</a> &middot; <a href=\"/gateway/account\">Your account</a></p>")

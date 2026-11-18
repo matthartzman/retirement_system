@@ -173,6 +173,14 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
             content_type="text/javascript; charset=utf-8",
         )
 
+    @app.route("/insights_client.js", methods=["GET"])
+    def insights_client_js():
+        # The prefix-agnostic fetch wrapper (desktop "/" and the gateway's "/insights/"), imported by index.html.
+        return Response(
+            (_APP_ROOT / "frontend" / "insights_client.js").read_text(encoding="utf-8"),
+            content_type="text/javascript; charset=utf-8",
+        )
+
     @app.route("/money_view.js", methods=["GET"])
     def money_view_js():
         # The one money formatter ($ or % of net worth) imported by charts.js, live_snapshot.js and index.html.

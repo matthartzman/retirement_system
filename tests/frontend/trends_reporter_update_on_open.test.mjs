@@ -66,7 +66,7 @@ describe("page markup", () => {
     assert.match(html, /\/api\/run-cancel/);
   });
   test("the page imports the shared run-time helpers", () => {
-    assert.match(html, /from "\/shared\/runtime_history\.js"/);
+    assert.match(html, /from "\.\/shared\/runtime_history\.js"/);
   });
 });
 

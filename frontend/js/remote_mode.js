@@ -1,14 +1,8 @@
-/* Remote mode (multi-user server, Phase 5): the one place the frontend learns it is served through the gateway.
-   Desktop mode is untouched: nothing below runs under pywebview or file://, and everything is inert until
-   GET /api/ping answers {"remote_mode": true}.
-   1. Detection: window.RetirementRemote.enabled, class "remote-mode" on <html>, event "retirement-remote-mode".
-   2. 401: ONE wrapper on window.fetch sends an expired session to /login (covers api_client.js, admin.js and
-      every raw fetch). Matched only in remote mode or when the body says {"authenticated": false}.
-   3. Keep-alive: the gateway's 15-minute idle clock restarts on every request. The 15-second status ping is
-      therefore answered locally while the tab is hidden or the user idle, user activity sends one cheap touch
-      a minute, and a notice with "Stay signed in" appears 3 minutes before expiry (running builds keep the
-      session alive through their progress polling, by design).
-   4. Hiding: controls for routes a remote worker refuses (src/server/remote_allowlist.py) are CSS-hidden. */
+/* Remote mode (multi-user server): the one place the frontend learns it is served through the gateway; inert on the
+   desktop until GET /api/ping answers {"remote_mode": true}. Provides window.RetirementRemote.enabled, class "remote-mode"
+   on <html>, event "retirement-remote-mode"; ONE window.fetch wrapper sends a 401 to /login; keep-alive (15-minute idle
+   clock: local ping answers while hidden or idle, a touch a minute while active, "Stay signed in" 3 minutes before expiry);
+   CSS-hides controls for routes a worker refuses (src/server/remote_allowlist.py); the Financial Insight header link. */
 (function (global) {
   'use strict';
   const doc = global.document;
@@ -46,6 +40,10 @@
       doc.head.appendChild(st);
     }
     if (global.dispatchEvent && global.CustomEvent) global.dispatchEvent(new global.CustomEvent('retirement-remote-mode'));
+    const host = doc.getElementById('planSwitcher');   // Financial Insight link, only when the session says insights: true
+    if (host && rawFetch) rawFetch('/api/auth/session', { cache: 'no-store' }).then((r) => r.json()).then((s) => {
+      if (s && s.insights && !doc.getElementById('insightsLink')) host.insertAdjacentHTML('beforebegin', '<a id="insightsLink" class="btn tiny" href="/insights/">Financial Insight</a>');
+    }).catch(() => {});
     try { if (typeof global.renderMain === 'function') global.renderMain(); } catch (_e) {}
   };
 
