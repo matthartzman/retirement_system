@@ -254,7 +254,10 @@ Release sign-off (after 9e; `--shared-views` stays off until every box is ticked
 - [ ] The existing tests listed at the end of section 7 pass; `python tools/fast_gates.py` passes; the system diagram
       is regenerated. Fast gates pass and the diagram is regenerated. The listed tests pass in a Linux container, except
       two that fail there on `main` too for Windows-only reasons (in `test_multi_user_isolation_integration.py` and
-      `test_multi_user_isolation_routes_integration.py`, section 11). Open until they pass on Windows.
+      `test_multi_user_isolation_routes_integration.py`, section 11). On Windows, CI (`test (windows-latest, 3.14)`,
+      `pytest tests/ -m "not slow and not nightly"`) passed on `3372ff6`: every non-slow module, the new share and
+      viewer modules and the Windows-only tests above included. The slow isolation modules do not run there, so this
+      stays open until they pass on Windows (the owner's run).
 - [x] `shared-view.spec.js` passes with zero CSP violations. Done in 9c/9d: 2 tests, Chromium only, in a Linux
       container against a real gateway and worker (with the container's pre-installed Chromium; see section 11).
 - [x] The slow module `test_multi_user_isolation_shared_view_integration.py` passes (two owners, two viewers, real
