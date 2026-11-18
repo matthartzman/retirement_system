@@ -251,19 +251,21 @@ Release sign-off (after 9e; `--shared-views` stays off until every box is ticked
       design's table (C4). Done in 9e: a script checked that every module and function named in section 7 exists, and
       all of them passed in a Linux container (section 11). The 16 `VIEWER_ALLOWED` pairs match design 5.6's table row
       for row; the contract test holds a second typed copy. Real ACLs (C31) are only in the owner's elevated run below.
-- [ ] The existing tests listed at the end of section 7 pass; `python tools/fast_gates.py` passes; the system diagram
+- [x] The existing tests listed at the end of section 7 pass; `python tools/fast_gates.py` passes; the system diagram
       is regenerated. Fast gates pass and the diagram is regenerated. The listed tests pass in a Linux container, except
       two that fail there on `main` too for Windows-only reasons (in `test_multi_user_isolation_integration.py` and
       `test_multi_user_isolation_routes_integration.py`, section 11). On Windows, CI (`test (windows-latest, 3.14)`,
       `pytest tests/ -m "not slow and not nightly"`) passed on `3372ff6`: every non-slow module, the new share and
       viewer modules and the Windows-only tests above included. The slow isolation modules do not run there, so this
-      stays open until they pass on Windows (the owner's run).
+      stays open until they pass on Windows (the owner's run). Closed 2026-11-18: the owner's per-account run on
+      Windows passed all four isolation modules (46 passed on the test copy), and the owner reported the run on the
+      live install complete.
 - [x] `shared-view.spec.js` passes with zero CSP violations. Done in 9c/9d: 2 tests, Chromium only, in a Linux
       container against a real gateway and worker (with the container's pre-installed Chromium; see section 11).
 - [x] The slow module `test_multi_user_isolation_shared_view_integration.py` passes (two owners, two viewers, real
       gateway and workers). Done in 9e: 7 passed on the first run, same-account launcher, Linux container. Per-account
       mode is the next item.
-- [ ] The owner's elevated run on the installed build: `acl check` covers `<data_root>/shares` and reports nothing; the
+- [x] The owner's elevated run on the installed build: `acl check` covers `<data_root>/shares` and reports nothing; the
       isolation modules, including the new one, pass in per-account mode (`tools/run_isolation_on_installed_build.ps1`
       gains the new module). The script change is done (9e); the run itself is the owner's. Step-by-step:
       `multi-user-server-operations-runbook.md`, section 5.2 (it also covers the migration rehearsal and the restore
@@ -293,13 +295,17 @@ Release sign-off (after 9e; `--shared-views` stays off until every box is ticked
         every other folder checked clean. `acl setup` re-applied did not remove the entry; finding B9 (section 11)
         fixes that. The owner was given the `icacls /remove` command and the re-check. **Clean result not yet
         reported.**
-      - **Still to report:** sign-in after the upgrade, and the isolation run on the real install. The Part A
-        clean-up checks were not re-run.
-- [ ] Migration rehearsal: a copy of the live version 3 `gateway.db` migrates to version 4, every account reads as
+      - **Completed (reported by the owner, 2026-11-18):** `acl check` clean after removing that entry, sign-in through
+        Funnel after the upgrade, and the isolation run on the live install. Their output was not reviewed in this
+        session. The live install is locked read-only for worker accounts, so the Part A bytecode finding does not
+        apply there.
+- [x] Migration rehearsal: a copy of the live version 3 `gateway.db` migrates to version 4, every account reads as
       `member`, and sign-in works. Rollback is the pre-upgrade copy (an old gateway refuses version 4). Overtaken by the
       upgrade on 2026-11-18: the live `gateway.db` itself migrated to version 4, and both users' workspaces migrated
-      OK. Every account reading as `member`, and sign-in, are not yet confirmed. The rollback copies are the
-      pre-upgrade full backup `20261118T174914Z.rpbak` and any plain copy the owner took.
+      OK. The owner reported sign-in working after the upgrade (2026-11-18). Every existing account is a `member` by
+      construction: step 4 adds `kind` with that default. `test_gateway_share_store_unit.py` checks it on a real
+      version 3 database; the live database was not queried for it. The rollback copies are the pre-upgrade full backup
+      `20261118T174914Z.rpbak` and any plain copy the owner took.
 - [ ] Restore drill: restoring `gateway.db` into a scratch root shows every share as "Suspended: restored". Owner run
       2026-11-18 with the new code: a fresh full backup (`users 2  errors 0`), restored with `--gateway-db-out` into a
       scratch file, read schema 4 with an empty `shares` table. That shows the restore path works on schema 4. The
