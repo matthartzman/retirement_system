@@ -61,6 +61,18 @@ def test_a_broad_group_or_inheritance_is_found(layout):
     assert any("gateway.db folder: still inherits" in f for f in findings), findings
 
 
+def test_rerunning_setup_removes_an_explicit_entry_for_another_account(layout):
+    """Explorer's Continue on a locked folder adds an explicit entry for the administrator; setup must remove it."""
+    root, gw, me, workers = layout
+    subprocess.run(["icacls", str(gw), "/grant", f"*{WORKER_B}:(OI)(CI)R"], check=True, capture_output=True)
+    findings = acl.check_layout(data_root=root, gateway_sid=me, workers=workers, gateway_db=gw / "gateway.db")
+    assert any(f.startswith("gateway.db folder:") and "rpw_2" in f for f in findings), findings
+    assert any(f.startswith("gateway.db:") and "rpw_2" in f for f in findings), findings
+    acl.lock_gateway_only(gw, gateway_sid=me)
+    assert acl.check_layout(data_root=root, gateway_sid=me, workers=workers, gateway_db=gw / "gateway.db") == []
+    assert WORKER_B not in {a.sid for a in acl.read_dacl(gw).aces}
+
+
 def test_the_install_folder_may_be_read_but_not_written(tmp_path):
     me = winapi.current_user_sid()
     inst = tmp_path / "install"
