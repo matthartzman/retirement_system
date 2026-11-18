@@ -265,7 +265,9 @@ Release sign-off (after 9e; `--shared-views` stays off until every box is ticked
       mode is the next item.
 - [ ] The owner's elevated run on the installed build: `acl check` covers `<data_root>/shares` and reports nothing; the
       isolation modules, including the new one, pass in per-account mode (`tools/run_isolation_on_installed_build.ps1`
-      gains the new module). The script change is done (9e); the run itself is the owner's.
+      gains the new module). The script change is done (9e); the run itself is the owner's. Step-by-step:
+      `multi-user-server-operations-runbook.md`, section 5.2 (it also covers the migration rehearsal and the restore
+      drill below).
 - [ ] Migration rehearsal: a copy of the live version 3 `gateway.db` migrates to version 4, every account reads as
       `member`, and sign-in works. Rollback is the pre-upgrade copy (an old gateway refuses version 4).
 - [ ] Restore drill: restoring `gateway.db` into a scratch root shows every share as "Suspended: restored".

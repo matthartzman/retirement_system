@@ -266,6 +266,79 @@ It runs the three isolation modules and the worker-account suite as SYSTEM from 
 per-account workers. Read `C:\Windows\Temp\rpw_isolation_installed.txt`; the printout must end with empty accounts,
 folders and profiles lists and "clean". Afterwards `net user` should show no `rpwtest_` account.
 
+### 5.2 Phase 9 (shared views): the owner's elevated run, before and at the upgrade
+
+These steps are the release checklist's owner items in `multi-user-shared-view-security-review.md` (section 9).
+`--shared-views` stays off throughout.
+
+**Do not install the Phase 9 build onto `C:\RetirementPlanner\app` before it is merged and you are upgrading.** The next
+service start on that code moves the live `gateway.db` to schema 4. It also starts the 72-hour two-factor deadline for
+every account that has not enrolled (section 3). Part A therefore runs against a separate test copy and touches
+neither `data`, `state` nor the running service.
+
+**Part A: before the merge, against a separate test copy** (elevated PowerShell; `$repo` is your checkout):
+
+1. Fetch the branch:
+   ```powershell
+   $repo = "C:\RetirementPlanning\Version 12"
+   git -C $repo fetch origin claude/shared-view-build
+   ```
+2. Export it into its own folder. `-Force` only gets past the "service is running" guard, and the target is not the live
+   install. The script must end with `tools\run_isolation_on_installed_build.ps1: True` and
+   `tests\isolation_per_account.py: True`.
+   ```powershell
+   New-Item -ItemType Directory C:\rp-phase9-test\app -Force | Out-Null
+   powershell -ExecutionPolicy Bypass -File "$repo\tools\export_main_to_install.ps1" -Ref origin/claude/shared-view-build -InstallDir C:\rp-phase9-test\app -Force
+   ```
+3. Give the copy its own runtime, as in section 1:
+   ```powershell
+   py -3.12 -m venv C:\rp-phase9-test\app\runtime
+   $PY = "C:\rp-phase9-test\app\runtime\Scripts\python.exe"
+   & $PY -m pip install -r C:\rp-phase9-test\app\requirements.txt -r C:\rp-phase9-test\app\requirements-gateway.txt
+   ```
+4. Run the per-account isolation run against the copy. It covers four isolation modules (the shared-view module
+   included) and the worker-account suite, takes several minutes, and runs as SYSTEM. It creates and removes
+   throwaway `rpwtest_` accounts and `C:\rpwtest_*` folders.
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File C:\rp-phase9-test\app\tools\run_isolation_on_installed_build.ps1 -InstallDir C:\rp-phase9-test\app
+   ```
+5. Read `C:\Windows\Temp\rpw_isolation_installed.txt`. Pass looks like this:
+   - `test_multi_user_isolation_shared_view_integration.py` reports 7 passed, and every other module passes;
+   - the tail ends with empty account, folder and profile lists and "clean";
+   - `net user` shows no `rpwtest_` account.
+
+   Worker and gateway logs from a failed run are in `C:\Users\Public\rpw_isolation`. Not checked in advance: whether
+   the throwaway worker accounts can read a folder under `C:\rp-phase9-test`. If workers fail to start with "access
+   denied", that folder's permissions are the cause, not the code.
+6. Rehearse the migration on a copy of the live `gateway.db`. The copy is taken with SQLite's backup API, which only
+   reads the live file, so it is safe while the service runs.
+   ```powershell
+   cd C:\rp-phase9-test\app
+   & $PY -c "import sqlite3; s=sqlite3.connect(r'file:C:\RetirementPlanner\state\gateway.db?mode=ro', uri=True); d=sqlite3.connect(r'C:\rp-phase9-test\gateway-rehearsal.db'); s.backup(d); d.close(); s.close()"
+   & $PY -c "import time; from src.gateway.store import GatewayStore; s=GatewayStore(r'C:\rp-phase9-test\gateway-rehearsal.db'); u=s.list_users(time.time()); print('schema', s.schema_version()); print('kinds', sorted({x['kind'] for x in u})); print('accounts', len(u)); print('not yet enrolled (get the 72-hour clock):', [x['username'] for x in u if x['totp'] != 'enrolled'])"
+   ```
+   Expect `schema 4`, `kinds ['member']` and today's account count. The last line names who will have 72 hours to
+   enrol after the upgrade: warn them, or have them enrol first. This rehearsal cannot prove sign-in, because the
+   two-factor secrets open only for the service's account (SYSTEM). Sign-in is checked in step 10.
+7. Clean up: `Remove-Item C:\rp-phase9-test -Recurse -Force`.
+
+**Part B: at the upgrade, after the merge, flag still off:**
+
+8. Upgrade as in section 5, steps 1 to 5. Before step 1, copy `C:\RetirementPlanner\state\gateway.db` aside: an older
+   gateway refuses schema 4, so that copy is the rollback.
+9. In step 3, `acl setup` now creates and locks `C:\RetirementPlanner\data\shares`. `acl check` (section 1, step 3)
+   must say `OK`; any finding that names `data/shares` is a failure.
+10. Sign in through the Funnel address to confirm sign-in works after the migration.
+11. Run step 4 again against the real install, without `-InstallDir`.
+12. Restore drill (section 4, "Shared-view restore drill"): restore last night's `gateway.db` into a scratch file with
+    `--gateway-db-out`, then:
+    ```powershell
+    & $PY -c "import sqlite3; print(sqlite3.connect(r'<scratch file>').execute('SELECT state, state_reason, count(*) FROM shares GROUP BY 1, 2').fetchall())"
+    ```
+    With the flag off nobody can create a share, so expect `[]` (the table exists and is empty). The full check that
+    every share reads Suspended: restored needs shares to exist. Like the measurements on your real plan, it waits for
+    a controlled trial with the flag on.
+
 ## 6. Incident quick reference
 
 | Symptom | First look |
