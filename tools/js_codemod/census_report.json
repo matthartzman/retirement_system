@@ -4901,228 +4901,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "moduleGates",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "sectionFlagEnabled",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "boolishValue",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "sectionFlagEnabled",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "boolishValue",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "moduleStatus",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "moduleStatus",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "moduleStatus",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "moduleStatus",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "searchText",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "moduleStatus",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_plan_switcher.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_plan_switcher.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dirty",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dirty",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "STEPS",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dirty",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dirty",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dirty",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dirty",
-      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "sessionChanges",
       "file": "frontend/js/dashboard_decomp_planning_levers.js",
       "kind": "read",
@@ -5347,6 +5125,228 @@
     {
       "name": "BUILD_HISTORY_MAX",
       "file": "frontend/js/dashboard_decomp_planning_levers.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleGates",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sectionFlagEnabled",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "boolishValue",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sectionFlagEnabled",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "boolishValue",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleStatus",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleStatus",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleStatus",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleStatus",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "searchText",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleStatus",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_switcher.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_switcher.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "STEPS",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
       "kind": "read",
       "scope": "inside-function"
     },
@@ -9647,39 +9647,39 @@
       "scope": "inside-function"
     },
     {
+      "name": "dirty",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "csrfToken",
       "file": "frontend/js/plan_assumptions.js",
       "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dirty",
-      "file": "frontend/js/planning_workbench_ui.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dirty",
-      "file": "frontend/js/planning_workbench_ui.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dirty",
-      "file": "frontend/js/planning_workbench_ui.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/planning_workbench_ui.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/planning_workbench_ui.js",
-      "kind": "read",
       "scope": "inside-function"
     },
     {
