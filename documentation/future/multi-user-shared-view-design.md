@@ -1,6 +1,6 @@
 # Shared view of Financial Insight for guests and advisors: design (Phase 9)
 
-Status: draft (design only; no code, migration or test is written until the owner signs off this design and multi-user-shared-view-security-review.md)
+Status: draft (design only; owner decisions recorded 2026-11-18 in sections 3 and 13; no code, migration or test is written until the owner signs off this design and multi-user-shared-view-security-review.md)
 Date: 2026-11-18
 
 Scope: let the owner of a plan on the multi-user server show a **read-only Financial Insight (FI) view** of that plan to
@@ -100,19 +100,20 @@ must not be able to change anything or reach anything else.
 | Planner and FI allow-lists are separate, deny by default | About 270 planner pairs; FI's own worker table | `src/server/remote_allowlist.py:1-15,30,286`; `financial_trends_reporter/worker_allowlist.py:17-59` |
 | Route prefixes are free | No planner, FI or gateway route uses `/api/share`, `/api/viewer`, `/gateway/viewer` or `/gateway/sharing` | Grep of `src/`, `financial_trends_reporter/*.py` and `admin_app/*.py`, 2026-11-18 |
 
-## 3. The owner's five questions (OWNER DECISION NEEDED)
+## 3. The owner's five questions (answered 2026-11-18)
 
-Each answer below is the **recommended default**, and the design is built on it. The right-hand column shows what an
-other answer changes. Only one alternative (a live view) replaces part of the build. Every other alternative is a
-setting or a small addition.
+The owner answered all five on 2026-11-18. Four answers are the recommended default. Q4 takes a **90-day** default
+expiry instead of the recommended 30 days, which is a setting, not a design change. The right-hand column is kept as a
+record of what another answer would have changed. Only one alternative (a live view) would have replaced part of the
+build.
 
-| # | Question | Recommended default | If the owner chooses otherwise |
+| # | Question | Owner's answer (2026-11-18) | If the owner had chosen otherwise |
 |---|---|---|---|
-| Q1 | Who are the viewers? **OWNER DECISION NEEDED** | New low-privilege **viewer accounts** in `gateway.db` (`kind = 'viewer'`), created by an admin, each sponsored by exactly one owner. Existing server users cannot be grantees in v1. | "Existing users too": a policy switch (who may be a grantee), no schema change. The text-only rendering test (section 10) becomes a hard gate first, because the owner's text would then render inside a planner session. "Owners create their own viewers": one owner route and a per-owner cap; no schema change. |
-| Q2 | Live look or published copy? **OWNER DECISION NEEDED** | **Published point-in-time copy** (Option A). The owner refreshes it with a button; optionally Phase 8's scheduler refreshes it after each scheduled update. | "Near-live" (refresh every N hours) stays inside A: a setting. A true live view is Option B, which replaces 9b and 9c with per-guest enforcement in every FI route. The data model, accounts, gate branch, owner UI and tests carry over. |
-| Q3 | What may a guest see? **OWNER DECISION NEEDED** | Per share: **percent view** (amounts as a percent of today's net worth), tabs chosen by the owner from Snapshot, Trends and Projections (all three ticked by default). Never: transactions, account settings, update controls, any write. | Dollars: one field value. Fewer or more tabs: the same list. "Hide account names": one more projection step in 9b (decision 3b, section 13). |
-| Q4 | Revoke, expiry, who looked? **OWNER DECISION NEEDED** | Revoke takes effect on the guest's next request; every share expires (default 30 days, maximum 365, renewable); the owner sees a view log (viewer name and time, no address); the admin audit has ids only. | Other expiry limits are settings. Showing the guest's address to the owner: one column. "No expiry": a setting, not recommended. |
-| Q5 | Download or export? **OWNER DECISION NEEDED** | **No** download or export in v1. No route exists. A guest can still print or screenshot what is on screen (residual risk). | "Yes": an export route that renders the same stored record, so its scope matches by construction. It is audited and adds no new data path. |
+| Q1 | Who are the viewers? **Answered: recommended default** | New low-privilege **viewer accounts** in `gateway.db` (`kind = 'viewer'`), created by an admin, each sponsored by exactly one owner. Existing server users cannot be grantees in v1. | "Existing users too": a policy switch (who may be a grantee), no schema change. The text-only rendering test (section 10) becomes a hard gate first, because the owner's text would then render inside a planner session. "Owners create their own viewers": one owner route and a per-owner cap; no schema change. |
+| Q2 | Live look or published copy? **Answered: recommended default** | **Published point-in-time copy** (Option A). The owner refreshes it with a button; optionally Phase 8's scheduler refreshes it after each scheduled update. | "Near-live" (refresh every N hours) stays inside A: a setting. A true live view is Option B, which replaces 9b and 9c with per-guest enforcement in every FI route. The data model, accounts, gate branch, owner UI and tests carry over. |
+| Q3 | What may a guest see? **Answered: recommended default** | Per share: **percent view** by default (amounts as a percent of today's net worth); the owner may choose dollars for a share. Tabs are chosen by the owner from Snapshot, Trends and Projections (all three ticked by default). Real account names are shown (decision 3b). Never: transactions, account settings, update controls, any write. | Dollars: one field value. Fewer or more tabs: the same list. "Hide account names": one more projection step in 9b (decision 3b, section 13). |
+| Q4 | Revoke, expiry, who looked? **Answered: 90-day default (recommended was 30)** | Revoke takes effect on the guest's next request; every share expires (default **90 days**, maximum 365, renewable); the owner sees a view log (viewer name and time, no address); the admin audit has ids only. | Other expiry limits are settings. Showing the guest's address to the owner: one column. "No expiry": a setting, not recommended. |
+| Q5 | Download or export? **Answered: recommended default** | **No** download or export in v1. No route exists. A guest can still print or screenshot what is on screen (residual risk). | "Yes": an export route that renders the same stored record, so its scope matches by construction. It is audited and adds no new data path. |
 
 ## 4. Options
 
@@ -421,7 +422,7 @@ days, showing the viewer's display name and the time. The guest's address stays 
 
 `--shared-views` (default off; the gateway refuses to start with it unless `--insights` is also on). When it is off,
 the owner and viewer routes return 404, nothing is published, and stored rows and bodies are kept. Settings:
-`--share-max-mb` (8), `--share-default-days` (30), `--share-max-days` (365), `--viewer-idle-minutes` (10),
+`--share-max-mb` (8), `--share-default-days` (90), `--share-max-days` (365), `--viewer-idle-minutes` (10),
 `--viewer-max-hours` (2), `--max-shares-per-owner` (10), `--max-viewers-per-sponsor` (5).
 
 ## 6. UI
@@ -452,7 +453,7 @@ the owner and viewer routes return 404, nothing is published, and stored rows an
   **Share a view**, and **My viewers** (the accounts an admin created for me, with expiry and whether they have signed
   in yet).
 - Share a view: choose the viewer -> choose what to share (default: percent view, all three tabs) -> choose the expiry
-  (default 30 days) -> **preview exactly what the guest will see** -> Publish.
+  (default 90 days) -> **preview exactly what the guest will see** -> Publish.
 - Three plain statements shown when creating a share: (1) percent hides amounts only from someone who knows none of
   them; (2) the guest can keep anything they have seen; (3) this is a copy as of now and does not update by itself
   unless scheduled.
@@ -581,24 +582,30 @@ rollout** (the flag stays off until then).
 | `users.js` is shared with the desktop Admin app | New columns behind a `FEATURES` flag (`admin_console.py:36-40`) |
 | Phase 8's scheduler (merged) treats every active account as an FI user | 9a makes `eligible_users` select members only; the supervisor refusal (5.1, layer 3) is the backstop; the scheduled refresh stays an optional hook and the button works without it |
 
-## 13. Owner decisions (consolidated)
+## 13. Owner decisions (recorded 2026-11-18)
 
-| # | Decision | Recommendation |
+The owner answered every decision on 2026-11-18. Thirteen of the fourteen are the recommended default; decision 4
+takes a 90-day default expiry (recommended: 30 days).
+
+| # | Decision | Owner's answer (2026-11-18) |
 |---|---|---|
-| 1 | Q1: who the viewers are (**OWNER DECISION NEEDED**) | Viewer accounts, admin-created, each sponsored by one owner; members as grantees later |
-| 2 | Q2: live or copy (**OWNER DECISION NEEDED**) | Published copy (Option A); refresh by button, optionally after Phase 8's scheduled update |
-| 3 | Q3: what a guest sees (**OWNER DECISION NEEDED**) | Percent view; owner-chosen tabs (all three ticked by default); transactions never |
-| 3b | Replace account names with generic labels in shared records | No in v1 (names are visible in the preview); can be added in 9b |
-| 4 | Q4: revoke, expiry, who looked (**OWNER DECISION NEEDED**) | Revoke on next request; 30-day default, 365 maximum; owner sees viewer and time, no address |
-| 5 | Q5: export (**OWNER DECISION NEEDED**) | No |
-| 6 | Archive record bodies | No; rows travel in `gateway.db`; a restored `gateway.db` suspends every share |
+| 1 | Q1: who the viewers are | Viewer accounts only: admin-created, each sponsored by one owner; members are not grantees in v1 |
+| 2 | Q2: live or copy | Published copy (Option A); refresh by button and after the scheduled update (decision 10) |
+| 3 | Q3: what a guest sees | Percent view by default, dollars opt-in per share; owner-chosen tabs (all three ticked by default); transactions never |
+| 3b | Replace account names with generic labels in shared records | No: real names are shown, and the owner sees them in the preview |
+| 4 | Q4: revoke, expiry, who looked | Revoke on next request; **90-day default** (recommended was 30), 365 maximum; owner sees viewer and time, no address |
+| 5 | Q5: export | No export |
+| 6 | Archive record bodies | No: rows travel in `gateway.db`; a restored `gateway.db` suspends every share |
 | 7 | Deleting a plan revokes its shares | Yes |
 | 8 | Viewer session limits and enrol-by deadline | 10 minutes idle, 2 hours absolute, 72 hours to enrol |
-| 9 | Record selection | Share id within the session's own set; strict alternative: one share per viewer and no id |
+| 9 | Record selection | Share id within the session's own set (not one share per viewer) |
 | 10 | Phase 8 refresh hook | On when `--insights-schedule` is set, only for shares whose plan is active |
-| 11 | An admin reset suspends the viewer's shares | Yes |
-| 12 | Desktop tab-limit gap (finding F1) | Fix separately on the desktop remote listener; not part of Phase 9 |
+| 11 | An admin reset suspends the viewer's shares | Yes, until each owner re-enables them |
+| 12 | Desktop tab-limit gap (finding F1) | A separate small fix soon, on the desktop remote listener; not part of Phase 9 |
 | 13 | Limits | 10 shares per owner, 5 viewers per sponsor, 8 MiB per record |
+
+Still open before 9a starts: the owner's acceptance of residual risks R-1 to R-12 (security review, section 8), and the
+owner's sign-off of this design and the security review.
 
 ## 14. Not verified here
 

@@ -1,6 +1,6 @@
 # Shared view of Financial Insight: security review (Phase 9, design stage)
 
-Status: draft (design-stage review of multi-user-shared-view-design.md; nothing is built; the sign-off checklist in section 9 is open)
+Status: draft (design-stage review of multi-user-shared-view-design.md; nothing is built; owner decisions recorded 2026-11-18; the rest of the sign-off checklist in section 9 is open)
 Date: 2026-11-18
 
 ## Verdict: GO to build 9a-9e behind a default-off flag. This is not a release sign-off.
@@ -45,7 +45,7 @@ listener.
 
 | Id | Sev | Finding | Evidence | Consequence and action |
 |---|---|---|---|---|
-| F1 | Medium (desktop remote listener) | **Tab limits on the desktop are presentation only.** A grant's `views` is read only by `whoami` and by the `/api/view` report; the page hides the other tabs; their data routes still answer. | `access_routes.py:236,244,329-331`; `financial_trends_reporter/frontend/index.html:1014,1037`; Grep of `financial_trends_reporter` for reads of the grant finds only `access_routes.py:127,235-236,329`; the existing test checks only `whoami` and `/api/view` (`tests/test_insights_grant_gate_functional.py:79-87`). **Reproduced** 2026-11-18 with the test rig: a guest granted `views=["trends"]` got 403 on `POST /api/view` for projections but 200 on `GET /api/projections`, `/api/live-snapshot` and `/api/realized`. | Phase 9 must not use `views` as an enforcement point: records are built by construction (C18). Separate fix (outside Phase 9, owner decision 12): map routes to tabs in the desktop remote gate and refuse ungranted tabs, with a regression test. The percent filter is not affected: it applies to every `/api/` JSON body (`access_routes.py:151-168`). |
+| F1 | Medium (desktop remote listener) | **Tab limits on the desktop are presentation only.** A grant's `views` is read only by `whoami` and by the `/api/view` report; the page hides the other tabs; their data routes still answer. | `access_routes.py:236,244,329-331`; `financial_trends_reporter/frontend/index.html:1014,1037`; Grep of `financial_trends_reporter` for reads of the grant finds only `access_routes.py:127,235-236,329`; the existing test checks only `whoami` and `/api/view` (`tests/test_insights_grant_gate_functional.py:79-87`). **Reproduced** 2026-11-18 with the test rig: a guest granted `views=["trends"]` got 403 on `POST /api/view` for projections but 200 on `GET /api/projections`, `/api/live-snapshot` and `/api/realized`. | Phase 9 must not use `views` as an enforcement point: records are built by construction (C18). Separate fix (outside Phase 9, owner decision 12; on 2026-11-18 the owner chose a separate small fix, soon): map routes to tabs in the desktop remote gate and refuse ungranted tabs, with a regression test. The percent filter is not affected: it applies to every `/api/` JSON body (`access_routes.py:151-168`). |
 | F2 | High if missed (design constraint) | **The gate forwards every active, non-gateway request to a worker with no role or kind check**, and the supervisor starts and provisions a worker, workspace and Windows account for any id. The admin console's create route runs the `user_created` hook. | `app.py:283-300`; `supervisor.py:180-193,214-219,442-450`; `admin_console.py:83-89` | A guest created through today's paths would get a planner. Controls C1-C3, C34 and an **Add viewer** route that skips `user_created`. |
 | F3 | Info | Protective headers (`no-store`, `X-Frame-Options`, `no-referrer`, CSP) are added only for gateway-owned paths and a few status codes. Forwarded worker responses carry whatever the worker sets (not verified whether the worker sets `Cache-Control`). | `app.py:171-172,314-324` | Viewer and owner routes must be gateway paths (C25). |
 | F4 | Info | FI worker mode has no percent hook; FI error bodies contain exception text, and the mount replaces it only on 5xx. | `main.py:470-472,346-348,356-358`; `access_routes.py:145-149`; `src/remote_insights_mount.py:94-96` | The snapshot builder calls the pure percent functions itself (C19) and never copies an error body (C21). |
@@ -216,10 +216,13 @@ selection, so it gains a viewer case rather than losing one), `tests/test_multi_
 
 Design sign-off (before 9a starts):
 
-- [ ] The owner answers Q1-Q5 in the design's section 3, or accepts the recommended defaults, plus decisions 6-13
-      (design section 13).
+- [x] The owner answers Q1-Q5 in the design's section 3, or accepts the recommended defaults, plus decisions 6-13
+      (design section 13). Done 2026-11-18: every recommended default except a 90-day default share expiry (Q4).
+      No answer changes a control in this review; the longer default only lengthens how long a forgotten share stays
+      open before it expires.
 - [ ] The owner accepts residual risks R-1 to R-12, or asks for changes.
-- [ ] The owner schedules or declines the separate desktop fix for F1 (decision 12).
+- [x] The owner schedules or declines the separate desktop fix for F1 (decision 12). Done 2026-11-18: a separate
+      small fix, soon, outside Phase 9.
 
 Release sign-off (after 9e; `--shared-views` stays off until every box is ticked):
 
