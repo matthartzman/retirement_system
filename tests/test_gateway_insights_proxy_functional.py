@@ -65,7 +65,7 @@ def test_insights_paths_forward_to_the_signed_in_users_worker_only(rig):
     r = b.get("/insights/api/history")
     assert r.status_code == 200 and r.get_json()["user_id"] == uid
     assert rig.upstream.calls[-1][1] == "/insights/api/history"
-    assert rig.browser().get("/insights/api/history").status_code == 302  # no session: to the sign-in page
+    assert rig.browser().get("/insights/api/history").status_code == 401  # no session: JSON 401, the page goes to sign-in
 
 
 def test_post_without_csrf_token_is_refused(rig):
@@ -141,3 +141,11 @@ def test_background_poll_does_not_touch_the_worker(poll, touched):
     req = LocalRequest("GET", "/insights/api/run-status", HeaderMap({}), b"", environ={"gateway_background_poll": poll})
     assert proxy.forward(req, Identity(7, "ann", "Ann", "user")).status_code == 503
     assert sup.touch.call_count == touched
+
+
+def test_signed_out_insights_api_call_gets_json_401_not_a_login_redirect(rig):
+    # The page's fetch must see a 401 (to leave for /login); a 302 would be followed to the login HTML as a "success".
+    resp = rig.browser().get("/insights/api/ping")
+    assert resp.status_code == 401
+    assert resp.get_json()["authenticated"] is False
+    assert rig.browser().get("/insights/").status_code == 302  # the page itself still redirects

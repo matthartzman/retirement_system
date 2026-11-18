@@ -24,6 +24,7 @@ ALLOWED: frozenset[tuple[str, str]] = frozenset({
     ("GET", "/realized.js"),
     ("GET", "/spending_dock.js"),
     ("GET", "/money_view.js"),
+    ("GET", "/insights_client.js"),
     ("GET", "/shared/runtime_history.js"),
     ("GET", "/api/history"),
     ("GET", "/api/accounts"),

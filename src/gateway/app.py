@@ -161,6 +161,11 @@ def _is_insights_path(path: str) -> bool:
     return path == INSIGHTS_PREFIX or path.startswith(INSIGHTS_PREFIX + "/")
 
 
+def _is_api(path: str) -> bool:
+    """JSON endpoints answer 401/409 instead of redirecting; Financial Insight's live under /insights/api/."""
+    return path.startswith(("/api/", "/insights/api/"))
+
+
 def _is_gateway_path(path: str) -> bool:
     return path == "/login" or path.startswith("/gateway/") or path.startswith("/api/auth/")
 
@@ -202,7 +207,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         return Actor(user_id, username, request.environ.get("client_ip", ""), request.environ.get("listener", "local"))
 
     def _unauthenticated(path: str) -> Response:
-        if path.startswith("/api/"):
+        if _is_api(path):
             return _json({"success": False, "authenticated": False, "error": "sign in required"}, 401)
         raw = request.full_path
         nxt = safe_next(raw)
@@ -240,7 +245,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
             origin = str(request.headers.get("Origin", "") or "").rstrip("/")
             if origin not in allowed:
                 return _refused("cross-origin requests are not allowed")
-            if path.startswith("/api/") and request.get_data():
+            if _is_api(path) and request.get_data():
                 ctype = str(request.headers.get("Content-Type", "") or "").split(";", 1)[0].strip().lower()
                 if ctype not in BODY_TYPES:
                     return _refused("unsupported Content-Type")
@@ -261,7 +266,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         if sess["stage"] != "active":
             if path in PENDING_ALLOWED:
                 return None
-            if path.startswith("/api/"):
+            if _is_api(path):
                 return _json({"success": False, "authenticated": False, "error": "finish two-factor sign-in"}, 401)
             if store.totp_status(sess["user_id"]) != "enrolled":
                 return _redirect("/gateway/enrol")
@@ -276,7 +281,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         ident = Identity(sess["user_id"], sess["username"], sess["display_name"], sess["role"])
         env["gateway_identity"] = ident
         if sess["must_change"] and path not in MUST_CHANGE_ALLOWED:
-            if path.startswith("/api/"):
+            if _is_api(path):
                 return _json({"success": False, "must_change": True, "error": "choose a new password first"}, 409)
             return _redirect("/gateway/account")
         if is_admin_path(path) and not ident.is_admin:

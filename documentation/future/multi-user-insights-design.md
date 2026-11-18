@@ -369,3 +369,36 @@ unchanged. The header is ignored on planner paths and when the flag is off. No c
 the build queue or the supervisor lifecycle. Not done here: FI sends the header and the planner link (Phase 4).
 
 Tests: `tests/test_gateway_insights_proxy_functional.py` (14); the whole `test_gateway_*` set and the mount tests pass (325).
+
+
+## 17. Phase 4 results (2026-11-17, branch `claude/insights-frontend-ca752b`)
+
+Financial Insight page: new `financial_trends_reporter/frontend/insights_client.js` (pure functions plus one installer; served
+at `/insights_client.js` and added to the worker allow-list). `BASE` comes from `location.pathname` (`""` at `/`,
+`/insights` under the gateway). The `window.fetch` wrapper prepends it to `/api/` and `/shared/` URLs (never to the
+gateway's `/api/auth/`), adds `X-CSRF-Token` to unsafe methods (token read once from the gateway's same-origin
+`/api/auth/session`) and `X-Background-Poll: 1` on `/api/ping`, `/api/run-status` and the non-forced live-snapshot poll; a
+401 goes to `/login?next=/insights/` (worker) or `/signin` (desktop). A static `import` cannot take a variable, so the
+`runtime_history.js` import became the relative `./shared/runtime_history.js`, which resolves correctly at both `/` and
+`/insights/`. Desktop behaviour at `/` is unchanged (empty `BASE`, no extra headers).
+
+Worker-mode UI (`whoami.listener === "worker"`): plan name, an "as of" line from the newest log entry, a **Planner** link and
+**Sign out** (`POST /api/auth/logout`), Exit hidden, and an empty state pointing to the Monarch CSV upload. On open: empty
+history starts one update (`POST /api/run-now`) with a status line; otherwise at most one automatic update per day, only
+when the newest entry is older than the last weekday 21:00 UTC market close (the desktop's 15-minute freshness update does
+not run in worker mode).
+
+Planner: the **Financial Insight** link is added by `frontend/js/remote_mode.js` (which already knows it is behind the
+gateway) when `/api/auth/session` says `insights: true`. It is a header link before the plan switcher, not a step, so the
+`wi015` baseline and the frozen script list are unchanged; the few lines were paid for by condensing that file's header
+comment (net -2 lines, ceiling not raised).
+
+Found and fixed here (a Phase 3 gap): an unauthenticated `/insights/api/...` call got a 302 to the login HTML, which `fetch`
+follows as a success, so an ended session never reached the 401 handler. The gateway now treats `/insights/api/` as an API
+path (JSON 401/409). The page itself still redirects.
+
+Tests: `tests/frontend/trends_reporter_insights_client.test.mjs` (11, no source greps), `tests/e2e_gateway/insights.spec.js`
+(5, real gateway and worker; `tools/gateway_e2e_server.py` now starts the gateway with `--insights`), and a gateway
+regression for the 401. Not covered in a browser: the 15-minute idle sign-out (not configurable on a real gateway); the
+policy is covered by the Phase 3 gateway tests, and the browser spec checks the poll header and that an ended session
+reaches `/login?next=/insights/`. Not done here: two-user isolation measurements (Phase 5).

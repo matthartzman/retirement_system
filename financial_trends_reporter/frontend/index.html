@@ -33,6 +33,7 @@
   .acct-btn { border: 1px solid #ccc; background: transparent; color: inherit; border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
   .empty { color: #888; font-size: 13px; }
   #exitBtn { margin-left: auto; }
+  .worker-bar { margin-left: auto; font-size: 13px; display: inline-flex; gap: 10px; align-items: center; }
   .unit { font-size: 11px; font-weight: 400; color: #888; text-transform: none; letter-spacing: 0; margin-left: 4px; }
   .unit-line { margin: 0 0 6px; }
   .live-card.pm .col-day { display: none; }
@@ -363,7 +364,10 @@
   <input type="date" id="customTo" style="display:none" aria-label="Custom range end date">
   <span class="scope-label" id="scopeLabel" role="status"></span>
   <button id="exitBtn" title="Leave this page">Exit</button>
+  <span id="workerBar" class="worker-bar" hidden><span id="workerPlan"></span> <span id="workerAsOf"></span> <a href="/" id="workerPlanner">Planner</a> <button type="button" id="workerSignOut">Sign out</button></span>
 </div>
+<div id="workerNote" class="price-note" role="status" hidden></div>
+<div id="workerEmpty" class="price-note" role="status" hidden>No balances yet for this plan. Open the Planner and upload your Monarch CSV files, then come back and press Update.</div>
 <div class="note" id="allTimeNote" style="display:none"></div>
 <div id="priceNote" class="price-note" role="status" style="display:none"></div>
 <div id="balancesNote" class="price-note" role="status" style="display:none"></div>
@@ -401,7 +405,8 @@
 import { fmtMoney, toPercentChange, toShareOfTotal, flowsAsShareOfLiquid, setSpendShareBase, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, nearMatchClause, priceErrorText, rolloverModel, rolloverHtml, rolloverChange, changeParts, flowRolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText, setShowFullYear, fullYearDefault } from "./charts.js";
 import { initSpendingDock } from "./spending_dock.js";
 import { setMoneyView, moneyView, onMoneyViewChange, netWorthScale, fmtSharePct } from "./money_view.js";
-import { formatElapsed, recordPopupRuntime, averageRuntimeText, loadPopupRuntimeHistory } from "/shared/runtime_history.js";
+import { formatElapsed, recordPopupRuntime, averageRuntimeText, loadPopupRuntimeHistory } from "./shared/runtime_history.js";
+import { baseFromPath, installInsightsClient, loginUrl, autoUpdateReason, claimDailyAutoUpdate } from "./insights_client.js";
 
 let history = [];
 // Time scope: one choice drives every chart. Saved per browser; every storage access is guarded.
@@ -711,6 +716,7 @@ async function loadHistory() {
   }
   await loadMonarch();
   render();
+  renderWorkerState();
 }
 
 document.getElementById("scopeSelect").addEventListener("change", (e) => {
@@ -987,13 +993,9 @@ let lastInteraction = Date.now();
 for (const evt of ["pointerdown", "keydown", "scroll", "touchstart"]) {
   window.addEventListener(evt, () => { lastInteraction = Date.now(); }, { passive: true });
 }
-const goToSignin = () => { location.href = "/signin"; };
-const nativeFetch = window.fetch.bind(window);
-window.fetch = async (...args) => {
-  const resp = await nativeFetch(...args);
-  if (resp.status === 401) goToSignin();
-  return resp;
-};
+const BASE = baseFromPath(location.pathname);   // "" on the desktop listeners, "/insights" behind the gateway
+const goToSignin = () => { location.href = loginUrl(BASE); };
+const client = installInsightsClient({ win: window, base: BASE, onUnauthorized: goToSignin });
 const sendPing = () => fetch("/api/ping", {
   method: "POST", keepalive: true, headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ idle_ms: Date.now() - lastInteraction }),
@@ -1018,15 +1020,45 @@ function hideViewsOutsideGrant(views) {
   if (current && current.hidden) { const first = tabs.find((b) => !b.hidden); if (first) first.click(); }
 }
 async function signOut() {
-  try { await fetch("/api/signout", { method: "POST" }); } catch (err) { /* ignore */ }
+  // Worker mode: the gateway owns the session, so sign out there.
+  try { await fetch(client.isWorker() ? "/api/auth/logout" : "/api/signout", { method: "POST" }); } catch (err) { /* ignore */ }
   goToSignin();
 }
-(async () => {
+const isWorker = () => whoami.listener === "worker";
+const whoamiReady = (async () => {
   try { whoami = await (await fetch("/api/whoami")).json(); } catch (err) { return; }
   if (whoami.listener === "remote") document.getElementById("exitBtn").textContent = "Sign out";
+  if (isWorker()) {
+    client.setWorker(true);
+    document.getElementById("exitBtn").hidden = true;
+    document.getElementById("workerBar").hidden = false;
+    document.getElementById("workerPlan").textContent = (whoami.plan && whoami.plan.name) || "";
+  }
   if (whoami.listener !== "local") hideViewsOutsideGrant(whoami.views);
-  if (whoami.must_change) location.href = "/change-password";
+  if (whoami.must_change) location.href = BASE + "/change-password";
 })();
+document.getElementById("workerSignOut").addEventListener("click", signOut);
+// Worker mode only: the "as of" line, the empty state, and the automatic first/daily update.
+function showWorkerStatus(text) { const el = document.getElementById("workerNote"); el.textContent = text; el.hidden = !text; }
+function renderWorkerState() {
+  if (!isWorker()) return;
+  const last = history.length ? history[history.length - 1] : null;
+  const stamp = last && (last.run_at || last.as_of_date);
+  document.getElementById("workerAsOf").textContent = stamp ? "As of " + new Date(stamp).toLocaleString() : "";
+  document.getElementById("workerEmpty").hidden = !!balances;
+}
+async function workerAutoUpdate() {
+  await whoamiReady;
+  if (!isWorker()) return updateData(false);
+  const reason = autoUpdateReason(history, Date.now());
+  const store = { get: () => localStorage.getItem("trends.lastAutoUpdate"), set: (v) => localStorage.setItem("trends.lastAutoUpdate", v) };
+  if (reason === "first") showWorkerStatus("First time here: updating your plan's balances and prices now. This takes about a minute.");
+  else if (reason !== "daily" || !claimDailyAutoUpdate(store, Date.now())) return renderWorkerState();
+  else showWorkerStatus("Refreshing for the latest market close.");
+  await updateData(true);
+  showWorkerStatus("");
+  renderWorkerState();
+}
 document.getElementById("exitBtn").addEventListener("click", async () => {
   if (whoami.listener === "remote") return signOut();
   try { await fetch("/api/exit", { method: "POST" }); } catch (err) { /* ignore */ }
@@ -1073,7 +1105,7 @@ async function initMoneyView() {
   });
   onMoneyViewChange(() => { sync(); render(); });
 }
-initMoneyView().then(loadHistory).then(() => updateData(false));
+initMoneyView().then(loadHistory).then(workerAutoUpdate);
 </script>
 <script type="module" src="./live_snapshot.js"></script>
 <script type="module" src="./realized.js"></script>
