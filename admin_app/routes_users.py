@@ -256,7 +256,8 @@ def register_users(app, store: IdentityStore, clock: Callable[[], float] = time.
         limit = request.args.get("limit", MAX_EVENTS, type=int)
         events = store.read_events(person=request.args.get("person") or None, since=num("from"), until=num("to"),
                                    limit=max(1, min(int(limit), MAX_EVENTS)), app=app_name or None)
-        return _json({"events": [_clean_event(e) for e in events]})
+        people = sorted({mask_numbers(p) for p in store.activity_people(app_name or None)}, key=str.casefold)
+        return _json({"events": [_clean_event(e) for e in events], "people": people})
 
     @app.route("/api/audit", methods=["GET"])
     def audit_log():

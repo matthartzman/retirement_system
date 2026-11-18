@@ -36,6 +36,9 @@ FEATURES = {
     "grants": False, "require_totp": False, "activity": False,
     "expiry": True, "notes": True, "end_sessions": True, "edit_name": True,
     "audit": True,
+    # The Planner section is one "Can sign in" switch (the account's enabled state); Financial Insight's views are
+    # stored per person but not enforced until it runs per user on the server.
+    "modules": True,
 }
 
 
@@ -44,7 +47,7 @@ def _console_user(u: dict) -> dict:
         "id": u["id"], "username": u["username"], "display_name": u["display_name"], "role": u["role"],
         "status": "disabled" if u["disabled"] else "active", "expired": u["expired"], "locked": u["locked"],
         "must_change": u["must_change"], "totp_enrolled": u["totp"] == "enrolled", "totp_required": True,
-        "expires_at": u["expires_at"], "notes": u["notes"], "last_signin_at": u["last_login_at"],
+        "expires_at": u["expires_at"], "notes": u["notes"], "modules": u["modules"], "last_signin_at": u["last_login_at"],
         "created_at": u["created_at"], "grants": [],
     }
 
@@ -83,10 +86,17 @@ def register_admin_console(app, store: GatewayStore, *, clock: Callable[[], floa
     @app.route(API_BASE + "/users", methods=["POST"])
     def console_add():
         b = body()
-        return admin_call(lambda: {"id": store.create_user(
-            str(b.get("username") or ""), str(b.get("display_name") or ""), str(b.get("role") or "user"),
-            str(b.get("temp_password") or ""), now=clock(), actor=actor(), must_change=True)},
-            after=lambda r: notify("user_created", r["id"]))
+
+        def create():
+            extra = {k: b[k] for k in ("notes", "expires_at", "modules") if k in b}
+            store.check_profile(**extra)  # refuse bad values before the person is created
+            uid = store.create_user(str(b.get("username") or ""), str(b.get("display_name") or ""),
+                                    str(b.get("role") or "user"), str(b.get("temp_password") or ""),
+                                    now=clock(), actor=actor(), must_change=True)
+            if extra:
+                store.set_profile(uid, now=clock(), actor=actor(), **extra)
+            return {"id": uid}
+        return admin_call(create, after=lambda r: notify("user_created", r["id"]))
 
     @app.route(API_BASE + "/users/update", methods=["POST"])
     def console_update():
@@ -98,14 +108,14 @@ def register_admin_console(app, store: GatewayStore, *, clock: Callable[[], floa
         if row is None:
             return refused("no such user", 404)
         # Only keys the page sent are changed. ``expires_at: null`` clears the expiry.
-        wanted = {k: b[k] for k in ("display_name", "notes", "expires_at") if k in b}
+        wanted = {k: b[k] for k in ("display_name", "notes", "expires_at", "modules") if k in b}
         role = b.get("role")
 
         def run():
-            fields = store.check_profile(**wanted)  # validate everything before changing anything
+            store.check_profile(**wanted)  # validate everything before changing anything
             if isinstance(role, str):
                 store.set_role(uid, role, now=clock(), actor=actor())
-            return store.set_profile(uid, now=clock(), actor=actor(), **fields) if fields else {}
+            return store.set_profile(uid, now=clock(), actor=actor(), **wanted) if wanted else {}
 
         def after(result):
             if result.get("expiry_changed_access") and not row["disabled"]:

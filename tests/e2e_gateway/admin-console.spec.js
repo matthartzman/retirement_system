@@ -87,7 +87,22 @@ test('an admin sees the people list with no CSP violations and the gateway-only 
   await expect(page.getByRole('columnheader', { name: 'Access' })).toHaveCount(0);
   await expect(page.getByRole('columnheader', { name: 'Expires' })).toBeVisible();
   await page.getByRole('button', { name: 'Add person' }).click();
-  await expect(page.locator('dialog')).toContainText('Two-factor sign-in: required for everyone.');
+  const d = page.locator('dialog');
+  await expect(d).toContainText('Retirement Planner');
+  await expect(d.getByLabel('Can sign in')).toBeChecked();
+  await expect(d).toContainText('Financial Insights');
+  await expect(d).toContainText('Modules:');
+  await expect(d).not.toContainText('Require two-factor');
+  const mods = d.locator('[data-module]');
+  await expect(mods).toHaveCount(3);
+  for (const label of ['Snapshot', 'Trends', 'Projections']) await expect(d.getByLabel(label)).not.toBeChecked();
+  const ys = await mods.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  expect(new Set(ys).size).toBe(1); // the three toggles sit on one row
+  await expect(d).not.toContainText('Stored now'); // Financial Insight runs on the server, so no "not enforced yet" note
+  const label = await d.getByText('Money shown as').boundingBox();
+  const select = await d.locator('#gMoney').boundingBox();
+  expect(Math.abs((label.y + label.height / 2) - (select.y + select.height / 2))).toBeLessThan(label.height); // one line
+  expect(select.width).toBeLessThan(200); // a short pulldown, not full width
   await expect(page.locator('dialog')).toContainText('Notes');
   await expect(page.locator('dialog #fExpires')).toBeVisible();
   await expect(page.locator('dialog')).toContainText('12+ characters');
@@ -159,12 +174,43 @@ test('edit: name, notes and access end are saved, a past date shows expired, End
   await expect(row()).not.toContainText('expired');
 });
 
+test('edit: Maintenance holds the controls and the two-factor note; Can sign in is the enabled state; modules are stored', async ({ page, stack }) => {
+  await signIn(page, stack, 'admin');
+  await page.goto('/gateway/admin');
+  const dlg = page.locator('dialog');
+  const open = (name) => page.locator('tr', { hasText: name }).getByRole('button', { name: 'Edit' }).click();
+  await open('Dana Example');
+  await expect(dlg.getByText('Maintenance')).toBeVisible();
+  await expect(dlg.getByText('Password, sessions and removal')).toHaveCount(0);
+  await dlg.getByText('Maintenance').click();
+  await expect(dlg).toContainText('Two-factor sign-in is always required on this server.');
+  await expect(dlg.getByRole('button', { name: 'Disable', exact: true })).toHaveCount(0);
+  await expect(dlg.locator('[type=checkbox]#fTotp')).toHaveCount(0);
+  await dlg.getByLabel('Trends').check();
+  await dlg.getByLabel('Can sign in').uncheck();
+  page.once('dialog', (d) => d.dismiss());
+  await dlg.locator('#fSave').click();
+  await expect(dlg.locator('#formErr')).not.toHaveText('');
+  page.once('dialog', (d) => d.accept());
+  await dlg.locator('#fSave').click();
+  await expect(dlg).toBeHidden();
+  await expect(page.locator('tr', { hasText: 'Dana Example' })).toContainText('disabled');
+  await open('Dana Example');
+  await expect(dlg.getByLabel('Trends')).toBeChecked();
+  await expect(dlg.getByLabel('Snapshot')).not.toBeChecked();
+  await expect(dlg.getByLabel('Can sign in')).not.toBeChecked();
+  await dlg.getByLabel('Can sign in').check();
+  await dlg.locator('#fSave').click();
+  await expect(dlg).toBeHidden();
+  await expect(page.locator('tr', { hasText: 'Dana Example' })).not.toContainText('disabled');
+});
+
 test('delete needs the typed username and names the data loss', async ({ page, stack }) => {
   await signIn(page, stack, 'admin');
   await page.goto('/gateway/admin');
   await page.locator('tr', { hasText: 'Dana Example' }).getByRole('button', { name: 'Edit' }).click();
   const dlg = page.locator('dialog');
-  await dlg.getByText('Password, sessions and removal').click();
+  await dlg.getByText('Maintenance').click();
   await expect(dlg).toContainText('permanently removes their plans and data');
   const del = dlg.locator('#fDelete');
   await expect(del).toBeDisabled();
@@ -183,6 +229,10 @@ test('the audit log shows the real admin as the actor', async ({ page, stack }) 
   await expect(page.getByRole('heading', { name: 'Admin audit' })).toBeVisible();
   const row = page.locator('tr', { hasText: 'user created' }).filter({ hasText: 'dana' });
   await expect(row.first()).toContainText('root');
+  // a laptop-width window shows the whole audit table without sideways scrolling
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
 });
 
 test('an ordinary user is refused the console, its scripts and its API', async ({ page, stack }) => {

@@ -1,7 +1,7 @@
 // Admin app (port 5056 in production; a spare port here): add a person, then change their access grants.
 // Starts its own admin_app process on a throwaway workspace, so it does not use the planner fixtures.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
@@ -31,6 +31,16 @@ let workspace;
 
 test.beforeAll(async () => {
   workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'admin-e2e-'));
+  // a few activity rows (two people, one of them twice) so the Activity page has names to offer
+  const py = process.platform === 'win32' ? 'python' : 'python3';
+  const seedCode = [
+    'import sys,pathlib; sys.path.insert(0, sys.argv[1])',
+    'from src.identity import DB_FILENAME, open_identity_store',
+    'p = pathlib.Path(sys.argv[2]) / "local_state"; p.mkdir(parents=True, exist_ok=True)',
+    's = open_identity_store(p / DB_FILENAME)',
+    'for i, who in enumerate(["Ann", "Bob", "Ann"]): s.log_event(who, "local", "view opened", "trends", "", now=100.0 + i, app="insights")',
+  ].join(String.fromCharCode(10));
+  execFileSync(py, ['-c', seedCode, ROOT, workspace]);
   child = spawn(process.platform === 'win32' ? 'python' : 'python3',
     ['-m', 'admin_app', '--retirement-system-dir', workspace, '--port', String(PORT), '--no-open'],
     { cwd: ROOT, stdio: 'ignore' });
@@ -92,4 +102,18 @@ test('a duplicate username is refused with a visible message', async ({ page }) 
   await dialog.locator('#fPw').fill('correct horse battery');
   await dialog.locator('#fSave').click();
   await expect(dialog.locator('#formErr')).toContainText('already in use');
+});
+
+test('Activity: Person is a pulldown of each name once, and picking one filters the rows', async ({ page }) => {
+  await page.goto(`${BASE}/#activity`);
+  const person = page.locator('#actPerson');
+  await expect(person).toHaveJSProperty('tagName', 'SELECT');
+  await expect(person.locator('option')).toHaveText(['All people', 'Ann', 'Bob']);
+  await expect(page.locator('#actRows tr')).toHaveCount(3);
+  await person.selectOption('Bob');
+  await expect(page.locator('#actRows tr')).toHaveCount(1);
+  await expect(page.locator('#actRows')).toContainText('Bob');
+  await expect(person.locator('option')).toHaveText(['All people', 'Ann', 'Bob']); // the list does not shrink
+  await person.selectOption('');
+  await expect(page.locator('#actRows tr')).toHaveCount(3);
 });

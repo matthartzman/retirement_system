@@ -65,18 +65,18 @@
       <div class="row2">${field("Name", `<input id="fName" value="${esc(u ? u.display_name : "")}" autocomplete="off"${u && !feat("edit_name") ? " readonly" : ""}>`)}
       ${field("Username", `<input id="fUser" value="${esc(u ? u.username : "")}" autocomplete="off" ${u ? "readonly" : ""}>`)}</div>
       ${u ? "" : field(`Temporary password (${MIN_PW}+ characters; they choose their own at first sign-in)`, '<input id="fPw" type="password" autocomplete="new-password">')}
-      <div class="row3">${field("Role", `<select id="fRole"><option value="user"${u && u.role === "admin" ? "" : " selected"}>User</option><option value="admin"${u && u.role === "admin" ? " selected" : ""}>Administrator</option></select>`)} ${feat("expiry") ? field("Access ends after (blank = never)", `<input id="fExpires" type="date" value="${esc(dateValue(u && u.expires_at))}">`) : ""} ${field("Added", `<output id="fAdded">${esc(day(u ? u.created_at : Date.now() / 1000))}</output>`)}</div>${feat("require_totp") ? "" : '<p class="note">Two-factor sign-in: required for everyone.</p>'}
-      ${u ? `<details class="acts"><summary>Password, sessions and removal</summary>
+      <div class="row3">${field("Role", `<select id="fRole"><option value="user"${u && u.role === "admin" ? "" : " selected"}>User</option><option value="admin"${u && u.role === "admin" ? " selected" : ""}>Administrator</option></select>`)} ${feat("expiry") ? field("Access ends after (blank = never)", `<input id="fExpires" type="date" value="${esc(dateValue(u && u.expires_at))}">`) : ""} ${field("Added", `<output id="fAdded">${esc(day(u ? u.created_at : Date.now() / 1000))}</output>`)}</div>
+      ${u ? `<details class="acts"><summary>${host.maintenance || "Password, sessions and removal"}</summary>${host.note || ""}
         ${field("New temporary password", '<input id="fResetPw" type="password" autocomplete="new-password">')}
         <div class="actions"><button type="button" data-act="reset-password">Reset password</button>${feat("end_sessions") ? '<button type="button" data-act="end-sessions">End sessions</button>' : ""}<button type="button" data-act="reset-totp">Reset two-factor</button>
-        <button type="button" data-act="${u.status === "disabled" ? "enable" : "disable"}">${u.status === "disabled" ? "Enable" : "Disable"}</button>${host.removal ? "" : '<button type="button" class="danger" data-act="delete">Delete</button>'}</div>${host.removal ? host.removal(u) : ""}</details>` : ""}</section>`;
+        ${host.sections ? "" : `<button type="button" data-act="${u.status === "disabled" ? "enable" : "disable"}">${u.status === "disabled" ? "Enable" : "Disable"}</button>`}${host.removal ? "" : '<button type="button" class="danger" data-act="delete">Delete</button>'}</div>${host.removal ? host.removal(u) : ""}</details>` : ""}</section>`;
     const planner = sec("Retirement Planner", tog("Can use the Retirement Planner", u ? u.grants.some((g) => g.app === "planner") : false, 'id="gPlanner"', "stored now; enforced when the multi-user server arrives"), true);
     const insights = sec("Financial Insights", `${field("Money shown as", `<select id="gMoney">${Object.entries(MONEY).map(([v, l]) => `<option value="${v}"${(ins ? ins.money_view : "percent") === v ? " selected" : ""}>${l}</option>`).join("")}</select>`)}
       ${tog("Can sign in", u ? !!ins : true, 'id="gInsights"')} ${tog("Require two-factor sign-in", !u || u.totp_required, 'id="fTotp"', u && u.totp_enrolled ? "already set up" : "")}
       ${meta.views.map((v) => tog(esc(v), allowed.includes(v), `data-view="${esc(v)}"`)).join("")}`, true);
     return `<form id="userForm" novalidate><header class="dhead"><h2 id="dlgTitle">${u ? `Edit ${esc(u.display_name)}` : "Add person"}</h2>
       <button type="submit" class="primary" id="fSaveTop">${save}</button><div class="err" id="formErr" role="alert"></div></header>
-      ${account}${feat("grants") ? planner + insights : ""}${u && feat("activity") ? sec(`Activity for ${esc(u.display_name)}`, '<div id="userActivity" class="note">Loading&hellip;</div>') : ""}
+      ${account}${host.sections ? host.sections(u, { tog, sec, field, esc, MONEY }) : feat("grants") ? planner + insights : ""}${u && feat("activity") ? sec(`Activity for ${esc(u.display_name)}`, '<div id="userActivity" class="note">Loading&hellip;</div>') : ""}
       ${feat("notes") ? `<label class="field"><span>Notes</span><textarea id="fNotes" rows="2" maxlength="500">${esc(u ? u.notes : "")}</textarea></label>` : ""}
       <div class="foot"><button type="button" id="fCancel">Close</button><button type="submit" class="primary" id="fSave">${save}</button></div></form>`;
   }
@@ -107,21 +107,21 @@
     $("#fName", dlg).focus();
   }
 
-  const insightsGrant = (g) => ({ money_view: g.money_view, views: g.views }); const extras = () => ({ ...(feat("notes") && { notes: $("#fNotes", dlg).value }), ...(feat("require_totp") && { totp_required: $("#fTotp", dlg).checked }) });
+  const insightsGrant = (g) => ({ money_view: g.money_view, views: g.views }); const extras = () => ({ ...(host.collect && host.collect(dlg)), ...(feat("notes") && { notes: $("#fNotes", dlg).value }), ...(feat("require_totp") && { totp_required: $("#fTotp", dlg).checked }) });
 
   async function saveNew(g) {
     const name = $("#fName", dlg).value.trim(), username = $("#fUser", dlg).value.trim(), pw = $("#fPw", dlg).value;
     if (!name || !username) return { error: "Name and username are both needed." };
     if (pw.length < MIN_PW) return { error: `Temporary password must be at least ${MIN_PW} characters.` };
-    return api("/users", { display_name: name, username, temp_password: pw, role: $("#fRole", dlg).value, ...extras(),
-      ...(feat("expiry") && { expires_at: endOfDay($("#fExpires", dlg).value) }), ...(feat("grants") && { grants: { insights: g.insights ? insightsGrant(g) : null, planner: g.planner } }) });
+    const out = await api("/users", { display_name: name, username, temp_password: pw, role: $("#fRole", dlg).value, ...extras(),
+      ...(feat("expiry") && { expires_at: endOfDay($("#fExpires", dlg).value) }), ...(feat("grants") && { grants: { insights: g.insights ? insightsGrant(g) : null, planner: g.planner } }) }); return host.after ? host.after(out, null, dlg, api) : out;
   }
 
   async function saveEdit(u, g) {
     const body = { id: u.id, role: $("#fRole", dlg).value, ...(feat("edit_name") && { display_name: $("#fName", dlg).value.trim() }), ...extras() };
     const expires = feat("expiry") ? endOfDay($("#fExpires", dlg).value) : u.expires_at;
     if (expires !== u.expires_at && dateValue(expires) !== dateValue(u.expires_at)) body.expires_at = expires;
-    let out = await api("/users/update", body);
+    let out = await api("/users/update", body); if (host.after) out = await host.after(out, u, dlg, api);
     if (!out.ok || !feat("grants")) return out;
     const ins = u.grants.find((x) => x.app === "insights");
     const same = ins && ins.money_view === g.money_view && JSON.stringify(ins.views) === JSON.stringify(g.views);
@@ -159,14 +159,14 @@
   async function showActivity() {
     main.innerHTML = `<h2 class="page">Activity</h2>
       <form class="bar" id="actForm"><label>App <select id="actApp"><option value="">All apps</option><option value="insights">Financial Insights</option><option value="planner">Retirement Planner</option></select></label>
-        <label>Person <input id="actPerson" placeholder="exact name"></label><button type="submit">Filter</button></form>
+        <label>Person <select id="actPerson"><option value="">All people</option></select></label><button type="submit">Filter</button></form>
       <table><thead><tr><th>When</th><th>App</th><th>Person</th><th>Where</th><th>Event</th><th>Details</th><th>From</th></tr></thead><tbody id="actRows"></tbody></table>`;
     const load = async () => {
-      const q = new URLSearchParams({ app: $("#actApp").value, person: $("#actPerson").value.trim() });
-      const r = await api(`/activity?${q}`);
+      const q = new URLSearchParams({ app: $("#actApp").value, person: $("#actPerson").value });
+      const r = await api(`/activity?${q}`), pick = $("#actPerson").value; if (r.ok) $("#actPerson").innerHTML = ["", ...(r.people || [])].map((p) => `<option value="${esc(p)}"${p === pick ? " selected" : ""}>${esc(p || "All people")}</option>`).join("");
       $("#actRows").innerHTML = r.ok ? activityRows(r.events) : `<tr><td colspan="7" class="err">${esc(r.error)}</td></tr>`;
     };
-    $("#actForm").addEventListener("submit", (e) => { e.preventDefault(); load(); });
+    $("#actForm").addEventListener("submit", (e) => { e.preventDefault(); load(); }); $("#actPerson").addEventListener("change", () => load()); $("#actApp").addEventListener("change", () => { $("#actPerson").value = ""; load(); });
     load();
   }
 
