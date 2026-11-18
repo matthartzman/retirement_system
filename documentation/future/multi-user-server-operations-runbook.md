@@ -54,7 +54,11 @@ data folder or the install folder; the key is never inside the backup folder; `C
        --forbid "C:\RetirementPlanning\Version 12"
    ```
    `--forbid` only *checks*; if it fails for the owner's working copy, fix that by hand (this runbook never changes it).
-   Re-run `acl check` after the first user signs in, after a restore, and after any upgrade.
+   Re-run `acl check` after the first user signs in, after a restore, and after any upgrade. `acl setup` leaves each
+   folder with exactly its own grants: it also removes an explicit entry for any other account, so re-running it
+   repairs a finding. Do not open `state` or `data` in File Explorer. Clicking **Continue** on "You don't currently
+   have permission" adds your own account to that folder, and `acl check` then fails until the next `acl setup`.
+   Look at those folders only from an elevated PowerShell.
 4. **Backup key** (once; never overwritten; creates and locks the `keys` folder when it does not exist):
    ```powershell
    & $PY -m src.gateway.ops backup-key create --key-file C:\ProgramData\RetirementPlannerGateway\keys\backup.key `

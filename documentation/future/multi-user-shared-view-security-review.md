@@ -280,11 +280,30 @@ Release sign-off (after 9e; `--shared-views` stays off until every box is ticked
         step 3 now locks the test copy the same way.
 
       An earlier attempt failed entirely: every worker failed to start because the copy's runtime used a
-      per-account Python. That was a runbook mistake, since fixed (section 1 and 5.2). Still open: the clean-up
-      checks, and Part B on the installed build (`acl check` over `data\shares`, the run on the real install).
+      per-account Python. That was a runbook mistake, since fixed (section 1 and 5.2).
+
+      Owner run, 2026-11-18, Part B (the live install), after #485 was merged:
+      - **Upgrade:** `tools/upgrade_installed_server.ps1` installed `origin/main` at `0390894`. `gateway.db` is at
+        schema 4, `migrate-all` reported both users OK, and the service is running with `--shared-views` off. The
+        script that ran was the copy from before #485, because the owner's checkout had not been pulled. So it did
+        not stop when `acl check` failed, and it went on to migrate and start the service. The current script stops
+        there.
+      - **`acl check`:** two findings, both one account that is not a worker. An explicit entry for the owner's own
+        Microsoft Entra sign-in (`S-1-12-1-...`) sat on `state` and was inherited by `gateway.db`. `data\shares` and
+        every other folder checked clean. `acl setup` re-applied did not remove the entry; finding B9 (section 11)
+        fixes that. The owner was given the `icacls /remove` command and the re-check. **Clean result not yet
+        reported.**
+      - **Still to report:** sign-in after the upgrade, and the isolation run on the real install. The Part A
+        clean-up checks were not re-run.
 - [ ] Migration rehearsal: a copy of the live version 3 `gateway.db` migrates to version 4, every account reads as
-      `member`, and sign-in works. Rollback is the pre-upgrade copy (an old gateway refuses version 4).
-- [ ] Restore drill: restoring `gateway.db` into a scratch root shows every share as "Suspended: restored".
+      `member`, and sign-in works. Rollback is the pre-upgrade copy (an old gateway refuses version 4). Overtaken by the
+      upgrade on 2026-11-18: the live `gateway.db` itself migrated to version 4, and both users' workspaces migrated
+      OK. Every account reading as `member`, and sign-in, are not yet confirmed. The rollback copies are the
+      pre-upgrade full backup `20261118T174914Z.rpbak` and any plain copy the owner took.
+- [ ] Restore drill: restoring `gateway.db` into a scratch root shows every share as "Suspended: restored". Owner run
+      2026-11-18 with the new code: a fresh full backup (`users 2  errors 0`), restored with `--gateway-db-out` into a
+      scratch file, read schema 4 with an empty `shares` table. That shows the restore path works on schema 4. The
+      suspension itself can only be seen once shares exist, during a controlled trial with the flag on.
 - [x] Runbook lines added: the flag, backup scope, restore drill. Done in 9a and 9d
       (`multi-user-server-operations-runbook.md`, sections 3, 4 and 5).
 - [ ] Measurements recorded: record size and publish time on a real plan; guest page load time. Partly: measured on
@@ -368,6 +387,7 @@ refusals, every share query, the publisher's validation and commit, the restore 
 | B6 | C38's "three routes": the page also needs `/api/auth/session` (its CSRF token) and `/api/auth/logout` | Wording updated in section 7; the render test checks exactly those five |
 | B7 | `Supervisor.endpoint` now reads the account kind on every forwarded request (one indexed SQLite read) | Accepted as the cost of C3; not measured under load |
 | B8 | A worker that answers 410 revokes its own owner's shares of that plan (decision 7). A broken worker can therefore revoke its owner's own shares, and nothing else | Accepted (fails toward less sharing) |
+| B9 | Found on the owner's live install after the upgrade, not in Phase 9 code: `acl setup` (`acl._lock`) removed inherited entries and replaced the named grants, but left explicit entries for any other account. An administrator's entry that Explorer adds on "Continue" therefore survived a re-run of setup and failed `acl check` | Fixed after #485: `_lock` now removes every explicit entry it did not grant (after the grants, so it only narrows), then resets the children. Tests: `tests/test_gateway_acl_lock_unit.py` (portable) and `test_gateway_acl_functional.py::test_rerunning_setup_removes_an_explicit_entry_for_another_account` (Windows CI) |
 
 Nothing found widens what a viewer can reach: in the walk, the slow module and the browser spec, no viewer request
 reached an upstream, a supervisor or a worker.

@@ -147,13 +147,38 @@ def _icacls(*args: str) -> None:
         raise AclError(f"icacls failed ({proc.returncode}): {(proc.stdout + proc.stderr).strip()[-400:]}")
 
 
+def _grant_sid(grant: str) -> str:
+    """The SID of an icacls grant such as ``*S-1-5-18:(OI)(CI)F``."""
+    return grant.split(":", 1)[0].lstrip("*")
+
+
+def _remove_other_entries(p: Path, keep: set[str]) -> list[str]:
+    """Remove the folder's explicit entries for every SID it was not granted to; returns the SIDs removed.
+
+    ``/inheritance:r`` drops inherited entries and ``/grant:r`` replaces only the named SIDs' grants, so an explicit
+    entry for anyone else survived both. One is added, for example, when an administrator opens a locked folder in
+    Explorer and clicks Continue. Removing them makes a re-run of setup repair the folder. This only narrows access:
+    it runs after the grants are in place."""
+    dacl = read_dacl(p)
+    if dacl.aces is None:
+        raise AclError(f"{p} has no access list after locking it")
+    extra = sorted({a.sid for a in dacl.aces} - keep)
+    for sid in extra:
+        _icacls(str(p), "/remove", f"*{sid}", "/C", "/Q")
+    return extra
+
+
 def _lock(path: Path, grants: list[str]) -> None:
     p = _guard(path)
     p.mkdir(parents=True, exist_ok=True)
-    if any(p.iterdir()):
+    has_children = any(p.iterdir())
+    if has_children:
         fsguard.remove_reparse_points(p)  # icacls /T follows links a worker may have planted
-        _icacls(str(p / "*"), "/reset", "/T", "/C", "/Q")  # children inherit from the folder only
     _icacls(str(p), "/inheritance:r", "/grant:r", *grants, "/C", "/Q")
+    _remove_other_entries(p, {_grant_sid(g) for g in grants})
+    if has_children:
+        # After the folder is final, so the children inherit exactly its entries and nothing else.
+        _icacls(str(p / "*"), "/reset", "/T", "/C", "/Q")
 
 
 def _core(gateway_sid: str, rights: str = "F") -> list[str]:
