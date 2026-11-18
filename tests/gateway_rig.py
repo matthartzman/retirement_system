@@ -75,6 +75,9 @@ class Rig:
 
         self.shares = app_kwargs.pop("shares", None) or ShareStore(self.store, tmp_path / "shares")
         kwargs["shares"] = self.shares
+        factory = app_kwargs.pop("publisher_factory", None)  # (rig) -> SharePublisher, built over this rig's store
+        if factory is not None:
+            self.publisher = kwargs["publisher"] = factory(self)
         kwargs.update(app_kwargs)
         cfg = GatewayConfig(public_origins=(PUBLIC_ORIGIN,), insights=insights or shared_views, shared_views=shared_views)
         self.app = create_gateway_app(self.store, config=cfg, clock=lambda: self.now[0], **kwargs)

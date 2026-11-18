@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shared views</title>
+<link rel="stylesheet" href="/gateway/static/gateway.css">
+<link rel="stylesheet" href="/gateway/viewer/static/viewer.css">
+<link rel="stylesheet" href="/gateway/sharing/static/sharing.css">
+<script type="module" src="/gateway/sharing/static/sharing.js"></script>
+</head>
+<body data-page="sharing">
+<header class="top">
+  <h1>Shared views</h1>
+  <nav aria-label="Account">
+    <a href="/insights/">Back to Financial Insight</a>
+    <a href="/gateway/account">Your account</a>
+  </nav>
+</header>
+<main id="sharing-main">
+  <p id="sharing-status" role="status"></p>
+  <section aria-labelledby="h-shares">
+    <h2 id="h-shares">Shared views</h2>
+    <div id="share-table"></div>
+  </section>
+  <section aria-labelledby="h-new">
+    <h2 id="h-new">Share a view</h2>
+    <p id="plan-line"></p>
+    <form id="share-form">
+      <label>Viewer <select id="f-viewer" required></select></label>
+      <label>Title <input id="f-title" maxlength="60" required></label>
+      <fieldset><legend>Amounts</legend>
+        <label><input type="radio" name="money" value="percent" checked> As a percent of net worth</label>
+        <label><input type="radio" name="money" value="dollars"> In dollars</label>
+      </fieldset>
+      <fieldset><legend>Tabs</legend>
+        <label><input type="checkbox" name="tab" value="live" checked> Snapshot</label>
+        <label><input type="checkbox" name="tab" value="trends" checked> Trends</label>
+        <label><input type="checkbox" name="tab" value="projections" checked> Projections</label>
+      </fieldset>
+      <label>Lasts <input id="f-days" type="number" min="1" value="90"> days</label>
+      <ul class="warnings">
+        <li>Percent hides amounts only from someone who knows none of them: one known amount reveals all of them.</li>
+        <li>The person you share with can keep anything they have seen.</li>
+        <li>This is a copy as of now. It does not update by itself unless the scheduled update is on.</li>
+      </ul>
+      <button type="submit" id="f-publish">Publish</button>
+    </form>
+    <p class="note">Refreshing a view needs its plan to be the one open in the planner.</p>
+  </section>
+  <section aria-labelledby="h-viewers">
+    <h2 id="h-viewers">My viewers</h2>
+    <div id="viewer-table"></div>
+  </section>
+  <section aria-labelledby="h-preview" id="preview-section" hidden>
+    <h2 id="h-preview">Preview: exactly what your viewer sees</h2>
+    <div id="preview"></div>
+  </section>
+</main>
+</body>
+</html>

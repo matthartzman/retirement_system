@@ -23,6 +23,7 @@ from src.http_runtime.wsgi_facade import Flask, HeaderMap, LocalRequest, Respons
 
 from . import totp
 from .admin_console import register_admin_console
+from .share_routes import register_share_routes
 from .share_store import ShareSettings, ShareStore
 from .store import MEMBER, Actor, GatewayStore, HashBusyError, LastAdminError
 from .upstream import Identity, PlaceholderUpstream, Upstream
@@ -330,6 +331,10 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         if is_admin_path(path) and not ident.is_admin:
             return _refused("admins only")
         if _is_gateway_path(path):
+            if app._match(path, method)[0] is None:
+                # Answered here rather than by the router, so an unknown gateway path gets the gateway's headers
+                # (no-store, the CSP, frame and referrer) like every other gateway response (C25).
+                return _refused("Not found", 404)
             return None
         env["gateway_body_limit"] = cfg.proxy_body_bytes
         if env.get("gateway_preflight"):
@@ -341,6 +346,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         return up.forward(request._get(), ident)  # the Phase 3 seam
 
     def _viewer_gate(path: str, method: str, rule: str | None) -> Response | None:
+        request.environ["gateway_viewer"] = True  # every response to a viewer gets the protective headers (C25)
         if viewer_may(method, rule):
             return None
         if _is_api(path):
@@ -364,7 +370,8 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         if request.environ.get("listener") == "funnel":
             resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
-        if _is_gateway_path(request.path) or resp.status_code in (302, 401, 403, 409, 421, 429):
+        if (_is_gateway_path(request.path) or request.environ.get("gateway_viewer")
+                or resp.status_code in (302, 401, 403, 409, 421, 429)):
             resp.headers["Cache-Control"] = "no-store"
             resp.headers["X-Frame-Options"] = "DENY"
             resp.headers["Referrer-Policy"] = "no-referrer"
@@ -673,5 +680,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
                            max_viewers_per_sponsor=cfg.max_viewers_per_sponsor)
     register_viewer_api(app, store, shares, enabled=cfg.shared_views, clock=clock, actor=_actor, page=_page,
                         file_page=_file_page, json_response=_json)
+    register_share_routes(app, store, shares, publisher, enabled=cfg.shared_views, clock=clock, actor=_actor,
+                          page=_page, file_page=_file_page, json_response=_json)
     app.share_store = shares
     return app

@@ -188,7 +188,7 @@ functions. Writing them first is part of each phase's exit criteria.
 | C35 | Plan delete revokes that plan's shares | 7 | `test_gateway_share_lifecycle_functional.py::test_deleting_the_plan_revokes_its_shares` |
 | C36 | Owner deletion removes shares, sponsored viewers and bodies | 7 | `test_gateway_share_lifecycle_functional.py::test_deleting_the_owner_removes_shares_viewers_and_bodies` |
 | C37 | With `--shared-views` off, every share and viewer route returns 404 | 5.10 | `test_gateway_share_lifecycle_functional.py::test_flag_off_serves_nothing` |
-| C38 | The viewer page fetches only its three routes | 6.1 | `gateway_viewer_render.test.mjs` ("the page fetches only its three routes") |
+| C38 | The viewer page fetches only its three record routes, plus `/api/auth/session` (its CSRF token) and `/api/auth/logout` | 6.1 | `gateway_viewer_render.test.mjs` ("the page fetches only its three routes, plus the session and sign-out") |
 
 Existing tests that must stay green: `tests/test_gateway_insights_schedule_unit.py` (Phase 8; 9a changes its user
 selection, so it gains a viewer case rather than losing one), `tests/test_multi_user_isolation_integration.py`,

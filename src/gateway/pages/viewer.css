@@ -1,0 +1,20 @@
+/* The guest page (Phase 9). Layered on gateway.css. */
+.record-head .owner { margin: 0; color: #555; }
+.record-head h2 { margin: 4px 0; }
+.record-head .as-of, .record-head .basis, .record-head .plan { margin: 2px 0; font-size: 14px; }
+.badge { display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 8px; background: #fde8c8; color: #6b3d00; font-size: 12px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+.toolbar button[aria-pressed="true"] { font-weight: 600; text-decoration: underline; }
+.panels { display: grid; gap: 16px; }
+.panel { border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; overflow-x: auto; }
+.panel h3 { margin: 4px 0 8px; font-size: 16px; }
+.panel dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 0; }
+.panel dl.nested { margin-left: 8px; }
+.panel dt { font-weight: 600; }
+.panel dd { margin: 0; }
+.table-wrap { overflow-x: auto; }
+.table-wrap table { border-collapse: collapse; font-size: 13px; }
+.table-wrap th, .table-wrap td { border-bottom: 1px solid #eee; padding: 2px 8px; text-align: left; }
+.note { color: #666; font-size: 13px; }
+.share-list { list-style: none; padding: 0; }
+.share-list li { margin: 6px 0; }

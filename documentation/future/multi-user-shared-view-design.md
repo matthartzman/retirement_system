@@ -622,6 +622,7 @@ start at 9a; rollout waits for the review's release checklist.
 ## 14. Not verified here
 
 - Whether FI's chart modules can render from a data object without `index.html`'s inline script (9c step 0).
+  **Decided in 9c: they cannot be reused safely** (section 17).
 - Whether `financial_trends_reporter.percent_view` imports cleanly inside the gateway process (9b step 0). **Checked
   in 9b: it does** (section 16).
 - SQLite: the cross-column `CHECK` in `ADD COLUMN` and the self-referencing foreign key added by `ALTER` (expected to
@@ -786,3 +787,48 @@ Tests: `tests/test_insights_share_snapshot_functional.py` (12) and `tests/test_g
 including one that renders a real record through FI in worker mode, then validates, stores and serves it), plus two new
 cases in `tests/test_gateway_insights_schedule_unit.py`. The existing FI worker-mode, mount allow-list, percent-view and
 tab-limit tests still pass.
+
+## 17. Phase 9c results (2026-11-18, branch `claude/shared-view-build`)
+
+**Step 0, decided before building:** FI's chart modules are **not** reused. Evidence (Grep, not a full read):
+`charts.js`, `live_snapshot.js`, `projections.js` and `realized.js` build HTML strings and insert them with `innerHTML`
+(10 sites), each tab module fetches its own `/api/` route (`live_snapshot.js:529`, `projections.js:142`,
+`realized.js:228`), and the Trends tab is driven by the module script inline in `index.html` (from line 401), which
+the gateway CSP (`default-src 'self'`, no inline script) would block. Reusing them would mean moving that script out,
+re-pointing every fetch, and proving that every template escapes owner text. A small renderer that builds the DOM with
+text nodes only is the safer, checkable choice (design 6.1's fallback).
+
+**Built:**
+
+- `src/gateway/pages/viewer.html`, `viewer.js` and `viewer.css` (the exact `VIEWER_STATIC` allowlist in
+  `viewer_api.py`). `viewer.js` is an ES module with no `innerHTML` anywhere. It renders a record's header ("Shared by",
+  the title, "As of" with a badge after 7 days, the percent basis line, the plan name), buttons for only the tabs the
+  record holds, a Time scope picker with only the presets it holds, and each route's panel as tables and definition
+  lists. Unavailable panels say so. Numbers in a percent record read "x.xx% of net worth"; ratio and count keys follow
+  `percent_view`'s rules. It polls status every 60 seconds as a background poll, and on a 404 it clears the content and
+  shows the one message. Sign-out also clears the content. A page restored from the back-forward cache clears itself
+  and reloads. An empty list shows the same "not available" text, so revocation reads the same however it is reached.
+- **What the page fetches (C38):** its three record routes, plus `/api/auth/session` (for the CSRF token) and
+  `/api/auth/logout`. The security review's C38 wording is updated to say so.
+- **Reordered from 9d into 9c** because the guest spec needs shares to exist: the owner routes (`src/gateway/share_routes.py`,
+  every route in 5.8) and the owner page (`src/gateway/pages/sharing.html`, `sharing.js`, `sharing.css`). The owner page
+  previews with the guest page's own renderer, so the preview is exactly what the guest sees. It takes
+  `expected_plan_id` from `/insights/api/whoami` (the owner's own worker).
+- **Gate fixes found by the new tests (C25):** an unknown gateway path (for example `/api/share/x`) used to get the
+  router's bare 404 without the gateway's headers. It is now answered by the gate with the headers. Every response the
+  viewer branch answers also carries `no-store`, the CSP, `X-Frame-Options` and `Referrer-Policy`, including its 404s for
+  non-gateway paths; the contract test now asserts this on every refusal.
+- `tools/gateway_e2e_server.py --shared-views` adds an enrolled viewer sponsored by the test user and turns the flag on
+  for that throwaway gateway only.
+
+Tests: `tests/frontend/gateway_viewer_render.test.mjs` (5: hostile strings render as text, with a fake DOM whose
+`innerHTML` throws; only present tabs and presets are offered; percent formatting; the fetched URLs are exactly the
+allowed set; the unavailable message), `tests/e2e_gateway/shared-view.spec.js` (Chromium, a real gateway and the
+owner's real worker: the owner shares a percent view and previews it, the guest signs in with TOTP and sees it, `/`
+takes the guest to their page, planner, FI, admin and owner routes answer 404 to the guest, a revoke shows "not
+available" on reload, Back after sign-out shows no data, and zero CSP violations), and
+`tests/test_gateway_share_routes_functional.py` (13, C5, C6, C12, C25, C28-C30, C33, AC-13).
+
+How the spec was run here: this container's pre-installed Chromium differs from the version the repository pins, so
+it ran once with a throwaway config that sets `launchOptions.executablePath` to that Chromium (not committed). It
+passed on the first run (4.7 s). Not run in other browsers or through Funnel.
