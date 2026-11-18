@@ -29,6 +29,7 @@ ADMIN_STATIC: dict[str, tuple[Path, str]] = {
     "admin.css": (ADMIN_APP_FRONTEND, CSS),
     "admin-gateway.js": (PAGES_DIR, JS),
     "admin-gateway.css": (PAGES_DIR, CSS),
+    "admin-viewers.js": (PAGES_DIR, JS),  # Phase 9: Add viewer; does nothing unless features.viewers is true
 }
 API_BASE = "/api/auth/admin/console"
 # Shown to the page so it hides what the gateway does not have (grants, the two-factor switch, activity by app).

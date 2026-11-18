@@ -164,6 +164,7 @@ loads blank and the gateway log says `admin console file missing`.
 | **Shared price-provider key** | Set the machine environment variable, then restart the service | Passed to workers with `--pass-env`; never put on a command line. |
 | **Backup key** | See section 4 | |
 | **Two-factor deadline** (every account, from the Phase 9 release) | Nothing to do if they enrol in time | An account must enrol two-factor within 72 hours of creation or of an admin reset (password or two-factor). After that the password is refused with the usual error and the Audit log says `reason enrol_overdue`; reset the password to give a fresh 72 hours. Accounts that had not enrolled when the release was installed got 72 hours from the upgrade. |
+| **Shared views on or off** | Add `--shared-views` to the service's command line (it needs `--insights` and `--data-root`; the service refuses to start otherwise) and restart. **Do not turn it on until the Phase 9 release checklist in `multi-user-shared-view-security-review.md` is complete.** Settings: `--share-default-days` (90), `--share-max-days` (365), `--share-max-mb` (8), `--viewer-idle-minutes` (10), `--viewer-max-hours` (2), `--max-shares-per-owner` (10), `--max-viewers-per-sponsor` (5) | Off: every owner and viewer page answers 404 and nothing is published; rows and records are kept, and turning it on again restores them. On: members see **Share…** in Financial Insight; records live in `<data root>\shares\`, which `acl setup` locks to the gateway and `acl check` walks. |
 | **Add viewer** (only with `--shared-views`, which stays off until the Phase 9 release checklist is complete) | Admin console, Add viewer: display name, username, temporary password, the sponsoring member, access end (default 90 days) | A low-privilege account that can only read the shared views its sponsor grants it. No Windows account, folder or worker is created, and a viewer can never be made an admin. Resetting a viewer's password or two-factor suspends their shares until the owner enables each one again. Deleting a member deletes the viewers they sponsor. |
 
 ## 4. Backups
@@ -192,6 +193,12 @@ damaged or truncated archive is refused with exit 1 and **nothing is changed**.
 **Restore `gateway.db`**: `restore --archive <file> --gateway-db-out C:\RetirementPlanner\state\gateway.restored.db`
 (never writes over the live file), then with the service stopped rename the old file aside and the new one into place.
 
+**Shared views and backups (Phase 9):** share rows (who shares what with whom, expiry, state) travel inside `gateway.db`.
+The published records under `<data root>\shares\` are **not** backed up: they are rebuilt by republishing. A restored
+`gateway.db` therefore has every shared view **Suspended: restored**, with nothing to serve, and a share revoked since
+the backup stays revoked. Each owner opens Shared views and chooses Enable, which republishes from their current data.
+Restoring one user (`--user`) does not touch shares.
+
 **Restoring on a rebuilt machine (or another account):** `gateway.db` holds DPAPI blobs, which open only for the account
 and machine that sealed them: the worker account passwords (the gateway recreates them) and, since P7-O1, every user's
 TOTP secret. After the swap the service starts and logs `the TOTP secret of user id(s) ... cannot be opened here`; those
@@ -201,6 +208,11 @@ upgrade still contain clear-text TOTP secrets until they age out of `--backup-ke
 
 **Drill** (do it once now, then quarterly): restore a throwaway user from last night's archive with the *offline copy*
 of the key, and confirm the plan opens. For a user with several plans also check that the plan list shows every plan without "file missing", that each plan switches, and that one build finishes. For a user with Financial Insight history, open `/insights/` after the restore and check that the history chart reaches the archive's date and that a pass-through decision made before the backup is still applied. Take a manual `backup run` right after upgrading to the multi-plan release: the first format 2 set is the first one that protects plans stored in `saved_plans\`.
+
+**Shared-view restore drill** (with the Phase 9 release, once before turning `--shared-views` on): restore
+`gateway.db` from last night's archive into a scratch file with `--gateway-db-out`, open it with
+`sqlite3 <file> "SELECT state, state_reason, count(*) FROM shares GROUP BY 1, 2"`, and check that no row is `active`
+(every former active share reads `suspended | restored`). Delete the scratch file afterwards.
 
 **Off-server copy**: the `.rpbak` files are safe to copy anywhere (encrypted; the key is separate), including to an
 external disk or a cloud folder *you copy to by hand*. The gateway itself refuses to write into a synced folder, so a

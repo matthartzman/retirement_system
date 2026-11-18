@@ -832,3 +832,40 @@ available" on reload, Back after sign-out shows no data, and zero CSP violations
 How the spec was run here: this container's pre-installed Chromium differs from the version the repository pins, so
 it ran once with a throwaway config that sets `launchOptions.executablePath` to that Chromium (not committed). It
 passed on the first run (4.7 s). Not run in other browsers or through Funnel.
+
+## 18. Phase 9d results (2026-11-18, branch `claude/shared-view-build`)
+
+The owner routes and the owner page were built in 9c (section 17). 9d added the rest:
+
+- **FI header link:** `financial_trends_reporter/frontend/index.html` gains a hidden **Share…** page link in the
+  worker bar. In worker mode the page asks the gateway's `/api/auth/session` (left unprefixed by the fetch wrapper,
+  `insights_client.js` `prefixUrl`) and shows the link only when `shared_views` is true, which needs the flag, an
+  active session and a member account. No FI route or fetch rule changed.
+- **`acl setup` and `acl check`** (`src/gateway/acl.py`): setup locks `<data_root>/shares` gateway-only, like
+  `data/users`. `check_layout` walks it (`check_private(..., walk=True)`) when it exists, so a worker account that can
+  read any record is a finding (C31).
+- **`restore_gateway_db` suspends shares** (`src/gateway/backup_store.py`, `suspend_restored_shares`): before the
+  restored file is moved into place, every active share becomes `suspended` (reason `restored`), and no share keeps a
+  published digest, since bodies are not archived (decision 6). Revoked shares stay revoked. A database from before
+  Phase 9 is left as it is. The journal mode is set to `DELETE` so nothing is left beside the restored copy (C16).
+  The archive format, its member families and `restore_user` are unchanged (C17).
+- **Admin console UI:** a new gateway-only script, `src/gateway/pages/admin-viewers.js` (in `ADMIN_STATIC`, loaded
+  after `users.js` by `admin.html`), adds an **Add viewer** dialog (name, username, temporary password, sponsoring
+  member, access end defaulting to 90 days), labels each person's kind, sponsor and share counts, and disables the role
+  when an admin edits a viewer (through `AdminHost.wire`). It does nothing unless the console API reports
+  `features.viewers === true`. **Choice recorded:** design 6.3 put the columns in `admin_app/frontend/users.js`, but
+  that folder is at its line ceiling (`tests/test_frontend_size_ratchet.py`) and the build rules forbid raising it, so
+  `users.js` is unchanged and the desktop Admin app is untouched. All strings are inserted as text. **Store fix found
+  here:** `set_role` refused a viewer even when the role did not change, and the console's Edit always sends the role;
+  the unchanged-role check now comes first.
+- **Runbook lines** (`multi-user-server-operations-runbook.md`): the flag and its settings, the backup scope (rows yes,
+  records no), what a restored `gateway.db` does to shares, and a restore drill.
+
+Tests: `tests/test_gateway_share_lifecycle_functional.py` (9: C12, C13, C32, C35-C37, plus a deleted or disabled viewer)
+and `tests/test_gateway_share_backup_functional.py` (5: C16, C17, C31 and an archive without shares). The ACL test feeds
+`check_layout` permissions on Linux. **Choice recorded:** the design allowed "Windows-only parts skip elsewhere", but
+the repository's skip-count ratchet (`tests/test_skip_count_ratchet_regression.py`) forbids a new skip. So there is no
+Windows-only test here, and real permissions on the installed build are checked by the owner's elevated run (release
+checklist). `tests/e2e_gateway/shared-view.spec.js` gains a second test: an admin adds a viewer in the console, the row
+shows Viewer for its sponsor, and the role is disabled in Edit. The first test now reaches the owner page through FI's
+**Share…** link. The existing `tests/e2e_gateway/admin-console.spec.js` (8) still passes.

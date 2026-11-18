@@ -81,7 +81,10 @@ test('owner shares a percent view, guest sees it, revoke ends it, Back after sig
   await expect(owner.getByRole('heading', { name: 'Financial Insight' })).toBeVisible({ timeout: 30_000 });
   await expect.poll(async () => owner.evaluate(async () => (await (await fetch('/insights/api/history')).json()).length),
     { timeout: 90_000 }).toBeGreaterThan(0);
-  await owner.goto('/gateway/sharing');
+  // The FI header offers Share... to a member when the gateway's shared views are on.
+  await expect(owner.locator('#workerShare')).toBeVisible({ timeout: 15_000 });
+  await owner.click('#workerShare');
+  await expect(owner).toHaveURL(/\/gateway\/sharing$/);
   await expect(owner.locator('#plan-line')).toContainText('Plan:', { timeout: 15_000 });
   await expect(owner.locator('#f-viewer option')).toHaveCount(1);
   await owner.fill('#f-title', 'For Vera');
@@ -132,4 +135,25 @@ test('owner shares a percent view, guest sees it, revoke ends it, Back after sig
   expect(await guestCsp()).toEqual([]);
   await ownerCtx.close();
   await guestCtx.close();
+});
+
+test('an admin adds a viewer in the Admin console; no planner is made for it', async ({ browser, stack }) => {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  const csp = await watchCsp(page);
+  await signIn(page, stack.admin_username, stack.password, stack.admin_totp_secret);
+  await page.goto('/gateway/admin#users');
+  await page.getByRole('button', { name: 'Add viewer' }).click();
+  await page.fill('#vName', 'Adam Advisor');
+  await page.fill('#vUser', 'adam');
+  await page.fill('#vPw', 'a temporary password 22');
+  await page.selectOption('#vSponsor', { label: 'Carol' });
+  await page.locator('#viewerForm button[type=submit]').click();
+  const row = page.locator('tr', { hasText: 'Adam Advisor' });
+  await expect(row).toContainText('Viewer', { timeout: 15_000 });
+  await expect(row).toContainText('for Carol');
+  await row.getByRole('button', { name: 'Edit' }).click();
+  await expect(page.locator('#fRole')).toBeDisabled();
+  expect(await csp()).toEqual([]);
+  await ctx.close();
 });

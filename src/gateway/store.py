@@ -439,10 +439,10 @@ class GatewayStore:
         self._check_role(role)
         with self._tx() as conn:
             row = self._locked_user(conn, user_id)
-            if row["kind"] != MEMBER:
-                raise ValueError("a viewer's role cannot be changed")
             if row["role"] == role:
                 return
+            if row["kind"] != MEMBER:
+                raise ValueError("a viewer's role cannot be changed")
             if role != "admin":
                 self._guard_last_admin(conn, row, now)
             conn.execute("UPDATE users SET role=?, updated_at=? WHERE id=?", (role, now, row["id"]))

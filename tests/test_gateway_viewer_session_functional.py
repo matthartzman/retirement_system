@@ -208,6 +208,8 @@ def test_admin_console_adds_a_viewer_without_a_workspace(tmp_path):
     assert admin.get(API + "/users").get_json()["features"]["viewers"] is True
     # Role change is refused; disable and delete never reach the lifecycle for a viewer.
     assert admin.post(API + "/users/update", json={"id": vid, "role": "admin"}).status_code == 400
+    # The console's Edit sends the unchanged role with every save: that still works for a viewer.
+    assert admin.post(API + "/users/update", json={"id": vid, "role": "user", "notes": "advisor"}).status_code == 200
     assert admin.post(API + "/users/disable", json={"id": vid}).status_code == 200
     assert admin.post(API + "/users/delete", json={"id": vid, "confirm_username": "vic"}).status_code == 200
     assert rec.calls == []

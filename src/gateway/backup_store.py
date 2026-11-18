@@ -438,8 +438,33 @@ def restore_gateway_db(archive: Path, master: bytes, out: Path) -> Path:
     finally:
         tar.close()
         fh.close()
+    try:
+        suspend_restored_shares(partial)
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise
     os.replace(partial, out)
     return out
+
+
+def suspend_restored_shares(db_path: Path) -> int:
+    """Phase 9 (C16): in a restored ``gateway.db``, every active share becomes ``suspended`` (reason ``restored``) and
+    no share keeps a published body (bodies are not archived). The owner enables each one again, which republishes
+    it. Without this an old ``gateway.db`` would bring back shares revoked since. Returns how many were suspended."""
+    import sqlite3  # noqa: PLC0415
+
+    con = sqlite3.connect(db_path, isolation_level=None)
+    try:
+        con.execute("PRAGMA journal_mode=DELETE")  # no -wal or -shm file is left beside the restored copy
+        if con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='shares'").fetchone() is None:
+            return 0  # a database from before Phase 9 has no shares
+        con.execute("BEGIN IMMEDIATE")
+        n = con.execute("UPDATE shares SET state='suspended', state_reason='restored' WHERE state='active'").rowcount
+        con.execute("UPDATE shares SET published_at=NULL, published_rev=NULL, snapshot_sha256=NULL, snapshot_bytes=NULL")
+        con.execute("COMMIT")
+        return int(n)
+    finally:
+        con.close()
 
 
 def list_archives(dest: Path) -> list[dict]:
