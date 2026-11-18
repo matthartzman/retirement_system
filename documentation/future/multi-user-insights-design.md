@@ -402,3 +402,24 @@ Tests: `tests/frontend/trends_reporter_insights_client.test.mjs` (11, no source 
 regression for the 401. Not covered in a browser: the 15-minute idle sign-out (not configurable on a real gateway); the
 policy is covered by the Phase 3 gateway tests, and the browser spec checks the poll header and that an ended session
 reaches `/login?next=/insights/`. Not done here: two-user isolation measurements (Phase 5).
+
+
+## 18. Phase 5 results (2026-11-17, branch `claude/insights-phase5-isolation`)
+
+Built: `tests/test_multi_user_isolation_insights_integration.py` (slow, 8 tests, one run about 13 s). It starts the real gateway
+with `--insights` (via a new optional `extra_args` on `launch_gateway`/`gateway_command`) and three real workers (two users,
+one admin) and shows: the session JSON offers insights and `/insights/` plus `/insights/api/whoami` are served by each
+caller's own worker (`listener: "worker"`); a balances upload by one user appears in that user's FI and in no other user's
+or admin's FI responses or workspace bytes; no query parameter or client header (`?user=`, `?plan_id=`, `X-Forwarded-User`)
+selects another user; **Update** leaves the plan file's SHA-256 unchanged and does not touch another user's history;
+signed-out callers get a JSON 401 (API) or a redirect to `/login` (page); `exit`, the planner config routes and plan
+switching are refused under `/insights/`; a forced FI error leaks no path or traceback; the source tree is byte-for-byte as
+before (`git status --untracked-files=all` identical); and each worker stays under the 1,792 MB cap.
+
+Measurements (same-account rig, demo plan, one small balances upload, FI opened once): worker resident memory 64-79 MB
+including child processes at that moment. This is a floor, not the worker with a full plan and live price refreshes; the
+owner should re-measure on the installed build. Poll load was not measured under real price providers (disabled in the rig).
+
+Still only the owner can verify: per-account ACL behaviour under dedicated worker accounts, Funnel end to end, and memory
+with real data and live prices (`tools/run_isolation_on_installed_build.ps1` runs the existing isolation modules there; adding this
+module to that script is not done here).

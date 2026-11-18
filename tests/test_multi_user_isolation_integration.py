@@ -141,7 +141,7 @@ def gateway(tmp_path_factory):
     yield from launch_gateway(tmp_path_factory.mktemp("isolation"), {"alice": "user", "bob": "user"})
 
 
-def launch_gateway(base: Path, roles: dict[str, str]):
+def launch_gateway(base: Path, roles: dict[str, str], extra_args: tuple[str, ...] = ()):
     """Start the gateway (and through it the workers) with these enrolled users; yields the info dict, then stops it.
 
     Default: same-account launcher, source tree, temp data root. With ``RETIREMENT_ISOLATION_LAUNCHER=per-account``
@@ -176,7 +176,7 @@ def launch_gateway(base: Path, roles: dict[str, str]):
     if per:
         env["PYTHONDONTWRITEBYTECODE"] = "1"  # keep the installed folder clean
     cmd = ipa.gateway_command(python, db, data_root, ready_file, public_origin=PUBLIC_ORIGIN,
-                              shared_key_env=SHARED_KEY_ENV, per_account=per)
+                              shared_key_env=SHARED_KEY_ENV, per_account=per, extra_args=extra_args)
     log = (base / "gateway.log").open("w", encoding="utf-8")
     flags = subprocess.CREATE_NEW_PROCESS_GROUP if per else 0  # so Ctrl+Break reaches only the gateway
     proc = subprocess.Popen(cmd, cwd=str(cwd), env=env, stdout=log, stderr=subprocess.STDOUT, creationflags=flags)
