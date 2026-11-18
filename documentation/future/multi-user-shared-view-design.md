@@ -622,11 +622,13 @@ start at 9a; rollout waits for the review's release checklist.
 ## 14. Not verified here
 
 - Whether FI's chart modules can render from a data object without `index.html`'s inline script (9c step 0).
-- Whether `financial_trends_reporter.percent_view` imports cleanly inside the gateway process (9b step 0).
+- Whether `financial_trends_reporter.percent_view` imports cleanly inside the gateway process (9b step 0). **Checked
+  in 9b: it does** (section 16).
 - SQLite: the cross-column `CHECK` in `ADD COLUMN` and the self-referencing foreign key added by `ALTER` (expected to
-  work; the 9a migration test proves it).
+  work; the 9a migration test proves it). **Proved in 9a** (section 15).
 - Record size and publish time with a real plan and live prices.
-- The exact parameters of `/api/realized` and `/api/live-snapshot`, and which panel `realized` belongs to.
+- The exact parameters of `/api/realized` and `/api/live-snapshot`, and which panel `realized` belongs to. **Checked in
+  9b** (section 16).
 - Browser behaviour of `no-store` pages in the back-forward cache after sign-out, and `Clear-Site-Data` over Funnel.
 - Whether worker responses set `Cache-Control` themselves (the gateway adds `no-store` only on its own paths).
 - Per-account ACLs for the new folder on the installed service (the owner's elevated run, as in earlier phases).
@@ -705,3 +707,82 @@ as well as on this branch, all for Windows-only reasons (`cmd`, `_winapi`, junct
 `test_gateway_service_unit.py`, `test_remote_mode_contract.py::test_confine_path_inside_outside_and_escape`,
 `test_multi_user_isolation_integration.py::test_the_monarch_connector_never_signs_in_on_a_same_account_worker` and
 `test_multi_user_isolation_routes_integration.py::test_a_junction_inside_the_workspace_cannot_lead_to_the_other_users_folder`.
+
+## 16. Phase 9b results (2026-11-18, branch `claude/shared-view-build`)
+
+**Step 0, checked before building:**
+
+1. `financial_trends_reporter.percent_view` imports cleanly in the gateway process. Measured with `python -I` from the
+   repository root: importing it loads only `financial_trends_reporter.balance_series`, `balance_store` and
+   `account_registry` (plus the standard library). It does no file or database work at import time, and it pulls in no
+   Flask, no planner `src` module and no FI app. The gateway's publisher therefore imports it directly for the second
+   leak check.
+2. Route parameters, read from `financial_trends_reporter/main.py` (the handlers) and the page's fetch sites:
+   - `/api/live-snapshot` takes `from=YYYY-MM-DD` (the Time scope's first day) and `refresh=1` (refetch quotes). The
+     record is rendered with `from` only, so prices are those cached at publish.
+   - `/api/realized` takes `from` **or** `tax_year=YYYY` (which replaces `from`), `group=symbol|account|term`
+     (comma-separated levels, default `symbol`), `taxable=1`, `wash=1` and `unconfirmed=1` (`realized.js`,
+     `realizedQuery`). The record holds `tax_year` for the current and the prior year with `group=symbol`.
+   - `/api/spending` takes `from` and `to` (both required; `_parse_spending_window`).
+   - **Which panel `realized` belongs to:** the Snapshot tab. The page draws it in `#realizedBody` next to `#liveBody`,
+     and `access_routes.VIEW_ROUTES` maps it to `live`.
+   - Each fixed Time scope's dates come from `charts.js` `scopeRange`, anchored on the latest data date. `week` is 7 days
+     back, `month`, `3m`, `6m` and `1y` use calendar months with month-end clamping, `ytd` starts on 1 January, and `all`
+     starts at `ALL_TIME_START` (2025-02-01). `share_snapshot.scope_ranges` implements the same rules, and a test pins the
+     clamping cases. The anchor is the newest history entry's date, else today. The page anchors on the newest row of
+     the series it charts (Monarch rows when present), so the two can differ by the gap between the last import and the
+     last update.
+
+**Built** (worker side, `financial_trends_reporter/`):
+
+- `share_snapshot.py`: `POST /api/share-snapshot`, registered only in worker mode (`main.py`), with one new
+  `worker_allowlist.ALLOWED` entry. It requires the gateway-only header `X-Gateway-Share-Publish: 1`, which the gateway
+  strips from every browser request (the `x-gateway-` prefix in `upstream.py`). Without it the route answers 404. It
+  checks the request (share id, revision, money view, tabs, expected plan). The active plan must be the share's plan:
+  409 `plan_not_active` otherwise, or 410 `plan_missing` when the plan is not registered at all. It dispatches FI's own
+  `GET` handlers in process, one per record key, for the granted tabs only (the `route_plan` table; transactions,
+  account settings, run status and whoami are never in it). A route that does not answer 200 becomes
+  `{"available": false}`. In the percent view each body goes through `percent_view.percent_body`, the record must pass
+  `find_money_leaks` (422 `money_leak` otherwise), and a missing basis gives 409 `no_basis`.
+- `percent_view.percent_body` is new: the desktop remote listener's after-request hook (`access_routes.py`) now calls
+  it, and so does the snapshot. The desktop's behaviour is unchanged (its percent tests pass), and the two can no longer
+  drift apart.
+- **Schema change from the 5.4 example, recorded:** the record has one more top-level key, `scopes` (each preset's
+  `from` and `to`, no amounts), so the guest page can label the presets. Record keys name the preset, not the dates
+  (`/api/spending?scope=ytd`, `/api/live-snapshot?scope=week`, `/api/realized?tax_year=2026`).
+
+**Built** (gateway side, `src/gateway/`):
+
+- `share_publish.py`, `SharePublisher`: row by id and owner, active only. At most one publish per share per minute,
+  one per owner at a time and two in the whole gateway (C33). The worker is always `supervisor.endpoint(<owner>)`, and
+  the endpoint's user id is checked. The request body is built from the row. `validate_record` treats the answer as
+  untrusted: status, `application/json`, the size cap (`call_worker` is asked for the cap plus one byte), the exact top-level
+  keys, share id, revision, money view and plan id equal to the row, tabs within the row's tabs, keys within each tab's
+  own pattern (a literal in the gateway, not imported from the worker), no unknown scope, and in the percent view
+  `find_money_leaks` again. Every string is then normalised (NFC; control, bidi-override and zero-width characters
+  removed; names capped at 200 characters and other strings at 2,000). The body is written atomically, its SHA-256 and
+  size go into the row with a conditional commit, and a lost race deletes the file it wrote (C14, C15). A 410 from the
+  worker revokes every share of that plan (decision 7).
+- `supervisor.call_worker` gains `max_bytes` (default unchanged, 8 MiB), and `call_worker_full` also returns the
+  Content-Type and takes extra headers.
+- **Proxy browser block (C23):** `WorkerProxy.forward` answers 404 for the snapshot path in any case, with a trailing
+  slash, or percent-encoded once or twice. The header requirement in the worker is the second layer.
+- **Plan-delete hook:** `WorkerProxy.after_forward`, set by `server.py` only with `--shared-views`. A successful
+  `POST /api/plans/delete` revokes that plan's shares for the requesting member. The refresh-time 410 is the backstop.
+- **Phase 8 refresh hook (decision 10):** `InsightsScheduler(after_update=...)` runs after an update that returned
+  `updated`, with the worker the pass already holds and before it is released. It republishes the owner's active shares,
+  and shares of another plan are skipped. A failing hook never changes the update's outcome.
+- **Housekeeping:** `ShareStore.housekeeping`, run hourly by a gateway thread when `--shared-views` is on. It deletes
+  bodies whose row is missing, revoked, expired or unpublished (and stray `.tmp` files), audits `share_expired` once per
+  expired share, and purges revoked and expired rows (with their access log) 90 days later.
+
+**Measured** (in process on the test workspace, which is not the demo plan, with quotes stubbed out): a record with all
+three tabs is about 232 KB in the percent view and 234 KB in dollars, far under the 8 MiB cap. A snapshot took under one
+second without network quotes. With live quotes, each of the seven live-snapshot presets shares one 30-second quote
+cache, so a publish costs about one quote fetch; the publisher waits up to 180 seconds. Size and time on the owner's
+real plan with live prices are **not measured** (release checklist).
+
+Tests: `tests/test_insights_share_snapshot_functional.py` (12) and `tests/test_gateway_share_publish_functional.py` (27,
+including one that renders a real record through FI in worker mode, then validates, stores and serves it), plus two new
+cases in `tests/test_gateway_insights_schedule_unit.py`. The existing FI worker-mode, mount allow-list, percent-view and
+tab-limit tests still pass.

@@ -344,6 +344,31 @@ class _Runtime:
         self.proxy = WorkerProxy(self.supervisor, self.queue, audit=lambda event, uid, details: store.audit(
             event, now=time.time(), actor=audit_actor, target_user_id=uid, details=details))
         self.shares_dir = data_root / "shares"
+        self._shares(args, store)
+
+    def _shares(self, args: argparse.Namespace, store: GatewayStore) -> None:
+        """Phase 9. The share store always exists (deleting an owner removes their bodies, flag or not); publishing,
+        the plan-delete hook, the scheduled refresh and housekeeping run only with --shared-views."""
+        from .share_publish import SharePublisher, plan_delete_hook  # noqa: PLC0415
+        from .share_store import ShareSettings, ShareStore  # noqa: PLC0415
+
+        self.shared_views = bool(getattr(args, "shared_views", False))
+        self.shares = ShareStore(store, self.shares_dir, ShareSettings(
+            max_shares_per_owner=args.max_shares_per_owner, default_days=args.share_default_days,
+            max_days=args.share_max_days, max_bytes=args.share_max_mb * 1024 * 1024))
+        self.publisher = None
+        if not self.shared_views:
+            return
+        actor = Actor(user_id=None, username="shared-views")
+
+        def audit(event: str, *, actor: Actor, target_user_id: int | None = None, details: str = "") -> None:
+            store.audit(event, now=time.time(), actor=actor, target_user_id=target_user_id, details=details)
+        self.publisher = SharePublisher(self.shares, self.supervisor, audit=audit)
+        self.proxy.after_forward = plan_delete_hook(self.shares, actor)
+        if self.insights_schedule is not None:
+            self.insights_schedule._after_update = (
+                lambda uid, ep: self.publisher.refresh_owner(uid, ep, actor=actor))
+        self._share_actor = actor
 
     def _insights_scheduler(self, args: argparse.Namespace, store: GatewayStore):
         if not args.insights_schedule:
@@ -389,8 +414,22 @@ class _Runtime:
             self.backups.start()
         if self.insights_schedule is not None:
             self.insights_schedule.start()
+        if self.shared_views:
+            self._share_stop = threading.Event()
+
+            def sweep() -> None:  # hourly: orphan bodies, expiry audit, retention purge (design 5.5)
+                while True:
+                    try:
+                        self.shares.housekeeping(time.time(), self._share_actor)
+                    except Exception:  # noqa: BLE001 - the sweep must keep running
+                        LOG.exception("shared-view housekeeping failed")
+                    if self._share_stop.wait(3600):
+                        return
+            threading.Thread(target=sweep, name="share-housekeeping", daemon=True).start()
 
     def shutdown(self) -> None:
+        if getattr(self, "_share_stop", None) is not None:
+            self._share_stop.set()
         if getattr(self, "_log_stop", None) is not None:
             self._log_stop.set()
         if self.insights_schedule is not None:
@@ -448,11 +487,7 @@ def run_gateway(argv: list[str] | None, stop_event: threading.Event) -> int:
                          share_max_days=args.share_max_days, max_shares_per_owner=args.max_shares_per_owner,
                          max_viewers_per_sponsor=args.max_viewers_per_sponsor)
     if runtime is not None:
-        from .share_store import ShareSettings, ShareStore  # noqa: PLC0415
-
-        kwargs["shares"] = ShareStore(store, runtime.shares_dir, ShareSettings(
-            max_shares_per_owner=gcfg.max_shares_per_owner, default_days=gcfg.share_default_days,
-            max_days=gcfg.share_max_days, max_bytes=gcfg.share_max_mb * 1024 * 1024))
+        kwargs["shares"], kwargs["publisher"] = runtime.shares, runtime.publisher
     app = create_gateway_app(store, config=gcfg, **kwargs)
     servers: dict[str, _GatewayHTTPServer] = {}
     for kind, port in (("funnel", args.funnel_port), ("local", args.local_port)):

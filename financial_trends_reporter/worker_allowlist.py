@@ -47,6 +47,9 @@ ALLOWED: frozenset[tuple[str, str]] = frozenset({
     ("POST", "/api/run-cancel"),
     ("POST", "/api/ping"),
     ("POST", "/api/view"),
+    # Phase 9: the gateway's share publisher only (share_snapshot.py). It needs a gateway-only header the proxy strips
+    # from browser requests, and the proxy refuses the path from browsers as well.
+    ("POST", "/api/share-snapshot"),
 })
 
 REFUSED: dict[tuple[str, str], str] = {

@@ -137,15 +137,25 @@ def call_worker(endpoint: Endpoint, method: str, path: str, *, body: bytes | Non
 
     At most ``max_bytes`` of the body are read. A caller that must not act on a truncated body asks for one byte
     more than its limit and refuses a body that long (the share publisher does)."""
+    status, _ctype, data = call_worker_full(endpoint, method, path, body=body, timeout=timeout,
+                                            content_type=content_type, max_bytes=max_bytes)
+    return status, data
+
+
+def call_worker_full(endpoint: Endpoint, method: str, path: str, *, body: bytes | None = None, timeout: float = 10.0,
+                     content_type: str = "application/json", max_bytes: int = CALL_WORKER_MAX_BYTES,
+                     headers: dict[str, str] | None = None) -> tuple[int, str, bytes]:
+    """``call_worker`` that also returns the response's Content-Type and can add request headers."""
     conn = http.client.HTTPConnection("127.0.0.1", endpoint.port, timeout=timeout)
     try:
-        headers = {"Host": f"127.0.0.1:{endpoint.port}", "X-API-Token": endpoint.token,
-                   "Content-Length": str(len(body or b""))}
+        hdrs = dict(headers or {})
+        hdrs.update({"Host": f"127.0.0.1:{endpoint.port}", "X-API-Token": endpoint.token,
+                     "Content-Length": str(len(body or b""))})
         if body:
-            headers["Content-Type"] = content_type
-        conn.request(method, path, body=body or b"", headers=headers)
+            hdrs["Content-Type"] = content_type
+        conn.request(method, path, body=body or b"", headers=hdrs)
         resp = conn.getresponse()
-        return resp.status, resp.read(int(max_bytes))
+        return resp.status, str(resp.getheader("Content-Type", "") or ""), resp.read(int(max_bytes))
     finally:
         conn.close()
 

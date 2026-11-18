@@ -71,6 +71,10 @@ class Rig:
         else:
             self.upstream = upstream
         kwargs = {"upstream": self.upstream} if self.upstream is not None else {}
+        from src.gateway.share_store import ShareStore  # noqa: PLC0415
+
+        self.shares = app_kwargs.pop("shares", None) or ShareStore(self.store, tmp_path / "shares")
+        kwargs["shares"] = self.shares
         kwargs.update(app_kwargs)
         cfg = GatewayConfig(public_origins=(PUBLIC_ORIGIN,), insights=insights or shared_views, shared_views=shared_views)
         self.app = create_gateway_app(self.store, config=cfg, clock=lambda: self.now[0], **kwargs)
