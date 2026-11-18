@@ -126,6 +126,15 @@ data folder or the install folder; the key is never inside the backup folder; `C
   removes old rotated copies hourly. Logs mask account numbers; do not paste them into chat without reading them.
 * **Audit**: the Admin console's **Audit log** page (admins), or `GET /api/auth/admin/audit`.
 * **Service**: `& $PY -m src.gateway.service status|stop|start`.
+* **Scheduled Financial Insight update (optional)**: with `--insights --insights-schedule 17:30` (server local time; off by
+  default, there is no per-user switch) the gateway asks each active, non-disabled user's own worker to run the same
+  read-only update as the **Update** button, one user at a time, every weekday after the cutoff. Pick a cutoff after 21:00
+  UTC (5 pm New York), because "due" is the page's own rule: the newest log entry is older than the last weekday 21:00 UTC.
+  A pass runs hourly until six hours after the cutoff; a failed or build-busy user is retried on the next pass, then left
+  until tomorrow. Workers it had to start are released when the user has no signed-in session. **Missed days are not
+  backfilled** (a gateway that was down, or a failed day, leaves that day without an entry). The health report's
+  `insights_schedule` line shows the last run time, users updated and users failed (a failure adds a warning), and the
+  Audit log has one `insights_scheduled_update` event per pass with user ids and counts only. Design: `src/gateway/insights_schedule.py`.
 
 ## 3. User account lifecycle
 
