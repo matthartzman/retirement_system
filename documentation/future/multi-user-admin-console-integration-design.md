@@ -185,3 +185,16 @@ All eight questions are answered. Nothing below is open.
 8. **PR 466 is closed as superseded.**
 
 Phase 4 now contains only the optional per-user activity view. Phases 1 to 3 are unchanged; implementation has not started and begins only on the owner's go-ahead.
+
+## 9. Phase 2 as built (2026-11-17)
+
+Schema version 3 adds `users.expires_at` and `users.notes` (additive; older rows keep working). Expiry is enforced at
+password check, on every session lookup (pending and active, so the second-factor step is covered) and is audited;
+an expired person gets the same generic sign-in error as any failure and is not counted toward lockout. An expired
+admin does not count as an active admin, so the last-admin rule also refuses expiring the only usable admin;
+`break-glass` clears an expiry. The console gained edit-name, notes, access end and End sessions
+(`/api/auth/admin/console/users/update`, `.../end-sessions`). Notes are admin-only and never in the audit text.
+
+Known limit: when an expiry passes by itself, the person is locked out at the gateway but their `rpw_<id>` Windows
+account is not disabled until an admin disables them or sets a past date in the console (which stops the worker and
+disables the account). No sign-in path reaches that account, so this is housekeeping, not an access path.

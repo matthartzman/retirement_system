@@ -98,6 +98,8 @@ def main(argv: list[str] | None = None, *, stdin: TextIO | None = None, stdout: 
     store.unlock(uid, now=now, actor=actor, event=None)
     if user["disabled"]:
         store.set_disabled(uid, False, now=now, actor=actor)
+    if user.get("expires_at") is not None:
+        store.set_profile(uid, expires_at=None, now=now, actor=actor)
     store.end_user_sessions(uid)
     print(f"Admin '{user['username']}' reset: new password set, two-factor cleared (set up again at next sign-in), "
           "account unlocked and enabled, sessions ended.", file=stdout)
