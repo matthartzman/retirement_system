@@ -158,9 +158,9 @@ Do **not** write code until the owner approves the design and the review.
 
 ### Deliverables
 
-1. `documentation/future/multi-user-shared-view-design.md`: requirements, options, recommendation, data model, UI,
+1. `multi-user-shared-view-design.md` (to be created in this folder): requirements, options, recommendation, data model, UI,
    lifecycle, test plan, phase plan.
-2. `documentation/future/multi-user-shared-view-security-review.md`: threat model, abuse cases, controls mapped to tests,
+2. `multi-user-shared-view-security-review.md` (to be created in this folder): threat model, abuse cases, controls mapped to tests,
    residual risk, sign-off checklist.
 
 ### Questions the design must answer first (ask the owner)
