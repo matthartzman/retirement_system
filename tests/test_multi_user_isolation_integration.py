@@ -42,6 +42,17 @@ ALICE_MERCHANT = "AliceSentinelMerchant"
 
 
 def _pid_alive(pid: int) -> bool:
+    if sys.platform != "win32":  # POSIX: signal 0 probes the process without touching it
+        try:
+            os.kill(int(pid), 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        try:  # a killed child that nobody has reaped yet is a zombie: gone for our purposes
+            return Path(f"/proc/{int(pid)}/stat").read_text().rsplit(")", 1)[1].split()[0] != "Z"
+        except (OSError, IndexError):
+            return True
     try:
         from src.gateway import winapi  # noqa: PLC0415
         import ctypes  # noqa: PLC0415
