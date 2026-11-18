@@ -30,13 +30,20 @@ class RecordingUpstream:
 
 
 class Rig:
-    def __init__(self, tmp_path: Path, upstream="recording", insights=False) -> None:
+    def __init__(self, tmp_path: Path, upstream="recording", insights=False, shared_views=False, **app_kwargs) -> None:
         self.now = [1_000_000.0]
+        self.tmp_path = tmp_path
         self.store = GatewayStore(tmp_path / "gateway.db", scrypt_n=2**4)
-        self.upstream = RecordingUpstream() if upstream == "recording" else None
+        if upstream == "recording":
+            self.upstream = RecordingUpstream()
+        elif upstream is None:
+            self.upstream = None
+        else:
+            self.upstream = upstream
         kwargs = {"upstream": self.upstream} if self.upstream is not None else {}
-        self.app = create_gateway_app(self.store, config=GatewayConfig(public_origins=(PUBLIC_ORIGIN,), insights=insights),
-                                      clock=lambda: self.now[0], **kwargs)
+        kwargs.update(app_kwargs)
+        cfg = GatewayConfig(public_origins=(PUBLIC_ORIGIN,), insights=insights or shared_views, shared_views=shared_views)
+        self.app = create_gateway_app(self.store, config=cfg, clock=lambda: self.now[0], **kwargs)
         self.funnel = GatewayListener(self.app, "funnel", FUNNEL_PORT)
         self.local = GatewayListener(self.app, "local", LOCAL_PORT)
 
@@ -46,6 +53,29 @@ class Rig:
     def add_user(self, username="ann", role="user", must_change=False, password=PW) -> int:
         return self.store.create_user(username, username.title(), role, password, now=self.now[0], actor=CLI,
                                       must_change=must_change)
+
+    def add_viewer(self, username="vic", sponsor: int | None = None, must_change=False, password=PW,
+                   expires_at: float | None = None) -> int:
+        """A viewer account (Phase 9), sponsored by ``sponsor`` (a member's id)."""
+        assert sponsor is not None, "a viewer needs a sponsor"
+        return self.store.create_viewer(username, username.title(), password, sponsor_user_id=sponsor,
+                                        now=self.now[0], actor=CLI, must_change=must_change, expires_at=expires_at)
+
+    def enrol(self, b: "Browser", uid: int) -> None:
+        """Finish first sign-in for a browser holding a pending session: enrol TOTP, become active."""
+        b.post("/api/auth/totp/enrol/start")
+        r = b.post("/api/auth/totp/enrol/confirm", json={"code": self.code(uid)})
+        assert r.status_code == 200, r.get_data(as_text=True)
+        b.refresh_csrf()
+        self.advance(31)
+
+    def signed_in_viewer(self, username="vic", sponsor: int | None = None, ip="203.0.113.9") -> tuple["Browser", int]:
+        """A browser with an active session for a new, enrolled viewer account."""
+        uid = self.add_viewer(username, sponsor)
+        b = self.browser(ip)
+        assert b.login(username).status_code == 200
+        self.enrol(b, uid)
+        return b, uid
 
     def browser(self, ip="203.0.113.5", listener="funnel") -> "Browser":
         return Browser(self, ip, listener)
