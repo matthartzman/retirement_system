@@ -116,3 +116,39 @@ test('Sign out on the Financial Insight page ends the gateway session', async ({
   await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
   expect((await page.request.get('/insights/')).url()).toMatch(/\/login/);
 });
+
+// The sign-in page itself (not the API): a code works once per 30 s step, so each page sign-in uses the next unused step
+// (the gateway accepts one step ahead) and waits for the clock when that step is not yet allowed.
+function totpForStep(secret, step) {
+  const code = `import sys;sys.path.insert(0,r'${ROOT}');from src.gateway import totp;print(totp.code_at('${secret}',${step}))`;
+  return execFileSync(PY, ['-c', code]).toString().trim();
+}
+
+async function signInOnThePage(page, stack, app) {
+  await page.context().clearCookies();
+  await page.goto('/login');
+  await expect(page.locator('#app-choice')).toBeVisible({ timeout: 15_000 });
+  await page.locator(`#app-choice input[value="${app}"]`).check();
+  const nowStep = () => Math.floor(Date.now() / 30_000);
+  const step = Math.max(nowStep() + 1, (stack.lastStep || 0) + 1);
+  while (nowStep() + 1 < step) await page.waitForTimeout(1_000);
+  stack.lastStep = step;
+  await page.locator('#username').fill(stack.username);
+  await page.locator('#password').fill(stack.password);
+  await page.locator('#login-form button[type=submit]').click();
+  await page.locator('#code').fill(totpForStep(stack.totp_secret, step));
+  await page.locator('#code-form button[type=submit]').click();
+}
+
+test('the sign-in page lets a member choose Financial Insight or the planner, and remembers the choice', async ({ page, stack }) => {
+  await signInOnThePage(page, stack, 'insights');
+  await expect(page).toHaveURL(/\/insights\/$/, { timeout: 20_000 });
+  await expect(page.locator('#workerBar')).toBeVisible({ timeout: 15_000 });
+
+  await page.context().clearCookies();
+  await page.goto('/login');
+  await expect(page.locator('#app-choice input[value="insights"]')).toBeChecked();   // remembered in this browser
+  await signInOnThePage(page, stack, 'planner');
+  await expect(page).not.toHaveURL(/\/insights/, { timeout: 20_000 });
+  await page.waitForFunction(() => window.RetirementRemote && window.RetirementRemote.enabled === true, null, { timeout: 30_000 });
+});
