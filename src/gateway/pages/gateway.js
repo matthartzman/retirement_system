@@ -62,6 +62,30 @@
     location.href = "/login?next=" + encodeURIComponent(location.pathname);
   }
 
+  /* Which app opens after sign-in. The choice is a per-browser convenience, so it only ever lives in localStorage. */
+  var APP_KEY = "rp.openAfterSignIn";
+  function savedApp() {
+    try { return localStorage.getItem(APP_KEY) === "insights" ? "insights" : "planner"; } catch (e) { return "planner"; }
+  }
+  function saveApp(app) {
+    try { localStorage.setItem(APP_KEY, app); } catch (e) { /* the choice just won't persist */ }
+  }
+  // Pure. An explicit address (a deep link, or the page an ended session came from) always wins. Guests never get a
+  // choice: "/" is sent to their own page by the gateway. Financial Insight only when the server offers it to this user.
+  function landingPath(o) {
+    var next = o.next || "/";
+    if (next !== "/") { return next; }
+    if (o.kind === "viewer") { return "/"; }
+    return o.app === "insights" && o.insights === true ? "/insights/" : "/";
+  }
+  function goHome() {
+    return getSession().then(function (r) {
+      var j = r.json || {};
+      location.href = landingPath({ next: nextPath(), app: savedApp(), kind: j.kind, insights: j.insights });
+    }).catch(function () { location.href = nextPath(); });
+  }
+  window.GatewayLanding = { landingPath: landingPath };
+
   function busy(form, on) {
     var b = form.querySelector("button[type=submit]");
     if (b) { b.disabled = on; }
@@ -92,9 +116,18 @@
       $("password").value = "";
       $("code").value = "";
     }
+    var choice = $("app-choice");
+    var radios = choice ? choice.querySelectorAll("input[name=app]") : [];
+    for (var i = 0; i < radios.length; i++) {
+      radios[i].checked = radios[i].value === savedApp();
+      radios[i].addEventListener("change", function (ev) { saveApp(ev.target.value); });
+    }
     getSession().then(function (r) {
-      if (r.status === 200 && r.json.stage === "active") { location.href = nextPath(); }
+      if (r.status === 200 && r.json.stage === "active") { goHome(); }
       else if (r.status === 200 && r.json.stage === "pending") { showCode(); }
+      // The server says whether it offers Financial Insight. Guests are not known until they sign in, so the choice
+      // is shown to everyone and simply ignored for a guest.
+      if (choice && r.json && r.json.insights === true) { choice.classList.remove("hidden"); }
     }).catch(function () {});
     onSubmit(pw, function () {
       return api("POST", "/api/auth/login", {
@@ -112,7 +145,7 @@
     });
     onSubmit(cf, function () {
       return api("POST", "/api/auth/totp/verify", { code: $("code").value.trim() }).then(function (r) {
-        if (r.status === 200 && r.json.success) { location.href = nextPath(); return; }
+        if (r.status === 200 && r.json.success) { return goHome(); }
         say(errText(r, "Incorrect code."));
         if (r.status === 401) { showPassword(); } else { $("code").select(); }
       });
@@ -132,7 +165,7 @@
     }).catch(function () { say("Network error. Please try again."); });
     onSubmit($("confirm-form"), function () {
       return api("POST", "/api/auth/totp/enrol/confirm", { code: $("code").value.trim() }).then(function (r) {
-        if (r.status === 200 && r.json.success !== false) { location.href = "/"; return; }
+        if (r.status === 200 && r.json.success !== false) { return goHome(); }
         if (r.status === 401) {
           var s = $("status");
           s.textContent = "Your sign-in expired. ";
@@ -171,7 +204,7 @@
         if (r.status === 401 && !r.json.error) { toLogin(); return; }
         if (r.status !== 200 || r.json.success === false) { say(errText(r)); return; }
         say("Password changed. Redirecting...", true);
-        setTimeout(function () { location.href = "/"; }, 1200);
+        setTimeout(goHome, 1200);
       });
     });
   }

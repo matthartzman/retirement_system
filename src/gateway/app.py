@@ -563,7 +563,8 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
     def session_info():
         sess = request.environ.get("session")
         if not sess:
-            return _json({"success": False, "authenticated": False}, 401)
+            # "insights" here only says the server offers Financial Insight, so the sign-in page can show its app choice.
+            return _json({"success": False, "authenticated": False, "insights": bool(cfg.insights)}, 401)
         member = sess.get("kind") == MEMBER
         return _json({
             "success": True, "authenticated": sess["stage"] == "active", "stage": sess["stage"],

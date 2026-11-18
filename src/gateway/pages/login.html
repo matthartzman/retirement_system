@@ -16,6 +16,11 @@
     <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
     <label for="password">Password</label>
     <input id="password" name="password" type="password" autocomplete="current-password" required>
+    <fieldset id="app-choice" class="app-choice hidden">
+      <legend>Open after sign-in</legend>
+      <label><input type="radio" name="app" value="planner" checked> Retirement Planner</label>
+      <label><input type="radio" name="app" value="insights"> Financial Insight</label>
+    </fieldset>
     <button type="submit">Sign in</button>
   </form>
   <form id="code-form" class="card hidden">
