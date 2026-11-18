@@ -601,6 +601,13 @@ class IdentityStore:
                          " ORDER BY at DESC, id DESC LIMIT ?", (*params, int(limit))).fetchall()
         return [dict(r) for r in rows]
 
+    def activity_people(self, app: str | None = None) -> list[str]:
+        """Each person with recorded activity, once, sorted (blank names left out); for the Activity filter."""
+        sql, params = "SELECT DISTINCT person FROM activity WHERE person<>''", ()
+        if app:
+            sql, params = sql + " AND app=?", (app,)
+        return sorted((r["person"] for r in self._run(sql, params).fetchall()), key=str.casefold)
+
     # ---- admin audit (never passwords, codes, secrets, amounts or full account numbers) ----
     def log_admin(self, admin: str, action: str, target_user: str = "", details: str = "", now: float | None = None) -> None:
         self._run("INSERT INTO admin_audit(at, admin, action, target_user, details) VALUES (?,?,?,?,?)",

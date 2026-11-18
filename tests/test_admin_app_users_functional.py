@@ -231,3 +231,15 @@ def test_two_factor_requirement_defaults_on_can_be_switched_per_person_and_reset
     assert out["was_enrolled"] is True and rig.user(uid)["totp_enrolled"] is False
     audit = json.dumps(rig.store.read_audit())
     assert secret not in audit and "user.reset-totp" in audit and "totp_required" in audit
+
+
+def test_activity_lists_each_person_once_for_the_filter_pulldown(rig):
+    rig.store.log_event("Ann", "remote", "signed in", "", "", now=100.0, app="insights")
+    rig.store.log_event("Ann", "local", "plan opened", "", "", now=200.0, app="planner")
+    rig.store.log_event("Bob", "remote", "signed in", "", "", now=300.0, app="insights")
+    rig.store.log_event("", "remote", "ping", "", "", now=400.0, app="insights")
+    people = lambda q="": rig.get("/api/activity" + q)[1]["people"]
+    assert people() == ["Ann", "Bob"]  # unique, sorted, no blanks
+    assert people("?person=Ann") == ["Ann", "Bob"]  # the list does not shrink when one person is picked
+    assert people("?app=planner") == ["Ann"]
+    assert people("?limit=1") == ["Ann", "Bob"]  # independent of how many rows are shown

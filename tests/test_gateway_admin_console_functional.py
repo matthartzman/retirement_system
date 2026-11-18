@@ -111,7 +111,7 @@ def test_list_has_the_console_shape_and_hides_what_the_gateway_does_not_have(rig
     assert r.status_code == 200 and body["success"] is True
     assert body["min_password"] == 12
     f = body["features"]
-    assert f["grants"] is False and f["require_totp"] is False and f["activity"] is False
+    assert f["grants"] is False and f["require_totp"] is False and f["activity"] is False and f["modules"] is True
     assert f["expiry"] is True and f["notes"] is True and f["end_sessions"] is True and f["edit_name"] is True
     assert f["audit"] is True
     ann = next(u for u in body["users"] if u["id"] == uid)
