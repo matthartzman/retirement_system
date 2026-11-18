@@ -227,6 +227,11 @@ the old key for as long as old archives are retained (the archive header says wh
 Startup migration swallows failures by design, so upgrade with the offline command instead of letting each user
 migrate lazily on their next sign-in.
 
+`tools/upgrade_installed_server.ps1` runs steps 1 to 5 below, in that order, from your checkout (it self-elevates and
+installs `origin/main`). It stops at the first failed step, including a failed fetch, `acl setup` or `acl check`. A stop
+before the export starts the service again; a later stop leaves the service stopped, and you fix the cause or roll back
+(below). It does not tell users or open the health page for you.
+
 1. Tell users; stop the service: `& $PY -m src.gateway.service stop`.
 2. Full backup with the *old* code: `ops backup run ...` and keep its file name.
 3. Copy the new release over `C:\RetirementPlanner\app` (elevated: `powershell -ExecutionPolicy Bypass -File "<checkout>\tools\export_main_to_install.ps1"`, which
