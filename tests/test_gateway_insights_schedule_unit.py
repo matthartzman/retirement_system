@@ -93,7 +93,7 @@ class FakeWorkers:
 
 
 def user(uid, **kw):
-    return {"id": uid, "username": f"u{uid}", "disabled": False, "expired": False, **kw}
+    return {"id": uid, "username": f"u{uid}", "kind": "member", "disabled": False, "expired": False, **kw}
 
 
 def build(monkeypatch, users, last_run, *, now=None, sessions=None, audit=None, sup=None, fail=()):

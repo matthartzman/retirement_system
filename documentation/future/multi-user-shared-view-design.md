@@ -631,3 +631,77 @@ start at 9a; rollout waits for the review's release checklist.
 - Whether worker responses set `Cache-Control` themselves (the gateway adds `no-store` only on its own paths).
 - Per-account ACLs for the new folder on the installed service (the owner's elevated run, as in earlier phases).
 - The internals of `admin_app/frontend/users.js` (not read).
+
+## 15. Phase 9a results (2026-11-18, branch `claude/shared-view-build`)
+
+Built, behind `--shared-views` (default off; the gateway refuses to start with it unless `--insights` and
+`--data-root` are also given, `check_shared_view_args` in `src/gateway/server.py`):
+
+- **Order of work.** `tests/test_gateway_viewer_gate_contract.py` was written and committed first, before any code that
+  can create a viewer account (security review, condition 1 and hard rule 3 of the build brief).
+- **Migration step 4** (`src/gateway/store.py`, `_MIGRATIONS`): `kind` with the cross-column `CHECK`, `sponsor_user_id`
+  with `ON DELETE CASCADE`, `shares`, `share_access_log` and their indexes, as in 5.2, plus one column the section did
+  not list: `users.enrol_by` (the enrol-by deadline, 5.7). A migration step may now be a callable that receives the
+  connection and the store's clock; step 4 uses one to give every account that has not enrolled a fresh 72 hours from
+  the upgrade. `SCHEMA_VERSION` is 4. SQLite accepts the cross-column `CHECK` in `ADD COLUMN` and the self-referencing
+  foreign key added by `ALTER TABLE` (section 14's open point): `test_gateway_share_store_unit.py` builds a real
+  version 3 database from the migration list and proves both, including the cascade.
+- **Store methods:** `create_viewer` (sponsor must be a usable member; at most `--max-viewers-per-sponsor`, default 5;
+  always role `user`), `is_member` (false for unknown ids), `member_ids`, kind-aware `create_session`, `rotate_session`
+  and `get_session` (viewers 10 minutes idle and 2 hours absolute, `--viewer-idle-minutes`, `--viewer-max-hours`; any
+  kind but exactly `member` gets the viewer limits), `set_role` refuses viewers, `delete_user` audits each sponsored
+  viewer it cascades, and `list_users` reports kind, sponsor, share counts and `enrol_overdue`.
+- **Enrol-by deadline for every account (C10, R-5):** `create_user`, `create_viewer`, a temporary-password reset
+  (`set_password` with `must_change=True`, which is what the admin console, the old admin route and nothing else uses)
+  and `reset_totp` (admin console and break-glass) set `enrol_by` to now + 72 hours. `verify_password` refuses a correct
+  password once the deadline has passed and TOTP is not enrolled (reason `enrol_overdue`, the same generic error for the
+  user; the audit records the reason), and `confirm_totp` refuses after the deadline, so a pending session opened just
+  before it cannot finish after it. Enrolled accounts are never affected. **Choice recorded:** the deadline is not
+  behind `--shared-views`. It applies as soon as this code runs, because 5.7 says "an account that has not enrolled when
+  9a deploys gets a fresh 72 hours from the upgrade" and the owner closed R-5 by extending it to members. Deploying this
+  build therefore starts a 72-hour clock for every account that has not finished two-factor enrolment.
+- **Shares, by construction scoped:** `src/gateway/share_store.py` holds every share query. Owner queries include
+  `owner_user_id`, viewer queries `grantee_user_id`; the servable-row query also requires the owner to be a usable
+  member and the grantee not to be a member. Body storage (atomic write, digest, size, embedded id and revision check)
+  and housekeeping are in the same module, used from 9b.
+- **Admin resets suspend shares (C11):** inside the same transaction as the reset, every active share granted to that
+  viewer becomes `suspended` (`credentials reset`), audited `share_suspended` per share.
+- **The gate branch (C1):** `src/gateway/app.py`, `_run_gate`: after the stage and must-change checks, any session whose
+  kind is not exactly `member` is answered by `_viewer_gate` and never reaches the admin check, the gateway-path return
+  or the forward. A viewer's request is matched after routing, on the registered rule, against `VIEWER_ALLOWED`
+  (`src/gateway/viewer_routes.py`, a literal, C4). Refusals are one 404 JSON body (`NOT_AVAILABLE_BODY`) for API paths
+  and a 302 to `/gateway/viewer` for pages. `/api/viewer/` and `/api/share/` are gateway paths now (C25). The viewer
+  status route honours `X-Background-Poll: 1` (C27); a viewer's sign-out adds `Clear-Site-Data: "cache"` (C26); the
+  session JSON gains `kind` and reports `insights` false for viewers. Lifecycle hooks (`user_created`, `user_disabled`,
+  `signed_out`, `user_deleted`) never run for a viewer.
+- **The proxy (C2):** `WorkerProxy.forward` refuses any identity whose kind is not exactly `member` (503, generic body,
+  audit `viewer_forward_refused`). It also refuses every spelling of `/insights/api/share-snapshot` from a browser
+  (C23, used from 9b), and gains an `after_forward` hook (the plan-delete hook, 9b).
+- **The supervisor (C3):** `Supervisor(..., is_member=store.is_member)`; `endpoint` raises `WorkerUnavailable` and
+  `_start` and `user_created` raise for a non-member before any folder, Windows account or process exists;
+  `user_disabled` and `signed_out` do nothing for one. The gateway always passes the predicate; `None` (older callers
+  and tests) admits every id.
+- **Members-only selection (C34):** `server.py` gives backups and the supervisor's known ids `member_ids`; so do the
+  `ops backup` and `ops migrate-all` commands. Phase 8's `eligible_users` keeps a row only when `kind == "member"`.
+- **Admin console Add viewer:** `POST /api/auth/admin/console/viewers` (admin prefix, so the existing guard applies;
+  404 with the flag off): username, display name, temporary password, sponsor and access end (default 90 days). It runs
+  no lifecycle hook. The users list gains kind, sponsor and share counts behind `FEATURES["viewers"]`. The page script
+  (`admin_app/frontend/users.js`) is not changed in 9a; the console API is ready for it (done in 9d).
+- **The guest routes** are registered in `src/gateway/viewer_api.py` (list, one record, status, the page and its
+  static allowlist) and answer 404 with the flag off. They serve nothing until 9b publishes.
+
+Tests (all in process, no worker): `tests/test_gateway_viewer_gate_contract.py` (8: the walk covers every gateway route,
+every planner and FI rule, 47 hostile spellings, five methods each, and finds zero upstream and zero supervisor calls),
+`tests/test_gateway_share_store_unit.py` (8), `tests/test_gateway_viewer_session_functional.py` (11). Existing modules
+changed: `tests/test_gateway_admin_guard_contract.py` (the namespace includes the two new prefixes; a new test checks
+members reach none of the viewer routes), `tests/test_gateway_insights_schedule_unit.py` (its fake users carry
+`kind: member`), `tests/test_gateway_admin_phase2_functional.py` (its migration test now builds a real version 2
+database instead of dropping columns, which step 4's `CHECK` no longer allows), `tests/test_gateway_store_unit.py` (one
+TOTP test confirmed 11 days after account creation; it now confirms within the deadline).
+
+Not verified in 9a: anything on Windows (the container is Linux). Six existing tests fail in this container on `main`
+as well as on this branch, all for Windows-only reasons (`cmd`, `_winapi`, junctions, the credential store):
+`test_gateway_backup_multi_plan_functional.py::test_a_junction_inside_the_workspace_is_not_followed`, two in
+`test_gateway_service_unit.py`, `test_remote_mode_contract.py::test_confine_path_inside_outside_and_escape`,
+`test_multi_user_isolation_integration.py::test_the_monarch_connector_never_signs_in_on_a_same_account_worker` and
+`test_multi_user_isolation_routes_integration.py::test_a_junction_inside_the_workspace_cannot_lead_to_the_other_users_folder`.

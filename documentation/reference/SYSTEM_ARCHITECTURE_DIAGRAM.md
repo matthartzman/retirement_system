@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 382 Python files under `src/`, 92 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 385 Python files under `src/`, 92 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (281 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (284 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (35 modules)"]
@@ -650,7 +650,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/gateway/accounts.py` | `gateway` | — |
 | `src/gateway/acl.py` | `gateway`, `gateway.store` | — |
 | `src/gateway/admin_console.py` | `gateway.store`, `http_runtime.wsgi_facade` | — |
-| `src/gateway/app.py` | `access_core`, `gateway`, `gateway.admin_console`, `gateway.store`, `gateway.upstream`, `http_runtime.wsgi_facade` | `segno` |
+| `src/gateway/app.py` | `access_core`, `gateway`, `gateway.admin_console`, `gateway.share_store`, `gateway.store`, `gateway.upstream`, `gateway.viewer_api`, `gateway.viewer_routes`, `http_runtime.wsgi_facade` | `segno` |
 | `src/gateway/backup_crypto.py` | — | `cryptography` |
 | `src/gateway/backup_dest.py` | — | — |
 | `src/gateway/backup_store.py` | `gateway`, `gateway.backup_crypto`, `remote_worker` | — |
@@ -668,12 +668,15 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/gateway/power.py` | — | — |
 | `src/gateway/proxy.py` | `gateway.build_queue`, `gateway.supervisor`, `gateway.upstream`, `http_runtime.wsgi_facade` | — |
 | `src/gateway/secret_box.py` | `gateway` | — |
-| `src/gateway/server.py` | `access_core`, `gateway`, `gateway.accounts`, `gateway.app`, `gateway.backup_crypto`, `gateway.backup_dest`, `gateway.backup_store`, `gateway.build_queue`, `gateway.health`, `gateway.insights_schedule`, `gateway.launchers`, `gateway.logs`, `gateway.proxy`, `gateway.store`, `gateway.supervisor`, `http_runtime.server` | — |
+| `src/gateway/server.py` | `access_core`, `gateway`, `gateway.accounts`, `gateway.app`, `gateway.backup_crypto`, `gateway.backup_dest`, `gateway.backup_store`, `gateway.build_queue`, `gateway.health`, `gateway.insights_schedule`, `gateway.launchers`, `gateway.logs`, `gateway.proxy`, `gateway.share_store`, `gateway.store`, `gateway.supervisor`, `http_runtime.server` | — |
 | `src/gateway/service.py` | `gateway.server` | — |
+| `src/gateway/share_store.py` | `gateway`, `gateway.store` | — |
 | `src/gateway/store.py` | `src`, `access_core`, `gateway`, `gateway.secret_box` | — |
 | `src/gateway/supervisor.py` | `gateway`, `gateway.build_queue`, `gateway.launchers` | — |
 | `src/gateway/totp.py` | — | — |
 | `src/gateway/upstream.py` | `http_runtime.wsgi_facade` | — |
+| `src/gateway/viewer_api.py` | `gateway.share_store`, `gateway.store`, `gateway.viewer_routes`, `http_runtime.wsgi_facade` | — |
+| `src/gateway/viewer_routes.py` | — | — |
 | `src/gateway/winapi.py` | — | — |
 | `src/glossary.py` | `core`, `taxes` | — |
 | `src/governance.py` | `src`, `stores.ref_getters.tax_update_dashboard`, `version` | — |

@@ -17,6 +17,36 @@ LOCAL_PORT = 5064
 CLI = Actor(None, "test")
 
 
+def build_old_gateway_db(path: Path, version: int, users: tuple[tuple[str, str], ...] = (("ann", "user"),),
+                         enrolled: tuple[str, ...] = ()) -> None:
+    """A gateway.db exactly as an older gateway left it: the schema steps up to ``version`` and a few user rows.
+
+    ``enrolled`` names users with a finished TOTP enrolment. Built from the migration list itself, so it is the same
+    SQL an old gateway ran, not a later schema with columns dropped."""
+    import sqlite3
+
+    from src.gateway import store as gstore
+
+    con = sqlite3.connect(path)
+    try:
+        for target, statements in gstore._MIGRATIONS:
+            if target > version:
+                break
+            for sql in statements:
+                con.execute(sql)
+        con.execute(f"PRAGMA user_version = {int(version)}")
+        for name, role in users:
+            cur = con.execute("INSERT INTO users(username, display_name, role, pw_hash, pw_salt, scrypt_n, must_change,"
+                              " created_at, updated_at) VALUES (?,?,?,?,?,?,0,1000,1000)",
+                              (name, name.title(), role, b"x" * 32, b"s" * 16, 16))
+            if name in enrolled:
+                con.execute("INSERT INTO totp_secrets(user_id, secret, created_at, enrolled_at) VALUES (?,?,1000,1000)",
+                            (cur.lastrowid, "JBSWY3DPEHPK3PXP"))
+        con.commit()
+    finally:
+        con.close()
+
+
 class RecordingUpstream:
     """Stands in for Phase 3's proxy: records what the gate let through."""
 

@@ -21,7 +21,13 @@ USER_ROUTES = {
     ("POST", "/api/auth/totp/enrol/start"), ("POST", "/api/auth/logout"), ("GET", "/api/auth/session"),
     ("POST", "/api/auth/password"),
 }
-GATEWAY_NAMESPACE = ("/login", "/gateway/", "/api/auth/")
+# Phase 9: the guest's own routes. A member reaches none of them (a page sends them to "/", an API answers 404);
+# viewers are walked by tests/test_gateway_viewer_gate_contract.py.
+VIEWER_ONLY_ROUTES = {
+    ("GET", "/gateway/viewer"), ("GET", "/gateway/viewer/static/<name>"), ("GET", "/api/viewer/shares"),
+    ("GET", "/api/viewer/shares/<share_id>"), ("GET", "/api/viewer/shares/<share_id>/status"),
+}
+GATEWAY_NAMESPACE = ("/login", "/gateway/", "/api/auth/", "/api/viewer/", "/api/share/")
 
 
 @pytest.fixture()
@@ -71,6 +77,8 @@ def test_every_route_not_on_the_user_list_refuses_users_and_anonymous_callers(ri
         if (method, rule) in USER_ROUTES:
             continue
         path = _concrete(rule)
+        if (method, rule) in VIEWER_ONLY_ROUTES or rule.startswith(("/api/share/", "/gateway/sharing")):
+            continue  # checked below and in the share routes tests
         body = {"id": 1, "role": "admin", "username": "zz", "temp_password": "a long enough password"}
         call = (lambda c, p: c.get(p)) if method == "GET" else (lambda c, p: c.post(p, json=body))
         assert call(user, path).status_code == 403, (method, rule)
@@ -111,3 +119,18 @@ def test_ordinary_users_get_no_directory_of_people_anywhere(rig):
     for path in ("/api/auth/session", "/gateway/account", "/gateway/static/gateway.js", "/gateway/static/gateway.css"):
         text = user.get(path).get_data(as_text=True)
         assert "bob" not in text.lower(), path
+
+
+def test_members_reach_none_of_the_viewer_routes(tmp_path):
+    rig = Rig(tmp_path, shared_views=True)
+    user, _ = rig.signed_in("ann")
+    anon = rig.browser(ip="203.0.113.77")
+    assert VIEWER_ONLY_ROUTES <= set(_routes(rig))
+    for method, rule in VIEWER_ONLY_ROUTES:
+        path = _concrete(rule)
+        r = user.get(path)
+        assert r.status_code in (302, 404), (method, rule)
+        if r.status_code == 302:
+            assert r.headers["Location"] == "/"
+        assert anon.get(path).status_code in (302, 401), (method, rule)
+    assert rig.upstream.calls == []

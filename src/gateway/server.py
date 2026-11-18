@@ -32,7 +32,7 @@ from src.http_runtime.server import LocalHTTPServer, _Handler
 
 from .backup_crypto import BackupCryptoError
 from .app import GatewayConfig, GatewayListener, create_gateway_app
-from .store import GatewayStore
+from .store import Actor, GatewayStore
 
 READY_PREFIX = "RETIREMENT_GATEWAY_READY"
 # The shared price-provider key names (``src/remote_mode._PROVIDER_KEYS``): --pass-env only, never --worker-env.
@@ -234,7 +234,37 @@ def _parser() -> argparse.ArgumentParser:
                         "user's Financial Insight history in their own worker; off by default")
     w.add_argument("--backup-hours", type=float, default=24.0)
     w.add_argument("--backup-keep", type=int, default=14)
+    v = p.add_argument_group("shared views (Phase 9; all off without --shared-views)")
+    v.add_argument("--shared-views", action="store_true",
+                   help="with --insights: let members publish a read-only Financial Insight view to viewer accounts")
+    v.add_argument("--share-max-mb", type=int, default=8, help="largest published record")
+    v.add_argument("--share-default-days", type=int, default=90, help="a new shared view's default lifetime")
+    v.add_argument("--share-max-days", type=int, default=365, help="longest lifetime an owner may choose")
+    v.add_argument("--viewer-idle-minutes", type=float, default=10.0, help="viewer sessions end after this idle time")
+    v.add_argument("--viewer-max-hours", type=float, default=2.0, help="viewer sessions end after this long")
+    v.add_argument("--max-shares-per-owner", type=int, default=10)
+    v.add_argument("--max-viewers-per-sponsor", type=int, default=5)
     return p
+
+
+def check_shared_view_args(args: argparse.Namespace) -> str | None:
+    """Why the shared-view settings are refused, or None. The gateway does not start with --shared-views unless
+    --insights is on too (design 5.10)."""
+    if not getattr(args, "shared_views", False):
+        return None
+    if not args.insights:
+        return "--shared-views needs --insights."
+    if not args.data_root:
+        return "--shared-views needs --data-root (records are stored under <data-root>/shares)."
+    if not 1 <= args.share_max_mb <= 64:
+        return "--share-max-mb must be 1 to 64."
+    if not 1 <= args.share_max_days <= 365 or not 1 <= args.share_default_days <= args.share_max_days:
+        return "--share-default-days and --share-max-days must be 1 to 365, the default no longer than the maximum."
+    if not 1 <= args.viewer_idle_minutes <= 15 or not 0.25 <= args.viewer_max_hours <= 12:
+        return "--viewer-idle-minutes must be 1 to 15 and --viewer-max-hours 0.25 to 12."
+    if args.max_shares_per_owner < 1 or args.max_viewers_per_sponsor < 1:
+        return "--max-shares-per-owner and --max-viewers-per-sponsor must be at least 1."
+    return None
 
 
 def protect_totp_at_startup(store: GatewayStore) -> None:
@@ -299,16 +329,21 @@ class _Runtime:
                                   install_dir=install)
             self.backups = EncryptedBackupScheduler(
                 data_root=data_root, gateway_db=Path(args.db), dest=self.backup_dir,
-                master=read_key_file(Path(args.backup_key_file)), user_ids=store.user_ids,
+                master=read_key_file(Path(args.backup_key_file)), user_ids=store.member_ids,
                 interval_seconds=self.backup_interval, keep=args.backup_keep, secure_dir=self._secure_dir(args))
         elif args.backup_dir:
             raise ValueError("--backup-dir needs --backup-key-file: the gateway writes only encrypted backups")
         else:
             LOG.warning("no backups are configured (give --backup-key-file); the health page will warn")
-        self.supervisor = Supervisor(cfg, launcher, accounts=accounts, build_queue=self.queue, backups=self.backups)
-        self.supervisor.known_user_ids = store.user_ids
+        # Phase 9: only members have a workspace, a Windows account or a worker (C3, C34).
+        self.supervisor = Supervisor(cfg, launcher, accounts=accounts, build_queue=self.queue, backups=self.backups,
+                                     is_member=store.is_member)
+        self.supervisor.known_user_ids = store.member_ids
         self.insights_schedule = self._insights_scheduler(args, store)
-        self.proxy = WorkerProxy(self.supervisor, self.queue)
+        audit_actor = Actor(user_id=None, username="gateway")
+        self.proxy = WorkerProxy(self.supervisor, self.queue, audit=lambda event, uid, details: store.audit(
+            event, now=time.time(), actor=audit_actor, target_user_id=uid, details=details))
+        self.shares_dir = data_root / "shares"
 
     def _insights_scheduler(self, args: argparse.Namespace, store: GatewayStore):
         if not args.insights_schedule:
@@ -384,6 +419,10 @@ def run_gateway(argv: list[str] | None, stop_event: threading.Event) -> int:
     if args.funnel_port is not None and not origins:
         print("The Funnel listener needs --public-origin (the https address users open).", file=err)
         return 2
+    shared_refusal = check_shared_view_args(args)
+    if shared_refusal:
+        print(shared_refusal, file=err)
+        return 2
     if args.local_port and not args.no_tailscale_check and tailscale_serves_port(args.local_port):
         print(f"Tailscale is configured to serve port {args.local_port}, the gateway's local listener. Point Funnel at "
               "the --funnel-port only ('tailscale funnel reset', then 'tailscale funnel --https=8443 "
@@ -393,6 +432,8 @@ def run_gateway(argv: list[str] | None, stop_event: threading.Event) -> int:
     if not logging.getLogger().handlers:
         logging.basicConfig(level=logging.INFO, stream=err)
     store = GatewayStore(args.db, hash_concurrency=args.hash_concurrency)
+    store.viewer_idle_seconds = args.viewer_idle_minutes * 60
+    store.viewer_absolute_seconds = args.viewer_max_hours * 3600
     protect_totp_at_startup(store)
     runtime = None
     try:
@@ -401,8 +442,18 @@ def run_gateway(argv: list[str] | None, stop_event: threading.Event) -> int:
         print(f"Cannot start the workers: {exc}", file=err)
         return 2
     kwargs = {"upstream": runtime.proxy, "lifecycle": runtime.supervisor, "health": runtime.health} if runtime else {}
-    app = create_gateway_app(store, config=GatewayConfig(public_origins=origins, insights=bool(args.insights),
-                                           insights_schedule=args.insights_schedule or ""), **kwargs)
+    gcfg = GatewayConfig(public_origins=origins, insights=bool(args.insights),
+                         insights_schedule=args.insights_schedule or "", shared_views=bool(args.shared_views),
+                         share_max_mb=args.share_max_mb, share_default_days=args.share_default_days,
+                         share_max_days=args.share_max_days, max_shares_per_owner=args.max_shares_per_owner,
+                         max_viewers_per_sponsor=args.max_viewers_per_sponsor)
+    if runtime is not None:
+        from .share_store import ShareSettings, ShareStore  # noqa: PLC0415
+
+        kwargs["shares"] = ShareStore(store, runtime.shares_dir, ShareSettings(
+            max_shares_per_owner=gcfg.max_shares_per_owner, default_days=gcfg.share_default_days,
+            max_days=gcfg.share_max_days, max_bytes=gcfg.share_max_mb * 1024 * 1024))
+    app = create_gateway_app(store, config=gcfg, **kwargs)
     servers: dict[str, _GatewayHTTPServer] = {}
     for kind, port in (("funnel", args.funnel_port), ("local", args.local_port)):
         if port is None:

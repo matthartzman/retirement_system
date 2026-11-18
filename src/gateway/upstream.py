@@ -25,16 +25,24 @@ STRIPPED_PREFIXES = ("x-forwarded-", "tailscale-", "x-gateway-")
 
 @dataclass(frozen=True)
 class Identity:
-    """The authenticated user a forwarded request belongs to."""
+    """The authenticated user a forwarded request belongs to.
+
+    ``kind`` is the account kind (Phase 9). Only an identity whose kind is exactly ``"member"`` may ever be
+    forwarded to a worker; the gate answers every other kind itself, and the proxy refuses it as a second layer."""
 
     user_id: int
     username: str
     display_name: str
     role: str
+    kind: str = "member"
 
     @property
     def is_admin(self) -> bool:
         return self.role == "admin"
+
+    @property
+    def is_member(self) -> bool:
+        return self.kind == "member"
 
 
 class Upstream(Protocol):

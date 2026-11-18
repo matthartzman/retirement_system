@@ -9,7 +9,7 @@ import pytest
 
 from src.gateway import store as gstore
 from src.gateway.store import Actor, GatewayStore, LastAdminError
-from tests.gateway_rig import CLI, PW, Rig
+from tests.gateway_rig import CLI, PW, Rig, build_old_gateway_db
 from tests.test_gateway_admin_console_functional import API, Recorder, rig  # noqa: F401 - the shared fixture
 
 DAY = 86400.0
@@ -26,20 +26,12 @@ def _user(store, name="ann", role="user", now=1000.0):
     return store.create_user(name, name.title(), role, PW, now=now, actor=CLI, must_change=False)
 
 
-def test_schema_is_version_three_and_an_old_database_migrates_without_losing_rows(tmp_path):
+def test_an_old_database_migrates_without_losing_rows(tmp_path):
     path = tmp_path / "gateway.db"
-    s = GatewayStore(path, scrypt_n=2**4)
-    uid = _user(s)
-    import sqlite3
-    con = sqlite3.connect(path)
-    con.execute("ALTER TABLE users DROP COLUMN expires_at")
-    con.execute("ALTER TABLE users DROP COLUMN notes")
-    con.execute("PRAGMA user_version = 2")
-    con.commit()
-    con.close()
+    build_old_gateway_db(path, 2)
     s2 = GatewayStore(path, scrypt_n=2**4)
-    assert s2.schema_version() == gstore.SCHEMA_VERSION == 3
-    row = s2.get_user(uid)
+    assert s2.schema_version() == gstore.SCHEMA_VERSION
+    row = s2.find_user("ann")
     assert row["username"] == "ann" and row["expires_at"] is None and row["notes"] == ""
 
 

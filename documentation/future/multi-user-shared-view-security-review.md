@@ -237,7 +237,10 @@ Release sign-off (after 9e; `--shared-views` stays off until every box is ticked
 
 - [ ] P7-O4 is fixed: sign-in throttling is per username and per address, so no single party can slow everyone's
       sign-in (the owner's condition on R-4).
-- [ ] C10 covers members as well as viewers, including the fresh deadline at the 9a upgrade (the owner's answer to R-5).
+- [x] C10 covers members as well as viewers, including the fresh deadline at the 9a upgrade (the owner's answer to R-5).
+      Done in 9a: `store.py` sets `enrol_by` at creation and at every admin reset, migration step 4 gives unenrolled
+      accounts 72 hours from the upgrade, and `test_gateway_viewer_session_functional.py` passes its three C10 tests
+      (in process, Linux). The deadline is not behind `--shared-views` (design section 15 records why).
 - [ ] Every test named in section 7 exists and passes. `VIEWER_ALLOWED` has been reviewed line by line against the
       design's table (C4).
 - [ ] The existing tests listed at the end of section 7 pass; `python tools/fast_gates.py` passes; the system diagram

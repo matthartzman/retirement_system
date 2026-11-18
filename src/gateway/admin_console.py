@@ -39,19 +39,30 @@ FEATURES = {
 }
 
 
-def _console_user(u: dict) -> dict:
-    return {
+VIEWER_DEFAULT_DAYS = 90  # a new viewer account's default access end (design 6.3)
+
+
+def _console_user(u: dict, shared_views: bool = False) -> dict:
+    out = {
         "id": u["id"], "username": u["username"], "display_name": u["display_name"], "role": u["role"],
         "status": "disabled" if u["disabled"] else "active", "expired": u["expired"], "locked": u["locked"],
         "must_change": u["must_change"], "totp_enrolled": u["totp"] == "enrolled", "totp_required": True,
         "expires_at": u["expires_at"], "notes": u["notes"], "last_signin_at": u["last_login_at"],
-        "created_at": u["created_at"], "grants": [],
+        "created_at": u["created_at"], "grants": [], "enrol_overdue": bool(u.get("enrol_overdue")),
     }
+    if shared_views:
+        # Counts only: admins never see, create or change a share (C30).
+        out.update({"kind": "member" if u.get("kind") == "member" else "viewer",
+                    "sponsor_id": u.get("sponsor_user_id"), "shares_owned": u.get("shares_owned", 0),
+                    "shares_received": u.get("shares_received", 0)})
+    return out
 
 
 def register_admin_console(app, store: GatewayStore, *, clock: Callable[[], float], actor: Callable[[], object],
                            admin_call: Callable, notify: Callable, refused: Callable, page: Callable,
-                           file_page: Callable, json_response: Callable) -> None:
+                           file_page: Callable, json_response: Callable, delete_account: Callable | None = None,
+                           shared_views: bool = False, max_viewers_per_sponsor: int = 5) -> None:
+    features = {**FEATURES, "viewers": bool(shared_views)}
     def body() -> dict:
         data = request.get_json(silent=True)
         return data if isinstance(data, dict) else {}
@@ -76,8 +87,9 @@ def register_admin_console(app, store: GatewayStore, *, clock: Callable[[], floa
 
     @app.route(API_BASE + "/users", methods=["GET"])
     def console_users():
-        return json_response({"success": True, "users": [_console_user(u) for u in store.list_users(now=clock())],
-                              "features": FEATURES, "min_password": MIN_PASSWORD_LENGTH, "views": [], "apps": [],
+        return json_response({"success": True,
+                              "users": [_console_user(u, shared_views) for u in store.list_users(now=clock())],
+                              "features": features, "min_password": MIN_PASSWORD_LENGTH, "views": [], "apps": [],
                               "money_views": []})
 
     @app.route(API_BASE + "/users", methods=["POST"])
@@ -86,7 +98,23 @@ def register_admin_console(app, store: GatewayStore, *, clock: Callable[[], floa
         return admin_call(lambda: {"id": store.create_user(
             str(b.get("username") or ""), str(b.get("display_name") or ""), str(b.get("role") or "user"),
             str(b.get("temp_password") or ""), now=clock(), actor=actor(), must_change=True)},
-            after=lambda r: notify("user_created", r["id"]))
+            after=lambda r: notify("user_created", r["id"], member=True))
+
+    @app.route(API_BASE + "/viewers", methods=["POST"])
+    def console_add_viewer():
+        """Add viewer (Phase 9): a viewer account sponsored by one member. No lifecycle hook runs, so no workspace,
+        Windows account or worker is created (design 6.3, F2)."""
+        if not shared_views:
+            return refused("Not found", 404)
+        b = body()
+        sponsor = b.get("sponsor_id")
+        if isinstance(sponsor, bool) or not isinstance(sponsor, int):
+            return refused("choose the member who sponsors this viewer", 400)
+        expires_at = b.get("expires_at", clock() + VIEWER_DEFAULT_DAYS * 86400)
+        return admin_call(lambda: {"id": store.create_viewer(
+            str(b.get("username") or ""), str(b.get("display_name") or ""), str(b.get("temp_password") or ""),
+            sponsor_user_id=sponsor, expires_at=expires_at, now=clock(), actor=actor(), must_change=True,
+            max_per_sponsor=max_viewers_per_sponsor)})
 
     @app.route(API_BASE + "/users/update", methods=["POST"])
     def console_update():
@@ -172,6 +200,8 @@ def register_admin_console(app, store: GatewayStore, *, clock: Callable[[], floa
         typed = b.get("confirm_username")
         if not isinstance(typed, str) or typed != row["username"]:
             return refused("Type the person's username to confirm. Deleting removes their plans and data.", 400)
+        if delete_account is not None:
+            return delete_account(uid)
         return admin_call(lambda: store.delete_user(uid, now=clock(), actor=actor()),
                           after=lambda _r: notify("user_deleted", uid))
 

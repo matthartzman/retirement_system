@@ -199,7 +199,7 @@ def _backup_family(args, say, refuse, clock) -> int:
         from .store import GatewayStore  # noqa: PLC0415
 
         sched = bs.EncryptedBackupScheduler(data_root=args.data_root, gateway_db=args.gateway_db, dest=dest,
-                                            master=master, user_ids=GatewayStore(args.gateway_db).user_ids, clock=clock)
+                                            master=master, user_ids=GatewayStore(args.gateway_db).member_ids, clock=clock)
         path = sched.run_once()
         res = sched.last_result()
         say(f"Backup written: {path.name}  users {res['users']}  errors {len(res['errors'])}")
@@ -219,7 +219,7 @@ def _migrate_all(args, say, dest: Path, master: bytes, clock) -> int:
     store = GatewayStore(args.gateway_db)  # opening it migrates gateway.db's own schema
     say(f"gateway.db is at schema version {store.schema_version()}.")
     sched = bs.EncryptedBackupScheduler(data_root=args.data_root, gateway_db=args.gateway_db, dest=dest,
-                                        master=master, user_ids=store.user_ids, clock=clock)
+                                        master=master, user_ids=store.member_ids, clock=clock)
     def snapshot(uid: int) -> Path:
         path = sched.backup_user(uid)
         errors = bs.verify_archive(path, master)["errors"]
@@ -227,7 +227,7 @@ def _migrate_all(args, say, dest: Path, master: bytes, clock) -> int:
             raise RuntimeError("the snapshot is incomplete: " + "; ".join(errors))
         return path
 
-    report = ma.migrate_all(data_root=args.data_root, user_ids=list(store.user_ids()), snapshot=snapshot,
+    report = ma.migrate_all(data_root=args.data_root, user_ids=list(store.member_ids()), snapshot=snapshot,
                             migrate=lambda ws: ma.run_child(ws, install_dir=Path(install), python=args.python))
     say(ma.format_report(report))
     if args.report:

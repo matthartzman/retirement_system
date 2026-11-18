@@ -160,6 +160,8 @@ loads blank and the gateway log says `admin console file missing`.
 | **Worker account passwords** | Automatic: rotated every `--account-rotate-days` (default 90) with `NetUserChangePassword`; never shown or logged | Nothing to do. There is no manual command. |
 | **Shared price-provider key** | Set the machine environment variable, then restart the service | Passed to workers with `--pass-env`; never put on a command line. |
 | **Backup key** | See section 4 | |
+| **Two-factor deadline** (every account, from the Phase 9 release) | Nothing to do if they enrol in time | An account must enrol two-factor within 72 hours of creation or of an admin reset (password or two-factor). After that the password is refused with the usual error and the Audit log says `reason enrol_overdue`; reset the password to give a fresh 72 hours. Accounts that had not enrolled when the release was installed got 72 hours from the upgrade. |
+| **Add viewer** (only with `--shared-views`, which stays off until the Phase 9 release checklist is complete) | Admin console, Add viewer: display name, username, temporary password, the sponsoring member, access end (default 90 days) | A low-privilege account that can only read the shared views its sponsor grants it. No Windows account, folder or worker is created, and a viewer can never be made an admin. Resetting a viewer's password or two-factor suspends their shares until the owner enables each one again. Deleting a member deletes the viewers they sponsor. |
 
 ## 4. Backups
 
@@ -224,6 +226,10 @@ migrate lazily on their next sign-in.
    snapshot used, and ends `RESULT: ...`. Exit 0 means every user migrated; 1 means look at the report. A user whose
    snapshot could not be taken is **not** migrated.
 5. Start the service and open the health page.
+
+The Phase 9 release moves `gateway.db` to schema version 4 the first time it opens it (every account becomes a member;
+an older gateway refuses version 4, so the rollback is the copy of `gateway.db` taken before the upgrade). It also
+starts the 72-hour two-factor deadline for every account that has not enrolled (section 3).
 
 **Rollback** (any time after step 2): stop the service; for each affected user
 `ops restore --archive <their ...user<id>.rpbak from the report> --user <id>`; for `gateway.db`

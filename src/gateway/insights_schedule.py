@@ -120,9 +120,13 @@ class InsightsScheduler:
 
     # ---- selection (pure apart from the injected user list) ----
     def eligible_users(self, now: float) -> list[int]:
-        """Active, non-disabled users (every one of them has FI when the gateway runs with --insights)."""
+        """Active, non-disabled members (every one of them has FI when the gateway runs with --insights).
+
+        Members only, by a positive test (Phase 9, C34): a viewer, or a row without a kind, is never offered to
+        ``_update_user``, which would start a worker for it."""
         users = self._list_users(now)
-        return sorted(int(u["id"]) for u in users if not u.get("disabled") and not u.get("expired"))
+        return sorted(int(u["id"]) for u in users
+                      if u.get("kind") == "member" and not u.get("disabled") and not u.get("expired"))
 
     # ---- one user ----
     @staticmethod

@@ -131,6 +131,8 @@ def _allowed_by_table(rig, method: str, path: str) -> bool:
 
 def _assert_refused(resp, method: str, path: str) -> None:
     assert resp.status_code in (302, 404), (method, path, resp.status_code)
+    if method == "GET" and path.startswith("/gateway/static/") and resp.status_code == 404:
+        return  # public for everyone before any session check; a name that is not a file is the router's own 404
     if resp.status_code == 302:
         assert resp.headers["Location"] == VIEWER_HOME, (method, path)
     else:

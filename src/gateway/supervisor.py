@@ -128,9 +128,15 @@ class _Slot:
     stopping: bool = False
 
 
+CALL_WORKER_MAX_BYTES = 8 * 1024 * 1024
+
+
 def call_worker(endpoint: Endpoint, method: str, path: str, *, body: bytes | None = None, timeout: float = 10.0,
-                content_type: str = "application/json") -> tuple[int, bytes]:
-    """One request straight to a worker with its token (used for health checks and build polling)."""
+                content_type: str = "application/json", max_bytes: int = CALL_WORKER_MAX_BYTES) -> tuple[int, bytes]:
+    """One request straight to a worker with its token (health checks, build polling, the share publisher).
+
+    At most ``max_bytes`` of the body are read. A caller that must not act on a truncated body asks for one byte
+    more than its limit and refuses a body that long (the share publisher does)."""
     conn = http.client.HTTPConnection("127.0.0.1", endpoint.port, timeout=timeout)
     try:
         headers = {"Host": f"127.0.0.1:{endpoint.port}", "X-API-Token": endpoint.token,
@@ -139,7 +145,7 @@ def call_worker(endpoint: Endpoint, method: str, path: str, *, body: bytes | Non
             headers["Content-Type"] = content_type
         conn.request(method, path, body=body or b"", headers=headers)
         resp = conn.getresponse()
-        return resp.status, resp.read(8 * 1024 * 1024)
+        return resp.status, resp.read(int(max_bytes))
     finally:
         conn.close()
 
@@ -147,8 +153,11 @@ def call_worker(endpoint: Endpoint, method: str, path: str, *, body: bytes | Non
 class Supervisor:
     def __init__(self, config: SupervisorConfig, launcher: WorkerLauncher, *, accounts: AccountHooks | None = None,
                  build_queue: BuildQueue | None = None, backups: BackupHook | None = None,
-                 clock: Callable[[], float] = time.time) -> None:
+                 clock: Callable[[], float] = time.time, is_member: Callable[[int], bool] | None = None) -> None:
         self.config = config
+        # Phase 9 (C3): the store's "is this account a member?" A viewer never gets a workspace, a Windows account
+        # or a worker. The gateway always passes it; None (callers that predate account kinds) admits every id.
+        self._is_member = is_member
         self.launcher = launcher
         self.accounts = accounts
         self.build_queue = build_queue
@@ -176,9 +185,20 @@ class Supervisor:
                 slot = self._slots[int(user_id)] = _Slot(int(user_id))
             return slot
 
+    def _member(self, user_id: int) -> bool:
+        if self._is_member is None:
+            return True
+        try:
+            return bool(self._is_member(int(user_id)))
+        except Exception:  # noqa: BLE001 - fail closed
+            LOG.exception("could not check the account kind of user %s", user_id)
+            return False
+
     # ---- start ----
     def endpoint(self, user_id: int) -> Endpoint:
         """The user's running worker, started (and waited for) when it is not running."""
+        if not self._member(user_id):
+            raise WorkerUnavailable("This account has no planner.")
         slot = self._slot(user_id)
         with slot.lock:
             slot.last_used = self._clock()
@@ -213,6 +233,8 @@ class Supervisor:
 
     def _start(self, slot: _Slot) -> None:
         uid = slot.user_id
+        if not self._member(uid):
+            raise PermissionError("only member accounts have a worker")
         workspace = self.workspace(uid)
         workspace.mkdir(parents=True, exist_ok=True)
         if self.accounts is not None:
@@ -440,6 +462,8 @@ class Supervisor:
 
     # ---- gateway lifecycle hooks (called by the gateway app after the store change succeeded) ----
     def user_created(self, user_id: int) -> None:
+        if not self._member(user_id):
+            raise PermissionError("only member accounts have a workspace")
         workspace = self.workspace(user_id)
         workspace.mkdir(parents=True, exist_ok=True)
         if self.accounts is not None:
@@ -450,6 +474,8 @@ class Supervisor:
             shutil.copyfile(self.config.monarch_mapping_csv, target)
 
     def user_disabled(self, user_id: int, disabled: bool) -> None:
+        if not self._member(user_id):
+            return  # a viewer has no worker and no Windows account
         if disabled:
             self.stop(user_id, "user disabled")
             if self.build_queue is not None:
@@ -472,5 +498,7 @@ class Supervisor:
             self._slots.pop(int(user_id), None)
 
     def signed_out(self, user_id: int, sessions_left: int) -> None:
+        if not self._member(user_id):
+            return
         if sessions_left <= 0:
             self.release(user_id, "signed out")
