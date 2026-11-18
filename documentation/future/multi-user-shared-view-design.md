@@ -12,7 +12,7 @@ and the only follow-up that crosses the per-user isolation boundary that `multi-
 
 Companion document: multi-user-shared-view-security-review.md (threat model, abuse cases, controls mapped to tests,
 sign-off checklist). Every claim about existing code below cites the file and line that was read; "not verified"
-marks what was not.
+marks what was not. Line numbers are as of main at `329d4fe`, after Phase 8 (PR #481) merged.
 
 ## 0. Summary
 
@@ -30,9 +30,11 @@ Two findings in the code shape the design (section 2):
    2026-11-18 (security review, finding F1). Phase 9 reuses the vocabulary and the percent functions, but it enforces
    tabs **by construction**: a record contains only the routes of the granted tabs.
 2. **The gateway gate forwards every signed-in, non-gateway request to a worker, whatever the role**
-   (`src/gateway/app.py:281-298`). The supervisor starts and provisions a worker for any account id
-   (`src/gateway/supervisor.py:180-193,442-450`). A guest account therefore has to be split off at the gate, before
-   any forwarding, with refusals in the proxy and the supervisor as a second and third layer.
+   (`src/gateway/app.py:283-300`). The supervisor starts and provisions a worker for any account id
+   (`src/gateway/supervisor.py:180-193,442-450`). Phase 8's scheduler would also pick any active account and start its
+   worker (`src/gateway/insights_schedule.py:122-125,143`). A guest account therefore has to be split off at the gate,
+   before any forwarding, with refusals in the proxy and the supervisor as a second and third layer, and the scheduler
+   must select members only.
 
 ## 1. Requirements
 
@@ -80,16 +82,18 @@ must not be able to change anything or reach anything else.
 | `projections.py` loads; it does not filter | It finds the active plan's latest build output and returns `{"missing": True}` when stale | `financial_trends_reporter/projections.py:26-35,85-96` |
 | FI serves the active plan only, read-only per request | The worker wrapper holds `read_only_plan_access()` for the whole request; FI resolves the active plan | `financial_trends_reporter/worker_mode.py:3-5,57-67`; `projections.py:86` |
 | FI error bodies carry exception text | The worker mount replaces 5xx error text with a generic message | `main.py:346-348,356-358`; `src/remote_insights_mount.py:94-96` |
-| The gate forwards with no role check | After the session, stage, must-change and admin-path checks, every non-gateway path goes to `up.forward` | `src/gateway/app.py:281-298` |
-| Gateway-owned paths get protective headers | `no-store`, `X-Frame-Options: DENY`, `no-referrer` and the CSP are set for gateway paths and some status codes only | `app.py:40,169-170,312-322` |
+| The gate forwards with no role check | After the session, stage, must-change and admin-path checks, every non-gateway path goes to `up.forward` | `src/gateway/app.py:283-300` |
+| Gateway-owned paths get protective headers | `no-store`, `X-Frame-Options: DENY`, `no-referrer` and the CSP are set for gateway paths and some status codes only | `app.py:40,171-172,314-324` |
 | Any account id gets a worker | `endpoint` starts a worker; `_start` and `user_created` create the workspace and the Windows account | `src/gateway/supervisor.py:170,180-193,214-219,442-450` |
 | The role column is a closed set | `role TEXT NOT NULL CHECK (role IN ('admin', 'user'))`; migrations are additive, one transaction each | `src/gateway/store.py:54,48-117,214-224` |
 | Account expiry exists and is enforced per request | `users.expires_at` (admin console phase 2; the brief calls it `access_expires`) | `store.py:111-116,610-612` |
-| Sessions | Hashed tokens, pending 5 min, idle 15 min, absolute 12 h, CSRF per session, `__Host-` cookie `SameSite=Strict` | `store.py:38-40,153-154,590-617`; `app.py:30,133-134` |
-| Sign-in stages | Password -> pending session -> TOTP -> active, with rotation; pending and must-change sessions reach short lists only | `app.py:42-45,266-273,283-286,392-414,422-430` |
-| Admin namespace denied by default | Prefix match before any route runs, pinned by a contract test | `app.py:33-35,151-152,287-288`; `tests/test_gateway_admin_guard_contract.py` |
-| Gateway-served files use exact allowlists | `STATIC` and `ADMIN_STATIC` name every file | `app.py:36,371-375`; `src/gateway/admin_console.py:25-32` |
-| Every account id feeds backups and the supervisor | `store.user_ids()` is all rows | `store.py:660-661`; `src/gateway/server.py:299,306` |
+| Sessions | Hashed tokens, pending 5 min, idle 15 min, absolute 12 h, CSRF per session, `__Host-` cookie `SameSite=Strict` | `store.py:38-40,153-154,590-617`; `app.py:30,135-136` |
+| Sign-in stages | Password -> pending session -> TOTP -> active, with rotation; pending and must-change sessions reach short lists only | `app.py:42-45,268-275,285-288,394-416,424-432` |
+| Admin namespace denied by default | Prefix match before any route runs, pinned by a contract test | `app.py:33-35,153-154,289-290`; `tests/test_gateway_admin_guard_contract.py` |
+| Gateway-served files use exact allowlists | `STATIC` and `ADMIN_STATIC` name every file | `app.py:36,373-377`; `src/gateway/admin_console.py:25-32` |
+| Every account id feeds backups and the supervisor | `store.user_ids()` is all rows | `store.py:660-661`; `src/gateway/server.py:302,309` |
+| Phase 8's scheduler treats every active account as an FI user | `eligible_users` keeps every account that is neither disabled nor expired; `_update_user` then starts that account's worker | `src/gateway/insights_schedule.py:122-125,137-156`; `server.py:322-323` |
+| A direct worker call already exists | `call_worker` sends one request with the worker token and reads at most 8 MiB, with no sign that it stopped short | `src/gateway/supervisor.py:131-144` (read cap at `:142`); used by the scheduler, `insights_schedule.py:130` |
 | `acl check` walks only user folders | The data root's own entry is checked, `users/<id>` folders are walked | `src/gateway/acl.py:245-271` |
 | Archive format 3 | `gateway.db` archived whole; insight files are a separate strict member family; restoring `gateway.db` writes a new file | `src/gateway/backup_store.py:36,42,47,52,54,251-254,419-442` |
 | An old `gateway.db` revives old state | Open item P7-O12 (deleted or disabled users come back) | `multi-user-server-security-review.md`, "Open" table |
@@ -136,14 +140,16 @@ Why A and not B, in short:
 
 1. **Gate.** The session lookup already joins `users` (`store.py:605-606`). It also reads the new `kind` column. For any
    kind other than exactly `member`, the gate answers only the viewer route table (5.6). This branch sits after the
-   stage and must-change checks (`app.py:266-286`) and before the admin-path check, the gateway-path return and the
-   forward (`app.py:287-298`). It fails closed: an unknown kind is treated as a viewer.
-2. **Proxy.** `Identity` gains `kind`, default `"member"`; it is built in one place (`app.py:281`). `WorkerProxy.forward`
+   stage and must-change checks (`app.py:268-288`) and before the admin-path check, the gateway-path return and the
+   forward (`app.py:289-300`). It fails closed: an unknown kind is treated as a viewer.
+2. **Proxy.** `Identity` gains `kind`, default `"member"`; it is built in one place (`app.py:283`). `WorkerProxy.forward`
    refuses any identity whose kind is not exactly `member` (503 with a generic body, plus an audit event).
 3. **Supervisor.** `endpoint`, `_start` and `user_created` take a store predicate and refuse an id that is not a
    member. A viewer therefore never gets a workspace, a Windows account (`accounts.ensure`) or a worker.
 4. **Data.** A viewer has no `data/users/<id>` folder and no `worker_accounts` row. Per-workspace consumers (backups,
-   the supervisor's known ids, `server.py:299,306`) switch from `user_ids()` to a new `member_ids()`.
+   the supervisor's known ids, `server.py:302,309`) switch from `user_ids()` to a new `member_ids()`. Phase 8's
+   scheduler selects members only: `eligible_users` (`insights_schedule.py:122-125`) adds a positive `kind == "member"`
+   test, so a viewer is never offered to `_update_user`, which would start a worker (`insights_schedule.py:143`).
 
 ### 5.2 Data model (`gateway.db` migration step 4)
 
@@ -279,14 +285,17 @@ The error body is never copied (FI error bodies carry exception text, `main.py:3
 ```
 
 **Only the gateway calls that route.** `WorkerProxy.forward` refuses `/insights/api/share-snapshot` from any browser
-session, the way it refuses build event streams (`proxy.py:77-78`). The publisher reaches the worker through a
-gateway-internal call. It uses the same endpoint and token handling as `_send_gated` (`proxy.py:112-127`), exposed as
-a small public helper. Phase 8 plans the same helper (`multi-user-insights-followups-plan.md`, Phase 8 design item 3);
-whichever phase lands first adds it.
+session, the way it refuses build event streams (`proxy.py:77-78`). The publisher gets the owner's endpoint from
+`supervisor.endpoint(<session user>)` and sends the request with the existing `call_worker`
+(`src/gateway/supervisor.py:131-144`). Health checks and build polling use that helper, and so does Phase 8's scheduler
+(`insights_schedule.py:130`). It reads at most 8 MiB and does not report a body it cut short (`supervisor.py:142`), so
+it gains a `max_bytes` argument. The publisher reads the cap plus one byte and refuses an oversized body as too large,
+never parsing a truncated one.
 
 **What the gateway checks (step 11)** before anything is stored, treating the worker's output as untrusted input:
 
-- HTTP 200, `application/json`, at most `--share-max-mb` (default 16 MiB; 9b measures real sizes).
+- HTTP 200, `application/json`, at most `--share-max-mb` (default 8 MiB, the existing `call_worker` read limit; 9b
+  measures real sizes).
 - Exactly the schema's top-level keys; `share_id` and `scope_rev` equal to the request; `views` keys within the row's
   `views`. A worker that returns more than it was asked for has a bug, so the publish fails (fail closed).
 - For percent records, `percent_view.find_money_leaks` again, in the gateway. Whether that module imports cleanly in
@@ -295,7 +304,9 @@ whichever phase lands first adds it.
   capped (200 characters for names, the title 60, like plan names in `multi-user-multiple-plans-design.md` section 2).
 
 **Triggers:** share creation (first publish), **Refresh now**, scope change, renewal and, optionally, Phase 8's
-scheduler after a successful scheduled update. A guest never triggers a publish.
+scheduler after a successful scheduled update. That hook sits in `InsightsScheduler._update_user` after the update
+and before the worker is released, so it reuses the endpoint the scheduler already holds
+(`insights_schedule.py:137-156`). A guest never triggers a publish.
 
 **Refresh needs the share's plan to be active.** FI serves the active plan only (`worker_mode.py:3-5`;
 `projections.py:86`). The worker answers 409 when the active plan is not the share's plan. The owner then sees
@@ -328,13 +339,13 @@ full and derived from nothing else: not from `remote_allowlist.py` and not from 
 |---|---|---|---|
 | GET | `/login` | sign-in page | yes (`PUBLIC`, `app.py:42`) |
 | POST | `/api/auth/login` | password step | yes |
-| GET | `/api/auth/session` | session JSON (gains `kind`; `insights` false for viewers) | yes (`app.py:494-504`) |
+| GET | `/api/auth/session` | session JSON (gains `kind`; `insights` false for viewers) | yes (`app.py:496-506`) |
 | POST | `/api/auth/totp/enrol/start`, `/api/auth/totp/enrol/confirm`, `/api/auth/totp/verify` | second factor | yes (`PENDING_ALLOWED`, `app.py:43-44`) |
 | GET | `/gateway/enrol` | enrolment page | yes |
-| POST | `/api/auth/logout` | sign out (adds `Clear-Site-Data: "cache"` for viewers) | yes (`app.py:484-492`) |
+| POST | `/api/auth/logout` | sign out (adds `Clear-Site-Data: "cache"` for viewers) | yes (`app.py:486-494`) |
 | POST | `/api/auth/password` | change password | yes (`MUST_CHANGE_ALLOWED`, `app.py:45`) |
 | GET | `/gateway/account` | account page | yes |
-| GET | `/gateway/static/<name>` | `gateway.js`, `gateway.css` | yes (`app.py:36,371-375`) |
+| GET | `/gateway/static/<name>` | `gateway.js`, `gateway.css` | yes (`app.py:36,373-377`) |
 | GET | `/gateway/viewer` | the guest page | new |
 | GET | `/gateway/viewer/static/<name>` | exact file allowlist, like `ADMIN_STATIC` | new |
 | GET | `/api/viewer/shares` | my shares: id, title, owner's display name, as-of, expiry, views, money view | new |
@@ -354,16 +365,16 @@ account is usable. The id in the other two routes can only pick within that set,
 A strict alternative is decision 9: one share per viewer account, and routes that take no id at all.
 
 **Headers and limits come from existing gateway code.** `/api/viewer/` and `/api/share/` join `_is_gateway_path`
-(`app.py:169-170`), so they are never forwarded and get `no-store`, `X-Frame-Options: DENY`, `no-referrer` and the CSP
-(`app.py:312-322`). A viewer's request bodies stay under the 32 KiB gateway cap (`app.py:60`), because the branch
-returns before the forward-only raise (`app.py:291`). The status route honours `X-Background-Poll: 1`, as `/insights/`
-does (`app.py:276-280`), so an open tab does not keep a guest's session alive.
+(`app.py:171-172`), so they are never forwarded and get `no-store`, `X-Frame-Options: DENY`, `no-referrer` and the CSP
+(`app.py:314-324`). A viewer's request bodies stay under the 32 KiB gateway cap (`app.py:60`), because the branch
+returns before the forward-only raise (`app.py:293`). The status route honours `X-Background-Poll: 1`, as `/insights/`
+does (`app.py:278-282`), so an open tab does not keep a guest's session alive.
 
 ### 5.7 Sign-in, TOTP and sessions for viewers
 
 - **Same path:** the same login, the same mandatory TOTP (enrolment on first sign-in), the same lockout and throttles
-  (`app.py:378-414,445-461`). An admin-created account starts with `must_change`, so the temporary password works only
-  for the auth API and the account page (`app.py:45,283-286`).
+  (`app.py:380-416,447-463`). An admin-created account starts with `must_change`, so the temporary password works only
+  for the auth API and the account page (`app.py:45,285-288`).
 - **Shorter sessions:** idle 10 minutes and absolute 2 hours for viewers; members keep 15 minutes and 12 hours
   (`store.py:38-39`). `get_session` already joins the user row (`store.py:605-606`) and applies the kind's idle limit;
   `create_session` and `rotate_session` (`store.py:590-599,624-636`) set the kind's absolute limit.
@@ -392,7 +403,7 @@ does (`app.py:276-280`), so an open tab does not keep a guest's session alive.
 
 Every query includes `owner_user_id = <session user>`. Any other id gets one uniform 404. A `viewer_id` that is not a
 viewer sponsored by the session user gets the same "That viewer was not found." The gate already enforces CSRF,
-`Origin`, Fetch-Metadata and body types on every unsafe request (`app.py:241-265`). `expected_plan_id` is the plan the
+`Origin`, Fetch-Metadata and body types on every unsafe request (`app.py:243-267`). `expected_plan_id` is the plan the
 owner saw on the page. The worker refuses a mismatch, so switching plans in another tab cannot publish the wrong plan.
 
 ### 5.9 Audit and the owner's access log
@@ -410,7 +421,7 @@ days, showing the viewer's display name and the time. The guest's address stays 
 
 `--shared-views` (default off; the gateway refuses to start with it unless `--insights` is also on). When it is off,
 the owner and viewer routes return 404, nothing is published, and stored rows and bodies are kept. Settings:
-`--share-max-mb` (16), `--share-default-days` (30), `--share-max-days` (365), `--viewer-idle-minutes` (10),
+`--share-max-mb` (8), `--share-default-days` (30), `--share-max-days` (365), `--viewer-idle-minutes` (10),
 `--viewer-max-hours` (2), `--max-shares-per-owner` (10), `--max-viewers-per-sponsor` (5).
 
 ## 6. UI
@@ -519,7 +530,7 @@ control to one of these tests.
 | Module (new unless stated) | Covers |
 |---|---|
 | `test_gateway_share_store_unit.py` | Migration 3 -> 4 on a copy of a version 3 database keeps every row and makes everyone a member; the `kind` and role `CHECK`; sponsor cascade; scoped queries; share id format; `member_ids()` excludes viewers |
-| `test_gateway_viewer_gate_contract.py` | Walks every gateway route and a list of planner and FI paths as an active viewer: only `VIEWER_ALLOWED` answers; the fake upstream and supervisor record zero calls; an unknown `kind` is treated as a viewer; the table is a fixed literal, not derived from the planner's |
+| `test_gateway_viewer_gate_contract.py` | Walks every gateway route and a list of planner and FI paths as an active viewer: only `VIEWER_ALLOWED` answers; the fake upstream and supervisor record zero calls; an unknown `kind` is treated as a viewer; Phase 8's `eligible_users` never selects a viewer; the table is a fixed literal, not derived from the planner's |
 | `test_gateway_viewer_session_functional.py` | Pending, must-change and enrolment stages for viewers; idle and absolute limits; enrol-by deadline; logout headers; admin reset suspends shares |
 | `test_gateway_share_routes_functional.py` | Owner and viewer routes: scoping, uniform 404 bodies (byte-equal), CSRF and Origin, limits, sponsor rule, no enumeration |
 | `test_gateway_share_publish_functional.py` | Output validation, size cap, schema and key checks, leak check, atomic write, digest binding, revoke and scope-change races, plan mismatch, browser block of the snapshot route |
@@ -529,7 +540,7 @@ control to one of these tests.
 | `test_multi_user_isolation_shared_view_integration.py` (slow) | Two owners and two viewers through the real gateway and real workers: id guessing, replay across sessions, planner, `/insights/` and admin routes refused, enumeration, revocation on the next request, no worker started for a viewer |
 | `gateway_viewer_render.test.mjs` | Hostile strings in a record render as text; the page fetches only its three routes |
 | `shared-view.spec.js` | Playwright: owner shares and previews; guest signs in with TOTP and sees the percent view; revoke then reload shows "not available"; Back after sign-out shows no data |
-| Existing, must stay green | `tests/test_multi_user_isolation_integration.py`, `..._attacks_integration.py`, `..._routes_integration.py`, `..._insights_integration.py`, `tests/test_gateway_admin_guard_contract.py`, `tests/test_gateway_insights_proxy_functional.py`, `tests/test_insights_worker_mount_functional.py`, `tests/test_remote_mode_contract.py`, the percent-view tests (`tests/test_trends_percent_view_*.py`, `tests/test_realized_percent_view_unit.py`), `tests/test_gateway_backup_*.py`; `tools/fast_gates.py`; the system diagram regenerated for new modules |
+| Existing, must stay green | `tests/test_gateway_insights_schedule_unit.py` (Phase 8; its selection changes in 9a), `tests/test_multi_user_isolation_integration.py`, `..._attacks_integration.py`, `..._routes_integration.py`, `..._insights_integration.py`, `tests/test_gateway_admin_guard_contract.py`, `tests/test_gateway_insights_proxy_functional.py`, `tests/test_insights_worker_mount_functional.py`, `tests/test_remote_mode_contract.py`, the percent-view tests (`tests/test_trends_percent_view_*.py`, `tests/test_realized_percent_view_unit.py`), `tests/test_gateway_backup_*.py`; `tools/fast_gates.py`; the system diagram regenerated for new modules |
 
 ## 11. Phase plan after sign-off (9a-9e)
 
@@ -539,8 +550,8 @@ Effort is relative to **one 5-hour Claude Code cycle on the Pro plan**, using th
 
 | Phase | Work | Model / effort | Expected usage and what drives it |
 |---|---|---|---|
-| 9a. Data model, viewer accounts, gate | Migration step 4; store methods (`create_viewer`, `member_ids`, scoped share queries); `Identity.kind`; the gate branch and `VIEWER_ALLOWED`; refusals in the proxy and supervisor; viewer session limits, enrol-by deadline, resets suspend shares; admin console **Add viewer**; the store, gate-contract and session tests | Opus 5.5, high (the gate is the boundary) | **Moderate to heavy** (20-25%). `store.py` (695 lines) and `app.py` (604) change in a few functions: Grep, then read only those. The contract test that walks every route is the longest edit-test loop |
-| 9b. Publish path | FI worker route and allow-list entry; view-to-route map, fixed scopes, percent pipeline, leak check; proxy browser block; gateway publisher (internal worker call, validation, atomic write, digest, race guards); housekeeping; plan-delete hook; size and time measured on the demo plan | Opus 5.5, high | **Moderate to heavy** (20-25%). Step 0 Greps the realized and live parameters and the `percent_view` import. Never read `live_snapshot.py` (1,326 lines) or `index.html` linearly. Real-worker functional tests are slow: run each once |
+| 9a. Data model, viewer accounts, gate | Migration step 4; store methods (`create_viewer`, `member_ids`, scoped share queries); `Identity.kind`; the gate branch and `VIEWER_ALLOWED`; refusals in the proxy and supervisor; members-only selection in Phase 8's `eligible_users`; viewer session limits, enrol-by deadline, resets suspend shares; admin console **Add viewer**; the store, gate-contract and session tests | Opus 5.5, high (the gate is the boundary) | **Moderate to heavy** (20-25%). `store.py` (695 lines) and `app.py` (604) change in a few functions: Grep, then read only those. The contract test that walks every route is the longest edit-test loop |
+| 9b. Publish path | FI worker route and allow-list entry; view-to-route map, fixed scopes, percent pipeline, leak check; proxy browser block; gateway publisher (`call_worker` with a new `max_bytes`, validation, atomic write, digest, race guards); optional refresh hook in Phase 8's `_update_user`; housekeeping; plan-delete hook; size and time measured on the demo plan | Opus 5.5, high | **Moderate to heavy** (20-25%). Step 0 Greps the realized and live parameters and the `percent_view` import. Never read `live_snapshot.py` (1,326 lines) or `index.html` linearly. Real-worker functional tests are slow: run each once |
 | 9c. Viewer page and route table | `/gateway/viewer` page and script, static allowlist, render from one record, status poll, sign-out clearing; frontend render test; Playwright guest spec | Sonnet 5.5, high (Opus 5.5 high to review the route table) | **Moderate** (15-20%). Step 0 decides between reusing FI's chart modules and a small renderer: Grep their exports, do not read them whole. Playwright compresses least; budget one retry round |
 | 9d. Owner UI and operations | `/gateway/sharing` page, owner routes, FI header link; `acl setup` and `acl check` for the shares folder; `restore_gateway_db` suspends shares; runbook lines | Sonnet 5.5, high | **Moderate** (15%). The FI link: Grep `index.html` and leave its fetch wrapper alone. `acl.py` changes are a few lines plus tests |
 | 9e. Isolation and abuse gates, then review sign-off | The two-owner, two-viewer slow integration module; the full abuse matrix; existing isolation modules; fast gates; diagram; the security review's sign-off pass, updated with results | Opus 5.5, max for the sign-off review; Sonnet 5.5, medium to run the slow tier | **Heavy relative to its code** (20-25%) because real workers start (slow, Windows-flaky). Run each slow module once; re-run only failures; log pytest to a scratch file (`-v -rfE`) |
@@ -565,10 +576,10 @@ rollout** (the flag stays off until then).
 | A guest keeps what they saw | Said plainly; no export in v1; residual risk |
 | Old numbers read as current | "As of" always visible, a badge after 7 days, refresh by button or schedule |
 | The owner's text renders in another person's browser (first time on this server) | Text-only rendering, normalisation at publish, gateway CSP, a frontend test with hostile strings |
-| Record size with a long history | 16 MiB cap; 9b measures; fewer pre-rendered scopes if needed |
+| Record size with a long history | 8 MiB cap (raising it needs `call_worker`'s new `max_bytes`); 9b measures; fewer pre-rendered scopes if needed |
 | Refresh works only while the share's plan is active | Documented. Possible later extension: render a named registered plan inside a scoped read, which changes active-plan resolution and is not in v1 |
 | `users.js` is shared with the desktop Admin app | New columns behind a `FEATURES` flag (`admin_console.py:36-40`) |
-| Phase 8 is not merged | The scheduled refresh is an optional hook; the button works without it |
+| Phase 8's scheduler (merged) treats every active account as an FI user | 9a makes `eligible_users` select members only; the supervisor refusal (5.1, layer 3) is the backstop; the scheduled refresh stays an optional hook and the button works without it |
 
 ## 13. Owner decisions (consolidated)
 
@@ -584,10 +595,10 @@ rollout** (the flag stays off until then).
 | 7 | Deleting a plan revokes its shares | Yes |
 | 8 | Viewer session limits and enrol-by deadline | 10 minutes idle, 2 hours absolute, 72 hours to enrol |
 | 9 | Record selection | Share id within the session's own set; strict alternative: one share per viewer and no id |
-| 10 | Phase 8 refresh hook | On when Phase 8 is enabled, only for shares whose plan is active |
+| 10 | Phase 8 refresh hook | On when `--insights-schedule` is set, only for shares whose plan is active |
 | 11 | An admin reset suspends the viewer's shares | Yes |
 | 12 | Desktop tab-limit gap (finding F1) | Fix separately on the desktop remote listener; not part of Phase 9 |
-| 13 | Limits | 10 shares per owner, 5 viewers per sponsor, 16 MiB per record |
+| 13 | Limits | 10 shares per owner, 5 viewers per sponsor, 8 MiB per record |
 
 ## 14. Not verified here
 
