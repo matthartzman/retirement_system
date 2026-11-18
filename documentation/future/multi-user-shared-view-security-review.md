@@ -1,9 +1,13 @@
 # Shared view of Financial Insight: security review (Phase 9, design stage)
 
-Status: draft (design-stage review of multi-user-shared-view-design.md; nothing is built; owner decisions recorded 2026-11-18; the rest of the sign-off checklist in section 9 is open)
+Status: approved (design-stage sign-off by the owner 2026-11-18: build 9a-9e behind the default-off --shared-views flag; the release checklist in section 9 stays open until after 9e)
 Date: 2026-11-18
 
 ## Verdict: GO to build 9a-9e behind a default-off flag. This is not a release sign-off.
+
+Owner sign-off at design stage: 2026-11-18. This review and the design are approved. The residual risks are answered
+(section 8): ten accepted, R-4 accepted with the P7-O4 fix as a rollout prerequisite, and R-5 closed by a design
+change.
 
 The design (Option A, a published snapshot served by a separate gateway route table) keeps the property every earlier
 isolation review relies on: **the session's own user id selects the worker** (`src/gateway/proxy.py:73,114`). No guest
@@ -52,7 +56,7 @@ listener.
 | F4 | Info | FI worker mode has no percent hook; FI error bodies contain exception text, and the mount replaces it only on 5xx. | `main.py:470-472,346-348,356-358`; `access_routes.py:174-178`; `src/remote_insights_mount.py:94-96` | The snapshot builder calls the pure percent functions itself (C19) and never copies an error body (C21). |
 | F5 | Medium (for Phase 9) | Restoring `gateway.db` brings back every row as of the archive. The restore writes the archived member to a new file, byte for byte; P7-O12 already notes that deleted or disabled users come back. | `backup_store.py:419-442`; `multi-user-server-security-review.md`, open item P7-O12 | Revoked shares would come back. Control C16. |
 | F6 | Low (Medium without C3) | `user_ids()` returns every account, and backups and the supervisor's known ids use it. Phase 8's scheduler keeps every account that is neither disabled nor expired and starts its worker for the update. | `store.py:660-661`; `server.py:302,309,322-323`; `src/gateway/insights_schedule.py:122-125,143` | Viewers would enter per-workspace jobs, and each scheduled pass would ask the supervisor for a viewer's worker. Control C34 (members-only selection); C3 is the backstop. |
-| F7 | Low (exists for every account) | No deadline for a new account's first TOTP enrolment: whoever first signs in with the temporary password enrols their own authenticator. | `store.py:265-284` (no deadline set); `app.py:411-413,473-484` | Guests are more likely to receive credentials by email. Control C10 for viewers; recommended for members too. |
+| F7 | Low (exists for every account) | No deadline for a new account's first TOTP enrolment: whoever first signs in with the temporary password enrols their own authenticator. | `store.py:265-284` (no deadline set); `app.py:411-413,473-484` | Guests are more likely to receive credentials by email. Control C10, which the owner extended to every account (R-5, 2026-11-18). |
 | F8 | Info (inherent) | **Percent view is a scale, not secrecy.** Every money number is divided by one constant, today's net worth. The module itself drops share counts and prices because they give the scale back. Non-money keys such as ages and years pass through. | `percent_view.py:52-65,68-83,38-43,15-31` | One known real amount reveals the constant and, with it, every amount. Residual risk R-1; the owner UI says so. |
 | F9 | Medium (open item, inherited) | The global login throttle can be triggered by any party (P7-O4). | `multi-user-server-security-review.md`, open item P7-O4 | More account holders (guests) can lock everyone out of sign-in. Residual risk R-4. |
 
@@ -156,7 +160,7 @@ functions. Writing them first is part of each phase's exit criteria.
 | C7 | Share ids are `secrets.token_hex(16)`, never sequential, never capabilities | 5.2 | `test_gateway_share_store_unit.py::test_share_ids_are_random_hex_and_never_reused` |
 | C8 | Mandatory TOTP and the existing stages apply to viewers | 5.7 | `test_gateway_viewer_session_functional.py::test_pending_viewer_reaches_only_the_second_factor`, `::test_viewer_must_change_password_first` |
 | C9 | Viewer session limits: idle 10 minutes, absolute 2 hours | 5.7 | `test_gateway_viewer_session_functional.py::test_viewer_idle_and_absolute_limits` |
-| C10 | Enrol-by deadline of 72 hours for viewers | 5.7 | `test_gateway_viewer_session_functional.py::test_viewer_not_enrolled_within_the_deadline_is_locked` |
+| C10 | Enrol-by deadline of 72 hours for every new or reset account, viewers and members (R-5); accounts not enrolled at the 9a upgrade get a fresh 72 hours | 5.7 | `test_gateway_viewer_session_functional.py::test_viewer_not_enrolled_within_the_deadline_is_locked`, `::test_member_not_enrolled_within_the_deadline_is_locked`, `::test_unenrolled_account_gets_a_fresh_deadline_at_upgrade` |
 | C11 | An admin reset of a viewer's password or TOTP suspends their shares | 5.7 | `test_gateway_viewer_session_functional.py::test_admin_reset_suspends_the_viewers_shares` |
 | C12 | Authorization on every request (no cache): row state, expiry, owner usable, viewer usable | 5.6, 7 | `test_gateway_share_routes_functional.py::test_revoke_takes_effect_on_the_next_request`, `::test_expired_share_is_not_served`; `test_gateway_share_lifecycle_functional.py::test_disabled_owner_serves_nothing` |
 | C13 | Body deleted on revoke, scope change and expiry; hourly orphan sweep | 5.5, 7 | `test_gateway_share_lifecycle_functional.py::test_revoke_deletes_the_body`, `::test_scope_change_deletes_the_old_body_before_republishing`, `::test_sweep_removes_orphans` |
@@ -196,22 +200,22 @@ selection, so it gains a viewer case rather than losing one), `tests/test_multi_
 `tests/test_trends_percent_view_leak_guard_regression.py`, `tests/test_realized_percent_view_unit.py`,
 `tests/test_gateway_backup_store_functional.py` and `tests/test_gateway_backup_multi_plan_functional.py`.
 
-## 8. Residual risks (accepted or for the owner to accept)
+## 8. Residual risks (owner's answers, 2026-11-18)
 
-| Id | Risk | Why it remains | Mitigation in place |
-|---|---|---|---|
-| R-1 | Anyone who knows one real amount can recover every amount from a percent record (F8) | Percent view divides by one constant; this is inherent | The owner is told plainly; share counts and prices are dropped; the dollars view is opt-in |
-| R-2 | A guest keeps what they saw (screenshot, print, copy); revocation cannot recall it | Inherent to showing data | No export in v1; expiry; the owner is told |
-| R-3 | Non-money personal data passes through: account, category and merchant names (dollars view), dates, ages, plan years | `NON_MONEY_KEYS` (`percent_view.py:15-31`); names are not money | Visible in the owner's preview; owner decision 3b can replace names |
-| R-4 | Global sign-in throttle DoS by any account holder, guests included (P7-O4, open) | Not fixed by this work | Admin can disable an abusive viewer; P7-O4's proposed fix covers it |
-| R-5 | First-login hijack window for members | The deadline (C10) is proposed for viewers only | Recommend extending C10 to members (owner) |
-| R-6 | Old but valid data misread as current | A copy by design (Q2) | "As of" always shown; badge after 7 days; refresh |
-| R-7 | Back-forward cache behaviour after sign-out differs between browsers | Playwright covers Chromium only; not verified elsewhere | `no-store`, `Clear-Site-Data`, the page clears its content |
-| R-8 | Timing differences between "exists for someone else" and "does not exist" | Not measured | Single indexed lookup either way; random ids |
-| R-9 | An administrator with operating-system access can read bodies and plans | Same as today for plan files | ACLs; archives encrypted; audit |
-| R-10 | The guest page shares the gateway's origin with the planner | A second origin was rejected for FI (`multi-user-insights-design.md` section 3, option D) | Viewer-only grantees (Q1 default); text-only rendering; CSP. Revisit if members become grantees |
-| R-11 | Installed-build ACL behaviour for the new folder | Only the owner's elevated run can show it | `acl check` walks the folder (C31) |
-| R-12 | Archives already hold the owner's full plan and FI log | Not archiving bodies does not make archives less sensitive | Archives are AES-256-GCM encrypted (`multi-user-server-security-review.md`, "Reviewed and found sound") |
+| Id | Risk | Why it remains | Mitigation in place | Owner (2026-11-18) |
+|---|---|---|---|---|
+| R-1 | Anyone who knows one real amount can recover every amount from a percent record (F8) | Percent view divides by one constant; this is inherent | The owner is told plainly; share counts and prices are dropped; the dollars view is opt-in | Accepted |
+| R-2 | A guest keeps what they saw (screenshot, print, copy); revocation cannot recall it | Inherent to showing data | No export in v1; expiry; the owner is told | Accepted |
+| R-3 | Non-money personal data passes through: account, category and merchant names (dollars view), dates, ages, plan years | `NON_MONEY_KEYS` (`percent_view.py:15-31`); names are not money | Visible in the owner's preview; real account names by the owner's choice (decision 3b) | Accepted |
+| R-4 | Global sign-in throttle DoS by any account holder, guests included (P7-O4, open) | Not fixed by this work | Admin can disable an abusive viewer; P7-O4's proposed fix covers it | Accepted, **on condition**: the P7-O4 fix (throttle per username and per address) lands before `--shared-views` is turned on (release checklist) |
+| R-5 | First-login hijack window for members | The deadline (C10) was proposed for viewers only | C10 now covers every account, members included (design 5.7) | Not accepted as it stood: **closed by extending C10 to every account** in 9a |
+| R-6 | Old but valid data misread as current | A copy by design (Q2) | "As of" always shown; badge after 7 days; nightly refresh (decision 10) | Accepted |
+| R-7 | Back-forward cache behaviour after sign-out differs between browsers | Playwright covers Chromium only; not verified elsewhere | `no-store`, `Clear-Site-Data`, the page clears its content | Accepted |
+| R-8 | Timing differences between "exists for someone else" and "does not exist" | Not measured | Single indexed lookup either way; random ids | Accepted |
+| R-9 | An administrator with operating-system access can read bodies and plans | Same as today for plan files | ACLs; archives encrypted; audit | Accepted |
+| R-10 | The guest page shares the gateway's origin with the planner | A second origin was rejected for FI (`multi-user-insights-design.md` section 3, option D) | Viewer-only grantees (decision 1); text-only rendering; CSP. Revisit if members become grantees | Accepted |
+| R-11 | Installed-build ACL behaviour for the new folder | Only the owner's elevated run can show it | `acl check` walks the folder (C31); the elevated run is on the release checklist | Accepted |
+| R-12 | Archives already hold the owner's full plan and FI log | Not archiving bodies does not make archives less sensitive | Archives are AES-256-GCM encrypted (`multi-user-server-security-review.md`, "Reviewed and found sound") | Accepted |
 
 ## 9. Sign-off checklist
 
@@ -221,13 +225,19 @@ Design sign-off (before 9a starts):
       (design section 13). Done 2026-11-18: every recommended default except a 90-day default share expiry (Q4).
       No answer changes a control in this review; the longer default only lengthens how long a forgotten share stays
       open before it expires.
-- [ ] The owner accepts residual risks R-1 to R-12, or asks for changes.
+- [x] The owner accepts residual risks R-1 to R-12, or asks for changes. Done 2026-11-18: ten accepted as they
+      stand; R-4 accepted with the P7-O4 fix as a rollout prerequisite; R-5 closed by extending C10 to every account.
+- [x] The owner signs off the design and this review at design stage. Done 2026-11-18: both approved; building may
+      start at 9a.
 - [x] The owner schedules or declines the separate desktop fix for F1 (decision 12). Done 2026-11-18: fixed in this
       pull request (first scheduled as a separate fix, then moved in scope the same day);
       `tests/test_insights_grant_tab_limit_regression.py` passes.
 
 Release sign-off (after 9e; `--shared-views` stays off until every box is ticked):
 
+- [ ] P7-O4 is fixed: sign-in throttling is per username and per address, so no single party can slow everyone's
+      sign-in (the owner's condition on R-4).
+- [ ] C10 covers members as well as viewers, including the fresh deadline at the 9a upgrade (the owner's answer to R-5).
 - [ ] Every test named in section 7 exists and passes. `VIEWER_ALLOWED` has been reviewed line by line against the
       design's table (C4).
 - [ ] The existing tests listed at the end of section 7 pass; `python tools/fast_gates.py` passes; the system diagram

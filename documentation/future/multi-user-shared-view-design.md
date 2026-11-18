@@ -1,6 +1,6 @@
 # Shared view of Financial Insight for guests and advisors: design (Phase 9)
 
-Status: draft (design only; owner decisions recorded 2026-11-18 in sections 3 and 13; no Phase 9 code, migration or test is written until the owner signs off this design and multi-user-shared-view-security-review.md; the separate desktop fix for finding F1 ships in the same pull request)
+Status: approved (owner sign-off 2026-11-18, with the decisions in sections 3 and 13 and the residual-risk answers in multi-user-shared-view-security-review.md; Phase 9 building may start at 9a behind the default-off --shared-views flag, and rollout waits for that review's release checklist; the separate desktop fix for finding F1 ships in the same pull request)
 Date: 2026-11-18
 
 Scope: let the owner of a plan on the multi-user server show a **read-only Financial Insight (FI) view** of that plan to
@@ -381,9 +381,12 @@ does (`app.py:278-282`), so an open tab does not keep a guest's session alive.
 - **Shorter sessions:** idle 10 minutes and absolute 2 hours for viewers; members keep 15 minutes and 12 hours
   (`store.py:38-39`). `get_session` already joins the user row (`store.py:605-606`) and applies the kind's idle limit;
   `create_session` and `rotate_session` (`store.py:590-599,624-636`) set the kind's absolute limit.
-- **Enrol-by deadline:** a viewer who has not enrolled TOTP within 72 hours of creation, or of an admin reset, is locked
-  until an admin issues a new temporary password. Today nothing limits that wait (`create_user`, `store.py:265-284`), so
-  whoever first uses an intercepted temporary password enrols their own phone.
+- **Enrol-by deadline, for every account:** an account that has not enrolled TOTP within 72 hours of creation, or of
+  an admin reset, is locked until an admin issues a new temporary password. Today nothing limits that wait
+  (`create_user`, `store.py:265-284`), so whoever first uses an intercepted temporary password enrols their own phone.
+  The deadline covers viewers and planner users alike: the owner extended it to members when answering residual risk
+  R-5. An account that has not enrolled when 9a deploys gets a fresh 72 hours from the upgrade; enrolled accounts are
+  unaffected.
 - **Admin resets suspend shares:** when an admin resets a viewer's password or TOTP, that viewer's shares become
   `suspended` (`state_reason = 'credentials reset'`) until the owner enables them again. An admin therefore cannot
   quietly become a guest.
@@ -534,7 +537,7 @@ control to one of these tests.
 |---|---|
 | `test_gateway_share_store_unit.py` | Migration 3 -> 4 on a copy of a version 3 database keeps every row and makes everyone a member; the `kind` and role `CHECK`; sponsor cascade; scoped queries; share id format; `member_ids()` excludes viewers |
 | `test_gateway_viewer_gate_contract.py` | Walks every gateway route and a list of planner and FI paths as an active viewer: only `VIEWER_ALLOWED` answers; the fake upstream and supervisor record zero calls; an unknown `kind` is treated as a viewer; Phase 8's `eligible_users` never selects a viewer; the table is a fixed literal, not derived from the planner's |
-| `test_gateway_viewer_session_functional.py` | Pending, must-change and enrolment stages for viewers; idle and absolute limits; enrol-by deadline; logout headers; admin reset suspends shares |
+| `test_gateway_viewer_session_functional.py` | Pending, must-change and enrolment stages for viewers; idle and absolute limits; enrol-by deadline for viewers and members, and the fresh deadline at upgrade; logout headers; admin reset suspends shares |
 | `test_gateway_share_routes_functional.py` | Owner and viewer routes: scoping, uniform 404 bodies (byte-equal), CSRF and Origin, limits, sponsor rule, no enumeration |
 | `test_gateway_share_publish_functional.py` | Output validation, size cap, schema and key checks, leak check, atomic write, digest binding, revoke and scope-change races, plan mismatch, browser block of the snapshot route |
 | `test_insights_share_snapshot_functional.py` | The worker route: views by construction; percent output equal to what the desktop percent hook returns for the same data; leak check; no error text; active-plan rule; plan file hash unchanged |
@@ -553,7 +556,7 @@ Effort is relative to **one 5-hour Claude Code cycle on the Pro plan**, using th
 
 | Phase | Work | Model / effort | Expected usage and what drives it |
 |---|---|---|---|
-| 9a. Data model, viewer accounts, gate | Migration step 4; store methods (`create_viewer`, `member_ids`, scoped share queries); `Identity.kind`; the gate branch and `VIEWER_ALLOWED`; refusals in the proxy and supervisor; members-only selection in Phase 8's `eligible_users`; viewer session limits, enrol-by deadline, resets suspend shares; admin console **Add viewer**; the store, gate-contract and session tests | Opus 5.5, high (the gate is the boundary) | **Moderate to heavy** (20-25%). `store.py` (695 lines) and `app.py` (604) change in a few functions: Grep, then read only those. The contract test that walks every route is the longest edit-test loop |
+| 9a. Data model, viewer accounts, gate | Migration step 4; store methods (`create_viewer`, `member_ids`, scoped share queries); `Identity.kind`; the gate branch and `VIEWER_ALLOWED`; refusals in the proxy and supervisor; members-only selection in Phase 8's `eligible_users`; viewer session limits, the enrol-by deadline for every account (R-5), resets suspend shares; admin console **Add viewer**; the store, gate-contract and session tests | Opus 5.5, high (the gate is the boundary) | **Moderate to heavy** (20-25%). `store.py` (695 lines) and `app.py` (604) change in a few functions: Grep, then read only those. The contract test that walks every route is the longest edit-test loop |
 | 9b. Publish path | FI worker route and allow-list entry; view-to-route map, fixed scopes, percent pipeline, leak check; proxy browser block; gateway publisher (`call_worker` with a new `max_bytes`, validation, atomic write, digest, race guards); optional refresh hook in Phase 8's `_update_user`; housekeeping; plan-delete hook; size and time measured on the demo plan | Opus 5.5, high | **Moderate to heavy** (20-25%). Step 0 Greps the realized and live parameters and the `percent_view` import. Never read `live_snapshot.py` (1,326 lines) or `index.html` linearly. Real-worker functional tests are slow: run each once |
 | 9c. Viewer page and route table | `/gateway/viewer` page and script, static allowlist, render from one record, status poll, sign-out clearing; frontend render test; Playwright guest spec | Sonnet 5.5, high (Opus 5.5 high to review the route table) | **Moderate** (15-20%). Step 0 decides between reusing FI's chart modules and a small renderer: Grep their exports, do not read them whole. Playwright compresses least; budget one retry round |
 | 9d. Owner UI and operations | `/gateway/sharing` page, owner routes, FI header link; `acl setup` and `acl check` for the shares folder; `restore_gateway_db` suspends shares; runbook lines | Sonnet 5.5, high | **Moderate** (15%). The FI link: Grep `index.html` and leave its fetch wrapper alone. `acl.py` changes are a few lines plus tests |
@@ -567,8 +570,9 @@ Expensive steps to scope down:
 
 Order of work with exit criteria: 9a passes the contract and store tests with no publish path; 9b passes the worker and
 publisher tests; 9c passes the render test and the guest Playwright spec; 9d passes the lifecycle and backup tests;
-9e passes the slow module and the existing isolation modules, and the security review is signed off **before any
-rollout** (the flag stays off until then).
+9e passes the slow module and the existing isolation modules, and the security review's release checklist is complete
+**before any rollout** (the flag stays off until then). That checklist includes the fix for P7-O4 (sign-in throttling
+per username and per address), which the owner made a prerequisite of turning guests on (residual risk R-4).
 
 ## 12. Risks and limitations
 
@@ -582,6 +586,7 @@ rollout** (the flag stays off until then).
 | Record size with a long history | 8 MiB cap (raising it needs `call_worker`'s new `max_bytes`); 9b measures; fewer pre-rendered scopes if needed |
 | Refresh works only while the share's plan is active | Documented. Possible later extension: render a named registered plan inside a scoped read, which changes active-plan resolution and is not in v1 |
 | `users.js` is shared with the desktop Admin app | New columns behind a `FEATURES` flag (`admin_console.py:36-40`) |
+| Guests can slow everyone's sign-in through the global throttle (P7-O4, residual risk R-4) | Fixed before `--shared-views` is turned on: throttle per username and per address (the owner's condition, 2026-11-18) |
 | Phase 8's scheduler (merged) treats every active account as an FI user | 9a makes `eligible_users` select members only; the supervisor refusal (5.1, layer 3) is the backstop; the scheduled refresh stays an optional hook and the button works without it |
 
 ## 13. Owner decisions (recorded 2026-11-18)
@@ -600,15 +605,19 @@ changed the same day to "fix it now, in scope": the fix is in this pull request.
 | 5 | Q5: export | No export |
 | 6 | Archive record bodies | No: rows travel in `gateway.db`; a restored `gateway.db` suspends every share |
 | 7 | Deleting a plan revokes its shares | Yes |
-| 8 | Viewer session limits and enrol-by deadline | 10 minutes idle, 2 hours absolute, 72 hours to enrol |
+| 8 | Viewer session limits and enrol-by deadline | 10 minutes idle, 2 hours absolute, 72 hours to enrol; the enrolment deadline then extended to every account (residual risk R-5) |
 | 9 | Record selection | Share id within the session's own set (not one share per viewer) |
 | 10 | Phase 8 refresh hook | On when `--insights-schedule` is set, only for shares whose plan is active |
 | 11 | An admin reset suspends the viewer's shares | Yes, until each owner re-enables them |
 | 12 | Desktop tab-limit gap (finding F1) | **Fixed now, in this pull request** (recommended: a separate fix). The desktop remote gate refuses the routes of tabs a listed grant leaves out, and the page stops asking for them. Not part of the Phase 9 build |
 | 13 | Limits | 10 shares per owner, 5 viewers per sponsor, 8 MiB per record |
 
-Still open before 9a starts: the owner's acceptance of residual risks R-1 to R-12 (security review, section 8), and the
-owner's sign-off of this design and the security review.
+Residual risks, answered 2026-11-18 (security review, section 8): ten are accepted as they stand. R-4 is accepted, with
+the P7-O4 sign-in throttle fix as a prerequisite of turning on `--shared-views`. R-5 is closed by extending the
+enrol-by deadline to every account (5.7).
+
+Sign-off: the owner approved this design and the security review (design stage) on 2026-11-18. Phase 9 building may
+start at 9a; rollout waits for the review's release checklist.
 
 ## 14. Not verified here
 
