@@ -32,9 +32,10 @@ sessions and sign-in (`src/gateway/app.py`, `store.py`, `upstream.py`); forwardi
 planner allow-list (`src/server/remote_allowlist.py`).
 
 Method: code reading of the functions named in each citation, plus one in-process probe of the desktop tab limit
-(F1). No product code was written and no test was added. Every statement about existing code cites the file and line
-read; line numbers are as of main at `329d4fe`, after Phase 8 (PR #481) merged. **Not verified** marks what was not
-read or not run. Controls are identified C1-C38 (section 7), abuse cases
+(F1). No Phase 9 product code was written. The separate fix for F1 (owner decision 12) is in the same pull request:
+`access_routes.py`, a few lines of the FI page, and one regression test module. Every statement about existing code
+cites the file and line read. Line numbers are as of this branch: main at `329d4fe` (after Phase 8, PR #481) plus the
+F1 fix. **Not verified** marks what was not read or not run. Controls are identified C1-C38 (section 7), abuse cases
 AC-1 to AC-26 (section 6), residual risks R-1 to R-12 (section 8). The test modules named are proposed in the design's
 test plan (design section 10); none exists yet unless marked "existing".
 
@@ -45,10 +46,10 @@ listener.
 
 | Id | Sev | Finding | Evidence | Consequence and action |
 |---|---|---|---|---|
-| F1 | Medium (desktop remote listener) | **Tab limits on the desktop are presentation only.** A grant's `views` is read only by `whoami` and by the `/api/view` report; the page hides the other tabs; their data routes still answer. | `access_routes.py:236,244,329-331`; `financial_trends_reporter/frontend/index.html:1014,1037`; Grep of `financial_trends_reporter` for reads of the grant finds only `access_routes.py:127,235-236,329`; the existing test checks only `whoami` and `/api/view` (`tests/test_insights_grant_gate_functional.py:79-87`). **Reproduced** 2026-11-18 with the test rig: a guest granted `views=["trends"]` got 403 on `POST /api/view` for projections but 200 on `GET /api/projections`, `/api/live-snapshot` and `/api/realized`. | Phase 9 must not use `views` as an enforcement point: records are built by construction (C18). Separate fix (outside Phase 9, owner decision 12; on 2026-11-18 the owner chose a separate small fix, soon): map routes to tabs in the desktop remote gate and refuse ungranted tabs, with a regression test. The percent filter is not affected: it applies to every `/api/` JSON body (`access_routes.py:151-168`). |
+| F1 | Medium (desktop remote listener); **fixed in this pull request** | **Tab limits on the desktop were presentation only.** Before the fix, a grant's `views` was read only by `whoami` and by the `/api/view` report; the page hid the other tabs, but their data routes still answered. | Before: the two readers (now `access_routes.py:265,273,358-360`), the page's tab hiding (`financial_trends_reporter/frontend/index.html:1017,1040`), and a test that checked only `whoami` and `/api/view` (`tests/test_insights_grant_gate_functional.py:79-87`). **Reproduced** 2026-11-18 with the test rig: a guest granted `views=["trends"]` got 403 on `POST /api/view` for projections, but 200 on `GET /api/projections`, `/api/live-snapshot` and `/api/realized`. After the fix the same probe gets 403 on all three, and `/api/history` still gets 200. | **Fixed (owner decision 12, moved in scope on 2026-11-18).** `VIEW_ROUTES` maps each tab's routes, and `TAB_FREE_ROUTES` names every other `/api/` rule (`access_routes.py:28-44`). The remote gate refuses a route whose tab a listed grant leaves out. It matches on the routed rule, so other spellings get no data (`access_routes.py:159-172`). The owner's local listener and worker mode are unchanged. When Trends is not granted, the page stops asking for Trends routes and drops the percent toggle, which needs `/api/balances` (`index.html:458,709,1094-1097`). Tests: `tests/test_insights_grant_tab_limit_regression.py` (11 tests, including a contract that every `/api/` rule is classified exactly once). Phase 9 still does not use `views` as an enforcement point: records are built by construction (C18). The percent filter is not affected (`access_routes.py:180-197`). |
 | F2 | High if missed (design constraint) | **The gate forwards every active, non-gateway request to a worker with no role or kind check**, and the supervisor starts and provisions a worker, workspace and Windows account for any id. The admin console's create route runs the `user_created` hook. | `app.py:283-300`; `supervisor.py:180-193,214-219,442-450`; `admin_console.py:83-89` | A guest created through today's paths would get a planner. Controls C1-C3, C34 and an **Add viewer** route that skips `user_created`. |
 | F3 | Info | Protective headers (`no-store`, `X-Frame-Options`, `no-referrer`, CSP) are added only for gateway-owned paths and a few status codes. Forwarded worker responses carry whatever the worker sets (not verified whether the worker sets `Cache-Control`). | `app.py:171-172,314-324` | Viewer and owner routes must be gateway paths (C25). |
-| F4 | Info | FI worker mode has no percent hook; FI error bodies contain exception text, and the mount replaces it only on 5xx. | `main.py:470-472,346-348,356-358`; `access_routes.py:145-149`; `src/remote_insights_mount.py:94-96` | The snapshot builder calls the pure percent functions itself (C19) and never copies an error body (C21). |
+| F4 | Info | FI worker mode has no percent hook; FI error bodies contain exception text, and the mount replaces it only on 5xx. | `main.py:470-472,346-348,356-358`; `access_routes.py:174-178`; `src/remote_insights_mount.py:94-96` | The snapshot builder calls the pure percent functions itself (C19) and never copies an error body (C21). |
 | F5 | Medium (for Phase 9) | Restoring `gateway.db` brings back every row as of the archive. The restore writes the archived member to a new file, byte for byte; P7-O12 already notes that deleted or disabled users come back. | `backup_store.py:419-442`; `multi-user-server-security-review.md`, open item P7-O12 | Revoked shares would come back. Control C16. |
 | F6 | Low (Medium without C3) | `user_ids()` returns every account, and backups and the supervisor's known ids use it. Phase 8's scheduler keeps every account that is neither disabled nor expired and starts its worker for the update. | `store.py:660-661`; `server.py:302,309,322-323`; `src/gateway/insights_schedule.py:122-125,143` | Viewers would enter per-workspace jobs, and each scheduled pass would ask the supervisor for a viewer's worker. Control C34 (members-only selection); C3 is the backstop. |
 | F7 | Low (exists for every account) | No deadline for a new account's first TOTP enrolment: whoever first signs in with the temporary password enrols their own authenticator. | `store.py:265-284` (no deadline set); `app.py:411-413,473-484` | Guests are more likely to receive credentials by email. Control C10 for viewers; recommended for members too. |
@@ -221,8 +222,9 @@ Design sign-off (before 9a starts):
       No answer changes a control in this review; the longer default only lengthens how long a forgotten share stays
       open before it expires.
 - [ ] The owner accepts residual risks R-1 to R-12, or asks for changes.
-- [x] The owner schedules or declines the separate desktop fix for F1 (decision 12). Done 2026-11-18: a separate
-      small fix, soon, outside Phase 9.
+- [x] The owner schedules or declines the separate desktop fix for F1 (decision 12). Done 2026-11-18: fixed in this
+      pull request (first scheduled as a separate fix, then moved in scope the same day);
+      `tests/test_insights_grant_tab_limit_regression.py` passes.
 
 Release sign-off (after 9e; `--shared-views` stays off until every box is ticked):
 
@@ -258,4 +260,8 @@ Release sign-off (after 9e; `--shared-views` stays off until every box is ticked
 - Installed-build, per-account ACLs (R-11).
 - `admin_app/frontend/users.js` (not read).
 - The F1 probe ran in process on Linux with the desktop test rig, not on the owner's machine. It shows the code path,
-  which has no platform-specific branch in the gate it exercises (`access_routes.py:97-143`).
+  which has no platform-specific branch in the gate it exercises (`access_routes.py:114-162`).
+- The F1 fix's page change was checked once in Chromium (Playwright) against the rig's own listeners. That check is
+  throwaway, not a committed test. A Projections-only guest with `money_view` both saw only the Projections tab, no
+  percent toggle and no Trends requests; the owner's page was unchanged. Not run on the owner's machine, through the
+  real remote listener's Funnel address, or in other browsers.

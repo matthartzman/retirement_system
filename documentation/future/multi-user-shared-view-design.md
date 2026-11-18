@@ -1,6 +1,6 @@
 # Shared view of Financial Insight for guests and advisors: design (Phase 9)
 
-Status: draft (design only; owner decisions recorded 2026-11-18 in sections 3 and 13; no code, migration or test is written until the owner signs off this design and multi-user-shared-view-security-review.md)
+Status: draft (design only; owner decisions recorded 2026-11-18 in sections 3 and 13; no Phase 9 code, migration or test is written until the owner signs off this design and multi-user-shared-view-security-review.md; the separate desktop fix for finding F1 ships in the same pull request)
 Date: 2026-11-18
 
 Scope: let the owner of a plan on the multi-user server show a **read-only Financial Insight (FI) view** of that plan to
@@ -12,7 +12,8 @@ and the only follow-up that crosses the per-user isolation boundary that `multi-
 
 Companion document: multi-user-shared-view-security-review.md (threat model, abuse cases, controls mapped to tests,
 sign-off checklist). Every claim about existing code below cites the file and line that was read; "not verified"
-marks what was not. Line numbers are as of main at `329d4fe`, after Phase 8 (PR #481) merged.
+marks what was not. Line numbers are as of this branch: main at `329d4fe` (after Phase 8, PR #481) plus this pull
+request's fix for finding F1, which changes `financial_trends_reporter/access_routes.py` and the FI page.
 
 ## 0. Summary
 
@@ -25,10 +26,11 @@ in the gateway serves the guest that record and nothing else. A viewer session n
 
 Two findings in the code shape the design (section 2):
 
-1. **The desktop tab limit is not a server-side control.** A grant's `views` list is used only by `whoami` and by the
-   `/api/view` report. The data routes of a tab outside the grant still answer 200: reproduced in process on
-   2026-11-18 (security review, finding F1). Phase 9 reuses the vocabulary and the percent functions, but it enforces
-   tabs **by construction**: a record contains only the routes of the granted tabs.
+1. **The desktop tab limit was not a server-side control.** A grant's `views` list was used only by `whoami` and by
+   the `/api/view` report, so the data routes of a tab outside the grant answered 200. This was reproduced in process
+   on 2026-11-18 (security review, finding F1) and is **fixed in this pull request** (owner decision 12). The remote
+   gate now refuses those routes. Phase 9 reuses the vocabulary and the percent functions, but it still enforces tabs
+   **by construction**: a record contains only the routes of the granted tabs.
 2. **The gateway gate forwards every signed-in, non-gateway request to a worker, whatever the role**
    (`src/gateway/app.py:283-300`). The supervisor starts and provisions a worker for any account id
    (`src/gateway/supervisor.py:180-193,442-450`). Phase 8's scheduler would also pick any active account and start its
@@ -66,16 +68,16 @@ must not be able to change anything or reach anything else.
 - Letting a guest change anything: no **Update**, no account settings, no pass-through decisions, no plan edits.
 - Sharing the planner itself, plan files or builds. The multi-plan decision "No copying of plans between users"
   (`multi-user-multiple-plans-design.md` section 11, decision 2) is unchanged.
-- The desktop FI (ports 5057/5058) and its `identity.db` guests. That listener's tab-limit gap (finding F1) is reported
-  as a separate fix; it is not built here.
+- The desktop FI (ports 5057/5058) and its `identity.db` guests. That listener's tab-limit gap (finding F1) is fixed
+  separately in the same pull request (security review, F1); nothing else about the desktop FI changes.
 
 ## 2. What exists today (findings)
 
 | Area | Fact | Evidence |
 |---|---|---|
 | Grant vocabulary to reuse | Desktop FI grant: `money_view` is `dollars`, `percent` or `both`; `views` is a JSON list of tabs `live`, `trends`, `projections` | `src/identity/store.py:32,58-66,386-405`; `financial_trends_reporter/access_routes.py:26` |
-| Percent filter: server-side on the desktop | An after-request hook scales every `/api/` JSON body for a percent person, strips detail per route, withholds transactions and replaces error bodies | `access_routes.py:46-49,140-141,151-168`; `percent_view.py:68-83,136-150` |
-| Tab limit: client-side only on the desktop | The server reads `views` only in `whoami` and the `/api/view` report; the page hides tabs; the other tabs' data routes answer 200 | `access_routes.py:236,244,329-331`; `financial_trends_reporter/frontend/index.html:1014-1037`; probe (security review F1); `tests/test_insights_grant_gate_functional.py:79-87` covers only `whoami` and `/api/view` |
+| Percent filter: server-side on the desktop | An after-request hook scales every `/api/` JSON body for a percent person, strips detail per route, withholds transactions and replaces error bodies | `access_routes.py:63-66,157-158,180-197`; `percent_view.py:68-83,136-150` |
+| Tab limit: was client-side only on the desktop (F1, fixed here) | Before this pull request the server read `views` only in `whoami` and the `/api/view` report, the page hid tabs, and the other tabs' data routes answered 200. Now the remote gate refuses every route of a tab the grant leaves out, and the page no longer asks for them | `access_routes.py:265,273,358-360` (the two old readers); the fix at `access_routes.py:28-44,159-172` and `financial_trends_reporter/frontend/index.html:458,709,1094-1097`; `tests/test_insights_grant_tab_limit_regression.py` |
 | Worker-mode FI has no percent hook | `create_app(mode="worker")` registers the worker gate and returns before `register_access` | `financial_trends_reporter/main.py:470-472` (desktop wiring `473-482`) |
 | The percent functions are pure | `scale_basis`, `scale_payload`, `strip_detail`, `find_money_leaks` take data and return new data | `percent_view.py:52-65,68-83,136-150,153-173` |
 | The desktop percent basis includes plan annuity values | `scale_basis(balances_db, history, plan_annuity_values.account_values(...))` | `main.py:479-481` |
@@ -120,7 +122,7 @@ build.
 | Option | Idea | Isolation | Freshness | Code surface | Verdict |
 |---|---|---|---|---|---|
 | A. Published snapshot | The owner's worker renders the granted view into a record; the gateway stores it; a guest session is served the record by a small gateway viewer | **Holds.** The guest never reaches a worker; `forward` and `endpoint` keep selecting the session's own worker | As of the last publish (button, optional schedule) | One worker route, a gateway publisher, the viewer routes and two pages | **Recommended** |
-| B. Live read through the owner's worker | The gateway proxies a guest to the owner's worker with a scoped grant | **Crossed.** A guest session would select another user's worker, the one invariant every isolation test relies on (`proxy.py:73,114`). Every FI route, including parameterised ones, would need per-guest enforcement in the worker, and today's tab limit is client-side (F1) | Live | Large: per-route scope checks, a guest identity header trusted by the worker, guest load on the owner's worker | Rejected |
+| B. Live read through the owner's worker | The gateway proxies a guest to the owner's worker with a scoped grant | **Crossed.** A guest session would select another user's worker, the one invariant every isolation test relies on (`proxy.py:73,114`). Every FI route, including parameterised ones, would need per-guest enforcement in the worker; the desktop's tab limit was client-side until this pull request fixed it (F1), which shows how easily such a check is missed | Live | Large: per-route scope checks, a guest identity header trusted by the worker, guest load on the owner's worker | Rejected |
 | C. Export a file | The owner downloads a page or PDF and sends it | None needed | Fixed | Small (a worker export route) | Fallback only; see Q5 |
 
 Why A and not B, in short:
@@ -221,7 +223,7 @@ Decisions inside the model:
 ### 5.3 What a record may contain (scope)
 
 Tabs and the FI routes rendered into them. The mapping comes from the page's fetch sites (`index.html:352-361`,
-`683-710`; `charts.js:661`; `live_snapshot.js:529`; `realized.js:228`; `projections.js:142`, all under
+`685-713`; `charts.js:661`; `live_snapshot.js:529`; `realized.js:228`; `projections.js:142`, all under
 `financial_trends_reporter/frontend/`):
 
 | Grant name | Tab label | Routes rendered | Parameters pre-rendered |
@@ -234,15 +236,15 @@ Which panel `realized` belongs to, and the exact query parameters of each route,
 verified here).
 
 **Never included, in either money view:** `/api/spending/transactions` (transaction rows; withheld from percent guests
-on the desktop, `access_routes.py:46`), `/api/accounts` and `/api/app-accounts` (account settings), `/api/run-status`,
+on the desktop, `access_routes.py:63`), `/api/accounts` and `/api/app-accounts` (account settings), `/api/run-status`,
 `whoami`, and every `POST`.
 
 **Percent view.** Each rendered payload goes through `percent_view.strip_detail(route, payload)` and then
 `percent_view.scale_payload(payload, k)`. `k` is `percent_view.scale_basis(balances_db, history,
 plan_annuity_values.account_values(...))`. These are the same calls, in the same order, with the same basis as the
-desktop (`access_routes.py:161-165`; `main.py:479-481`). The result must then pass `percent_view.find_money_leaks(...)
+desktop (`access_routes.py:190-194`; `main.py:479-481`). The result must then pass `percent_view.find_money_leaks(...)
 == []`; any finding fails the publish. With no basis (balances not imported yet), the publish is refused with the same
-plain message the desktop gives (`access_routes.py:161-163`).
+plain message the desktop gives (`access_routes.py:190-192`).
 
 **Dollars view.** Payloads exactly as the owner sees them, minus the never-included routes.
 
@@ -584,8 +586,9 @@ rollout** (the flag stays off until then).
 
 ## 13. Owner decisions (recorded 2026-11-18)
 
-The owner answered every decision on 2026-11-18. Thirteen of the fourteen are the recommended default; decision 4
-takes a 90-day default expiry (recommended: 30 days).
+The owner answered every decision on 2026-11-18. Twelve of the fourteen are the recommended default. Decision 4 takes
+a 90-day default expiry (recommended: 30 days). Decision 12 was first answered "a separate small fix, soon" and then
+changed the same day to "fix it now, in scope": the fix is in this pull request.
 
 | # | Decision | Owner's answer (2026-11-18) |
 |---|---|---|
@@ -601,7 +604,7 @@ takes a 90-day default expiry (recommended: 30 days).
 | 9 | Record selection | Share id within the session's own set (not one share per viewer) |
 | 10 | Phase 8 refresh hook | On when `--insights-schedule` is set, only for shares whose plan is active |
 | 11 | An admin reset suspends the viewer's shares | Yes, until each owner re-enables them |
-| 12 | Desktop tab-limit gap (finding F1) | A separate small fix soon, on the desktop remote listener; not part of Phase 9 |
+| 12 | Desktop tab-limit gap (finding F1) | **Fixed now, in this pull request** (recommended: a separate fix). The desktop remote gate refuses the routes of tabs a listed grant leaves out, and the page stops asking for them. Not part of the Phase 9 build |
 | 13 | Limits | 10 shares per owner, 5 viewers per sponsor, 8 MiB per record |
 
 Still open before 9a starts: the owner's acceptance of residual risks R-1 to R-12 (security review, section 8), and the
