@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import sqlite3
+import stat
 import tarfile
 import threading
 import time
@@ -32,7 +33,7 @@ SUFFIX = ".rpbak"
 PARTIAL = ".partial"
 _FULL_RE = re.compile(r"^(\d{8}T\d{6}Z)\.rpbak$")
 _USER_RE = re.compile(r"^(\d{8}T\d{6}Z)\.user(\d+)\.rpbak$")
-FORMAT = 2  # 2: every registered plan file of a user, not only plan.rpx (multiple plans per user)
+FORMAT = 3  # 2: every registered plan file of a user (multiple plans); 3: plus each plan's Financial Insight files
 _APP_DB_REL = Path("local_state") / "app.db"
 # What a user's plan file may be called in an archive (the worker names them: plan.rpx, plans/<32 hex>.rpx,
 # saved_plans/<sanitised name>.rpx). Anything else is never written back, whoever signed the archive.
@@ -40,6 +41,16 @@ _PLAN_REL = r"plan\.rpx|plans/[0-9a-f]{32}\.rpx|saved_plans/[A-Za-z0-9 ._()-]{1,
 _PLAN_REL_RE = re.compile(rf"^(?:{_PLAN_REL})$")
 _MEMBER_RE = re.compile(rf"^users/([1-9]\d*)/(app\.db|{_PLAN_REL})$")
 _LIVE_PLAN_GLOBS = ("plan.rpx", "plans/*.rpx", "saved_plans/*.rpx")
+# Financial Insight files of a plan (format 3): <workspace>/output/plans/<plan_id>/insights/<file>, archived as
+# users/<uid>/insights/<plan_id>/<file>. Only these small, hand-made files: the balances SQLite beside them is
+# rebuilt from the Monarch export and is not backed up. A separate, strict family: _MEMBER_RE is not widened.
+INSIGHT_FILES = ("financial_trends_log.jsonl", "passthrough_decisions.json", "live_snapshot_settings.json")
+INSIGHT_MAX_BYTES = 64 * 1024 * 1024  # larger is skipped and reported, never truncated
+_INSIGHT_PLAN_ID = r"[0-9a-f]{32}|plan"  # a registry id, or the unregistered workspace plan's stem
+_INSIGHT_PLAN_ID_RE = re.compile(rf"^(?:{_INSIGHT_PLAN_ID})$")
+_INSIGHT_REL = rf"insights/(?:{_INSIGHT_PLAN_ID})/(?:{'|'.join(re.escape(n) for n in INSIGHT_FILES)})"
+_INSIGHT_MEMBER_RE = re.compile(rf"^users/([1-9]\d*)/({_INSIGHT_REL})$")
+_INSIGHT_LIVE = Path("output") / "plans"
 ALLOWED_OTHER = {"gateway.db", "manifest.json"}
 _CHECK_SECONDS = 60.0
 
@@ -70,6 +81,74 @@ def _add(tar: tarfile.TarFile, name: str, data: bytes, mtime: float) -> None:
     info = tarfile.TarInfo(name)
     info.size, info.mtime, info.mode = len(data), int(mtime), 0o600
     tar.addfile(info, io.BytesIO(data))
+
+
+def _insight_live_rel(rel: str) -> Path:
+    """``insights/<plan_id>/<file>`` (archive name) -> ``output/plans/<plan_id>/insights/<file>`` (workspace)."""
+    _, plan_id, name = rel.split("/")
+    return _INSIGHT_LIVE / plan_id / "insights" / name
+
+
+def _live_insight_rels(root: Path) -> list[str]:
+    """Archive names of the insight files present in a workspace (allowlisted names, regular files only)."""
+    rels: list[str] = []
+    base = Path(root) / _INSIGHT_LIVE
+    try:
+        folders = sorted(base.iterdir()) if base.is_dir() else []
+    except OSError:
+        return rels
+    for folder in folders:
+        if not _INSIGHT_PLAN_ID_RE.fullmatch(folder.name):
+            continue
+        for name in INSIGHT_FILES:
+            if os.path.lexists(folder / "insights" / name):
+                rels.append(f"insights/{folder.name}/{name}")
+    return rels
+
+
+def _read_insight(root: Path, rel: str, uid: int, errors: list[str]) -> bytes | None:
+    """The bytes to archive for one insight file, or None (skipped; the reason is added to ``errors``).
+
+    No link on the way, a regular file, at most INSIGHT_MAX_BYTES. The trend log is read once; a last line
+    without its newline is a torn write and is dropped (reported); other lines are kept as they are (the app
+    quarantines an unparseable line itself), but a count of them is reported."""
+    src = Path(root) / _insight_live_rel(rel)
+    if fsguard.has_reparse_point(src, root):
+        errors.append(f"user {uid} {rel}: link inside the workspace, skipped")
+        return None
+    try:
+        st = os.lstat(src)
+        if not stat.S_ISREG(st.st_mode):
+            errors.append(f"user {uid} {rel}: not a regular file, skipped")
+            return None
+        if st.st_size > INSIGHT_MAX_BYTES:
+            errors.append(f"user {uid} {rel}: larger than {INSIGHT_MAX_BYTES // (1024 * 1024)} MB, skipped")
+            return None
+        with open(src, "rb") as fh:
+            data = fh.read(INSIGHT_MAX_BYTES + 1)
+    except OSError as exc:
+        errors.append(f"user {uid} {rel}: {type(exc).__name__}")
+        return None
+    if len(data) > INSIGHT_MAX_BYTES:  # grew while being read
+        errors.append(f"user {uid} {rel}: larger than {INSIGHT_MAX_BYTES // (1024 * 1024)} MB, skipped")
+        return None
+    if rel.endswith(".jsonl") and data:
+        if not data.endswith(b"\n"):
+            cut = data.rfind(b"\n") + 1
+            data = data[:cut]
+            errors.append(f"user {uid} {rel}: a torn last line was left out")
+        bad = 0
+        for line in data.splitlines():
+            if not line.strip():
+                continue
+            try:
+                ok = isinstance(json.loads(line), dict)
+            except ValueError:
+                ok = False
+            bad += not ok
+        if bad:
+            errors.append(f"user {uid} {rel}: {bad} unparseable line(s) kept as they are")
+    return data
 
 
 def _registered_plan_rels(app_db_bytes: bytes, root: Path, uid: int, errors: list[str]) -> list[str]:
@@ -155,6 +234,14 @@ def write_archive(dest: Path, master: bytes, *, data_root: Path, user_ids: Itera
                         except Exception as exc:  # noqa: BLE001 - reported per user, never fatal
                             errors.append(f"user {uid} {rel}: {type(exc).__name__}")
                             log.error("backup of user %s %s failed: %s", uid, rel, type(exc).__name__)
+                    for rel in _live_insight_rels(root):
+                        data = _read_insight(root, rel, int(uid), errors)
+                        if data is None:
+                            log.error("backup of user %s %s skipped", uid, rel)
+                            continue
+                        _add(tar, f"users/{int(uid)}/{rel}", data, now)
+                        members.append(f"users/{int(uid)}/{rel}")
+                        got = True
                     if app_bytes:
                         _add(tar, f"users/{int(uid)}/app.db", app_bytes, now)
                         members.append(f"users/{int(uid)}/app.db")
@@ -237,11 +324,23 @@ def restore_user(archive: Path, master: bytes, *, data_root: Path, user_id: int,
     A format 2 archive is one point in time for all of the user's plans, so every live plan file
     (plan.rpx, plans/*.rpx, saved_plans/*.rpx) and app.db is moved aside, including plans made after
     the backup; a format 1 archive (plan.rpx and app.db only) replaces just those two.
+    A format 3 archive also holds each plan's insight files (``INSIGHT_FILES``): they are restored, and live
+    insight files the archive does not hold move aside too. Older archives leave the live insight files alone.
     """
     uid = int(user_id)
     workspace = Path(data_root) / "users" / str(uid)
     manifest = verify_archive(archive, master)
-    wanted = [m for m in manifest.get("members", []) if _MEMBER_RE.match(m) and m.split("/")[1] == str(uid)]
+    try:
+        fmt = int(manifest.get("format", 1))
+    except (TypeError, ValueError):
+        fmt = 1
+    with_insights = fmt >= 3
+
+    def _match(name: str):
+        m = _MEMBER_RE.match(name) or (_INSIGHT_MEMBER_RE.match(name) if with_insights else None)
+        return m if m and int(m.group(1)) == uid else None
+
+    wanted = [m for m in manifest.get("members", []) if isinstance(m, str) and _match(m)]
     if not wanted:
         raise RestoreError(f"the archive holds no files for user {uid}")
     if workspace_in_use(workspace):
@@ -255,8 +354,10 @@ def restore_user(archive: Path, master: bytes, *, data_root: Path, user_id: int,
         fh, reader, tar = _open_tar(Path(archive), master)
         try:
             for member in tar:
-                m = _MEMBER_RE.match(member.name)
-                if not m or int(m.group(1)) != uid or not member.isfile():
+                m = _match(member.name)
+                if not m or not member.isfile():
+                    continue
+                if m.group(2).startswith("insights/") and member.size > INSIGHT_MAX_BYTES:
                     continue
                 target = staging / m.group(2)
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -267,11 +368,17 @@ def restore_user(archive: Path, master: bytes, *, data_root: Path, user_id: int,
             tar.close()
             fh.close()
         moved: list[tuple[Path, Path]] = []
+        placed: list[Path] = []
         try:
             incoming = sorted((p.relative_to(staging).as_posix() for p in staging.rglob("*") if p.is_file()),
                               key=lambda n: (n == "app.db", n))  # the registry last
-            full_set = int(manifest.get("format", 1)) >= 2
+            full_set = fmt >= 2
             targets = list(incoming)
+            if with_insights:  # live insight files that the archive does not hold move aside too
+                for rel in _live_insight_rels(workspace):
+                    cur = workspace / _insight_live_rel(rel)
+                    if cur.is_file() and not cur.is_symlink() and rel not in targets:
+                        targets.append(rel)
             if full_set:  # live plan files that the archive does not hold move aside too
                 for pattern in _LIVE_PLAN_GLOBS:
                     for cur in workspace.glob(pattern):
@@ -281,12 +388,13 @@ def restore_user(archive: Path, master: bytes, *, data_root: Path, user_id: int,
                 if "app.db" not in targets and (workspace / _APP_DB_REL).is_file():
                     targets.append("app.db")
             for member in targets:
-                rel = _APP_DB_REL if member == "app.db" else Path(member)
+                insight = member.startswith("insights/")
+                rel = _APP_DB_REL if member == "app.db" else _insight_live_rel(member) if insight else Path(member)
                 live = workspace / rel
                 if fsguard.has_reparse_point(live, workspace):
                     raise RestoreError(f"user {uid}'s folder holds a link; remove it before restoring")
                 live.parent.mkdir(parents=True, exist_ok=True)
-                for suffix in ("", "-wal", "-shm"):
+                for suffix in ("",) if insight else ("", "-wal", "-shm"):
                     cur = live.with_name(live.name + suffix)
                     if cur.exists():
                         aside = cur.with_name(cur.name + f".before-restore-{stamp}")
@@ -294,8 +402,11 @@ def restore_user(archive: Path, master: bytes, *, data_root: Path, user_id: int,
                         moved.append((cur, aside))
                 if member in incoming:
                     os.replace(staging / member, live)
+                    placed.append(live)
                     restored.append(str(rel).replace("\\", "/"))
         except BaseException:
+            for live in placed:  # a restored file that had no live copy before must not stay behind
+                live.unlink(missing_ok=True)
             for cur, aside in reversed(moved):  # put the user's files back
                 if aside.exists():
                     os.replace(aside, cur)

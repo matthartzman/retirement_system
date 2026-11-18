@@ -204,7 +204,7 @@ it has not yet found current that day, one at a time.
 | Delete plan | `output/plans/<id>/` is already removed, which removes the FI stores. No orphans. |
 | Switch plan | FI shows the new plan; caches are keyed on the plan file and the store paths. |
 | Quota | The FI stores sit inside the workspace, so the existing per-user disk walk counts them. They are small. |
-| Backup | **v1 of this work does not back up the FI history log** (balances are reproducible from the plan; the log is not). Phase 7 adds it to archive format v2 if the owner wants it (question 4). |
+| Backup | Archive format 3 (Phase 7, `src/gateway/backup_store.py`) backs up each plan's `financial_trends_log.jsonl`, `passthrough_decisions.json` and `live_snapshot_settings.json` as `users/<id>/insights/<plan_id>/<file>` (fixed name allowlist, `<plan_id>` 32 hex or `plan`, 64 MB cap per file: larger is skipped and reported, never truncated; a torn last log line is left out and reported). `monarch_balances.sqlite3` is not backed up: balances re-sync from the plan, but the account type overrides and chart display preferences stored in it are lost on a restore and must be set again. A format 3 restore moves aside live insight files the archive does not hold; format 1 and 2 archives leave them untouched. |
 | Disable | `--insights` off removes the mount; the stored data stays and is reachable again when re-enabled. |
 
 ## 5. Security analysis
@@ -273,7 +273,7 @@ Names follow the repo rules (type suffix, no tracking ids). The slow tier starts
 | FI's `index.html` is a large inline script; the prefix change misses a call | All calls go through the one fetch wrapper; Playwright e2e exercises every tab |
 | Price calls from many workers hit provider limits | Shared provider key is already budgeted; measure; lengthen the poll in worker mode |
 | History starts late for new users | Documented; the optional scheduled update (Phase 8) adds entries from the next weekday cutoff on |
-| FI history is not backed up in v1 | Stated above; Phase 7 closes it |
+| FI history is not backed up in v1 | Closed by Phase 7 (archive format 3, section 4.7); FI display preferences in the balances SQLite are still not backed up |
 
 ## 10. Implementation plan
 

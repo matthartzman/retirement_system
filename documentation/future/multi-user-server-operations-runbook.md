@@ -164,7 +164,7 @@ loads blank and the gateway log says `admin console file missing`.
 ## 4. Backups
 
 **What**: every `--backup-hours` (24) the gateway writes one encrypted file `<UTC stamp>.rpbak` holding every user's
-`local_state\app.db` and every plan file their plan list names (`plan.rpx`, `plans\*.rpx`, `saved_plans\*.rpx`; archive format 2; the demo plan is left out) plus `gateway.db`, taken with the SQLite backup API (consistent while workers
+`local_state\app.db` and every plan file their plan list names (`plan.rpx`, `plans\*.rpx`, `saved_plans\*.rpx`; the demo plan is left out), each plan's Financial Insight history log, pass-through decisions and live-snapshot settings (`output\plans\<plan id>\insights\`; archive format 3; the FI balances database is rebuilt, not backed up; a file over 64 MB is skipped and listed in the backup errors) plus `gateway.db`, taken with the SQLite backup API (consistent while workers
 write), verified by reading it back before it is accepted. `--backup-keep` (14) full sets are kept. AES-256-GCM,
 per-archive key from the key file; nothing is written unencrypted. A user deletion also writes a `.user<id>.rpbak`.
 
@@ -181,7 +181,7 @@ per-archive key from the key file; nothing is written unencrypted. A user deleti
 & $PY -m src.gateway.acl check ...      # as in step 3 of the install
 & $PY -m src.gateway.service start
 ```
-The user's previous files are kept as `*.before-restore-<stamp>`; delete them when satisfied. A format 2 archive is one point in time for all of the user's plans, so plans made after the backup are moved aside too (they stay as `*.rpx.before-restore-<stamp>` and still count toward the user's disk quota until deleted); older format 1 archives restore `plan.rpx` and `app.db` only. A wrong key or a
+The user's previous files are kept as `*.before-restore-<stamp>`; delete them when satisfied. A format 2 archive is one point in time for all of the user's plans, so plans made after the backup are moved aside too (they stay as `*.rpx.before-restore-<stamp>` and still count toward the user's disk quota until deleted); older format 1 archives restore `plan.rpx` and `app.db` only. A format 3 archive also restores the Financial Insight files and moves aside live ones it does not hold; a format 2 archive leaves the live Financial Insight files as they are. A wrong key or a
 damaged or truncated archive is refused with exit 1 and **nothing is changed**.
 
 **Restore `gateway.db`**: `restore --archive <file> --gateway-db-out C:\RetirementPlanner\state\gateway.restored.db`
@@ -195,7 +195,7 @@ passwords and plans are unaffected. Restoring on the same machine and account ne
 upgrade still contain clear-text TOTP secrets until they age out of `--backup-keep`.
 
 **Drill** (do it once now, then quarterly): restore a throwaway user from last night's archive with the *offline copy*
-of the key, and confirm the plan opens. For a user with several plans also check that the plan list shows every plan without "file missing", that each plan switches, and that one build finishes. Take a manual `backup run` right after upgrading to the multi-plan release: the first format 2 set is the first one that protects plans stored in `saved_plans\`.
+of the key, and confirm the plan opens. For a user with several plans also check that the plan list shows every plan without "file missing", that each plan switches, and that one build finishes. For a user with Financial Insight history, open `/insights/` after the restore and check that the history chart reaches the archive's date and that a pass-through decision made before the backup is still applied. Take a manual `backup run` right after upgrading to the multi-plan release: the first format 2 set is the first one that protects plans stored in `saved_plans\`.
 
 **Off-server copy**: the `.rpbak` files are safe to copy anywhere (encrypted; the key is separate), including to an
 external disk or a cloud folder *you copy to by hand*. The gateway itself refuses to write into a synced folder, so a
