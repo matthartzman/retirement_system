@@ -25,6 +25,23 @@ from .sessions import SessionTable
 
 INSIGHTS_VIEWS = ("live", "trends", "projections")  # the tabs a grant can limit; the Admin app offers the same list
 VIEWS = set(INSIGHTS_VIEWS) | {"accounts"}
+# Route rule -> the one tab whose panels call it (the page asks only while that tab exists). A grant that lists its tabs
+# is refused every route of a tab it does not list, so a hidden tab's data cannot be read by URL. Every other /api/ rule
+# belongs to no single tab and is named in TAB_FREE_ROUTES; a contract test fails on a rule in neither table.
+VIEW_ROUTES: dict[str, str] = {
+    "/api/history": "trends", "/api/balances": "trends", "/api/flows": "trends", "/api/liquid-change": "trends",
+    "/api/spending": "trends", "/api/spending/transactions": "trends", "/api/account-prefs": "trends",
+    "/api/passthrough-decision": "trends",
+    "/api/live-snapshot": "live", "/api/realized": "live",
+    "/api/projections": "projections",
+}
+TAB_FREE_ROUTES: frozenset[str] = frozenset({
+    "/api/whoami", "/api/ping", "/api/view", "/api/run-status", "/api/run-now", "/api/run-cancel", "/api/exit",
+    "/api/signin", "/api/signout", "/api/change-password", "/api/totp/begin", "/api/totp/confirm",
+    "/api/totp/recovery-codes",
+    "/api/accounts", "/api/app-accounts", "/api/account",  # the "accounts" view: account settings, no amounts
+})
+VIEW_REFUSED = "this view is not available to you"
 # POST path -> (event, details from the JSON body). Amounts are never logged.
 ACTIONS = {
     "/api/account": ("account edit", lambda b: " ".join(str(b.get(k)) for k in ("account_key", "type", "app_account") if b.get(k) is not None)),
@@ -139,8 +156,20 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
             return _json({"success": False, "needs_totp": True, "error": "set up two-factor sign-in first"}, 409)
         if user["money_view"] == "percent" and path in WITHHELD_FOR_PERCENT:
             return _json({"success": False, "error": "Not available in the percent view."}, 403)
+        if _tab_refused(grant):
+            return _json({"success": False, "error": VIEW_REFUSED}, 403)
         _log_action()
         return None
+
+    def _tab_refused(grant) -> bool:
+        """The request's route belongs to a tab the grant's list leaves out (no list, or an empty one, means every tab).
+        Matched on the routed rule, the same lookup that picks the handler, so no spelling of the path gets around it."""
+        allowed = (grant or {}).get("views")
+        if not allowed:
+            return False
+        route, _kwargs = app._match(request.path, request.method)
+        tab = VIEW_ROUTES.get(route.rule) if route is not None else None
+        return tab is not None and tab not in allowed
 
     @app.errorhandler(Exception)
     def _unhandled(exc):
@@ -328,7 +357,7 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
             return _json({"success": False, "error": "unknown view"}, 400)
         allowed = (request.environ.get("grant") or {}).get("views")
         if allowed and name in INSIGHTS_VIEWS and name not in allowed:
-            return _json({"success": False, "error": "this view is not available to you"}, 403)
+            return _json({"success": False, "error": VIEW_REFUSED}, 403)
         _log("view opened", name)
         return _json({"success": True})
 

@@ -454,6 +454,8 @@ let chartRows = [];
 let balances = null;      // /api/balances
 let flowsData = null;     // /api/flows
 let liquidChange = null;  // /api/liquid-change: the Liquid pop-up's Change parts
+// False when a grant's tab list leaves out Trends: the server refuses the Trends routes, so the page does not ask.
+let trendsGranted = true;
 
 // Charts are drawn at their card's measured width (no horizontal scrolling); 0 = unknown.
 const FITTED_CHARTS = ["chartNetWorth", "chartHoldings", "chartInvFlows", "chartCategories"];
@@ -704,6 +706,7 @@ async function loadMonarch() {
 }
 
 async function loadHistory() {
+  if (!trendsGranted) return;  // Trends is hidden for this person; the Snapshot and Projections tabs load their own data
   spendingMemo.clear();
   lastSpendingKey = null;   // the next renderSpending clears the dock's transactions cache
   try {
@@ -1085,9 +1088,15 @@ if (typeof ResizeObserver !== "undefined") {
 const MONEY_VIEW_KEY = "trends.moneyView";
 async function initMoneyView() {
   let allowed = "both";
-  try { allowed = (await (await fetch("/api/whoami")).json()).money_view || "both"; } catch (err) { /* keep both */ }
+  try {
+    const who = await (await fetch("/api/whoami")).json();
+    allowed = who.money_view || "both";
+    trendsGranted = !Array.isArray(who.views) || who.views.includes("trends");
+  } catch (err) { /* keep both */ }
+  // The percent toggle divides by today's net worth from /api/balances, a Trends route: no Trends, no toggle.
+  if (!trendsGranted && allowed === "both") allowed = "dollars";
   let scale = 1;
-  if (allowed !== "percent") {
+  if (allowed !== "percent" && trendsGranted) {
     try { scale = netWorthScale(await (await fetch("/api/balances")).json()); } catch (err) { /* percent view shows n/a */ }
   }
   let saved = null;
