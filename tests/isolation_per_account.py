@@ -79,14 +79,14 @@ def assert_throwaway(path: Path) -> None:
 
 
 def gateway_command(python, db: Path, data_root: Path, ready_file: Path, *, public_origin: str, shared_key_env: str,
-                    per_account: dict | None) -> list[str]:
+                    per_account: dict | None, extra_args: tuple[str, ...] = ()) -> list[str]:
     """The gateway command line; ``per_account`` adds the launcher, account prefix, install dir and worker Python."""
     cmd = [str(python), "-m", "src.gateway", "--db", str(db), "--local-port", "0", "--funnel-port", "0",
            "--public-origin", public_origin, "--no-tailscale-check", "--data-root", str(data_root), "--provision", "demo",
            "--ready-file", str(ready_file), "--build-concurrency", "1", "--pass-env", shared_key_env,
            "--monarch-connector",
            "--worker-env", "RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS=1",
-           "--worker-env", "RETIREMENT_SYSTEM_FROZEN_TODAY=2026-08-04"]
+           "--worker-env", "RETIREMENT_SYSTEM_FROZEN_TODAY=2026-08-04", *extra_args]
     if per_account:
         cmd += ["--launcher", "per-account", "--account-prefix", PREFIX,
                 "--install-dir", str(per_account["install_dir"]), "--python", str(per_account["python"])]
