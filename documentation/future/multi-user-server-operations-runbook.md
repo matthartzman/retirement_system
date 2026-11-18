@@ -295,9 +295,14 @@ neither `data`, `state` nor the running service.
    New-Item -ItemType Directory C:\rp-phase9-test\app -Force | Out-Null
    powershell -ExecutionPolicy Bypass -File "$repo\tools\export_main_to_install.ps1" -Ref origin/claude/shared-view-build -InstallDir C:\rp-phase9-test\app -Force
    ```
-3. Give the copy its own runtime, as in section 1:
+3. Give the copy its own runtime, built on **the same Python as the live runtime**. Per-account workers run as other
+   Windows accounts, so the base Python must be installed for all users (for example under `C:\Program Files`).
+   A Python installed for one account only (under that account's `AppData`, which `py` may pick) cannot be run by the
+   worker accounts. Every worker then fails to start, and the isolation run reports "Your planner could not be
+   started". Read the base from the live runtime instead of guessing:
    ```powershell
-   py -3.12 -m venv C:\rp-phase9-test\app\runtime
+   $base = (Select-String C:\RetirementPlanner\app\runtime\pyvenv.cfg -Pattern '^executable = (.+)$').Matches[0].Groups[1].Value.Trim()
+   & $base -m venv C:\rp-phase9-test\app\runtime
    $PY = "C:\rp-phase9-test\app\runtime\Scripts\python.exe"
    & $PY -m pip install -r C:\rp-phase9-test\app\requirements.txt -r C:\rp-phase9-test\app\requirements-gateway.txt
    ```
@@ -312,9 +317,11 @@ neither `data`, `state` nor the running service.
    - the tail ends with empty account, folder and profile lists and "clean";
    - `net user` shows no `rpwtest_` account.
 
-   Worker and gateway logs from a failed run are in `C:\Users\Public\rpw_isolation`. Not checked in advance: whether
-   the throwaway worker accounts can read a folder under `C:\rp-phase9-test`. If workers fail to start with "access
-   denied", that folder's permissions are the cause, not the code.
+   Worker and gateway logs from a failed run are in `C:\Users\Public\rpw_isolation`. If every module fails with "Your
+   planner could not be started" and no `worker_console.log` exists there, the workers never started. Check step 3's
+   base Python first (`Get-Content C:\rp-phase9-test\app\runtime\pyvenv.cfg`). Remove any `rpwtest_` profile left
+   behind before running again:
+   `Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like '*\rpwtest_*' } | Remove-CimInstance`.
 6. Rehearse the migration on a copy of the live `gateway.db`. The copy is taken with SQLite's backup API, which only
    reads the live file, so it is safe while the service runs.
    ```powershell
