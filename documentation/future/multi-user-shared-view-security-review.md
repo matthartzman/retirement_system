@@ -398,8 +398,9 @@ refusals, every share query, the publisher's validation and commit, the restore 
 Nothing found widens what a viewer can reach: in the walk, the slow module and the browser spec, no viewer request
 reached an upstream, a supervisor or a worker.
 
-**Still open before any rollout** (section 9): the existing listed tests on Windows, the owner's elevated run on the
-installed build (per-account mode, `acl check` over `<data_root>/shares`, now including the new module in
-`tools/run_isolation_on_installed_build.ps1`), the migration rehearsal on a copy of the live version 3 `gateway.db`,
-the restore drill on a real archive, measurements on the owner's real plan, and the owner's status change of this
-review.
+**Still open before any rollout** (section 9, as of 2026-11-18 after the owner's upgrade): three items. The restore
+drill's check that shares come back suspended needs shares to exist. Measurements on the owner's real plan with live
+prices need the flag on. Both wait for a controlled trial with `--shared-views` on. The third is the owner's status
+change of this review. P7-O4, C10, every named test, the browser spec, the slow module, the existing tests on
+Windows, the owner's elevated run (`acl check` clean, isolation on the live install), the migration and the runbook
+lines are done.
