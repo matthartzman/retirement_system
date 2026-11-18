@@ -119,7 +119,10 @@ data folder or the install folder; the key is never inside the backup folder; `C
   loopback-only, because behind Funnel every internet request arrives from 127.0.0.1 and every worker (a different,
   untrusted user) can also reach loopback. It shows gateway status and uptime, schema version, running workers, build
   queue (running, waiting), free space on the data and backup volumes, and the last backup result, with a `warnings` list
-  (low disk under 10 percent or 5 GB, backup errors, no complete backup within two intervals, backups not configured).
+  (low disk under 10 percent or 5 GB, backup errors, no complete backup within two intervals, backups not configured,
+  many failed sign-ins). Its `sign_in` block shows failed sign-ins in the last 10 minutes; above 50 it warns and the
+  Audit log gets one `login failure surge` event per window. That is detection only: sign-in is throttled per address
+  and per username, never for everyone (security review P7-O4).
   From the server without signing in: `ops health --config ...` prints disk and newest-backup age only.
 * **Logs**: `C:\RetirementPlanner\state\logs\gateway.log` (rotating); each user's `local_state\logs\app.log`
   (1 MB x 3) and `worker_console.log` (one run, plus `.1`). The gateway trims an idle user's console log above 5 MB and
@@ -256,4 +259,5 @@ folders and profiles lists and "clean". Afterwards `net user` should show no `rp
 | `acl check` fails | the listed folder; never widen a permission to make it pass |
 | Health warns "no complete backup" | `ops backup run`; check disk space; check the key file is readable by SYSTEM |
 | Disk low | the backup folder first (`--backup-keep`), then user `output` folders; never delete inside `data\users` by hand |
+| Health warns "many failed sign-ins", or the Audit log shows `login failure surge` | someone is guessing passwords; no one is refused for it (one event per 10-minute window). Look at the `login failed` events for the addresses and usernames: each address and each username is slowed on its own after 10 failures, and 5 wrong passwords lock that account for 15 minutes. Disable an abusive account; block an address at the Funnel or firewall if it persists |
 | A user's workbook build is stuck | health page queue; the build limit is `--max-build-minutes` (30) |
