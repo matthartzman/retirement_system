@@ -98,7 +98,7 @@ test('an admin sees the people list with no CSP violations and the gateway-only 
   for (const label of ['Snapshot', 'Trends', 'Projections']) await expect(d.getByLabel(label)).not.toBeChecked();
   const ys = await mods.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
   expect(new Set(ys).size).toBe(1); // the three toggles sit on one row
-  await expect(d).toContainText('enforced when Financial Insight runs on the server');
+  await expect(d).not.toContainText('Stored now'); // Financial Insight runs on the server, so no "not enforced yet" note
   const label = await d.getByText('Money shown as').boundingBox();
   const select = await d.locator('#gMoney').boundingBox();
   expect(Math.abs((label.y + label.height / 2) - (select.y + select.height / 2))).toBeLessThan(label.height); // one line

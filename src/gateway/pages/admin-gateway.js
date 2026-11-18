@@ -41,8 +41,7 @@
       const mods = Object.entries({ snapshot: "Snapshot", trends: "Trends", projections: "Projections" }).map(([k, l]) => tog(l, m[k], `data-module="${k}"`)).join("");
       return sec("Retirement Planner", tog("Can sign in", u ? u.status !== "disabled" : true, 'id="gSignIn"'), true)
         + sec("Financial Insights", `<div class="modrow"><label class="modlabel" for="gMoney">Money shown as</label><select id="gMoney">${money}</select></div>
-        <div class="modrow"><span class="modlabel">Modules:</span>${mods}</div>
-        <p class="note">Stored now; enforced when Financial Insight runs on the server.</p>`, true);
+        <div class="modrow"><span class="modlabel">Modules:</span>${mods}</div>`, true);
     },
     collect: (dlg) => ({ modules: { ...Object.fromEntries([...dlg.querySelectorAll("[data-module]")].map((c) => [c.dataset.module, c.checked])), money_view: dlg.querySelector("#gMoney").value } }),
     after: async (out, u, dlg, api) => {  // "Can sign in" is the account's enabled state; a new person is created, then switched off if asked
