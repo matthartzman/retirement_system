@@ -31,7 +31,7 @@ def disk_report(path: Path | None) -> dict | None:
 
 def build_health(*, started_at: float, schema_version: int | None, workers_running: int | None,
                  build_running: int | None, build_waiting: int | None, data_root: Path | None,
-                 backup_dir: Path | None, backups=None, backup_interval: float = 86400.0,
+                 backup_dir: Path | None, backups=None, backup_interval: float = 86400.0, insights_schedule=None,
                  clock: Callable[[], float] = time.time) -> dict:
     now = clock()
     warnings: list[str] = []
@@ -54,8 +54,14 @@ def build_health(*, started_at: float, schema_version: int | None, workers_runni
             warnings.append("the last backup reported errors")
         if age is None or age > backup_interval * BACKUP_STALE_FACTOR:
             warnings.append("there is no recent complete backup")
+    schedule: dict = {"configured": insights_schedule is not None}
+    if insights_schedule is not None:  # one status line: last run time, users updated, users failed (ids, no data)
+        last = insights_schedule.last_result()
+        schedule.update(last_run_at=last.get("at"), updated=last.get("updated"), failed=last.get("failed"))
+        if last.get("failed"):
+            warnings.append(f"the last scheduled Financial Insight update failed for {last['failed']} user(s)")
     return {"status": "warning" if warnings else "ok", "warnings": warnings,
             "uptime_seconds": round(now - started_at), "schema_version": schema_version,
             "workers": {"running": workers_running},
             "build_queue": {"running": build_running, "waiting": build_waiting},
-            "disk": {"data": data_disk, "backups": backup_disk}, "backup": backup}
+            "disk": {"data": data_disk, "backups": backup_disk}, "backup": backup, "insights_schedule": schedule}
