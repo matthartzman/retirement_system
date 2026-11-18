@@ -120,9 +120,9 @@ the gateway's anyway. That is Option B's work plus a second trust boundary, so i
 |---|---|---|
 | Access expiry | **Implement** (decided; phase 2). Add `users.expires_at`; refuse at login, TOTP verify and on every session lookup; treat expired like disabled for worker stop | If shown but not enforced, an admin believes access ended when it did not. Enforcement touches the login path, so it needs the most tests |
 | Notes | **Implement** (decided; phase 2). Admin-only, never in any user-facing response or in worker identity headers | Low risk if admin-only; a free-text field could hold sensitive data, so it is excluded from the audit log details |
-| Planner access grant | **Hide.** Every active user has the planner; "Can sign in" is the Disable/Enable switch | Showing an off switch that does not block anything is false assurance |
-| Financial Insights grant, money view, per-view access | **Hide.** Financial Insights is not in the multi-user server | Same false-assurance risk; no gateway enforcement exists |
-| Require two-factor | **Hide; show "Two-factor: required"** | A working off switch would defeat mandatory TOTP (plan decision 5) on an internet-facing server |
+| Planner access grant | **Shown as "Can sign in"** (owner, 2026-11-17): the Retirement Planner section holds one switch that maps to the account's enabled/disabled state (see section 10) | Showing an off switch that does not block anything is false assurance |
+| Financial Insights grant, money view, per-view access | **Shown as stored flags** (owner, 2026-11-17): "Money shown as" plus a "Modules:" row (Snapshot, Trends, Projections); stored per person, not enforced (section 10) | Same false-assurance risk; no gateway enforcement exists |
+| Require two-factor | **Never a switch; a note in Maintenance** ("Two-factor sign-in is always required on this server.") | A working off switch would defeat mandatory TOTP (plan decision 5) on an internet-facing server |
 | End sessions | **Implement** as a small admin route (ends all of one person's sessions; disable already does this) | none beyond admin-only |
 | Edit display name | **Implement** (admin route, audited). Needed because the redesigned Edit dialog shows an editable name | Name is shown in the audit and in the worker identity display name; sanitise length and control characters |
 | Activity by app | **Hide in phase 1.** The gateway audit page covers who did what; per-app activity could map to proxy request logs later | none |
@@ -198,3 +198,11 @@ admin does not count as an active admin, so the last-admin rule also refuses exp
 Known limit: when an expiry passes by itself, the person is locked out at the gateway but their `rpw_<id>` Windows
 account is not disabled until an admin disables them or sets a past date in the console (which stops the worker and
 disables the account). No sign-in path reaches that account, so this is housekeeping, not an access path.
+
+## 10. Owner changes to the console dialog (2026-11-17, not released, schema stays v3)
+
+- **Retirement Planner** section: one switch, **Can sign in**, mapped to the account's enabled/disabled state. Turning it off asks for confirmation, ends the person's sessions and stops the worker (the existing disable path); turning it on re-enables. The separate Disable/Enable button is gone from the gateway dialog.
+- **Maintenance** replaces "Password, sessions and removal". It holds the always-required two-factor note and the same controls (reset password, end sessions, unlock, reset two-factor, delete with the typed-username confirmation). The desktop Admin console keeps its own wording and layout.
+- **Financial Insights** section: "Money shown as" and the "Modules:" row, with **Snapshot**, **Trends** and **Projections** on one line, and the note "Stored now; enforced when Financial Insight runs on the server." No two-factor or sign-in line.
+- **Storage:** `users.modules`, a JSON text column (default `{}`, read as all three modules off, money view percent), part of the v3 migration. A database already at v3 gains the column at start-up. The flags are written only through the existing admin update/create routes (admin guard and CSRF unchanged), audited as "modules", and never read by login, sessions, the proxy or the worker.
+- **Layout:** the page is wider (up to 1600 px) so the audit table does not need sideways scrolling at laptop widths.

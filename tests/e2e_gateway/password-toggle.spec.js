@@ -175,7 +175,7 @@ test('Admin console: create-person and reset-password fields have an eye and hid
   await page.getByRole('button', { name: 'Close' }).click();
   // the reset-password field in the Edit dialog
   await page.locator('tr', { hasText: 'Carol' }).getByRole('button', { name: 'Edit' }).click();
-  await page.locator('dialog').getByText('Password, sessions and removal').click();
+  await page.locator('dialog').getByText('Maintenance').click();
   const reset = eyeFor(page.locator('dialog'), '#fResetPw');
   await expect(reset).toHaveCount(1);
   await page.locator('dialog #fResetPw').fill('too short');

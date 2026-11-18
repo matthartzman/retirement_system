@@ -31,6 +31,27 @@
       const typed = dlg.querySelector("#fConfirmDel"), del = dlg.querySelector("#fDelete");
       typed.addEventListener("input", () => { del.disabled = typed.value !== u.username; });
     },
+    // the gateway's dialog: Retirement Planner is one "Can sign in" switch (the enabled state); Financial Insights
+    // holds the stored-but-not-enforced module flags; two-factor is a note, never a switch
+    maintenance: "Maintenance",
+    note: '<p class="note">Two-factor sign-in is always required on this server.</p>',
+    sections: (u, { tog, sec, field, esc: e, MONEY }) => {
+      const m = (u && u.modules) || { snapshot: false, trends: false, projections: false, money_view: "percent" };
+      const money = Object.entries(MONEY).map(([v, l]) => `<option value="${v}"${m.money_view === v ? " selected" : ""}>${l}</option>`).join("");
+      const mods = Object.entries({ snapshot: "Snapshot", trends: "Trends", projections: "Projections" }).map(([k, l]) => tog(l, m[k], `data-module="${k}"`)).join("");
+      return sec("Retirement Planner", tog("Can sign in", u ? u.status !== "disabled" : true, 'id="gSignIn"'), true)
+        + sec("Financial Insights", `<div class="modrow"><label class="modlabel" for="gMoney">Money shown as</label><select id="gMoney">${money}</select></div>
+        <div class="modrow"><span class="modlabel">Modules:</span>${mods}</div>
+        <p class="note">Stored now; enforced when Financial Insight runs on the server.</p>`, true);
+    },
+    collect: (dlg) => ({ modules: { ...Object.fromEntries([...dlg.querySelectorAll("[data-module]")].map((c) => [c.dataset.module, c.checked])), money_view: dlg.querySelector("#gMoney").value } }),
+    after: async (out, u, dlg, api) => {  // "Can sign in" is the account's enabled state; a new person is created, then switched off if asked
+      if (!out.ok) return out;
+      const on = dlg.querySelector("#gSignIn").checked, was = u ? u.status !== "disabled" : true, id = u ? u.id : out.id;
+      if (on === was) return out;
+      if (u && !on && !confirm(`Disable ${u.display_name} and end their sessions?`)) return { ok: false, error: "Not saved: sign-in left on." };
+      return api(`/users/${on ? "enable" : "disable"}`, { id });
+    },
     actBody: (act, dlg) => (act === "delete" ? { confirm_username: dlg.querySelector("#fConfirmDel").value } : {}),
   };
 })();

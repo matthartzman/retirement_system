@@ -34,6 +34,7 @@ def test_schema_is_version_three_and_an_old_database_migrates_without_losing_row
     con = sqlite3.connect(path)
     con.execute("ALTER TABLE users DROP COLUMN expires_at")
     con.execute("ALTER TABLE users DROP COLUMN notes")
+    con.execute("ALTER TABLE users DROP COLUMN modules")
     con.execute("PRAGMA user_version = 2")
     con.commit()
     con.close()
@@ -138,7 +139,7 @@ def test_features_are_on_and_the_list_carries_expiry_and_notes_for_admins(rig): 
     body = admin.get(f"{API}/users").get_json()
     f = body["features"]
     assert f["expiry"] is True and f["notes"] is True and f["end_sessions"] is True and f["edit_name"] is True
-    assert f["grants"] is False and f["require_totp"] is False
+    assert f["grants"] is False and f["require_totp"] is False and f["modules"] is True
     ann = next(u for u in body["users"] if u["id"] == uid)
     assert ann["notes"] == "hello" and ann["expires_at"] == pytest.approx(rig.now[0] + DAY) and ann["expired"] is False
 
@@ -254,3 +255,69 @@ def test_break_glass_clears_an_expiry_so_a_locked_out_admin_can_recover(tmp_path
                     scrypt_n=2**4)
     assert code == 0
     assert GatewayStore(db, scrypt_n=2**4).get_user(a)["expires_at"] is None
+
+
+# ---------- Financial Insight modules (stored, not enforced) ----------
+
+def test_modules_default_to_all_off_and_round_trip(store):
+    uid = _user(store)
+    base = {"snapshot": False, "trends": False, "projections": False, "money_view": "percent"}
+    assert next(u for u in store.list_users(2000.0) if u["id"] == uid)["modules"] == base
+    store.set_profile(uid, modules={"trends": True, "money_view": "both"}, now=1000.0, actor=CLI)
+    got = next(u for u in store.list_users(2000.0) if u["id"] == uid)["modules"]
+    assert got == {"snapshot": False, "trends": True, "projections": False, "money_view": "both"}
+    assert store.read_audit(limit=1)[0]["details"] == "modules"
+    n = len(store.read_audit(limit=50))
+    store.set_profile(uid, modules={"trends": True, "money_view": "both"}, now=1001.0, actor=CLI)
+    assert len(store.read_audit(limit=50)) == n  # unchanged value, no audit row
+
+
+def test_modules_validation(store):
+    uid = _user(store)
+    for bad in ("all", {"live": True}, {"trends": "yes"}, {"money_view": "euros"}, [True]):
+        with pytest.raises(ValueError):
+            store.set_profile(uid, modules=bad, now=1000.0, actor=CLI)
+
+
+def test_a_database_already_at_version_three_without_modules_gains_the_column(tmp_path):
+    import sqlite3
+    path = tmp_path / "gateway.db"
+    s = GatewayStore(path, scrypt_n=2**4)
+    uid = _user(s)
+    con = sqlite3.connect(path)
+    con.execute("ALTER TABLE users DROP COLUMN modules")
+    con.commit()
+    con.close()
+    s2 = GatewayStore(path, scrypt_n=2**4)
+    assert s2.schema_version() == 3
+    assert next(u for u in s2.list_users(0.0) if u["id"] == uid)["modules"]["trends"] is False
+
+
+def test_modules_are_saved_through_the_update_route_and_on_create(rig):  # noqa: F811
+    admin, _ = rig.signed_in("root", role="admin")
+    uid = rig.add_user("ann")
+    r = admin.post(f"{API}/users/update", json={"id": uid, "modules": {"snapshot": True, "projections": True}})
+    assert r.status_code == 200, r.get_data(as_text=True)
+    ann = next(u for u in admin.get(f"{API}/users").get_json()["users"] if u["id"] == uid)
+    assert ann["modules"] == {"snapshot": True, "trends": False, "projections": True, "money_view": "percent"}
+    c = admin.post(f"{API}/users", json={"username": "bo", "display_name": "Bo", "role": "user",
+                                           "temp_password": "temporary password 1", "notes": "n",
+                                           "modules": {"trends": True}})
+    assert c.status_code == 200, c.get_data(as_text=True)
+    bo = rig.store.get_user(c.get_json()["id"])
+    assert bo["notes"] == "n" and '"trends": true' in bo["modules"]
+    bad = admin.post(f"{API}/users", json={"username": "cy", "display_name": "Cy", "role": "user",
+                                             "temp_password": "temporary password 1", "modules": {"x": True}})
+    assert bad.status_code == 400 and rig.store.find_user("cy") is None  # validated before anything is created
+    assert admin.post(f"{API}/users/update", json={"id": uid, "modules": {"trends": "on"}}).status_code == 400
+
+
+def test_modules_are_admin_only_and_never_reach_the_user_or_the_worker(rig):  # noqa: F811
+    ann, uid = rig.signed_in("ann")
+    rig.store.set_profile(uid, modules={"trends": True}, now=rig.now[0], actor=CLI)
+    other = rig.add_user("bob")
+    assert ann.post(f"{API}/users/update", json={"id": other, "modules": {"trends": True}}).status_code == 403
+    assert next(u for u in rig.store.list_users(rig.now[0]) if u["id"] == other)["modules"]["trends"] is False
+    blob = ann.get("/api/auth/session").get_data(as_text=True)
+    assert "modules" not in blob and "trends" not in blob
+    assert all("trends" not in repr(c) for c in rig.upstream.calls)

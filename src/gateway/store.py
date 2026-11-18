@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import logging
 import math
 import re
@@ -113,12 +114,27 @@ _MIGRATIONS: list[tuple[int, list[str]]] = [
     (3, [
         "ALTER TABLE users ADD COLUMN expires_at REAL",
         "ALTER TABLE users ADD COLUMN notes TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN modules TEXT NOT NULL DEFAULT '{}'",
     ]),
 ]
 
 
 KEEP = object()  # "leave this field as it is" for ``set_profile``
 NOTES_MAX = 500
+MODULE_KEYS = ("snapshot", "trends", "projections")  # Financial Insight's three views (not enforced on the server yet)
+MONEY_VIEWS = ("dollars", "percent", "both")
+
+
+def modules_of(raw) -> dict:
+    """The stored Financial Insight flags for a person, always in full: the three views (default off) and money view."""
+    try:
+        data = json.loads(raw) if isinstance(raw, str) and raw else {}
+    except ValueError:
+        data = {}
+    data = data if isinstance(data, dict) else {}
+    out = {k: data.get(k) is True for k in MODULE_KEYS}
+    out["money_view"] = data.get("money_view") if data.get("money_view") in MONEY_VIEWS else "percent"
+    return out
 
 
 def _expired(expires_at: float | None, now: float) -> bool:
@@ -222,6 +238,9 @@ class GatewayStore:
                 for sql in statements:
                     conn.execute(sql)
                 conn.execute(f"PRAGMA user_version = {int(target)}")
+            # Version 3 gained ``modules`` after it was first written; a database already at 3 gets it here.
+            if "modules" not in {r[1] for r in conn.execute("PRAGMA table_info(users)")}:
+                conn.execute("ALTER TABLE users ADD COLUMN modules TEXT NOT NULL DEFAULT '{}'")
 
     def schema_version(self) -> int:
         return int(self._read("PRAGMA user_version")[0][0])
@@ -294,7 +313,7 @@ class GatewayStore:
     def list_users(self, now: float) -> list[dict]:
         rows = self._read(
             "SELECT u.id, u.username, u.display_name, u.role, u.disabled, u.locked_until, u.must_change, u.last_login_at,"
-            " u.created_at, u.expires_at, u.notes, t.enrolled_at, t.user_id AS has_totp FROM users u LEFT JOIN totp_secrets t ON t.user_id = u.id"
+            " u.created_at, u.expires_at, u.notes, u.modules, t.enrolled_at, t.user_id AS has_totp FROM users u LEFT JOIN totp_secrets t ON t.user_id = u.id"
             " ORDER BY u.username")
         return [{
             "id": r["id"], "username": r["username"], "display_name": r["display_name"], "role": r["role"],
@@ -302,6 +321,7 @@ class GatewayStore:
             "totp": "enrolled" if r["enrolled_at"] is not None else ("pending" if r["has_totp"] is not None else "none"),
             "last_login_at": r["last_login_at"], "created_at": r["created_at"],
             "expires_at": r["expires_at"], "expired": _expired(r["expires_at"], now), "notes": r["notes"],
+            "modules": modules_of(r["modules"]),
         } for r in rows]
 
     def count_active_admins(self, conn: sqlite3.Connection | None = None, now: float | None = None) -> int:
@@ -358,7 +378,7 @@ class GatewayStore:
                        conn=conn)
 
     @staticmethod
-    def check_profile(*, display_name=KEEP, notes=KEEP, expires_at=KEEP) -> dict:
+    def check_profile(*, display_name=KEEP, notes=KEEP, expires_at=KEEP, modules=KEEP) -> dict:
         """Validate and clean the editable profile fields; keys left at KEEP are omitted from the result."""
         out: dict = {}
         if display_name is not KEEP:
@@ -381,20 +401,29 @@ class GatewayStore:
                     raise ValueError("the access end must be a date, or empty for never")
                 expires_at = float(expires_at)
             out["expires_at"] = expires_at
+        if modules is not KEEP:
+            if not isinstance(modules, dict) or set(modules) - set(MODULE_KEYS) - {"money_view"}:
+                raise ValueError("modules must name only snapshot, trends, projections and money_view")
+            if any(not isinstance(modules[k], bool) for k in MODULE_KEYS if k in modules):
+                raise ValueError("each module must be on or off")
+            if "money_view" in modules and modules["money_view"] not in MONEY_VIEWS:
+                raise ValueError("money view must be dollars, percent or both")
+            out["modules"] = json.dumps(modules_of(json.dumps(modules)), sort_keys=True)
         return out
 
     def set_profile(self, user_id: int, *, now: float, actor: Actor, display_name=KEEP, notes=KEEP,
-                    expires_at=KEEP) -> dict:
+                    expires_at=KEEP, modules=KEEP) -> dict:
         """Edit name, notes and access expiry. Returns ``{"expired": bool, "expiry_changed_access": bool}``.
 
         The audit row lists which fields changed but never the notes text. Making the last usable admin expire
         is refused like demoting or disabling them.
         """
-        fields = self.check_profile(display_name=display_name, notes=notes, expires_at=expires_at)
+        fields = self.check_profile(display_name=display_name, notes=notes, expires_at=expires_at, modules=modules)
         with self._tx() as conn:
             row = self._locked_user(conn, user_id)
             before = _expired(row["expires_at"], now)
-            changed = [k for k, v in fields.items() if row[k] != v]
+            changed = [k for k, v in fields.items()
+                       if (modules_of(row[k]) != modules_of(v) if k == "modules" else row[k] != v)]
             after = _expired(fields.get("expires_at", row["expires_at"]), now)
             if not changed:
                 return {"expired": after, "expiry_changed_access": False}
@@ -407,7 +436,7 @@ class GatewayStore:
                          tuple(fields[k] for k in changed) + (now, row["id"]))
             if after:
                 self._end_user_sessions(conn, row["id"])
-            label = {"display_name": "name", "notes": "notes", "expires_at": "expiry"}
+            label = {"display_name": "name", "notes": "notes", "expires_at": "expiry", "modules": "modules"}
             self.audit("profile changed", now=now, actor=actor, target_user_id=row["id"],
                        target_username=row["username"], details=", ".join(label[k] for k in changed), conn=conn)
         return {"expired": after, "expiry_changed_access": after != before}
