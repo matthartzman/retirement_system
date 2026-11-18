@@ -103,7 +103,7 @@ def test_profile_updates_name_notes_and_audits_without_the_notes_text(store):
 def test_profile_validation(store):
     uid = _user(store)
     for bad in ({"display_name": "   "}, {"display_name": "x\x00y"}, {"display_name": "a" * 81}, {"notes": "n" * 501},
-                {"notes": "bad\x07"}, {"expires_at": float("inf")}, {"expires_at": float("nan")}, {"expires_at": -1.0}):
+                {"notes": "bad" + chr(7)}, {"expires_at": float("inf")}, {"expires_at": float("nan")}, {"expires_at": -1.0}):
         with pytest.raises(ValueError):
             store.set_profile(uid, now=1000.0, actor=CLI, **bad)
     with pytest.raises(LookupError):
