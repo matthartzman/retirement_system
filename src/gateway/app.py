@@ -61,6 +61,8 @@ class GatewayConfig:
     proxy_body_bytes: int = 64 * 1024 * 1024
     # Financial Insight under /insights/ (the workers mount it when the supervisor sets their flag).
     insights: bool = False
+    # HH:MM server-local cutoff of the scheduled per-user FI update (src/gateway/insights_schedule.py); "" = off.
+    insights_schedule: str = ""
 
 
 class GatewayLifecycle(Protocol):

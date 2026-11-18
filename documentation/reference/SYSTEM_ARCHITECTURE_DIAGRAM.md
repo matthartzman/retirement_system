@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 381 Python files under `src/`, 92 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 382 Python files under `src/`, 92 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (280 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (281 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (35 modules)"]
@@ -659,6 +659,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/gateway/cli.py` | `access_core`, `gateway.store` | — |
 | `src/gateway/fsguard.py` | — | — |
 | `src/gateway/health.py` | — | — |
+| `src/gateway/insights_schedule.py` | `gateway.supervisor` | — |
 | `src/gateway/launchers.py` | `gateway` | — |
 | `src/gateway/logs.py` | `gateway` | — |
 | `src/gateway/migrate_all.py` | `gateway.backup_store`, `gateway.migrate_user` | — |
@@ -667,7 +668,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/gateway/power.py` | — | — |
 | `src/gateway/proxy.py` | `gateway.build_queue`, `gateway.supervisor`, `gateway.upstream`, `http_runtime.wsgi_facade` | — |
 | `src/gateway/secret_box.py` | `gateway` | — |
-| `src/gateway/server.py` | `access_core`, `gateway`, `gateway.accounts`, `gateway.app`, `gateway.backup_crypto`, `gateway.backup_dest`, `gateway.backup_store`, `gateway.build_queue`, `gateway.health`, `gateway.launchers`, `gateway.logs`, `gateway.proxy`, `gateway.store`, `gateway.supervisor`, `http_runtime.server` | — |
+| `src/gateway/server.py` | `access_core`, `gateway`, `gateway.accounts`, `gateway.app`, `gateway.backup_crypto`, `gateway.backup_dest`, `gateway.backup_store`, `gateway.build_queue`, `gateway.health`, `gateway.insights_schedule`, `gateway.launchers`, `gateway.logs`, `gateway.proxy`, `gateway.store`, `gateway.supervisor`, `http_runtime.server` | — |
 | `src/gateway/service.py` | `gateway.server` | — |
 | `src/gateway/store.py` | `src`, `access_core`, `gateway`, `gateway.secret_box` | — |
 | `src/gateway/supervisor.py` | `gateway`, `gateway.build_queue`, `gateway.launchers` | — |

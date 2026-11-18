@@ -163,13 +163,38 @@ session says `insights: true`. It is a header link, not a navigation step, so th
 change. The few JavaScript lines are paid for by deleting equivalent lines elsewhere in `frontend/js` (the size ratchet
 is never raised).
 
-### 4.6 History without a scheduler
+### 4.6 History: on open, plus an optional scheduled update
 
 The desktop FI log is written by a 5 pm weekday Task Scheduler job. On the server each user's log starts when they first
 open FI (an immediate update) and then gains one entry per session day (auto-update on open) plus any manual
 **Update**. Net worth over time still has full depth because the balance series comes from the uploaded Monarch history;
-the log supplies the richer per-day detail (holdings, cash flow) from first use onward. A scheduled per-user job
-(Phase 8) closes the remaining gap if the owner wants a gap-free log.
+the log supplies the richer per-day detail (holdings, cash flow) from first use onward.
+
+**Phase 8 (built): scheduled per-user update.** `--insights-schedule HH:MM` (needs `--insights`; off by default; one
+global flag, no per-user switch, no `gateway.db` change) starts `InsightsScheduler` (`src/gateway/insights_schedule.py`),
+a daemon thread beside the backup scheduler (60 s check, injected clock). Every weekday from the cutoff (server local
+time) until cutoff + 6 hours it makes a pass once an hour. A pass visits each active, non-disabled user one at a time:
+skip a user whose build is busy (`Supervisor.build_busy`); `Supervisor.endpoint` starts the worker if needed; `GET
+/insights/api/run-status` gives the newest log time; if it is due, `POST /insights/api/run-now` runs the same read-only
+`trends_job.run(..., worker=True)` the Update button runs; the worker is released afterwards when it was not already
+running and the user has no signed-in session. Both calls go straight to the worker with the worker token
+(`call_worker`), so there is no new inbound path and nothing leaves the machine; the worker still opens the plan
+read-only. `run-now` is synchronous and shares an in-flight run, so the scheduler needs no polling of its own beyond
+the status read before the run; a timed-out run is simply seen as current on the next pass.
+
+"Due" is the rule the page already applies on open (`autoUpdateReason` in `insights_client.js`): no history, or the newest
+entry is older than the last weekday 21:00 UTC. The scheduler carries an exact Python mirror (`last_session_end`,
+`update_reason`; a test runs both on the same inputs) and re-checks it against the worker just before running, so a user
+who opens FI after the cutoff gets no second entry. Note that the rule is weekday-only: it has no NYSE holiday table
+(the earlier wording "last NYSE session" is the intent; `live_snapshot.is_trading_day` is not used by either side),
+so on an exchange holiday the page and the scheduler both still add one entry.
+
+A failure is recorded as `{user_id, ok, reason}` (a short code, never worker text), retried at most once per pass and not
+after the window closes; the next weekday starts clean. **Days the gateway was down or a user's update failed are not
+backfilled.** One audit event, `insights_scheduled_update`, is written per pass that did something (user ids and counts
+only, never amounts), and the health report (`/api/auth/admin/health`) gains an `insights_schedule` line (last run,
+users updated, users failed; a failure adds a warning). No new route family. Cost: a pass starts a worker for each user
+it has not yet found current that day, one at a time.
 
 ### 4.7 Data lifecycle
 
@@ -247,7 +272,7 @@ Names follow the repo rules (type suffix, no tracking ids). The slow tier starts
 | `PrefixMount` needs the server facade to accept a second app | Same pattern as `ListenerApp`; Phase 0 spike proves it before anything else is built |
 | FI's `index.html` is a large inline script; the prefix change misses a call | All calls go through the one fetch wrapper; Playwright e2e exercises every tab |
 | Price calls from many workers hit provider limits | Shared provider key is already budgeted; measure; lengthen the poll in worker mode |
-| History starts late for new users | Documented; Phase 8 adds a scheduled update if wanted |
+| History starts late for new users | Documented; the optional scheduled update (Phase 8) adds entries from the next weekday cutoff on |
 | FI history is not backed up in v1 | Stated above; Phase 7 closes it |
 
 ## 10. Implementation plan
@@ -267,7 +292,7 @@ each phase runs and compare against these estimates.
 | 5. Isolation and integration tests | Two-user integration run, view-only and confinement regressions, measurements (memory, poll load) | Sonnet 5.5, medium | **Heavy relative to its code size** (20-25%) because real workers start (slow, Windows-flaky). Run each slow test once; do not loop fix-and-rerun. Use the pytest log-file rule (`-v -rfE` to a scratch file) |
 | 6. Docs and gates | Update `CURRENT_SYSTEM_DESIGN_SPEC.md`, the runbook (flag, restore drill, owner steps), regenerate the system diagram, run `tools/fast_gates.py` | Sonnet 5.5, low | **Light** (5%) |
 | 7. Optional: back up the FI log | Archive v2 member for each plan's log, strict member regex, restore round trip | Opus 5.5, high | **Moderate**: touches audited backup code (`backups.py`, `backup_store.py`); keep the member list to one extra pattern |
-| 8. Optional: scheduled per-user update | Supervisor-driven weekday update for enabled users | Sonnet 5.5, high | **Moderate**; interacts with the build queue and worker lifetime |
+| 8. Optional: scheduled per-user update (built, 4.6) | Supervisor-driven weekday update for every active user, behind `--insights-schedule` | Sonnet 5.5, high | **Moderate**; interacts with the build queue and worker lifetime |
 | 9. Optional, separate design: share a view with a guest | Cross-user, view-only access with percent view and tab limits | Opus 5.5, max for the design | **Heavy**; needs its own security review (it crosses the isolation boundary) |
 
 Expensive steps to scope down:
@@ -292,8 +317,9 @@ the slow tests and the existing isolation modules; then the docs and gates.
    inclusion, type override) in their own FI store (recommended), or FI is fully read-only with no preferences.
 4. **History backup**: accept that the FI log is not backed up in v1 (recommended; balances are reproducible), or do
    Phase 7 first.
-5. **History start**: first open and one entry per session day (recommended), or add the scheduled update (Phase 8)
-   before launch.
+5. **History start**: first open and one entry per session day, plus the optional scheduled update (Phase 8, built, off
+   unless `--insights-schedule` is given). Owner-accepted: one global flag with no per-user switch and no `gateway.db`
+   migration, a 17:30 server-local cutoff, and a 6 hour retry window; missed days are not backfilled.
 6. **Naming in the planner header**: "Financial Insight" (matches the desktop app) or "Insights".
 
 ## 12. Not verifiable here

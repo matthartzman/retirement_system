@@ -229,6 +229,9 @@ def _parser() -> argparse.ArgumentParser:
                    help="let users connect Monarch's read-only MCP connector (needs --launcher per-account)")
     w.add_argument("--insights", action="store_true",
                    help="serve each user a view-only Financial Insight of their own active plan under /insights/")
+    w.add_argument("--insights-schedule", metavar="HH:MM",
+                   help="with --insights: every weekday after this server-local time (retries for 6 hours) update each "
+                        "user's Financial Insight history in their own worker; off by default")
     w.add_argument("--backup-hours", type=float, default=24.0)
     w.add_argument("--backup-keep", type=int, default=14)
     return p
@@ -304,7 +307,22 @@ class _Runtime:
             LOG.warning("no backups are configured (give --backup-key-file); the health page will warn")
         self.supervisor = Supervisor(cfg, launcher, accounts=accounts, build_queue=self.queue, backups=self.backups)
         self.supervisor.known_user_ids = store.user_ids
+        self.insights_schedule = self._insights_scheduler(args, store)
         self.proxy = WorkerProxy(self.supervisor, self.queue)
+
+    def _insights_scheduler(self, args: argparse.Namespace, store: GatewayStore):
+        if not args.insights_schedule:
+            return None
+        if not args.insights:
+            raise ValueError("--insights-schedule needs --insights")
+        from .insights_schedule import InsightsScheduler, parse_cutoff  # noqa: PLC0415
+        from .store import Actor  # noqa: PLC0415
+
+        actor = Actor(user_id=None, username="insights-schedule")
+        return InsightsScheduler(
+            supervisor=self.supervisor, list_users=store.list_users, session_count=store.count_user_sessions,
+            cutoff=parse_cutoff(args.insights_schedule),
+            audit=lambda event, details: store.audit(event, now=time.time(), actor=actor, details=details))
 
     @staticmethod
     def _secure_dir(args: argparse.Namespace):
@@ -322,7 +340,8 @@ class _Runtime:
         return build_health(started_at=self.started_at, schema_version=self.store.schema_version(),
                             workers_running=self.supervisor.running_count(), build_running=len(self.queue.running()),
                             build_waiting=self.queue.waiting_count(), data_root=self.data_root,
-                            backup_dir=self.backup_dir, backups=self.backups, backup_interval=self.backup_interval)
+                            backup_dir=self.backup_dir, backups=self.backups, backup_interval=self.backup_interval,
+                            insights_schedule=self.insights_schedule)
 
     def start(self) -> None:
         from .logs import start_housekeeping  # noqa: PLC0415
@@ -333,10 +352,14 @@ class _Runtime:
         self.proxy.start()
         if self.backups is not None:
             self.backups.start()
+        if self.insights_schedule is not None:
+            self.insights_schedule.start()
 
     def shutdown(self) -> None:
         if getattr(self, "_log_stop", None) is not None:
             self._log_stop.set()
+        if self.insights_schedule is not None:
+            self.insights_schedule.stop()
         if self.backups is not None:
             self.backups.stop()
         self.proxy.shutdown()
@@ -378,7 +401,8 @@ def run_gateway(argv: list[str] | None, stop_event: threading.Event) -> int:
         print(f"Cannot start the workers: {exc}", file=err)
         return 2
     kwargs = {"upstream": runtime.proxy, "lifecycle": runtime.supervisor, "health": runtime.health} if runtime else {}
-    app = create_gateway_app(store, config=GatewayConfig(public_origins=origins, insights=bool(args.insights)), **kwargs)
+    app = create_gateway_app(store, config=GatewayConfig(public_origins=origins, insights=bool(args.insights),
+                                           insights_schedule=args.insights_schedule or ""), **kwargs)
     servers: dict[str, _GatewayHTTPServer] = {}
     for kind, port in (("funnel", args.funnel_port), ("local", args.local_port)):
         if port is None:
