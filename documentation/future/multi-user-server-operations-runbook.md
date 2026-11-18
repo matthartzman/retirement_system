@@ -27,11 +27,15 @@ data folder or the install folder; the key is never inside the backup folder; `C
 
 ## 1. Install order
 
-1. **Runtime and code.** Install Python 3.12 *for all users* (so its files are readable by worker accounts, not under
-   anyone's profile). Copy the release into `C:\RetirementPlanner\app` (a copy without `.git`: the ACL tool refuses to
-   change permissions inside a git working copy), then:
+1. **Runtime and code.** Install Python 3.12 or later *for all users* (so its files are readable by worker accounts,
+   not under anyone's profile); this server's runtime uses Python 3.13 from `C:\Program Files\Python313`. Copy the
+   release into `C:\RetirementPlanner\app` (a copy without `.git`: the ACL tool refuses to change permissions inside a
+   git working copy), then build the runtime from that install's **full path**. Do not use `py -3.x`: the launcher can
+   pick a Python installed for your account only (under `C:\Users\...\AppData`). Worker accounts cannot run that one,
+   and every worker would then fail to start.
    ```powershell
-   py -3.12 -m venv C:\RetirementPlanner\app\runtime
+   & "C:\Program Files\Python313\python.exe" -m venv C:\RetirementPlanner\app\runtime
+   Get-Content C:\RetirementPlanner\app\runtime\pyvenv.cfg   # "home" must not be under C:\Users
    $PY = "C:\RetirementPlanner\app\runtime\Scripts\python.exe"
    & $PY -m pip install -r C:\RetirementPlanner\app\requirements.txt -r C:\RetirementPlanner\app\requirements-gateway.txt
    Set-Location C:\RetirementPlanner\app

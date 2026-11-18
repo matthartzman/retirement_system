@@ -268,6 +268,17 @@ Release sign-off (after 9e; `--shared-views` stays off until every box is ticked
       gains the new module). The script change is done (9e); the run itself is the owner's. Step-by-step:
       `multi-user-server-operations-runbook.md`, section 5.2 (it also covers the migration rehearsal and the restore
       drill below).
+      Owner run, 2026-11-18, Part A (a test copy of the branch, not the live install): **46 passed** in per-account
+      mode as SYSTEM. That is the three earlier isolation modules, the shared-view module (7) and the worker-account
+      suite. Two clean-up checks were not clean:
+      - Windows still held one throwaway profile (`rpwtest_2`) loaded, which the tests warn clears only at a reboot.
+      - `__pycache__` folders appeared under the test copy's `src`. That copy, unlike the live install, is not locked
+        read-only for worker accounts, so a write the live ACLs would refuse could land there. Not yet known which
+        process wrote them.
+
+      An earlier attempt failed entirely: every worker failed to start because the copy's runtime used a
+      per-account Python. That was a runbook mistake, since fixed (section 1 and 5.2). Still open: the clean-up
+      checks, and Part B on the installed build (`acl check` over `data\shares`, the run on the real install).
 - [ ] Migration rehearsal: a copy of the live version 3 `gateway.db` migrates to version 4, every account reads as
       `member`, and sign-in works. Rollback is the pre-upgrade copy (an old gateway refuses version 4).
 - [ ] Restore drill: restoring `gateway.db` into a scratch root shows every share as "Suspended: restored".
@@ -275,6 +286,8 @@ Release sign-off (after 9e; `--shared-views` stays off until every box is ticked
       (`multi-user-server-operations-runbook.md`, sections 3, 4 and 5).
 - [ ] Measurements recorded: record size and publish time on a real plan; guest page load time. Partly: measured on
       the demo plan and the test workspace only (section 11). The owner's real plan with live prices is not measured.
+      On Windows (owner run, per-account, demo plan): publish 1.13 s (percent) and 0.85 s (dollars), records 150 KB and
+      133 KB, guest record fetch 29 ms.
 - [ ] This review is updated with the results (what ran, what did not), then the owner changes its status. The
       update is done (section 11, 2026-11-18); the status change is the owner's.
 
