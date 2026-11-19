@@ -5,6 +5,7 @@ import io
 import json
 import os
 import sqlite3
+import sys
 import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -123,7 +124,10 @@ def test_a_junction_inside_the_workspace_is_not_followed(server):
     target = server["tmp"] / "bobs"
     _db(target / f"{HEX_B}.rpx", "bob")
     link = root / "linked"
-    subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True)
+    if sys.platform == "win32":
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True)
+    else:  # no junctions off Windows: a directory symlink is the same hazard and fsguard treats it as a link
+        os.symlink(target, link, target_is_directory=True)
     with AppStore.open(root / "local_state" / "app.db") as store:
         store.register_plan(link / f"{HEX_B}.rpx", "j", "user", plan_id="j")
     manifest = bs.verify_archive(_run(server), server["key"])

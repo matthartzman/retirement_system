@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -181,7 +182,8 @@ def test_confine_path_inside_outside_and_escape(monkeypatch, tmp_path):
     root = platform_runtime.workspace_root()
     assert remote_mode.confine_path("saved_plans/x.rpx") == (root / "saved_plans" / "x.rpx").resolve()
     assert remote_mode.confine_path(root / "output") == (root / "output").resolve()
-    for bad in (tmp_path / "elsewhere", "../outside.rpx", "saved_plans/../../outside", "C:/Windows/system32"):
+    absolute_elsewhere = "C:/Windows/system32" if sys.platform == "win32" else "/etc/passwd"  # a drive path is relative on POSIX
+    for bad in (tmp_path / "elsewhere", "../outside.rpx", "saved_plans/../../outside", absolute_elsewhere):
         with pytest.raises(remote_mode.PathOutsideWorkspace):
             remote_mode.confine_path(bad, what="test path")
 
