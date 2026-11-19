@@ -76,7 +76,7 @@ test('add a person with Financial Insights access, then change their grants', as
   await dialog.locator('[data-view="trends"]').uncheck();
   await dialog.locator('[data-view="projections"]').uncheck();
   await dialog.locator('#gPlanner').check();
-  await dialog.locator('#fSaveTop').click(); // the sticky top button saves through the same path as the bottom one
+  await dialog.locator('#fSave').click(); // the one Save button lives in the sticky header, so it never scrolls away
   await expect(dialog).toBeHidden();
   await expect(row).toContainText('Dollars');
   await expect(row).toContainText('Retirement Planner');

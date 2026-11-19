@@ -23,3 +23,5 @@ body[data-page="admin"] dialog input:not([type="checkbox"]), body[data-page="adm
 .modrow .modlabel { font-size: 12px; opacity: .75; }
 .modrow { margin: 8px 0; }
 body[data-page="admin"] dialog .modrow select { width: auto; }
+/* gateway.css puts margin-top on every form submit button; in the dialog header that would drop Save below Close. */
+body[data-page="admin"] .dact button { margin: 0; }

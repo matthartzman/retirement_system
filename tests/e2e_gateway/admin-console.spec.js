@@ -140,6 +140,34 @@ for (const [name, width, height] of [['desktop', 1280, 800], ['phone', 390, 800]
   });
 }
 
+// One Save and one Close, both in the sticky header beside each other, none in a footer: they never scroll away.
+for (const [name, width, height] of [['desktop', 1280, 500], ['phone', 390, 600]]) {
+  test(`Edit dialog (${name}): Close sits beside the one Save in the header, there is no footer, and both stay on screen when scrolled`, async ({ page, stack }) => {
+    await page.setViewportSize({ width, height });
+    await signIn(page, stack, 'admin');
+    await page.goto('/gateway/admin');
+    await page.locator('tr', { hasText: 'Carol' }).getByRole('button', { name: 'Edit' }).click();
+    const d = page.locator('dialog');
+    await expect(d.getByRole('button', { name: 'Save changes' })).toHaveCount(1);
+    await expect(d.getByRole('button', { name: 'Close', exact: true })).toHaveCount(1);
+    await expect(d.locator('.foot')).toHaveCount(0);
+    await d.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    if (process.env.DIALOG_SHOT_DIR) await page.screenshot({ path: `${process.env.DIALOG_SHOT_DIR}/edit-${name}.png` });
+    const [head, close, save] = await Promise.all([d.locator('.dhead'), d.locator('#fCancel'), d.locator('#fSave')].map((l) => l.boundingBox()));
+    const dlg = await d.boundingBox();
+    for (const b of [close, save]) {
+      expect(b.y).toBeGreaterThanOrEqual(dlg.y - 1);
+      expect(b.y + b.height).toBeLessThanOrEqual(head.y + head.height + 1); // inside the header, still in view after scrolling
+      expect(b.x + b.width).toBeLessThanOrEqual(dlg.x + dlg.width);
+    }
+    expect(Math.abs(close.y - save.y)).toBeLessThan(4); // side by side
+    expect(close.x).toBeLessThan(save.x); // Close, then Save
+    await expect(d.locator('#fSave')).toBeInViewport();
+    await d.locator('#fCancel').click();
+    await expect(d).toBeHidden();
+  });
+}
+
 test('add a person: a short temporary password is refused, a good one creates them', async ({ page, stack }) => {
   await signIn(page, stack, 'admin');
   await page.goto('/gateway/admin');

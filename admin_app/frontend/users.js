@@ -75,10 +75,9 @@
       ${tog("Can sign in", u ? !!ins : true, 'id="gInsights"')} ${tog("Require two-factor sign-in", !u || u.totp_required, 'id="fTotp"', u && u.totp_enrolled ? "already set up" : "")}
       ${meta.views.map((v) => tog(esc(v), allowed.includes(v), `data-view="${esc(v)}"`)).join("")}`, true);
     return `<form id="userForm" novalidate><header class="dhead"><h2 id="dlgTitle">${u ? `Edit ${esc(u.display_name)}` : "Add person"}</h2>
-      <button type="submit" class="primary" id="fSaveTop">${save}</button><div class="err" id="formErr" role="alert"></div></header>
+      <div class="dact"><button type="button" id="fCancel">Close</button><button type="submit" class="primary" id="fSave">${save}</button></div><div class="err" id="formErr" role="alert"></div></header>
       ${account}${host.sections ? host.sections(u, { tog, sec, field, esc, MONEY }) : feat("grants") ? planner + insights : ""}${u && feat("activity") ? sec(`Activity for ${esc(u.display_name)}`, '<div id="userActivity" class="note">Loading&hellip;</div>') : ""}
-      ${feat("notes") ? `<label class="field"><span>Notes</span><textarea id="fNotes" rows="2" maxlength="500">${esc(u ? u.notes : "")}</textarea></label>` : ""}
-      <div class="foot"><button type="button" id="fCancel">Close</button><button type="submit" class="primary" id="fSave">${save}</button></div></form>`;
+      ${feat("notes") ? `<label class="field"><span>Notes</span><textarea id="fNotes" rows="2" maxlength="500">${esc(u ? u.notes : "")}</textarea></label>` : ""}</form>`;
   }
 
   function readGrants() {
