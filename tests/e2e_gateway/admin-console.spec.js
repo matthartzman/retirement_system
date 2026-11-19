@@ -110,6 +110,36 @@ test('an admin sees the people list with no CSP violations and the gateway-only 
   expect(violations).toEqual([]);
 });
 
+// Regression: admin-gateway.css once gave every dialog <input> width:100%, which out-specified the 36px switch in
+// admin.css, so each switch stretched to the card, its label was clipped and the dialog scrolled sideways.
+for (const [name, width, height] of [['desktop', 1280, 800], ['phone', 390, 800]]) {
+  test(`Add person dialog (${name}): switches stay switch-sized, labels are readable, nothing scrolls sideways`, async ({ page, stack }) => {
+    await page.setViewportSize({ width, height });
+    await signIn(page, stack, 'admin');
+    await page.goto('/gateway/admin');
+    await page.getByRole('button', { name: 'Add person' }).click();
+    const d = page.locator('dialog');
+    await expect(d.locator('.tog')).toHaveCount(4); // Can sign in + Snapshot, Trends, Projections
+    if (process.env.DIALOG_SHOT_DIR) await page.screenshot({ path: `${process.env.DIALOG_SHOT_DIR}/add-person-${name}.png` });
+    const dlg = await d.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
+    expect(dlg.scroll).toBeLessThanOrEqual(dlg.client); // (a) no horizontal overflow
+    const form = await d.locator('form').evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
+    expect(form.scroll).toBeLessThanOrEqual(form.client);
+    const rows = await d.locator('.tog').evaluateAll((els) => els.map((el) => {
+      const box = el.querySelector('input').getBoundingClientRect(), span = el.querySelector('span');
+      const r = document.createRange(); r.selectNodeContents(span);
+      const text = r.getBoundingClientRect(), s = span.getBoundingClientRect(), dlgRect = el.closest('dialog').getBoundingClientRect();
+      return { label: span.textContent.trim(), switchW: box.width, spanClipped: span.scrollWidth > span.clientWidth,
+        textInside: text.left >= box.right - 1 && text.right <= dlgRect.right + 1 && s.width > 0 };
+    }));
+    for (const row of rows) {
+      expect(row.switchW, row.label).toBeLessThan(80); // (b) a normal switch
+      expect(row.spanClipped, row.label).toBe(false); // (c) the label is whole...
+      expect(row.textInside, row.label).toBe(true); // ...and sits beside its switch, inside the dialog
+    }
+  });
+}
+
 test('add a person: a short temporary password is refused, a good one creates them', async ({ page, stack }) => {
   await signIn(page, stack, 'admin');
   await page.goto('/gateway/admin');

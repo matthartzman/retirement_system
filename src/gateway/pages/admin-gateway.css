@@ -15,7 +15,9 @@ body[data-page="admin"] button.primary { background: var(--accent); color: var(-
 body[data-page="admin"] button.danger { color: var(--danger); border-color: var(--danger); }
 body[data-page="admin"] button:disabled { opacity: .5; cursor: not-allowed; }
 body[data-page="admin"] nav a[aria-current="page"] { font-weight: 700; text-decoration: none; }
-body[data-page="admin"] dialog input, body[data-page="admin"] dialog select { width: 100%; }
+/* Text-like fields fill the dialog; a checkbox is a switch (.tog input in admin.css sets its 36px size), so it is
+   excluded or this rule's higher specificity stretches every switch to the full card width. */
+body[data-page="admin"] dialog input:not([type="checkbox"]), body[data-page="admin"] dialog select { width: 100%; }
 .delbox { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
 .modrow { display: flex; flex-wrap: wrap; align-items: center; gap: 0 18px; }
 .modrow .modlabel { font-size: 12px; opacity: .75; }
