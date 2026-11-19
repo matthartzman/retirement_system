@@ -170,15 +170,18 @@ def test_crafted_paths_never_serve_the_other_users_files(gateway, pair, prefix):
 
 
 def test_a_junction_inside_the_workspace_cannot_lead_to_the_other_users_folder(gateway, pair):
-    import _winapi  # noqa: PLC0415
-
     alice, _bob = pair
     a_dir = gateway["data_root"] / "users" / str(gateway["users"]["alice"][0])
     b_dir = gateway["data_root"] / "users" / str(gateway["users"]["bob"][0])
     out = a_dir / "output"
-    out.mkdir(exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True)
     link = out / "bobslink"
-    _winapi.CreateJunction(str(b_dir), str(link))
+    if sys.platform == "win32":
+        import _winapi  # noqa: PLC0415
+
+        _winapi.CreateJunction(str(b_dir), str(link))
+    else:  # no junctions off Windows: a directory symlink is the same hazard
+        os.symlink(b_dir, link, target_is_directory=True)
     try:
         for target in ("/files/bobslink/plan.rpx", "/files/output/bobslink/plan.rpx", "/files/bobslink%2fplan.rpx"):
             status, _h, raw = alice.request("GET", target)
@@ -187,7 +190,10 @@ def test_a_junction_inside_the_workspace_cannot_lead_to_the_other_users_folder(g
         status, _h, raw = alice.request("GET", "/api/plan/backups")
         _assert_clean(gateway, "GET /api/plan/backups", status, raw)
     finally:
-        os.rmdir(link)
+        if sys.platform == "win32":
+            os.rmdir(link)
+        else:
+            os.unlink(link)
 
 
 SETTINGS_KEYS = ("sqlite_db", "app_db", "output_dir", "backup_dir", "local_backup_dir", "monarch_source_dir", "source_dir",

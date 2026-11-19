@@ -393,7 +393,8 @@ def test_the_monarch_connector_never_signs_in_on_a_same_account_worker(gateway, 
     for name in ("alice", "bob"):
         status, body = signed_in[name].json("GET", "/api/monarch/connector")
         assert status == 200 and body["available"] is False and body["connected"] is False, body
-        assert "own Windows account" in body["reason"], body
+        if sys.platform == "win32":  # elsewhere the reason is "no credential store backend"; unavailable is the contract
+            assert "own Windows account" in body["reason"], body
         status, body = signed_in[name].json("POST", "/api/monarch/connector/start", {})
         assert status == 403 and "authorize_url" not in body, body
 

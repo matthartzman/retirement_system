@@ -88,6 +88,10 @@ def test_win_error_access_denied_mentions_elevation():
     assert "elevated" not in str(service.win_error(1060, "opening"))
 
 
+_needs_scm = pytest.mark.skipif(sys.platform != "win32", reason="the service-control callback type exists only on Windows")
+
+
+@_needs_scm
 def test_run_service_hint_and_exit_2_when_not_started_by_scm(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(service, "_enter_repo_root", lambda: None)
@@ -102,6 +106,7 @@ def test_run_service_hint_and_exit_2_when_not_started_by_scm(tmp_path, monkeypat
     assert "debug" in capsys.readouterr().out
 
 
+@_needs_scm
 def test_run_service_other_dispatcher_errors_propagate(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "_enter_repo_root", lambda: None)
     monkeypatch.setattr(service, "_configure_logging", lambda f: None)
