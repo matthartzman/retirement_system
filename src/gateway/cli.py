@@ -17,7 +17,7 @@ from typing import TextIO
 
 from src.access_core import DEFAULT_SCRYPT_N
 
-from .store import Actor, GatewayStore
+from .store import ENROL_CODE_SECONDS, Actor, GatewayStore
 
 
 def _actor() -> Actor:
@@ -37,6 +37,13 @@ def _password(args: argparse.Namespace, stdin: TextIO, stderr: TextIO) -> str | 
         print("The passwords do not match.", file=stderr)
         return None
     return first
+
+
+def _print_code(code: str, stdout: TextIO) -> None:
+    """SEC-04: the one-time enrolment code is needed with the password at first sign-in; shown once, never stored."""
+    print(f"One-time enrolment code (needed with the password at first sign-in, valid {ENROL_CODE_SECONDS // 60} minutes, "
+          f"shown only now): {code}", file=stdout)
+    print("If it expires, run break-glass again, or issue a new code from the Users page.", file=stdout)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -73,8 +80,10 @@ def main(argv: list[str] | None = None, *, stdin: TextIO | None = None, stdout: 
         except ValueError as exc:
             print(f"Not created: {exc}", file=stderr)
             return 2
+        code = store.issue_enrol_code(uid, now=now, actor=actor)
         print(f"Admin '{store.get_user(uid)['username']}' created (id {uid}). Two-factor is set up at first sign-in.",
               file=stdout)
+        _print_code(code, stdout)
         return 0
 
     user = store.find_user(args.username)
@@ -103,6 +112,7 @@ def main(argv: list[str] | None = None, *, stdin: TextIO | None = None, stdout: 
     store.end_user_sessions(uid)
     print(f"Admin '{user['username']}' reset: new password set, two-factor cleared (set up again at next sign-in), "
           "account unlocked and enabled, sessions ended.", file=stdout)
+    _print_code(store.issue_enrol_code(uid, now=now, actor=actor), stdout)
     return 0
 
 

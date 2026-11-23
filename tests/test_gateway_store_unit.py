@@ -103,7 +103,7 @@ def test_totp_enrol_confirm_verify_and_replay(store):
     secret = store.begin_totp_enrolment(uid, now=0)
     assert store.begin_totp_enrolment(uid, now=1) == secret  # same pending secret until confirmed
     assert store.totp_status(uid) == "pending"
-    now = 100_000.0  # within the 72-hour enrol-by deadline of the account's creation at 0
+    now = 80_000.0  # within the 24-hour enrol-by deadline of the account's creation at 0
     assert not store.confirm_totp(uid, "000000" if totp.code_at(secret, int(now // 30)) != "000000" else "111111", now=now)
     code = totp.code_at(secret, int(now // 30))
     assert store.confirm_totp(uid, code, now=now)

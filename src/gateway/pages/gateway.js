@@ -166,15 +166,22 @@
 
   /* ---------- enrol ---------- */
   function initEnrol() {
-    api("POST", "/api/auth/totp/enrol/start", {}).then(function (r) {
-      if (r.status === 401) { say("Your sign-in expired. Please sign in again."); return; }
-      if (r.status !== 200 || !r.json.secret) { say(errText(r)); return; }
-      $("secret").textContent = r.json.secret.replace(/\s+/g, "").replace(/(.{4})(?=.)/g, "$1 ");
-      if (r.json.qr_svg_data_uri) { $("qr").src = r.json.qr_svg_data_uri; $("qr").hidden = false; }
-      var a = $("uri");
-      a.href = r.json.otpauth_uri;
-      a.textContent = r.json.otpauth_uri;
-    }).catch(function () { say("Network error. Please try again."); });
+    // SEC-04: the secret is only issued against the administrator's one-time enrolment code.
+    onSubmit($("code-form"), function () {
+      return api("POST", "/api/auth/totp/enrol/start", { enrol_code: $("enrol-code").value.trim() }).then(function (r) {
+        if (r.status === 401) { say("Your sign-in expired. Please sign in again."); return; }
+        if (r.status !== 200 || !r.json.secret) { say(errText(r, "That enrolment code is not right.")); $("enrol-code").select(); return; }
+        $("code-form").hidden = true;
+        $("setup").hidden = false;
+        $("confirm-form").hidden = false;
+        $("secret").textContent = r.json.secret.replace(/\s+/g, "").replace(/(.{4})(?=.)/g, "$1 ");
+        if (r.json.qr_svg_data_uri) { $("qr").src = r.json.qr_svg_data_uri; $("qr").hidden = false; }
+        var a = $("uri");
+        a.href = r.json.otpauth_uri;
+        a.textContent = r.json.otpauth_uri;
+        say("");
+      });
+    });
     onSubmit($("confirm-form"), function () {
       return api("POST", "/api/auth/totp/enrol/confirm", { code: $("code").value.trim() }).then(function (r) {
         if (r.status === 200 && r.json.success !== false) { return goHome(); }

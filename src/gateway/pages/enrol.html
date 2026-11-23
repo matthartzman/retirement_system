@@ -10,7 +10,14 @@
 <body data-page="enrol">
 <header class="top"><h1>Retirement Planner</h1></header>
 <main>
-  <section>
+  <form id="code-form" class="card">
+    <h2>Enrolment code</h2>
+    <p>Your administrator gave you a one-time enrolment code. Enter it to start setting up two-factor sign-in.</p>
+    <label for="enrol-code">Enrolment code</label>
+    <input id="enrol-code" name="enrol-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="16" required>
+    <button type="submit">Continue</button>
+  </form>
+  <section id="setup" hidden>
     <h2>Set up two-factor sign-in</h2>
     <p>Two-factor authentication is required. Add this account to an authenticator app, then enter the 6-digit code it shows.</p>
     <p>Scan this code with your authenticator app:</p>
@@ -20,7 +27,7 @@
     <p>Or open this link on a device with an authenticator app:
       <a id="uri" href="#">Authenticator link</a></p>
   </section>
-  <form id="confirm-form" class="card">
+  <form id="confirm-form" class="card" hidden>
     <label for="code">Code</label>
     <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required>
     <button type="submit">Confirm</button>

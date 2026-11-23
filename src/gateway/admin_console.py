@@ -65,7 +65,9 @@ def _console_user(u: dict, shared_views: bool = False) -> dict:
 def register_admin_console(app, store: GatewayStore, *, clock: Callable[[], float], actor: Callable[[], object],
                            admin_call: Callable, notify: Callable, refused: Callable, page: Callable,
                            file_page: Callable, json_response: Callable, delete_account: Callable | None = None,
-                           shared_views: bool = False, max_viewers_per_sponsor: int = 5) -> None:
+                           shared_views: bool = False, max_viewers_per_sponsor: int = 5,
+                           enrol_fields: Callable[[int], dict] | None = None) -> None:
+    codes = enrol_fields or (lambda _uid: {})  # SEC-04: the one-time enrolment code, shown to the admin once
     features = {**FEATURES, "viewers": bool(shared_views)}
     def body() -> dict:
         data = request.get_json(silent=True)
@@ -108,7 +110,7 @@ def register_admin_console(app, store: GatewayStore, *, clock: Callable[[], floa
                                     now=clock(), actor=actor(), must_change=True)
             if extra:
                 store.set_profile(uid, now=clock(), actor=actor(), **extra)
-            return {"id": uid}
+            return {"id": uid, **codes(uid)}
         return admin_call(create, after=lambda r: notify("user_created", r["id"], member=True))
 
     @app.route(API_BASE + "/viewers", methods=["POST"])
@@ -122,10 +124,13 @@ def register_admin_console(app, store: GatewayStore, *, clock: Callable[[], floa
         if isinstance(sponsor, bool) or not isinstance(sponsor, int):
             return refused("choose the member who sponsors this viewer", 400)
         expires_at = b.get("expires_at", clock() + VIEWER_DEFAULT_DAYS * 86400)
-        return admin_call(lambda: {"id": store.create_viewer(
-            str(b.get("username") or ""), str(b.get("display_name") or ""), str(b.get("temp_password") or ""),
-            sponsor_user_id=sponsor, expires_at=expires_at, now=clock(), actor=actor(), must_change=True,
-            max_per_sponsor=max_viewers_per_sponsor)})
+        def create_viewer() -> dict:
+            uid = store.create_viewer(
+                str(b.get("username") or ""), str(b.get("display_name") or ""), str(b.get("temp_password") or ""),
+                sponsor_user_id=sponsor, expires_at=expires_at, now=clock(), actor=actor(), must_change=True,
+                max_per_sponsor=max_viewers_per_sponsor)
+            return {"id": uid, **codes(uid)}
+        return admin_call(create_viewer)
 
     @app.route(API_BASE + "/users/update", methods=["POST"])
     def console_update():
@@ -166,8 +171,11 @@ def register_admin_console(app, store: GatewayStore, *, clock: Callable[[], floa
         uid, bad = target(b)
         if bad:
             return bad
-        return admin_call(lambda: store.set_password(uid, str(b.get("temp_password") or ""), must_change=True,
-                                                     now=clock(), actor=actor(), event="password reset"))
+        def reset() -> dict:
+            store.set_password(uid, str(b.get("temp_password") or ""), must_change=True, now=clock(), actor=actor(),
+                               event="password reset")
+            return codes(uid)
+        return admin_call(reset)
 
     @app.route(API_BASE + "/users/disable", methods=["POST"])
     def console_disable():
@@ -197,7 +205,18 @@ def register_admin_console(app, store: GatewayStore, *, clock: Callable[[], floa
         uid, bad = target(body())
         if bad:
             return bad
-        return admin_call(lambda: store.reset_totp(uid, now=clock(), actor=actor()))
+        def reset() -> dict:
+            store.reset_totp(uid, now=clock(), actor=actor())
+            return codes(uid)
+        return admin_call(reset)
+
+    @app.route(API_BASE + "/users/enrol-code", methods=["POST"])
+    def console_enrol_code():
+        """Issue a fresh one-time enrolment code for an account that has not enrolled (SEC-04)."""
+        uid, bad = target(body())
+        if bad:
+            return bad
+        return admin_call(lambda: codes(uid))
 
     @app.route(API_BASE + "/users/delete", methods=["POST"])
     def console_delete():
