@@ -240,6 +240,25 @@ Security-relevant suites exist for access gating, TOTP, CSRF/Origin, Funnel guar
 | 3 hardening | SEC-04 enrolment; SEC-08 key wrapping; SEC-02/03 handle-based I/O; F-03 integrity; F-11/F-12 at-rest controls; S-01 loopback token (defence in depth); PR-07 shared write gate | Medium to large |
 | 4 hygiene | Remaining Low and Info items; F-18; F-19; document percent view as obfuscation | Small |
 
+## 6a. Remediation status (wave 1, 2026-11-23)
+
+| ID | Status | What changed | Residual / not done |
+|---|---|---|---|
+| F-01 | **Fixed** | Guest sessions are view-only: `OWNER_ONLY_POST` and `GUEST_WRITABLE_POST` sets in `access_routes.py`; any other write from a guest gets 403. Contract test fails on any unclassified POST route. Worker mode unchanged (plan owner edits their own store; viewers are refused by the gateway). | `/api/view` and `/api/exit` were classified guest-writable (they only log or end the session); confirm that is intended. |
+| F-02 | **Fixed (prevention)** | Imports whose latest date is after today+1 are rejected and recorded; mirror path bounded. | No tool yet to purge rows from an earlier poisoned import; delete rows dated in the future from `monarch_balances.sqlite3` by hand. |
+| F-04 | **Fixed** | 12-hour absolute session lifetime; client `idle_ms` clamped. | The server cannot tell a real touch from a false report, so idle time stays client-assisted; the absolute cap is the hard bound. |
+| F-05 | **Fixed** | Remote guests get a generic message plus `error_id` on any 5xx; detail goes to the server log. | Local owner listener stays verbose by design. |
+| SEC-01 | **Fixed** | `nextPath()` rejects control characters, backslashes and `//`, then requires same origin. JS test added. | None. |
+| SEC-05 | **Fixed** | Failures lock the offending source address (5 failures, 15 min); an account-wide lock at 50 failures applies only to sources with no successful sign-in in 30 days. Schema 5 adds `login_sources`. Admin unlock clears all. | The per-username soft throttle delay (up to 300 s) is unchanged, so an attacker spraying a username can still slow that user briefly. Per-source counts do not decay. |
+| SEC-10 | **Fixed** | Change-password is throttled, refused while locked, and counts failures. | None. |
+| SEC-11 / PR-05 | **Fixed (gateway)** | Non-object bodies return 400, counted against the sign-in throttle on pre-auth routes. | The same pattern on about 25 planner routes (`plan_routes.py`) is still open. |
+| SEC-06 | **Fixed** | Password hashes are upgraded on successful sign-in when stored cost is below the configured cost. | Cost itself not yet raised; N and a common-password list remain open. |
+| X-1 | **Open, decision needed** | Not changed. Depends on the section 9.1 result. | Do not run the Admin app or the 5057 listener on the multi-user host, or add a credential. |
+
+Tests added: `test_trends_guest_view_only_contract`, `test_trends_balance_future_date_regression`, `test_trends_session_lifetime_regression`, `test_gateway_json_body_regression`, `test_gateway_lockout_per_source_regression`, `tests/frontend/gateway_next_path.test.mjs`. Two existing tests were adjusted with justification: the account-lock assertion now uses the offending address (the cross-address case has its own test), and schema version pins moved from 4 to 5.
+
+---
+
 ## 7. Decisions recorded and open questions
 
 Decided (2026-11-23): server mode runs on a dedicated machine; Financial Insights guests are view-only.
