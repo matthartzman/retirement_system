@@ -223,11 +223,8 @@ class YtdService:
         return result
 
     def status_payload(self, *, period: str | None = None) -> dict[str, Any]:
-        auto = self.recover_account_setup(force=False)
-        payload = self.ytd.status_payload(self.input_root(), period=period)
-        if auto.get("recovered"):
-            payload["recovery"] = {"account_setup": auto}
-        return payload
+        """Read-only (PR-04): recovery from sibling folders is the explicit ``account-setup/recover`` POST."""
+        return self.ytd.status_payload(self.input_root(), period=period)
 
     def account_setup_recover_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
         extra_path = str(body.get("path") or "").strip() or None
