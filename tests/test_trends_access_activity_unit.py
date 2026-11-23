@@ -39,15 +39,14 @@ def test_failed_signin_logs_attempted_username_and_never_the_password(tmp_path):
     assert "nobody" in text and "super secret guess" not in text
 
 
-def test_actions_logged_with_account_detail_and_no_amounts(tmp_path):
+def test_owner_actions_logged_with_account_detail_and_no_amounts(tmp_path):
+    # Guests are view-only (F-01), so the logged writes are the owner's, on the local listener.
     rig = Rig(tmp_path)
-    rig.add()
-    _, token = rig.signin()
-    rig.call(rig.remote, "POST", "/api/account", {"account_key": "Chase Checking", "type": "cash"}, cookie=token)
-    rig.call(rig.remote, "POST", "/api/passthrough-decision", {"key": "a|b", "decision": "approve"}, cookie=token)
-    rig.call(rig.remote, "POST", "/api/account-prefs", {"items": [1, 2, 3]}, cookie=token)
+    rig.call(rig.local, "POST", "/api/account", {"account_key": "Chase Checking", "type": "cash"})
+    rig.call(rig.local, "POST", "/api/passthrough-decision", {"key": "a|b", "decision": "approve"})
+    rig.call(rig.local, "POST", "/api/account-prefs", {"items": [1, 2, 3]})
     by_event = {e["event"]: e for e in _events(rig)}
-    assert by_event["account edit"]["person"] == "Ann" and "Chase Checking" in by_event["account edit"]["details"]
+    assert by_event["account edit"]["person"] == "owner (PC)" and "Chase Checking" in by_event["account edit"]["details"]
     assert "a|b" in by_event["passthrough decision"]["details"]
     assert "3" in by_event["account preferences"]["details"]
 

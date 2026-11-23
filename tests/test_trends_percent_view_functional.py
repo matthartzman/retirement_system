@@ -54,7 +54,8 @@ def test_error_text_replaced(tmp_path):
     generic = {"success": False, "error": "Something went wrong. Try again later."}
     for path in ("/api/test-money-error", "/api/test-money-raises"):
         resp = rig.call(rig.remote, "GET", path, cookie=t["ann"])
-        assert resp.status_code == 500 and resp.get_json() == generic and "$" not in resp.get_data(as_text=True)
+        body = resp.get_json()
+        assert resp.status_code == 500 and body.pop("error_id") and body == generic and "$" not in resp.get_data(as_text=True)
     assert "1,234" in rig.call(rig.local, "GET", "/api/test-money-error").get_data(as_text=True)
 
 

@@ -9,6 +9,8 @@ next request when the person is disabled or expired, the Financial Insights gran
 from __future__ import annotations
 
 import json
+import logging
+import secrets
 import time
 from pathlib import Path
 from typing import Callable
@@ -42,7 +44,20 @@ TAB_FREE_ROUTES: frozenset[str] = frozenset({
     "/api/accounts", "/api/app-accounts", "/api/account",  # the "accounts" view: account settings, no amounts
 })
 VIEW_REFUSED = "this view is not available to you"
-# POST path -> (event, details from the JSON body). Amounts are never logged.
+READ_ONLY_REFUSED = "this view is read-only for guests"
+# Guests are VIEW-ONLY (owner decision, security review F-01). Every POST route is classified in exactly one of these two
+# sets; a contract test fails on a POST route in neither. The remote gate refuses a guest session any non-GET request
+# that is not in GUEST_WRITABLE_POST. The owner's local listener is unchanged, and worker mode has its own deny-by-default
+# allowlist (worker_allowlist.py; the plan owner edits their own per-plan store there, gateway viewers are refused).
+OWNER_ONLY_POST: frozenset[str] = frozenset({
+    "/api/account", "/api/account-prefs", "/api/passthrough-decision", "/api/run-now", "/api/run-cancel",
+})
+GUEST_WRITABLE_POST: frozenset[str] = frozenset({  # session management and no-op/log-only calls; none touch the owner's data
+    "/api/signin", "/api/signout", "/api/change-password", "/api/totp/begin", "/api/totp/confirm",
+    "/api/totp/recovery-codes", "/api/ping", "/api/view", "/api/exit",
+})
+# POST path -> (event, details from the JSON body). Amounts are never logged. Only the owner's local listener reaches
+# these (OWNER_ONLY_POST below: guests are refused the writes before they are logged).
 ACTIONS = {
     "/api/account": ("account edit", lambda b: " ".join(str(b.get(k)) for k in ("account_key", "type", "app_account") if b.get(k) is not None)),
     "/api/account-prefs": ("account preferences", lambda b: f"{len(b['items']) if isinstance(b.get('items'), list) else 0} items"),
@@ -158,6 +173,8 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
             return _json({"success": False, "error": "Not available in the percent view."}, 403)
         if _tab_refused(grant):
             return _json({"success": False, "error": VIEW_REFUSED}, 403)
+        if request.method not in ("GET", "HEAD") and path not in GUEST_WRITABLE_POST:
+            return _json({"success": False, "error": READ_ONLY_REFUSED}, 403)  # guests are view-only (F-01)
         _log_action()
         return None
 
@@ -173,14 +190,25 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
 
     @app.errorhandler(Exception)
     def _unhandled(exc):
-        # Same body the facade would give, but routed through after_request so a percent person never sees its text.
+        # Routed through after_request so a guest never sees class names, messages or paths (F-05): the detail goes to
+        # the server log. The owner's local listener keeps the verbose message.
+        logging.getLogger(__name__).error("unhandled error on %s", request.path, exc_info=exc)
         message = f"{exc.__class__.__name__}: {exc}" if str(exc) else exc.__class__.__name__
         return _json({"success": False, "error": message}, 500)
+
+    def _opaque_error(resp):
+        """A 5xx JSON body for a remote guest becomes a generic message plus an error id; the original body (which can
+        carry exception text or filesystem paths) is logged server-side under that id (F-05)."""
+        error_id = secrets.token_hex(6)
+        logging.getLogger(__name__).error("remote 500 %s on %s: %s", error_id, request.path, resp.get_data(as_text=True)[:2000])
+        return _json({"success": False, "error": "Something went wrong. Try again later.", "error_id": error_id}, resp.status_code)
 
     @app.after_request
     def _percent_view(resp):
         user = request.environ.get("user")
         path = request.path
+        if current_listener() == "remote" and user and resp.status_code >= 500 and resp.mimetype.endswith("json"):
+            return _opaque_error(resp)
         if (current_listener() != "remote" or not user or user["money_view"] != "percent"
                 or not path.startswith("/api/") or path in PASS_THROUGH_FOR_PERCENT or path in WITHHELD_FOR_PERCENT
                 or not resp.mimetype.endswith("json")):

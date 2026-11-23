@@ -193,6 +193,11 @@ def _import_rows(conn: sqlite3.Connection, rows: list[tuple[str, str, str, float
         return _reject(conn, now, source, "balances file contained no rows")
     keys = {r[1] for r in rows}
     latest = max(r[0] for r in rows)
+    # F-02: a future-dated row would win MAX(date) and deactivate every other account. Rejected like a stale file,
+    # for a fresh export and for a mirror alike (a mirror has no `today`, so the clock decides).
+    ceiling = (today or date.today()) + timedelta(days=1)
+    if date.fromisoformat(latest) > ceiling:
+        return _reject(conn, now, source, f"future-dated export: latest date {latest} is later than tomorrow ({ceiling})")
     if today is not None:  # the guards of a fresh export; a mirror of rows the plan already accepted skips them
         if date.fromisoformat(latest) < today - timedelta(days=1):
             return _reject(conn, now, source, f"stale export: latest date {latest} is older than yesterday ({today - timedelta(days=1)})")
