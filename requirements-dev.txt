@@ -11,5 +11,5 @@ pytest-xdist>=3.5,<4
 # thread method interrupts a stuck test without relying on signals, which are
 # unreliable on the Windows runners this suite runs on.
 pytest-timeout>=2.3,<3
-ruff>=0.6,<1
+ruff>=0.17.6,<1
 mypy>=1.10,<2
