@@ -165,7 +165,7 @@ def test_a_session_cookie_expires(rig):
 # ---- the token file ----
 def test_token_file_holds_the_token_and_is_owner_only(rig, tmp_path):
     path = gate_mod.token_file_path(tmp_path, rig.gate.name)
-    assert path.read_text(encoding="utf-8").strip() == rig.gate.token and len(rig.gate.token) >= 43
+    assert path.read_bytes().decode("utf-8").strip() == rig.gate.token and len(rig.gate.token) >= 43
     assert not list(path.parent.glob("*.tmp"))
     if sys.platform != "win32":
         assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
