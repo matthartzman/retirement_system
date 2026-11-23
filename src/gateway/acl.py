@@ -258,7 +258,7 @@ def check_readonly(path: Path, *, writers: set[str], workers: dict[str, str], wh
         return [f"{what}: missing ({path})"]
     entries, truncated = _walk_entries(path, max_walk) if walk else ([path], False)
     for entry in entries:
-        where = what if entry == path else f"{what} [{entry.relative_to(path)}]"
+        where = what if entry == path else f"{what} [{entry.relative_to(path).as_posix()}]"
         try:
             dacl = read_dacl(entry)
         except OSError as exc:
