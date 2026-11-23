@@ -10,7 +10,7 @@ from src.server import app, plan_routes
 
 HEADERS = {"X-User-Role": "admin"}
 BODY_ROUTES = sorted({(r.rule, m) for r in app.routes if getattr(r.func, "__module__", "") == plan_routes.__name__
-                      and "_json_obj(" in inspect.getsource(r.func) for m in r.methods if m in ("POST", "PUT", "DELETE")})
+                      and "_json_obj(" in inspect.getsource(r.func) for m in r.methods if m in ("POST", "PUT", "DELETE") and "<" not in r.rule})
 
 
 def test_the_body_helper_is_used_on_many_routes():
@@ -20,8 +20,6 @@ def test_the_body_helper_is_used_on_many_routes():
 @pytest.mark.parametrize("rule,method", BODY_ROUTES)
 @pytest.mark.parametrize("body", [[1, 2], "text", 7])
 def test_non_object_bodies_never_produce_a_server_error(rule, method, body):
-    if "<" in rule:
-        pytest.skip("route has a path parameter")
     resp = app.test_client().open(rule, method=method, headers=HEADERS, json=body)
     assert resp.status_code < 500, (rule, resp.status_code, resp.get_data(as_text=True)[:200])
 
