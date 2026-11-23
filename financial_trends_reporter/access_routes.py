@@ -263,7 +263,9 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
         attempted = str(body.get("username") or "")[:64]
         if result.reason == "locked":
             _log("locked out", attempted, person="(not signed in)")
-            return _json({"success": False, "error": "Too many attempts. Try again in a few minutes."}, 429, {"Retry-After": "900"})
+            # Same answer as a wrong password (F-07, X-8): a caller learns nothing about whether the account exists or is
+            # locked. The owner sees "locked out" in the activity log.
+            return _json({"success": False, "error": "Incorrect username or password."}, 401)
         if result.reason == "totp":  # password was right; ask for the code (the grant is still checked once the code is in)
             if store.get_grant(result.user_id, "insights") is None:
                 _log("sign-in failed", attempted, person="(not signed in)")
