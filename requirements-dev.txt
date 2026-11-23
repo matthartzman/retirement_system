@@ -2,7 +2,7 @@
 #   pip install -r requirements.txt -r requirements-dev.txt
 pytest>=8.0,<10
 pytest-cov>=5.0,<8
-pytest-xdist>=3.5,<4
+pytest-xdist>=3.8.0,<4
 # Re-added 2026-09-15 (CI-time profiling): a prior removal note said this
 # plugin "caused silent crashes despite plugin installation attempts" and
 # dropped timeout enforcement entirely, which traded a rare crash for a hang
