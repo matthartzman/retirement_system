@@ -117,15 +117,19 @@ def _read_insight(root: Path, rel: str, uid: int, errors: list[str]) -> bytes | 
         errors.append(f"user {uid} {rel}: link inside the workspace, skipped")
         return None
     try:
-        st = os.lstat(src)
-        if not stat.S_ISREG(st.st_mode):
-            errors.append(f"user {uid} {rel}: not a regular file, skipped")
-            return None
-        if st.st_size > INSIGHT_MAX_BYTES:
-            errors.append(f"user {uid} {rel}: larger than {INSIGHT_MAX_BYTES // (1024 * 1024)} MB, skipped")
-            return None
-        with open(src, "rb") as fh:
+        # SEC-02: one verified handle for the check, the size test and the read (no second look at the name)
+        with fsguard.pinned(src, root), open(src, "rb") as fh:
+            st = os.fstat(fh.fileno())
+            if not stat.S_ISREG(st.st_mode):
+                errors.append(f"user {uid} {rel}: not a regular file, skipped")
+                return None
+            if st.st_size > INSIGHT_MAX_BYTES:
+                errors.append(f"user {uid} {rel}: larger than {INSIGHT_MAX_BYTES // (1024 * 1024)} MB, skipped")
+                return None
             data = fh.read(INSIGHT_MAX_BYTES + 1)
+    except fsguard.UnsafePathError:
+        errors.append(f"user {uid} {rel}: link inside the workspace, skipped")
+        return None
     except OSError as exc:
         errors.append(f"user {uid} {rel}: {type(exc).__name__}")
         return None
@@ -212,8 +216,11 @@ def write_archive(dest: Path, master: bytes, *, data_root: Path, user_ids: Itera
                     rels = ["plan.rpx"]  # the workspace plan is always backed up, registered or not
                     if app_db.is_file() and not fsguard.has_reparse_point(app_db, root):
                         try:
-                            app_bytes = sqlite_bytes(app_db)
+                            with fsguard.pinned(app_db, root):  # SEC-02: the verified file is the one read
+                                app_bytes = sqlite_bytes(app_db)
                             rels += [r for r in _registered_plan_rels(app_bytes, root, uid, errors) if r not in rels]
+                        except fsguard.UnsafePathError:
+                            errors.append(f"user {uid} app.db: link inside the workspace, skipped")
                         except Exception as exc:  # noqa: BLE001 - reported per user, never fatal
                             errors.append(f"user {uid} app.db: {type(exc).__name__}")
                             log.error("backup of user %s app.db failed: %s", uid, type(exc).__name__)
@@ -228,9 +235,14 @@ def write_archive(dest: Path, master: bytes, *, data_root: Path, user_ids: Itera
                         if not src.is_file():
                             continue
                         try:
-                            _add(tar, f"users/{int(uid)}/{rel}", sqlite_bytes(src), now)
+                            with fsguard.pinned(src, root):  # SEC-02: held while SQLite reads it
+                                image = sqlite_bytes(src)
+                            _add(tar, f"users/{int(uid)}/{rel}", image, now)
                             members.append(f"users/{int(uid)}/{rel}")
                             got = True
+                        except fsguard.UnsafePathError:
+                            errors.append(f"user {uid} {rel}: link inside the workspace, skipped")
+                            log.error("backup of user %s %s skipped: a link inside the workspace", uid, rel)
                         except Exception as exc:  # noqa: BLE001 - reported per user, never fatal
                             errors.append(f"user {uid} {rel}: {type(exc).__name__}")
                             log.error("backup of user %s %s failed: %s", uid, rel, type(exc).__name__)
@@ -394,16 +406,21 @@ def restore_user(archive: Path, master: bytes, *, data_root: Path, user_id: int,
                 if fsguard.has_reparse_point(live, workspace):
                     raise RestoreError(f"user {uid}'s folder holds a link; remove it before restoring")
                 live.parent.mkdir(parents=True, exist_ok=True)
-                for suffix in ("",) if insight else ("", "-wal", "-shm"):
-                    cur = live.with_name(live.name + suffix)
-                    if cur.exists():
-                        aside = cur.with_name(cur.name + f".before-restore-{stamp}")
-                        os.replace(cur, aside)
-                        moved.append((cur, aside))
-                if member in incoming:
-                    os.replace(staging / member, live)
-                    placed.append(live)
-                    restored.append(str(rel).replace("\\", "/"))
+                try:
+                    # SEC-02: the folder is verified through an open handle that stays open for every move below
+                    with fsguard.pinned(live.parent, workspace):
+                        for suffix in ("",) if insight else ("", "-wal", "-shm"):
+                            cur = live.with_name(live.name + suffix)
+                            if cur.exists():
+                                aside = cur.with_name(cur.name + f".before-restore-{stamp}")
+                                os.replace(cur, aside)
+                                moved.append((cur, aside))
+                        if member in incoming:
+                            os.replace(staging / member, live)
+                            placed.append(live)
+                            restored.append(str(rel).replace("\\", "/"))
+                except fsguard.UnsafePathError:
+                    raise RestoreError(f"user {uid}'s folder holds a link; remove it before restoring") from None
         except BaseException:
             for live in placed:  # a restored file that had no live copy before must not stay behind
                 live.unlink(missing_ok=True)

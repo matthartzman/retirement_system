@@ -478,3 +478,77 @@ def process_exit_code(process_handle: int) -> int | None:
 
 def terminate_process(process_handle: int, code: int = 1) -> None:
     _kernel32().TerminateProcess(w.HANDLE(process_handle), code)
+
+
+# ---- Handle-based path checks (SEC-02/03) ---------------------------------------------------------
+# Windows only. A caller opens the path ONCE without following a final reparse point, reads the attributes and the
+# final path name of that open handle, and keeps the handle open while it works: an open handle with no
+# FILE_SHARE_DELETE stops the file or folder, and every folder above it, being renamed or replaced by a junction.
+
+FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000
+FILE_FLAG_BACKUP_SEMANTICS = 0x02000000
+FILE_READ_ATTRIBUTES = 0x0080
+_FILE_SHARE_READ_WRITE = 0x1 | 0x2  # deliberately not FILE_SHARE_DELETE
+_OPEN_EXISTING = 3
+_INVALID_HANDLE = ctypes.c_void_p(-1).value
+
+
+class _BY_HANDLE_FILE_INFORMATION(ctypes.Structure):
+    _fields_ = [("dwFileAttributes", w.DWORD), ("ftCreationTime", w.FILETIME), ("ftLastAccessTime", w.FILETIME),
+                ("ftLastWriteTime", w.FILETIME), ("dwVolumeSerialNumber", w.DWORD), ("nFileSizeHigh", w.DWORD),
+                ("nFileSizeLow", w.DWORD), ("nNumberOfLinks", w.DWORD), ("nFileIndexHigh", w.DWORD),
+                ("nFileIndexLow", w.DWORD)]
+
+
+def _files_api():
+    k = _dll("kernel32")
+    k.CreateFileW.restype = w.HANDLE
+    k.CreateFileW.argtypes = [w.LPCWSTR, w.DWORD, w.DWORD, ctypes.c_void_p, w.DWORD, w.DWORD, w.HANDLE]
+    k.GetFileInformationByHandle.argtypes = [w.HANDLE, ctypes.POINTER(_BY_HANDLE_FILE_INFORMATION)]
+    k.GetFinalPathNameByHandleW.restype = w.DWORD
+    k.GetFinalPathNameByHandleW.argtypes = [w.HANDLE, w.LPWSTR, w.DWORD, w.DWORD]
+    k.CloseHandle.argtypes = [w.HANDLE]
+    return k
+
+
+def open_without_following(path: str) -> int:
+    """Open a file or folder for attribute reads; a final-component link is opened as the link itself."""
+    k = _files_api()
+    h = k.CreateFileW(str(path), FILE_READ_ATTRIBUTES, _FILE_SHARE_READ_WRITE, None, _OPEN_EXISTING,
+                      FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, None)
+    if h is None or int(h) == _INVALID_HANDLE:
+        raise _fail("CreateFileW")
+    return int(h)
+
+
+def handle_attributes(handle: int) -> int:
+    info = _BY_HANDLE_FILE_INFORMATION()
+    if not _files_api().GetFileInformationByHandle(w.HANDLE(handle), ctypes.byref(info)):
+        raise _fail("GetFileInformationByHandle")
+    return int(info.dwFileAttributes)
+
+
+def final_path_of_handle(handle: int) -> str:
+    """The real path of an open handle, with ``\\\\?\\`` stripped (``\\\\?\\UNC\\`` becomes ``\\\\``)."""
+    k = _files_api()
+    size = 1024
+    while True:
+        buf = ctypes.create_unicode_buffer(size)
+        n = int(k.GetFinalPathNameByHandleW(w.HANDLE(handle), buf, size, 0))
+        if n == 0:
+            raise _fail("GetFinalPathNameByHandleW")
+        if n < size:
+            return strip_extended_prefix(buf.value)
+        size = n + 1
+
+
+def strip_extended_prefix(path: str) -> str:
+    if path.startswith("\\\\?\\UNC\\"):
+        return "\\\\" + path[8:]
+    if path.startswith("\\\\?\\"):
+        return path[4:]
+    return path
+
+
+def close_file_handle(handle: int) -> None:
+    _files_api().CloseHandle(w.HANDLE(handle))
