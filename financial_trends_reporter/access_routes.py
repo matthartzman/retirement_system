@@ -18,6 +18,7 @@ from typing import Callable
 
 from src.http_runtime.wsgi_facade import Response, request
 
+from src.http_runtime import security_headers
 from src.identity import totp as totp_lib
 from src.identity.store import IdentityStore
 from src.secrets_store import SecretStoreUnavailable
@@ -207,6 +208,17 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
         error_id = secrets.token_hex(6)
         logging.getLogger(__name__).error("remote 500 %s on %s: %s", error_id, request.path, resp.get_data(as_text=True)[:2000])
         return _json({"success": False, "error": "Something went wrong. Try again later.", "error_id": error_id}, resp.status_code)
+
+    @app.after_request
+    def _security_headers(resp):
+        """SEC-07 / F-10: CSP (inline script blocks admitted by hash only), nosniff, no framing, no referrer; the remote
+        listener's pages and API replies are also no-store so the back button shows no data after sign-out."""
+        if resp.mimetype == "text/html":
+            csp = security_headers.csp_for_html(resp.get_data(as_text=True))
+        else:
+            csp = security_headers.PLANNER_CSP
+        security_headers.apply(resp.headers, csp, no_store=current_listener() == "remote")
+        return resp
 
     @app.after_request
     def _percent_view(resp):
