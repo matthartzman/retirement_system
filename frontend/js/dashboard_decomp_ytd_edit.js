@@ -34,12 +34,12 @@ export async function loadYtdStatus(silent = false) {
   // "Loading transactions" partway through an unrelated operation.
   if (!silent) showYtdLoadOverlay();
   try {
+    if (!ytdData) await api("/api/ytd/account-setup/recover", { method: "POST", body: '{"force":false}' }).catch(() => {}); // PR-04: status is read-only; one explicit recovery try per page load
     const out = await api(
       "/api/ytd/status?period=" + encodeURIComponent(ytdActualsPeriod),
     );
     ytdData = out;
-    ytdTransactionsChanged = false;
-    ytdAccountsChanged = false;
+    ytdTransactionsChanged = ytdAccountsChanged = false;
   } catch (e) {
     ytdData = {
       success: false,

@@ -41,6 +41,7 @@ _READ_BITS = 0x0001 | 0x0020 | 0x80000000 | 0x10000000 | 0x20000000  # read data
 _WRITE_BITS = (0x0002 | 0x0004 | 0x0040 | 0x00010000 | 0x00040000 | 0x00080000 | 0x40000000 | 0x10000000
                | 0x0010 | 0x0100)  # write/append data, delete child, DELETE, WRITE_DAC/OWNER, GENERIC_WRITE/ALL, EA, attrs
 MAX_WALK = 20000
+MAX_INSTALL_WALK = 250000  # a Python runtime plus site-packages is tens of thousands of files
 
 
 class AclError(RuntimeError):
@@ -236,20 +237,44 @@ def check_private(path: Path, *, allowed: set[str], workers: dict[str, str], wha
     return findings
 
 
-def check_readonly(path: Path, *, writers: set[str], workers: dict[str, str], what: str) -> list[str]:
-    """Findings when anyone outside ``writers`` can write ``path`` (reading is allowed: the install)."""
+def _walk_entries(path: Path, max_walk: int) -> tuple[list[Path], bool]:
+    """``path`` and everything under it (links are listed, never followed), capped at ``max_walk``."""
+    entries = [path]
+    for root, dirs, files in os.walk(path, followlinks=False):
+        for name in dirs + files:
+            if len(entries) > max_walk:
+                return entries, True
+            entries.append(Path(root) / name)
+    return entries, False
+
+
+def check_readonly(path: Path, *, writers: set[str], workers: dict[str, str], what: str, walk: bool = False,
+                   max_walk: int = MAX_INSTALL_WALK, max_findings: int = 200) -> list[str]:
+    """Findings when anyone outside ``writers`` can write ``path`` (reading is allowed: the install). With ``walk``
+    every entry below it is checked too: a single worker-writable ``.py`` or ``.pyd`` under a folder the SYSTEM
+    service runs code from is SYSTEM code execution, whatever the folder's own list says (X-2)."""
     findings: list[str] = []
     if not path.exists():
         return [f"{what}: missing ({path})"]
-    try:
-        dacl = read_dacl(path)
-    except OSError as exc:
-        return [f"{what}: cannot read permissions ({exc.errno})"]
-    if dacl.aces is None:
-        return [f"{what}: has no access list at all (everyone can write)"]
-    for ace in dacl.effective(writers):
-        if ace.allow and ace.sid not in writers and ace.writes:
-            findings.append(f"{what}: {_label(ace.sid, workers)} can write")
+    entries, truncated = _walk_entries(path, max_walk) if walk else ([path], False)
+    for entry in entries:
+        where = what if entry == path else f"{what} [{entry.relative_to(path).as_posix()}]"
+        try:
+            dacl = read_dacl(entry)
+        except OSError as exc:
+            findings.append(f"{where}: cannot read permissions ({exc.errno})")
+            continue
+        if dacl.aces is None:
+            findings.append(f"{where}: has no access list at all (everyone can write)")
+            continue
+        for ace in dacl.effective(writers):
+            if ace.allow and ace.sid not in writers and ace.writes:
+                findings.append(f"{where}: {_label(ace.sid, workers)} can write")
+        if len(findings) >= max_findings:
+            findings.append(f"{what}: more than {max_findings} findings, the rest were not listed")
+            return findings
+    if truncated:
+        findings.append(f"{what}: more than {max_walk} entries, the rest were not checked")
     return findings
 
 
@@ -269,7 +294,8 @@ def check_not_readable_by_workers(path: Path, *, workers: dict[str, str], what: 
 
 def check_layout(*, data_root: Path, gateway_sid: str, workers: dict[int, tuple[str, str]],
                  install_dir: Path | None = None, gateway_db: Path | None = None, backup_dir: Path | None = None,
-                 forbid: list[Path] | None = None) -> list[str]:
+                 forbid: list[Path] | None = None, config_file: Path | None = None,
+                 log_dir: Path | None = None) -> list[str]:
     """Every finding for the whole layout. ``workers`` maps user id to (account name, SID)."""
     core = {SYSTEM, ADMINISTRATORS, gateway_sid, TRUSTED_INSTALLER}
     names = {sid: f"worker account {name}" for name, sid in workers.values()}
@@ -292,8 +318,13 @@ def check_layout(*, data_root: Path, gateway_sid: str, workers: dict[int, tuple[
             findings += check_private(gateway_db, allowed=core, workers=names, what="gateway.db")
     if backup_dir is not None:
         findings += check_private(backup_dir, allowed=core, workers=names, what="backups")
-    if install_dir is not None:
-        findings += check_readonly(install_dir, writers=core, workers=names, what="install folder")
+    if install_dir is not None:  # the whole tree: SYSTEM runs code from it (X-2)
+        findings += check_readonly(install_dir, writers=core, workers=names, what="install folder", walk=True)
+    if config_file is not None:  # the service loads it as SYSTEM, so only SYSTEM and Administrators may change it or its folder
+        findings += check_readonly(config_file, writers=core, workers=names, what="gateway.json")
+        findings += check_readonly(config_file.parent, writers=core, workers=names, what="gateway.json folder")
+    if log_dir is not None:  # the service appends to files here as SYSTEM: a worker-writable log folder or file can be swapped for a link
+        findings += check_readonly(log_dir, writers=core, workers=names, what="log folder", walk=True, max_walk=MAX_WALK)
     for path in forbid or []:
         findings += check_not_readable_by_workers(path, workers=names, what=f"protected folder {path}")
     return findings
@@ -316,6 +347,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--gateway-db", type=Path, help="gateway.db (also the source of the worker account list)")
     p.add_argument("--install-dir", type=Path, help="the read-only install folder (code and runtime)")
     p.add_argument("--backup-dir", type=Path)
+    p.add_argument("--config-file", type=Path, help="gateway.json (checked: only SYSTEM and Administrators may write it)")
+    p.add_argument("--log-dir", type=Path, help="the service's log folder (checked: no worker may write it or its files)")
     p.add_argument("--gateway-sid", help="the gateway's account SID (default: the account running this command)")
     p.add_argument("--forbid", type=Path, action="append", default=[],
                    help="a folder worker accounts must not be able to read; checked only, never changed")
@@ -343,7 +376,7 @@ def main(argv: list[str] | None = None) -> int:
         print("permissions applied; checking")
     findings = check_layout(data_root=args.data_root, gateway_sid=gateway_sid, workers=workers,
                             install_dir=args.install_dir, gateway_db=args.gateway_db, backup_dir=args.backup_dir,
-                            forbid=args.forbid)
+                            forbid=args.forbid, config_file=args.config_file, log_dir=args.log_dir)
     if findings:
         print(f"FAILED: {len(findings)} permission problem(s):", file=sys.stderr)
         for f in findings:

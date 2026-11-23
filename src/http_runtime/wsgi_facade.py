@@ -404,7 +404,7 @@ class Flask:
                     return self._finalize(rv)
             route, kwargs = self._match(req.path, req.method)
             if route is None:
-                return Response(json.dumps({"success": False, "error": "Not found"}), status=404, content_type="application/json")
+                return self._finalize(Response(json.dumps({"success": False, "error": "Not found"}), status=404, content_type="application/json"))
             return self._finalize(route.func(**kwargs))
         except BaseException as exc:  # noqa: BLE001 - app-level handler parity
             handler = self._error_handler_for(exc)
