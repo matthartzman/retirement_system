@@ -132,25 +132,28 @@ def _key_creation_lock():
     """Serialise first-use key creation across threads AND processes (the Admin app, Financial Insights and the
     gateway can all start at once): an OS file lock in the user's temp folder, plus a thread lock."""
     path = Path(tempfile.gettempdir()) / "retirement_identity_totp_key.lock"
-    with _KEY_THREAD_LOCK, open(path, "a+b") as fh:
-        if os.name == "nt":
-            import msvcrt  # noqa: PLC0415
+    with _KEY_THREAD_LOCK:
+        fd = os.open(str(path), os.O_RDWR | os.O_CREAT, 0o600)  # a lock handle, not data
+        try:
+            if os.name == "nt":
+                import msvcrt  # noqa: PLC0415
 
-            fh.seek(0)
-            msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
-            try:
-                yield
-            finally:
-                fh.seek(0)
-                msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
-        else:
-            import fcntl  # noqa: PLC0415
+                msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+                try:
+                    yield
+                finally:
+                    os.lseek(fd, 0, os.SEEK_SET)
+                    msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl  # noqa: PLC0415
 
-            fcntl.flock(fh, fcntl.LOCK_EX)
-            try:
-                yield
-            finally:
-                fcntl.flock(fh, fcntl.LOCK_UN)
+                fcntl.flock(fd, fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
 
 
 def default_key() -> bytes:
