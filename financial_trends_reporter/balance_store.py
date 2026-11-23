@@ -14,6 +14,7 @@ written -- so a partial or changed export cannot corrupt the history.
 
 import csv
 import math
+import re
 import sqlite3
 from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
@@ -23,13 +24,24 @@ from typing import Any
 DB_FILENAME = "monarch_balances.sqlite3"
 EXPECTED_HEADER = ["date", "account_key", "account", "balance"]
 MAX_ACCOUNT_DROP = 0.20  # reject a file with >20% fewer accounts than the last good import
+SNAPSHOT_DIR = "snapshots"  # beside the database; F-03: a copy is taken before any import that can delete history
+SNAPSHOTS_KEPT = 5
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS balances (
     date TEXT NOT NULL,
     account_key TEXT NOT NULL,
     balance REAL NOT NULL,
+    balance_cents INTEGER,
     PRIMARY KEY (date, account_key)
+);
+CREATE TABLE IF NOT EXISTS pending_renames (
+    old_key TEXT NOT NULL,
+    new_key TEXT NOT NULL,
+    matched INTEGER NOT NULL,
+    total INTEGER NOT NULL,
+    detected_at TEXT NOT NULL,
+    PRIMARY KEY (old_key, new_key)
 );
 CREATE TABLE IF NOT EXISTS accounts (
     account_key TEXT PRIMARY KEY,
@@ -78,7 +90,51 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
     if "confirmed" not in {r["name"] for r in conn.execute("PRAGMA table_info(accounts)")}:
         conn.execute("ALTER TABLE accounts ADD COLUMN confirmed INTEGER NOT NULL DEFAULT 0")
         conn.commit()
+    _migrate_cents(conn)
     return conn
+
+
+def to_cents(balance: float) -> int | None:
+    """``balance`` as whole cents when it is exactly a cent amount (to within float noise), else None.
+
+    ``None`` means "keep the REAL value as it is": a value with sub-cent detail is never rounded away."""
+    scaled = balance * 100.0
+    cents = round(scaled)
+    return int(cents) if abs(scaled - cents) < 1e-6 and abs(cents) < 2 ** 62 else None
+
+
+def _migrate_cents(conn: sqlite3.Connection) -> None:
+    """F-03: money is stored as integer cents next to the original REAL. Existing rows get their cents filled in
+    only where the REAL is exactly a cent amount, and ``balance`` itself is never rewritten, so every existing value
+    reads back bit-for-bit unchanged. Readers still use ``balance``; new writes keep the two in step."""
+    if "balance_cents" not in {r["name"] for r in conn.execute("PRAGMA table_info(balances)")}:
+        conn.execute("ALTER TABLE balances ADD COLUMN balance_cents INTEGER")
+    pending = conn.execute("SELECT date, account_key, balance FROM balances WHERE balance_cents IS NULL").fetchall()
+    if pending:
+        conn.executemany("UPDATE balances SET balance_cents=? WHERE date=? AND account_key=?",
+                         [(c, r["date"], r["account_key"]) for r in pending if (c := to_cents(r["balance"])) is not None])
+        conn.commit()
+
+
+def snapshot_db(conn: sqlite3.Connection, *, keep: int = SNAPSHOTS_KEPT, now: datetime | None = None) -> Path | None:
+    """Copy the whole database with SQLite's backup API (consistent while open) into ``snapshots/`` beside it, newest
+    ``keep`` kept. Returns the copy's path, or None for an in-memory or empty database."""
+    row = next((r for r in conn.execute("PRAGMA database_list") if r["name"] == "main"), None)
+    if row is None or not row["file"] or not conn.execute("SELECT 1 FROM balances LIMIT 1").fetchone():
+        return None
+    folder = Path(row["file"]).parent / SNAPSHOT_DIR
+    folder.mkdir(parents=True, exist_ok=True)
+    stamp = (now or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%S%f")
+    dest = folder / f"{Path(row['file']).stem}-{stamp}.sqlite3"
+    out = sqlite3.connect(str(dest))
+    try:
+        conn.commit()
+        conn.backup(out)
+    finally:
+        out.close()
+    for old in sorted(folder.glob(f"{Path(row['file']).stem}-*.sqlite3"))[:-max(1, keep)]:
+        old.unlink(missing_ok=True)
+    return dest
 
 
 def _read_rows(csv_path: Path) -> list[tuple[str, str, str, float]]:
@@ -108,10 +164,10 @@ def _read_rows(csv_path: Path) -> list[tuple[str, str, str, float]]:
     return rows
 
 
-def _detect_renames(conn: sqlite3.Connection, rows: list[tuple[str, str, str, float]]) -> list[tuple[str, str]]:
+def _detect_renames(conn: sqlite3.Connection, rows: list[tuple[str, str, str, float]]) -> list[tuple[str, str, int, int]]:
     """Old key -> new key for a Monarch rename. The export has no account id, so a rename arrives as a new
     key repeating a stored key's history (same dates and balances) while the old key is gone from the file.
-    Mirrors ``MonarchRepo.migrate_renames`` in the app's plan store."""
+    Mirrors ``MonarchRepo.migrate_renames`` in the app's plan store. Each move is ``(old, new, matched, total)``."""
     incoming: dict[str, dict[str, float]] = {}
     for d, key, _name, bal in rows:
         incoming.setdefault(key, {})[d] = bal
@@ -122,7 +178,7 @@ def _detect_renames(conn: sqlite3.Connection, rows: list[tuple[str, str, str, fl
     # A key that is already confirmed or matched has been dealt with; only unreviewed ones can be a rename target.
     taken = {r["account_key"] for r in conn.execute("SELECT account_key FROM accounts WHERE confirmed=1 OR app_account IS NOT NULL")}
     candidates = {k: v for k, v in incoming.items() if k not in taken}
-    moves: list[tuple[str, str]] = []
+    moves: list[tuple[str, str, int, int]] = []
     for old, old_hist in stored.items():
         best, best_hits = None, 0
         for new, new_hist in candidates.items():
@@ -132,7 +188,7 @@ def _detect_renames(conn: sqlite3.Connection, rows: list[tuple[str, str, str, fl
         if best is None or best_hits < min(3, len(old_hist)) or best_hits < 0.8 * len(old_hist):
             continue
         candidates.pop(best)
-        moves.append((old, best))
+        moves.append((old, best, best_hits, len(old_hist)))
     return moves
 
 
@@ -210,13 +266,23 @@ def _import_rows(conn: sqlite3.Connection, rows: list[tuple[str, str, str, float
     for d, key, name, _ in rows:
         if key not in names or d >= names[key][0]:
             names[key] = (d, name)
-    renames = _detect_renames(conn, rows)
+    detected = _detect_renames(conn, rows)
+    # F-03: a rename merge deletes the old key's history. It is automatic only when the new key repeats EVERY one of the
+    # old rows exactly (nothing is lost); a partial match waits for an explicit confirm_rename().
+    renames = [(o, n) for o, n, hit, total in detected if hit == total]
+    held = [(o, n, hit, total) for o, n, hit, total in detected if hit != total]
+    mirror_drops = [r[0] for r in conn.execute("SELECT account_key FROM accounts") if mirror and r[0] not in keys
+                    and r[0] not in {o for o, _ in renames}]
+    snapshot = snapshot_db(conn, now=now) if (renames or mirror_drops) else None
     with conn:
         conn.executemany(
-            "INSERT INTO balances (date, account_key, balance) VALUES (?,?,?) "
-            "ON CONFLICT(date, account_key) DO UPDATE SET balance=excluded.balance",
-            [(d, k, b) for d, k, _, b in rows],
+            "INSERT INTO balances (date, account_key, balance, balance_cents) VALUES (?,?,?,?) "
+            "ON CONFLICT(date, account_key) DO UPDATE SET balance=excluded.balance, balance_cents=excluded.balance_cents",
+            [(d, k, b, to_cents(b)) for d, k, _, b in rows],
         )
+        for old, new, hit, total in held:
+            conn.execute("INSERT OR REPLACE INTO pending_renames (old_key, new_key, matched, total, detected_at) VALUES (?,?,?,?,?)",
+                         (old, new, hit, total, now.isoformat(timespec="seconds")))
         for key, (_, name) in names.items():
             conn.execute(
                 "INSERT INTO accounts (account_key, display_name, first_seen, last_seen) VALUES (?,?,?,?) "
@@ -231,16 +297,82 @@ def _import_rows(conn: sqlite3.Connection, rows: list[tuple[str, str, str, float
                     conn.execute("DELETE FROM balances WHERE account_key=?", (old,))
                     conn.execute("DELETE FROM account_prefs WHERE account_key=?", (old,))
                     conn.execute("DELETE FROM accounts WHERE account_key=?", (old,))
-        # first/last seen and active come from the stored history, not just this file.
-        conn.execute(
-            "UPDATE accounts SET "
-            "first_seen=(SELECT MIN(date) FROM balances b WHERE b.account_key=accounts.account_key), "
-            "last_seen=(SELECT MAX(date) FROM balances b WHERE b.account_key=accounts.account_key)"
-        )
-        overall = conn.execute("SELECT MAX(date) FROM balances").fetchone()[0]
-        conn.execute("UPDATE accounts SET active = CASE WHEN last_seen = ? THEN 1 ELSE 0 END", (overall,))
-    _record(conn, now, str(source), "ok", rows=len(rows), accounts=len(keys), latest=latest)
-    return {"success": True, "status": "ok", "rows": len(rows), "accounts": len(keys), "latest_date": latest}
+        _recompute_accounts(conn)
+    _record(conn, now, str(source), "ok", rows=len(rows), accounts=len(keys), latest=latest,
+            detail=(f"{len(held)} rename(s) await confirmation" if held else None))
+    result = {"success": True, "status": "ok", "rows": len(rows), "accounts": len(keys), "latest_date": latest}
+    if held:
+        result["pending_renames"] = [{"old": o, "new": n, "matched": h, "of": t} for o, n, h, t in held]
+    if snapshot is not None:
+        result["snapshot"] = str(snapshot)
+    return result
+
+
+def pending_renames(db_path: str | Path) -> list[dict[str, Any]]:
+    with closing(connect(db_path)) as conn:
+        return [dict(r) for r in conn.execute("SELECT * FROM pending_renames ORDER BY old_key, new_key")]
+
+
+def confirm_rename(db_path: str | Path, old: str, new: str, *, now: datetime | None = None) -> dict[str, Any]:
+    """Apply one held rename: the old key's type, match and chart choices move to the new key and the old key's
+    history is deleted. A snapshot is taken first. Raises LookupError when no such rename is pending."""
+    with closing(connect(db_path)) as conn:
+        if not conn.execute("SELECT 1 FROM pending_renames WHERE old_key=? AND new_key=?", (old, new)).fetchone():
+            raise LookupError(f"no pending rename {old!r} -> {new!r}")
+        snapshot = snapshot_db(conn, now=now)
+        with conn:
+            _move_account(conn, old, new)
+            conn.execute("DELETE FROM pending_renames WHERE old_key=?", (old,))
+            conn.execute("DELETE FROM pending_renames WHERE new_key=?", (new,))
+            _recompute_accounts(conn)
+        return {"confirmed": [old, new], "snapshot": str(snapshot) if snapshot else None}
+
+
+def reject_rename(db_path: str | Path, old: str, new: str) -> None:
+    """Keep both keys as separate accounts and stop asking."""
+    with closing(connect(db_path)) as conn, conn:
+        conn.execute("DELETE FROM pending_renames WHERE old_key=? AND new_key=?", (old, new))
+
+
+def _recompute_accounts(conn: sqlite3.Connection) -> None:
+    """first/last seen and active come from the stored history, not just the last file."""
+    conn.execute(
+        "UPDATE accounts SET "
+        "first_seen=(SELECT MIN(date) FROM balances b WHERE b.account_key=accounts.account_key), "
+        "last_seen=(SELECT MAX(date) FROM balances b WHERE b.account_key=accounts.account_key)"
+    )
+    overall = conn.execute("SELECT MAX(date) FROM balances").fetchone()[0]
+    conn.execute("UPDATE accounts SET active = CASE WHEN last_seen = ? THEN 1 ELSE 0 END", (overall,))
+
+
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def purge_future_rows(db_path: str | Path, *, today: date | None = None, apply: bool = False,
+                      now: datetime | None = None) -> dict[str, Any]:
+    """Remove balance rows dated after tomorrow (left by an import from before the F-02 date bound; a 2099 row
+    deactivates every other account). Dry run unless ``apply``; ``apply`` snapshots first, deletes the rows, drops any
+    account left with no history, and recomputes first/last seen and active. Returns what was or would be removed."""
+    ceiling = ((today or date.today()) + timedelta(days=1)).isoformat()
+    with closing(connect(db_path)) as conn:
+        rows = [dict(r) for r in conn.execute(
+            "SELECT date, account_key, balance FROM balances WHERE date > ? ORDER BY date, account_key", (ceiling,))]
+        out: dict[str, Any] = {"ceiling": ceiling, "rows": len(rows), "dates": sorted({r["date"] for r in rows}),
+                               "accounts": sorted({r["account_key"] for r in rows}), "applied": False, "snapshot": None}
+        if not apply or not rows:
+            return out
+        snap = snapshot_db(conn, now=now)
+        with conn:
+            conn.execute("DELETE FROM balances WHERE date > ?", (ceiling,))
+            for (key,) in conn.execute("SELECT account_key FROM accounts WHERE account_key NOT IN "
+                                       "(SELECT DISTINCT account_key FROM balances)").fetchall():
+                conn.execute("DELETE FROM account_prefs WHERE account_key=?", (key,))
+                conn.execute("DELETE FROM accounts WHERE account_key=?", (key,))
+            _recompute_accounts(conn)
+        _record(conn, now or datetime.now(timezone.utc), "purge_future_rows", "purged", rows=len(rows),
+                detail=f"removed {len(rows)} row(s) dated after {ceiling}")
+        out.update(applied=True, snapshot=str(snap) if snap else None)
+        return out
 
 
 def freshness(db_path: str | Path) -> dict[str, Any]:

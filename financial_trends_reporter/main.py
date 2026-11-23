@@ -47,7 +47,7 @@ from financial_trends_reporter.app_sync import sync_from_app  # noqa: E402
 from financial_trends_reporter.balance_store import DB_FILENAME, freshness  # noqa: E402
 from financial_trends_reporter.passthrough_decisions import decisions_path_for_log, save_decision  # noqa: E402
 from financial_trends_reporter.trends_job import run as run_trends_job  # noqa: E402
-from financial_trends_reporter.trends_log import default_log_path, read_history  # noqa: E402
+from financial_trends_reporter.trends_log import default_log_path, integrity_summary, read_history  # noqa: E402
 from src.active_plan import plan_path_for_workspace  # noqa: E402
 from src import spending_tracker  # noqa: E402
 
@@ -438,7 +438,11 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
     def run_status():
         history_rows = read_history(_log_path())
         last = history_rows[-1].get("run_at") if history_rows else None
-        return _json({"running": bool(current_run), "last_run_at": last or None, "fresh_seconds": FRESH_RUN_SECONDS})
+        integrity = integrity_summary(_log_path())  # F-03: tampering or truncation of the trend log is reported, not hidden
+        payload = {"running": bool(current_run), "last_run_at": last or None, "fresh_seconds": FRESH_RUN_SECONDS}
+        if integrity["status"] == "damaged" or integrity["quarantined_ever"]:
+            payload["log_integrity"] = integrity
+        return _json(payload)
 
     @app.route("/api/run-cancel", methods=["POST"])
     def run_cancel():
