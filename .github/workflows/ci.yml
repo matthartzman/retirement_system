@@ -62,7 +62,7 @@ jobs:
     # requirement as the `test` job below. Confirmed locally: omitting this
     # step makes those files fail here with ERR_MODULE_NOT_FOUND, not the
     # regression they're meant to catch.
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         node-version: "22"
 
@@ -134,7 +134,7 @@ jobs:
     # test_dashboard_js_module_bridge_regression.py). Those scripts import
     # @babel/parser and jscodeshift, so without node_modules they die with
     # ERR_MODULE_NOT_FOUND and the tests report it as tool failure/drift.
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         node-version: "22"
 
@@ -264,7 +264,7 @@ jobs:
       with:
         persist-credentials: false
 
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         node-version: "22"
 
@@ -307,7 +307,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         node-version: "22"
 
@@ -404,7 +404,7 @@ jobs:
         python-version: '3.14'
         cache: 'pip'
 
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         node-version: "22"
 
