@@ -68,7 +68,7 @@
       <div class="row3">${field("Role", `<select id="fRole"><option value="user"${u && u.role === "admin" ? "" : " selected"}>User</option><option value="admin"${u && u.role === "admin" ? " selected" : ""}>Administrator</option></select>`)} ${feat("expiry") ? field("Access ends after (blank = never)", `<input id="fExpires" type="date" value="${esc(dateValue(u && u.expires_at))}">`) : ""} ${field("Added", `<output id="fAdded">${esc(day(u ? u.created_at : Date.now() / 1000))}</output>`)}</div>
       ${u ? `<details class="acts"><summary>${host.maintenance || "Password, sessions and removal"}</summary>${host.note || ""}
         ${field("New temporary password", '<input id="fResetPw" type="password" autocomplete="new-password">')}
-        <div class="actions"><button type="button" data-act="reset-password">Reset password</button>${feat("end_sessions") ? '<button type="button" data-act="end-sessions">End sessions</button>' : ""}<button type="button" data-act="reset-totp">Reset two-factor</button><button type="button" data-act="enrol-code">New enrolment code</button>
+        <div class="actions"><button type="button" data-act="reset-password">Reset password</button>${feat("end_sessions") ? '<button type="button" data-act="end-sessions">End sessions</button>' : ""}<button type="button" data-act="reset-totp">Reset two-factor</button>${host.showCode ? '<button type="button" data-act="enrol-code">New enrolment code</button>' : ""}
         ${host.sections ? "" : `<button type="button" data-act="${u.status === "disabled" ? "enable" : "disable"}">${u.status === "disabled" ? "Enable" : "Disable"}</button>`}${host.removal ? "" : '<button type="button" class="danger" data-act="delete">Delete</button>'}</div>${host.removal ? host.removal(u) : ""}</details>` : ""}</section>`;
     const planner = sec("Retirement Planner", tog("Can use the Retirement Planner", u ? u.grants.some((g) => g.app === "planner") : false, 'id="gPlanner"', "stored now; enforced when the multi-user server arrives"), true);
     const insights = sec("Financial Insights", `${field("Money shown as", `<select id="gMoney">${Object.entries(MONEY).map(([v, l]) => `<option value="${v}"${(ins ? ins.money_view : "percent") === v ? " selected" : ""}>${l}</option>`).join("")}</select>`)}
@@ -87,28 +87,6 @@
       views: picked.length === meta.views.length ? null : picked, planner: $("#gPlanner", dlg).checked };
   }
 
-  const name_of = (out, u) => (u ? u.display_name : $("#fName", dlg).value.trim());
-
-  // SEC-04: the one-time enrolment code is shown to the administrator once, at creation or reset. The server keeps only
-  // its hash, so closing this box loses it; "Enrolment code" on a person's page issues a new one.
-  function showEnrolCode(out, who) {
-    if (!out || !out.enrol_code) return Promise.resolve();
-    return new Promise((resolve) => {
-      const box = document.createElement("dialog");
-      const h = document.createElement("h3"); h.textContent = `Enrolment code for ${who}`;
-      const code = document.createElement("p"); code.className = "enrolcode"; code.textContent = out.enrol_code;
-      code.style.cssText = "font:700 1.6rem/1.4 monospace;letter-spacing:.12em;user-select:all";
-      const note = document.createElement("p"); note.className = "note";
-      note.textContent = `Give this to ${who} by a different route than their temporary password (in person or by phone). `
-        + `It works once, expires in ${out.enrol_code_minutes || 20} minutes and cannot be shown again.`;
-      const ok = document.createElement("button"); ok.type = "button"; ok.textContent = "I have passed it on";
-      ok.addEventListener("click", () => { box.close(); box.remove(); resolve(); });
-      box.append(h, code, note, ok);
-      document.body.appendChild(box);
-      box.showModal();
-    });
-  }
-
   function openForm(u) {
     dlg.innerHTML = formHtml(u);
     const err = (m) => { $("#formErr", dlg).textContent = m; };
@@ -119,8 +97,7 @@
       const g = readGrants();
       if (g.insights && g.views && !g.views.length) return err("Choose at least one view, or untick Can sign in.");
       const out = u ? await saveEdit(u, g) : await saveNew(g);
-      if (!out.ok) return err(out.error || "The change was refused.");
-      await showEnrolCode(out, name_of(out, u));
+      if (!out.ok) return err(out.error || "The change was refused."); await (host.showCode && host.showCode(out, u ? u.display_name : $("#fName", dlg).value.trim()));  // SEC-04: gateway shows the one-time enrolment code once
       dlg.close();
       showUsers();
     });
@@ -136,9 +113,7 @@
     if (!name || !username) return { error: "Name and username are both needed." };
     if (pw.length < MIN_PW) return { error: `Temporary password must be at least ${MIN_PW} characters.` };
     const out = await api("/users", { display_name: name, username, temp_password: pw, role: $("#fRole", dlg).value, ...extras(),
-      ...(feat("expiry") && { expires_at: endOfDay($("#fExpires", dlg).value) }), ...(feat("grants") && { grants: { insights: g.insights ? insightsGrant(g) : null, planner: g.planner } }) });
-    const done = host.after ? await host.after(out, null, dlg, api) : out;
-    return out.enrol_code && done.ok ? { ...done, enrol_code: out.enrol_code, enrol_code_minutes: out.enrol_code_minutes } : done;
+      ...(feat("expiry") && { expires_at: endOfDay($("#fExpires", dlg).value) }), ...(feat("grants") && { grants: { insights: g.insights ? insightsGrant(g) : null, planner: g.planner } }) }); const done = host.after ? await host.after(out, null, dlg, api) : out; return out.enrol_code && done.ok ? { ...done, enrol_code: out.enrol_code, enrol_code_minutes: out.enrol_code_minutes } : done;  // SEC-04: keep the one-time code through the after-hook
   }
 
   async function saveEdit(u, g) {
@@ -171,8 +146,7 @@
         if (body.temp_password.length < MIN_PW) return err(`Temporary password must be at least ${MIN_PW} characters.`);
       }
       const out = await api(`/users/${act}`, body);
-      if (!out.ok) return err(out.error || "The change was refused.");
-      await showEnrolCode(out, u.display_name);
+      if (!out.ok) return err(out.error || "The change was refused."); await (host.showCode && host.showCode(out, u.display_name));
       dlg.close();
       showUsers();
     }));
