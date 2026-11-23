@@ -43,7 +43,7 @@ def test_migration_keeps_every_row_as_a_member(tmp_path):
     build_old_gateway_db(path, 3, users=(("root", "admin"), ("ann", "user"), ("bob", "user")), enrolled=("root",))
     before = sqlite3.connect(path).execute("SELECT id, username, role FROM users ORDER BY id").fetchall()
     s = GatewayStore(path, scrypt_n=2**4, clock=lambda: NOW)
-    assert s.schema_version() == gstore.SCHEMA_VERSION == 4
+    assert s.schema_version() == gstore.SCHEMA_VERSION == 5
     rows = s._read("SELECT id, username, role, kind, sponsor_user_id FROM users ORDER BY id")
     assert [(r["id"], r["username"], r["role"]) for r in rows] == before
     assert all(r["kind"] == "member" and r["sponsor_user_id"] is None for r in rows)
@@ -51,9 +51,9 @@ def test_migration_keeps_every_row_as_a_member(tmp_path):
     tables = {r[0] for r in s._read("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"shares", "share_access_log"} <= tables
     # Reopening is idempotent; a newer database is refused by this gateway.
-    assert GatewayStore(path, scrypt_n=2**4).schema_version() == 4
+    assert GatewayStore(path, scrypt_n=2**4).schema_version() == gstore.SCHEMA_VERSION
     con = sqlite3.connect(path)
-    con.execute("PRAGMA user_version = 5")
+    con.execute("PRAGMA user_version = 6")
     con.commit()
     con.close()
     with pytest.raises(RuntimeError):

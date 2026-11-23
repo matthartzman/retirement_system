@@ -31,7 +31,7 @@ from .secret_box import SecretBox, default_secret_box
 
 LOG = logging.getLogger("retirement.gateway.store")
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 ROLES = ("admin", "user")
 # Phase 9: an account is a planner member or a low-privilege viewer of shared Financial Insight views. Anything but
 # exactly "member" is treated as a viewer everywhere (fail closed); the column's CHECK admits these two only.
@@ -167,6 +167,18 @@ _MIGRATIONS: list[tuple[int, list[str]]] = [
         lambda conn, now: conn.execute(
             "UPDATE users SET enrol_by=? WHERE id NOT IN (SELECT user_id FROM totp_secrets WHERE enrolled_at IS NOT NULL)",
             (now + ENROL_DEADLINE_SECONDS,)),
+    ]),
+    # SEC-05: failure counts and locks per (user, source address), plus the sources that completed a sign-in.
+    (5, [
+        """CREATE TABLE login_sources (
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            source TEXT NOT NULL,
+            failed_count INTEGER NOT NULL DEFAULT 0,
+            locked_until REAL NOT NULL DEFAULT 0,
+            last_fail_at REAL NOT NULL DEFAULT 0,
+            last_ok_at REAL NOT NULL DEFAULT 0,
+            PRIMARY KEY (user_id, source)
+        )""",
     ]),
 ]
 
@@ -420,12 +432,13 @@ class GatewayStore:
             "SELECT u.id, u.username, u.display_name, u.role, u.kind, u.sponsor_user_id, u.enrol_by, u.disabled,"
             " u.locked_until, u.must_change, u.last_login_at, u.created_at, u.expires_at, u.notes, u.modules,"
             " t.enrolled_at, t.user_id AS has_totp,"
+            " (SELECT COUNT(*) FROM login_sources l WHERE l.user_id = u.id AND l.locked_until > ?) AS source_locks,"
             " (SELECT COUNT(*) FROM shares s WHERE s.owner_user_id = u.id) AS shares_owned,"
             " (SELECT COUNT(*) FROM shares s WHERE s.grantee_user_id = u.id) AS shares_received"
-            " FROM users u LEFT JOIN totp_secrets t ON t.user_id = u.id ORDER BY u.username")
+            " FROM users u LEFT JOIN totp_secrets t ON t.user_id = u.id ORDER BY u.username", (now,))
         return [{
             "id": r["id"], "username": r["username"], "display_name": r["display_name"], "role": r["role"],
-            "disabled": bool(r["disabled"]), "locked": r["locked_until"] > now, "must_change": bool(r["must_change"]),
+            "disabled": bool(r["disabled"]), "locked": r["locked_until"] > now or bool(r["source_locks"]), "must_change": bool(r["must_change"]),
             "totp": "enrolled" if r["enrolled_at"] is not None else ("pending" if r["has_totp"] is not None else "none"),
             "last_login_at": r["last_login_at"], "created_at": r["created_at"],
             "expires_at": r["expires_at"], "expired": _expired(r["expires_at"], now), "notes": r["notes"],
@@ -578,6 +591,7 @@ class GatewayStore:
             row = self._locked_user(conn, user_id)
             conn.execute("UPDATE users SET pw_hash=?, pw_salt=?, scrypt_n=?, must_change=?, failed_count=0, locked_until=0,"
                          " updated_at=? WHERE id=?", (digest, salt, self._n, int(bool(must_change)), now, row["id"]))
+            conn.execute("UPDATE login_sources SET failed_count=0, locked_until=0 WHERE user_id=?", (row["id"],))
             if must_change:
                 # A temporary password (an admin or CLI reset) starts a fresh enrol-by deadline, and a viewer's
                 # shares wait for each owner to enable them again (design 5.7, C10 and C11).
@@ -602,6 +616,7 @@ class GatewayStore:
         with self._tx() as conn:
             row = self._locked_user(conn, user_id)
             conn.execute("UPDATE users SET failed_count=0, locked_until=0, updated_at=? WHERE id=?", (now, row["id"]))
+            conn.execute("UPDATE login_sources SET failed_count=0, locked_until=0 WHERE user_id=?", (row["id"],))
             if event:
                 self.audit(event, now=now, actor=actor, target_user_id=row["id"], target_username=row["username"], conn=conn)
 
@@ -612,12 +627,40 @@ class GatewayStore:
         return self._password_matches(password, user["pw_salt"], user["scrypt_n"], user["pw_hash"])
 
     # ---- sign-in ----
-    def verify_password(self, username: str, password: str, now: float) -> LoginCheck:
+    # Lockout design (SEC-05). Failures are counted per (user, source address) in ``login_sources``: five lock that
+    # source for LOCK_SECONDS, so a stranger can lock only himself out. Every failure also feeds the account-wide
+    # ``users.failed_count``; at MAX_FAILED_ACCOUNT (many sources) ``users.locked_until`` locks the account against
+    # sources that have never completed a sign-in. A source with a completed sign-in in the last KNOWN_GOOD_SECONDS
+    # (``last_ok_at``) is exempt from the account-wide lock, but never from its own five-failure lock. A caller that
+    # passes no source (CLI, old tests) uses the "" source, which behaves like any other. ``unlock`` clears everything.
+    def _known_good(self, conn: sqlite3.Connection, user_id: int, source: str, now: float) -> bool:
+        if not source:
+            return False
+        row = conn.execute("SELECT last_ok_at FROM login_sources WHERE user_id=? AND source=?",
+                           (int(user_id), source)).fetchone()
+        return bool(row and row["last_ok_at"] and row["last_ok_at"] > now - access_core.KNOWN_GOOD_SECONDS)
+
+    def _lock_state(self, user_id: int, now: float, source: str) -> bool:
+        """True when ``source`` may not sign in to this account right now."""
+        conn = self._connect()
+        try:
+            src = conn.execute("SELECT locked_until FROM login_sources WHERE user_id=? AND source=?",
+                               (int(user_id), source or "")).fetchone()
+            if src and src["locked_until"] > now:
+                return True
+            user = conn.execute("SELECT locked_until FROM users WHERE id=?", (int(user_id),)).fetchone()
+            if user is None or user["locked_until"] <= now:
+                return False
+            return not self._known_good(conn, user_id, source or "", now)
+        finally:
+            conn.close()
+
+    def verify_password(self, username: str, password: str, now: float, source: str = "") -> LoginCheck:
         user = self.find_user(username)
         if user is None:
             self._hash(password, access_core._DUMMY_SALT, self._n)
             return LoginCheck(False, None, "unknown")
-        if user["locked_until"] > now:
+        if self._lock_state(user["id"], now, source):
             self._hash(password, access_core._DUMMY_SALT, self._n)
             return LoginCheck(False, user["id"], "locked")
         matches = self._password_matches(password, user["pw_salt"], user["scrypt_n"], user["pw_hash"])
@@ -630,35 +673,68 @@ class GatewayStore:
         if matches:
             # Not cleared here: wrong second-factor codes keep counting until the sign-in completes
             # (``touch_login``), so re-entering the password cannot reset an attacker's guess budget.
+            if user["scrypt_n"] < self._n:
+                self._rehash(user["id"], password, user["scrypt_n"], now)  # SEC-06: upgrade a weaker stored cost
             return LoginCheck(True, user["id"], "ok")
-        locked = self.record_failure(user["id"], now)
+        locked = self.record_failure(user["id"], now, source)
         return LoginCheck(False, user["id"], "locked" if locked else "bad")
 
-    def record_failure(self, user_id: int, now: float) -> bool:
-        """Count one failed password or code; True when this failure locks the account."""
+    def _rehash(self, user_id: int, password: str, old_n: int, now: float) -> None:
+        salt = access_core.new_salt()
+        digest = self._hash(password, salt, self._n)
+        with self._tx() as conn:
+            conn.execute("UPDATE users SET pw_hash=?, pw_salt=?, scrypt_n=?, updated_at=? WHERE id=? AND scrypt_n=?",
+                         (digest, salt, self._n, now, int(user_id), int(old_n)))
+
+    def record_failure(self, user_id: int, now: float, source: str = "") -> bool:
+        """Count one failed password or code; True when ``source`` is now (or already) locked out of the account."""
+        source = source or ""
         with self._tx() as conn:
             row = conn.execute("SELECT failed_count, locked_until FROM users WHERE id=?", (int(user_id),)).fetchone()
             if row is None:
                 return False
-            if row["locked_until"] > now:
+            src = conn.execute("SELECT failed_count, locked_until FROM login_sources WHERE user_id=? AND source=?",
+                               (int(user_id), source)).fetchone()
+            if src is not None and src["locked_until"] > now:
                 return True  # a failure that raced past the lock check must not erase the lock
-            failed, locked_until = access_core.failure_outcome(row["failed_count"], now)
-            conn.execute("UPDATE users SET failed_count=?, locked_until=? WHERE id=?", (failed, locked_until, int(user_id)))
-            if locked_until:
-                self._end_user_sessions(conn, int(user_id), stage="pending")
-            return bool(locked_until)
+            s_failed, s_locked = access_core.failure_outcome(src["failed_count"] if src else 0, now)
+            conn.execute("INSERT INTO login_sources(user_id, source, failed_count, locked_until, last_fail_at)"
+                         " VALUES (?,?,?,?,?) ON CONFLICT(user_id, source) DO UPDATE SET"
+                         " failed_count=excluded.failed_count, locked_until=excluded.locked_until,"
+                         " last_fail_at=excluded.last_fail_at", (int(user_id), source, s_failed, s_locked, now))
+            conn.execute("DELETE FROM login_sources WHERE last_ok_at=0 AND locked_until<=? AND last_fail_at<?",
+                         (now, now - access_core.KNOWN_GOOD_SECONDS))
+            if s_locked:
+                self._end_user_sessions_from(conn, int(user_id), source)
+            a_failed, a_locked = (row["failed_count"], row["locked_until"])
+            if a_locked <= now:
+                a_failed, a_locked = access_core.failure_outcome(a_failed, now, max_failed=access_core.MAX_FAILED_ACCOUNT)
+                conn.execute("UPDATE users SET failed_count=?, locked_until=? WHERE id=?", (a_failed, a_locked, int(user_id)))
+                if a_locked:
+                    self._end_user_sessions(conn, int(user_id), stage="pending")
+            account_locks_source = a_locked > now and not self._known_good(conn, user_id, source, now)
+            return bool(s_locked) or account_locks_source
+
+    @staticmethod
+    def _end_user_sessions_from(conn: sqlite3.Connection, user_id: int, source: str) -> None:
+        conn.execute("DELETE FROM sessions WHERE user_id=? AND stage='pending' AND client_ip=?", (user_id, source[:64]))
 
     def clear_failures(self, user_id: int) -> None:
         with self._tx() as conn:
             conn.execute("UPDATE users SET failed_count=0 WHERE id=?", (int(user_id),))
+            conn.execute("UPDATE login_sources SET failed_count=0 WHERE user_id=?", (int(user_id),))
 
-    def is_locked(self, user_id: int, now: float) -> bool:
-        user = self.get_user(user_id)
-        return bool(user and user["locked_until"] > now)
+    def is_locked(self, user_id: int, now: float, source: str = "") -> bool:
+        return self._lock_state(user_id, now, source)
 
-    def touch_login(self, user_id: int, now: float) -> None:
+    def touch_login(self, user_id: int, now: float, source: str = "") -> None:
+        """A sign-in completed: clear the account-wide count and this source's count, and remember the source as known-good."""
         with self._tx() as conn:
             conn.execute("UPDATE users SET last_login_at=?, failed_count=0 WHERE id=?", (now, int(user_id)))
+            if source:
+                conn.execute("INSERT INTO login_sources(user_id, source, last_ok_at) VALUES (?,?,?)"
+                             " ON CONFLICT(user_id, source) DO UPDATE SET failed_count=0, last_ok_at=excluded.last_ok_at",
+                             (int(user_id), source, now))
 
     def _enrol_overdue(self, user: dict | sqlite3.Row, now: float) -> bool:
         """Not enrolled, and the enrol-by deadline has passed (C10)."""

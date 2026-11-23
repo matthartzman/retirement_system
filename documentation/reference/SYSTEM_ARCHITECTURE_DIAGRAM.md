@@ -650,7 +650,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/gateway/accounts.py` | `gateway` | — |
 | `src/gateway/acl.py` | `gateway`, `gateway.store` | — |
 | `src/gateway/admin_console.py` | `gateway.store`, `http_runtime.wsgi_facade` | — |
-| `src/gateway/app.py` | `access_core`, `gateway`, `gateway.admin_console`, `gateway.share_routes`, `gateway.share_store`, `gateway.signin_throttle`, `gateway.store`, `gateway.upstream`, `gateway.viewer_api`, `gateway.viewer_routes`, `http_runtime.wsgi_facade` | `segno` |
+| `src/gateway/app.py` | `src`, `access_core`, `gateway`, `gateway.admin_console`, `gateway.share_routes`, `gateway.share_store`, `gateway.signin_throttle`, `gateway.store`, `gateway.upstream`, `gateway.viewer_api`, `gateway.viewer_routes`, `http_runtime.wsgi_facade` | `segno` |
 | `src/gateway/backup_crypto.py` | — | `cryptography` |
 | `src/gateway/backup_dest.py` | — | — |
 | `src/gateway/backup_store.py` | `gateway`, `gateway.backup_crypto`, `remote_worker` | — |

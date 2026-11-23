@@ -17,6 +17,12 @@ import threading
 MIN_PASSWORD_LENGTH = 10
 MAX_FAILED_BEFORE_LOCK = 5
 LOCK_SECONDS = 15 * 60
+# SEC-05 design. Five failures lock a username only for the source (client address) that made them, so a stranger
+# cannot lock the owner out. Failures from every source also feed one account-wide count; reaching this many (for
+# example a spray from many addresses) locks the account for LOCK_SECONDS against sources that have never completed a
+# sign-in, while an address with a recent completed sign-in (a known-good source) still reaches the password check.
+MAX_FAILED_ACCOUNT = 50
+KNOWN_GOOD_SECONDS = 30 * 24 * 3600
 DEFAULT_SCRYPT_N = 2**15
 _DUMMY_SALT = b"\0" * 16
 
