@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 392 Python files under `src/`, 92 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 393 Python files under `src/`, 92 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (6 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (288 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (289 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (35 modules)"]
@@ -585,7 +585,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | Module | Internal imports | External imports |
 |---|---|---|
 | `src/__init__.py` | `version` | — |
-| `src/access_core.py` | — | — |
+| `src/access_core.py` | `common_passwords` | — |
 | `src/account_numbers.py` | — | — |
 | `src/active_plan.py` | `csv_exchange`, `csv_exchange.flat_csv`, `roth_ui_build_guard`, `stores`, `stores.plan_store`, `workspace_context` | — |
 | `src/after_tax.py` | `core` | — |
@@ -620,6 +620,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/cash_verified_accounts.py` | `platform_runtime` | — |
 | `src/cash_view.py` | `cash_ledger`, `cash_pairing`, `local_store`, `platform_runtime`, `sales_confirm`, `workspace_context` | — |
 | `src/cash_year_close.py` | `local_store`, `platform_runtime`, `workspace_context` | — |
+| `src/common_passwords.py` | — | — |
 | `src/config_backend.py` | `active_plan`, `app_state`, `engine_defaults`, `sqlite_util`, `system_config` | — |
 | `src/core.py` | `person_labels`, `tax_law` | — |
 | `src/csv_exchange/__init__.py` | `csv_exchange`, `csv_exchange.core`, `csv_exchange.flat_csv`, `csv_exchange.plan_csv`, `csv_exchange.plan_set`, `csv_exchange.text_csv`, `plan_label_rules` | — |

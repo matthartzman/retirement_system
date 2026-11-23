@@ -58,7 +58,7 @@ ENROL_CODE_LENGTH = 10  # about 49 bits
 MAX_VIEWERS_PER_SPONSOR = 5
 TOUCH_EVERY_SECONDS = 30
 AUDIT_DETAILS_MAX = 300
-# scrypt (n=2**15, r=8) holds ~32 MiB while it runs: only this many password hashes at once, and a caller
+# scrypt (n=2**16, r=8) holds ~64 MiB while it runs: only this many password hashes at once, and a caller
 # waits at most HASH_WAIT_SECONDS for a slot before the gateway answers 503 (P7-O3).
 DEFAULT_HASH_CONCURRENCY = 4
 HASH_WAIT_SECONDS = 20.0

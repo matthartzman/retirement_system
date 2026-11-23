@@ -8,11 +8,16 @@ Nothing here logs or returns a secret except ``new_secret`` (shown once during e
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import hmac
+import os
 import secrets
 import struct
+import tempfile
+import threading
 import time
+from pathlib import Path
 from urllib.parse import quote
 
 STEP_SECONDS = 30
@@ -119,15 +124,51 @@ def looks_like_recovery(code: str) -> bool:
     return len(n) == 10 and all(c in _RECOVERY_ALPHABET for c in n)
 
 
+_KEY_THREAD_LOCK = threading.Lock()
+
+
+@contextlib.contextmanager
+def _key_creation_lock():
+    """Serialise first-use key creation across threads AND processes (the Admin app, Financial Insights and the
+    gateway can all start at once): an OS file lock in the user's temp folder, plus a thread lock."""
+    path = Path(tempfile.gettempdir()) / "retirement_identity_totp_key.lock"
+    with _KEY_THREAD_LOCK, open(path, "a+b") as fh:
+        if os.name == "nt":
+            import msvcrt  # noqa: PLC0415
+
+            fh.seek(0)
+            msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+            try:
+                yield
+            finally:
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl  # noqa: PLC0415
+
+            fcntl.flock(fh, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(fh, fcntl.LOCK_UN)
+
+
 def default_key() -> bytes:
     """The sealing key from the OS credential store, created on first use. Raises ``SecretStoreUnavailable``
-    when there is no credential store (callers fail closed: no second factor can be checked or enrolled)."""
+    when there is no credential store (callers fail closed: no second factor can be checked or enrolled).
+
+    X-8: creation is atomic. The get-then-set used to let two starters each mint a key, the later write orphaning
+    every secret sealed with the first; now the check, the mint and the write happen under one lock, and the value is
+    read back so every caller returns what is actually stored."""
     from src import secrets_store
 
     value = secrets_store.get_secret(KEY_SECRET_NAME)
     if not value:
-        value = secrets.token_hex(32)
-        secrets_store.set_secret(KEY_SECRET_NAME, value)
+        with _key_creation_lock():
+            value = secrets_store.get_secret(KEY_SECRET_NAME)  # someone may have created it while we waited
+            if not value:
+                secrets_store.set_secret(KEY_SECRET_NAME, secrets.token_hex(32))
+                value = secrets_store.get_secret(KEY_SECRET_NAME)
     return bytes.fromhex(value)
 
 
