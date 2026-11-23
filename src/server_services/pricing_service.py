@@ -78,6 +78,25 @@ def configured_market_data_provider(load_active_config_fn: Callable[[], tuple[di
     return provider, meta
 
 
+SYMBOL_PATTERN = re.compile(r"^[A-Z0-9.^=\-]{1,15}$")
+MAX_CONCURRENT_SYMBOL_TESTS = 3
+BAD_SYMBOL_MESSAGE = "Enter a ticker symbol of 1 to 15 letters, digits, '.', '^', '=' or '-'."
+
+
+def _remote_mode_on() -> bool:
+    from .. import remote_mode  # noqa: PLC0415
+
+    return remote_mode.enabled()
+
+
+def _failure_trace(symbol: str, summary: str, exc: Exception) -> dict[str, Any]:
+    """The error trace for a tester failure; the traceback tail stays out of remote mode (PR-08)."""
+    trace: dict[str, Any] = {"success": False, "symbol": symbol, "summary": summary, "error": str(exc), "steps": []}
+    if not _remote_mode_on():
+        trace["traceback_tail"] = traceback.format_exc()[-4000:]
+    return trace
+
+
 def run_price_symbol_trace(symbol: str, *, workspace_id: str, on_step=None) -> dict[str, Any]:
     provider, meta = configured_market_data_provider()
     trace = provider.verbose_symbol_test(str(symbol or "").strip().upper(), on_step=on_step)
@@ -91,6 +110,8 @@ def single_symbol_test_payload(body: dict[str, Any], *, workspace_id: str, audit
     symbol = str((body or {}).get("symbol") or "").strip().upper()
     if not symbol:
         return {"success": False, "error": "Enter a ticker symbol to test."}, 400
+    if not SYMBOL_PATTERN.match(symbol):
+        return {"success": False, "error": BAD_SYMBOL_MESSAGE}, 400
     try:
         trace = run_price_symbol_trace(symbol, workspace_id=workspace_id)
         live_ok = bool(trace.get("success"))
@@ -98,22 +119,16 @@ def single_symbol_test_payload(body: dict[str, Any], *, workspace_id: str, audit
             audit("price_symbol_tested", {"symbol": symbol, "success": live_ok, "selected_provider": trace.get("selected_provider")})
         return {"success": True, "live_pricing_working": live_ok, "result": trace}, 200
     except Exception as exc:  # noqa: BLE001 - diagnostic endpoint reports trace tail
-        err_trace = {
-            "success": False,
-            "symbol": symbol,
-            "summary": f"Tester route failed before the provider trace completed: {exc}",
-            "error": str(exc),
-            "traceback_tail": traceback.format_exc()[-4000:],
-            "steps": [],
-        }
+        err_trace = _failure_trace(symbol, f"Tester route failed before the provider trace completed: {exc}", exc)
         if audit:
             audit("price_symbol_test_failed", {"symbol": symbol, "error": str(exc)})
         return {"success": True, "live_pricing_working": False, "result": err_trace}, 200
 
 
 class PriceSymbolTestRegistry:
-    def __init__(self, ttl_seconds: int = 15 * 60):
+    def __init__(self, ttl_seconds: int = 15 * 60, max_concurrent: int = MAX_CONCURRENT_SYMBOL_TESTS):
         self.ttl_seconds = ttl_seconds
+        self.max_concurrent = max_concurrent
         self.jobs: dict[str, dict[str, Any]] = {}
         self.lock = threading.Lock()
 
@@ -129,9 +144,13 @@ class PriceSymbolTestRegistry:
         symbol = str((body or {}).get("symbol") or "").strip().upper()
         if not symbol:
             return {"success": False, "error": "Enter a ticker symbol to test."}, 400
+        if not SYMBOL_PATTERN.match(symbol):
+            return {"success": False, "error": BAD_SYMBOL_MESSAGE}, 400
         job_id = uuid.uuid4().hex[:12]
         job = {"id": job_id, "symbol": symbol, "status": "running", "started_at": time.time(), "updated_at": time.time(), "steps": [], "result": None, "error": ""}
         with self.lock:
+            if sum(1 for j in self.jobs.values() if j.get("status") == "running") >= self.max_concurrent:
+                return {"success": False, "error": "Too many symbol tests are running; wait for one to finish."}, 429
             self.jobs[job_id] = job
 
         def worker() -> None:
@@ -151,7 +170,7 @@ class PriceSymbolTestRegistry:
                         j["result"] = trace
                         j["updated_at"] = time.time()
             except Exception as exc:  # noqa: BLE001 - diagnostic endpoint reports trace tail
-                err_trace = {"success": False, "symbol": symbol, "summary": f"Tester worker failed before the provider trace completed: {exc}", "error": str(exc), "traceback_tail": traceback.format_exc()[-4000:], "steps": []}
+                err_trace = _failure_trace(symbol, f"Tester worker failed before the provider trace completed: {exc}", exc)
                 with self.lock:
                     j = self.jobs.get(job_id)
                     if j is not None:

@@ -1157,7 +1157,7 @@ class MarketDataProvider:
             add_step({"provider": "financial_modeling_prep", "endpoint": "quote-short/quote", "enabled": False, "outcome": "skipped", "cause": "No FMP API key configured."})
         else:
             for endpoint_name, template in (("quote-short", FMP_QUOTE_SHORT_URL), ("quote", FMP_QUOTE_URL)):
-                url = template.format(symbol=urllib.parse.quote(symbol), api_key=urllib.parse.quote(self.fmp_api_key))
+                url = template.format(symbol=urllib.parse.quote(symbol, safe=""), api_key=urllib.parse.quote(self.fmp_api_key))
                 payload, cause, attempts = self._probe_http_json(f"Financial Modeling Prep {endpoint_name}", symbol, url)
                 px, parse_note = self._parse_fmp_payload(payload)
                 add_step({
@@ -1173,9 +1173,9 @@ class MarketDataProvider:
                 })
 
         for endpoint_name, url in (
-            ("chart-query1", YAHOO_CHART_URL.format(symbol=urllib.parse.quote(symbol))),
-            ("chart-query2", YAHOO_CHART_QUERY2_URL.format(symbol=urllib.parse.quote(symbol))),
-            ("quote", YAHOO_QUOTE_URL.format(symbol=urllib.parse.quote(symbol))),
+            ("chart-query1", YAHOO_CHART_URL.format(symbol=urllib.parse.quote(symbol, safe=""))),
+            ("chart-query2", YAHOO_CHART_QUERY2_URL.format(symbol=urllib.parse.quote(symbol, safe=""))),
+            ("quote", YAHOO_QUOTE_URL.format(symbol=urllib.parse.quote(symbol, safe=""))),
         ):
             payload, cause, attempts = self._probe_http_json(f"Yahoo Finance {endpoint_name}", symbol, url)
             px, parse_note = self._parse_yahoo_payload(endpoint_name, payload)
@@ -1192,7 +1192,7 @@ class MarketDataProvider:
             })
 
         for asset_class in ("etf", "stocks"):
-            url = NASDAQ_INFO_URL.format(symbol=urllib.parse.quote(symbol), asset_class=asset_class)
+            url = NASDAQ_INFO_URL.format(symbol=urllib.parse.quote(symbol, safe=""), asset_class=asset_class)
             payload, cause, attempts = self._probe_http_json(f"Nasdaq {asset_class}", symbol, url)
             px, parse_note = self._parse_nasdaq_payload(payload)
             add_step({
@@ -1210,7 +1210,7 @@ class MarketDataProvider:
         if not self.alpha_vantage_api_key:
             add_step({"provider": "alpha_vantage", "endpoint": "GLOBAL_QUOTE", "enabled": False, "outcome": "skipped", "cause": "No Alpha Vantage API key configured."})
         else:
-            url = ALPHA_VANTAGE_QUOTE_URL.format(symbol=urllib.parse.quote(symbol), api_key=urllib.parse.quote(self.alpha_vantage_api_key))
+            url = ALPHA_VANTAGE_QUOTE_URL.format(symbol=urllib.parse.quote(symbol, safe=""), api_key=urllib.parse.quote(self.alpha_vantage_api_key))
             payload, cause, attempts = self._probe_http_json("Alpha Vantage", symbol, url)
             px, parse_note = self._parse_alpha_payload(payload)
             add_step({
