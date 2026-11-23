@@ -191,12 +191,15 @@ def _server_path_allowed(folder: Path):
     if not roots:
         return False, "LAN/server-side Plan Data paths require System Configuration > Security > local_plan_data_roots allowlist."
     try:
-        resolved = folder.resolve()
-        for root in roots:
+        resolved = folder.resolve()  # follows symlinks, so a link inside an allowed folder cannot lead outside it
+    except Exception:  # noqa: BLE001 - unresolvable: fail closed
+        return False, "Requested Plan Data path is outside the configured local_plan_data_roots allowlist."
+    for root in roots:  # any configured root may admit the path, not just the first one
+        try:
             resolved.relative_to(root)
             return True, ""
-    except Exception:
-        pass
+        except ValueError:
+            continue
     return False, "Requested Plan Data path is outside the configured local_plan_data_roots allowlist."
 
 @app.route("/api/status", methods=["GET"])
@@ -233,7 +236,7 @@ def test_price_symbol():
     denied = _require("refresh_prices")
     if denied:
         return denied
-    payload, status = pricing_service.single_symbol_test_payload(request.get_json(silent=True) or {}, workspace_id=_workspace_id(), audit=_audit)
+    payload, status = pricing_service.single_symbol_test_payload(_json_obj(), workspace_id=_workspace_id(), audit=_audit)
     return jsonify(payload), status
 
 
@@ -242,7 +245,7 @@ def start_price_symbol_test():
     denied = _require("refresh_prices")
     if denied:
         return denied
-    payload, status = _PRICE_SYMBOL_TESTS.start_payload(request.get_json(silent=True) or {}, workspace_id=_workspace_id())
+    payload, status = _PRICE_SYMBOL_TESTS.start_payload(_json_obj(), workspace_id=_workspace_id())
     return jsonify(payload), status
 
 
@@ -297,7 +300,11 @@ def local_backup_config():
     denied = _require("write_config")
     if denied:
         return denied
-    payload = local_backup_scheduler.save_policy(WORKSPACE_ROOT, request.get_json(silent=True) or {})
+    body = _json_obj()
+    refused = _paths_refusal(body.get("backup_dir"))
+    if refused:
+        return refused
+    payload = local_backup_scheduler.save_policy(WORKSPACE_ROOT, body)
     status = local_backup_scheduler.scheduler_status(WORKSPACE_ROOT, _sqlite_db())
     status.update(payload)
     _audit("local_backup_policy_saved", {"policy": status.get("policy")})
@@ -312,7 +319,12 @@ def local_backup_run():
     denied = _require("write_config")
     if denied:
         return denied
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
+    # A folder stored before the allowlist applied (or by hand) is checked again at run time.
+    stored = local_backup_scheduler.load_policy(WORKSPACE_ROOT)["policy"]
+    refused = _paths_refusal(stored.get("backup_dir"))
+    if refused:
+        return refused
     trigger = _limits.clean_trigger(body.get("trigger"))  # PR-14: bounded label, and forced runs are rate-limited
     if body.get("force") and (wait := _FORCED_BACKUPS.acquire()) > 0:
         resp = jsonify({"success": False, "error": "A forced backup was just made; try again shortly."})
@@ -344,7 +356,10 @@ def monarch_autoupdate_config():
     denied = _require("write_config")
     if denied:
         return denied
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
+    refused = _paths_refusal(body.get("source_dir"), body.get("field_map_path"))
+    if refused:
+        return refused
     try:
         payload = monarch_autoupdate.save_policy(WORKSPACE_ROOT, body)
     except ValueError as exc:
@@ -367,7 +382,11 @@ def monarch_autoupdate_run():
     denied = _require("write_config")
     if denied:
         return denied
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
+    stored = monarch_autoupdate.load_policy(WORKSPACE_ROOT)["policy"]
+    refused = _paths_refusal(stored.get("source_dir"), stored.get("field_map_path"))
+    if refused:
+        return refused
     payload = _run_monarch_autoimport(WORKSPACE_ROOT, force=bool(body.get("force", True)))
     payload["balances_status"] = monarch_autoupdate.load_balances_status(WORKSPACE_ROOT)
     _audit("monarch_autoupdate_run", {"success": payload.get("success"), "skipped": payload.get("skipped")})
@@ -395,7 +414,7 @@ def set_secret_route():
     if denied:
         return denied
     payload, status = secret_service.set_secret_payload(
-        request.get_json(silent=True) or {},
+        _json_obj(),
         workspace_id=_workspace_id(),
         db_path=_sqlite_db(),
         set_secret_fn=_set_secret_value,
@@ -431,7 +450,7 @@ def config_rows():
 def plan_tier():
     """WP5.1: pick the plan's tier (``{tier}``), or with ``preview: true`` only answer what
     picking it would change. A preview reads; applying writes the plan rows."""
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     if not isinstance(body, dict):
         return jsonify({"success": False, "error": "JSON object body required"}), 400
     denied = _require("read_config" if body.get("preview") is True else "write_config")
@@ -450,7 +469,7 @@ def plan_feature():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     if not isinstance(body, dict):
         return jsonify({"success": False, "error": "JSON object body required"}), 400
     return _service_json(_plan_tier_feature_service().set_feature_payload(body))
@@ -463,7 +482,7 @@ def _rental_write(handler):
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     if not isinstance(body, dict):
         return jsonify({"success": False, "error": "JSON object body required"}), 400
     return _service_json(handler(_rental_feature_service(), body))
@@ -534,7 +553,7 @@ def plan_interview_questions():
 def plan_interview():
     """WP5.3: ``{answers, apply?}`` -> the tier and switches the answers suggest; ``apply: true``
     writes them (tier preset plus extras) in one edit."""
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     if not isinstance(body, dict):
         return jsonify({"success": False, "error": "JSON object body required"}), 400
     denied = _require("write_config" if body.get("apply") is True else "read_config")
@@ -550,7 +569,7 @@ def allocation_preview():
     denied = _require("read_config")
     if denied:
         return denied
-    payload, status = _config_feature_service().allocation_preview_payload(request.get_json(silent=True) or {})
+    payload, status = _config_feature_service().allocation_preview_payload(_json_obj())
     return jsonify(payload), status
 
 
@@ -559,7 +578,7 @@ def daf_recommendation():
     denied = _require("read_config")
     if denied:
         return denied
-    payload, status = _config_feature_service().daf_recommendation_payload(request.get_json(silent=True) or {})
+    payload, status = _config_feature_service().daf_recommendation_payload(_json_obj())
     return jsonify(payload), status
 
 
@@ -568,7 +587,7 @@ def qlac_recommendation():
     denied = _require("read_config")
     if denied:
         return denied
-    payload, status = _config_feature_service().qlac_recommendation_payload(request.get_json(silent=True) or {})
+    payload, status = _config_feature_service().qlac_recommendation_payload(_json_obj())
     return jsonify(payload), status
 
 
@@ -578,7 +597,7 @@ def update_config_rows():
     if denied:
         return denied
     payload, status = _config_feature_service().update_config_rows_payload(
-        request.get_json(silent=True) or {},
+        _json_obj(),
         allow_csv_write=bool(_runtime_config().allow_csv_write),
     )
     return jsonify(payload), status
@@ -603,7 +622,7 @@ def save_large_discretionary_expenses():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().save_large_discretionary_payload(body))
 
 @app.route("/api/spending-adjustments", methods=["GET"])
@@ -621,7 +640,7 @@ def save_spending_adjustments():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().save_spending_adjustments_payload(body))
 
 @app.route("/api/forced-roth-conversions", methods=["GET"])
@@ -638,7 +657,7 @@ def save_forced_roth_conversions():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().save_forced_roth_conversions_payload(body))
 
 @app.route("/api/liquidity-buffers", methods=["GET"])
@@ -655,7 +674,7 @@ def save_liquidity_buffers():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().save_liquidity_buffers_payload(body))
 
 @app.route("/api/home-sale-splits", methods=["GET"])
@@ -672,7 +691,7 @@ def save_home_sale_splits():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().save_home_sale_splits_payload(body))
 
 @app.route("/api/tax-assumptions", methods=["GET"])
@@ -689,7 +708,7 @@ def save_tax_assumptions():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().save_tax_assumptions_payload(body))
 
 @app.route("/api/residency-schedule", methods=["GET"])
@@ -706,7 +725,7 @@ def save_residency_schedule():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().save_residency_schedule_payload(body))
 
 @app.route("/api/withdrawal-account-order", methods=["GET"])
@@ -723,7 +742,7 @@ def save_withdrawal_account_order():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().save_withdrawal_account_order_payload(body))
 
 @app.route("/api/other-asset/add", methods=["POST"])
@@ -733,7 +752,7 @@ def add_other_asset_item():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().add_other_asset_payload(body))
 
 @app.route("/api/other-asset/delete", methods=["POST"])
@@ -743,7 +762,7 @@ def delete_other_asset_item():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().delete_other_asset_payload(body))
 
 @app.route("/api/note-receivable/add", methods=["POST"])
@@ -753,7 +772,7 @@ def add_note_receivable():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().add_note_receivable_payload(body))
 
 @app.route("/api/note-receivable/delete", methods=["POST"])
@@ -763,7 +782,7 @@ def delete_note_receivable():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().delete_note_receivable_payload(body))
 
 @app.route("/api/education-529/add", methods=["POST"])
@@ -789,7 +808,7 @@ def add_estate_state():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().add_estate_state_payload(body))
 
 @app.route("/api/trust-account/add", methods=["POST"])
@@ -799,7 +818,7 @@ def add_trust_account():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().add_trust_account_payload(body))
 
 @app.route("/api/insurance-policy/add", methods=["POST"])
@@ -809,7 +828,7 @@ def add_insurance_policy():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().add_insurance_policy_payload(body))
 
 @app.route("/api/insurance-policy/delete", methods=["POST"])
@@ -819,7 +838,7 @@ def delete_insurance_policy():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().delete_insurance_policy_payload(body))
 
 @app.route("/api/life-illustration/seed", methods=["POST"])
@@ -829,7 +848,7 @@ def add_life_illustration():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().add_life_illustration_payload(body))
 
 def _save_override_rows(kind: str, audit_event: str):
@@ -838,7 +857,7 @@ def _save_override_rows(kind: str, audit_event: str):
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _service_json(_strategy_asset_feature_service().save_override_rows_payload(kind=kind, body=body, audit_event=audit_event))
 
 
@@ -988,7 +1007,7 @@ def ytd_account_setup_recover():
     denied = _require("write_config")
     if denied:
         return denied
-    payload, status = _ytd_feature_service().account_setup_recover_payload(request.get_json(silent=True) or {})
+    payload, status = _ytd_feature_service().account_setup_recover_payload(_json_obj())
     return jsonify(payload), status
 
 
@@ -1005,7 +1024,7 @@ def preview_ytd_transactions_import():
     denied = _require("write_config")
     if denied:
         return denied
-    payload, status = _ytd_feature_service().preview_transactions_import(request.get_json(silent=True) or {})
+    payload, status = _ytd_feature_service().preview_transactions_import(_json_obj())
     return jsonify(payload), status
 
 
@@ -1014,7 +1033,7 @@ def ytd_transactions_upload():
     denied = _require("write_config")
     if denied:
         return denied
-    payload, status = _ytd_feature_service().upload_transactions(request.get_json(silent=True) or {})
+    payload, status = _ytd_feature_service().upload_transactions(_json_obj())
     return jsonify(payload), status
 
 
@@ -1023,7 +1042,7 @@ def ytd_transaction_add():
     denied = _require("write_config")
     if denied:
         return denied
-    return jsonify(_ytd_feature_service().add_transaction(request.get_json(silent=True) or {}))
+    return jsonify(_ytd_feature_service().add_transaction(_json_obj()))
 
 
 @app.route("/api/ytd/transactions/<int:index>", methods=["PUT"])
@@ -1031,7 +1050,7 @@ def ytd_transaction_update(index: int):
     denied = _require("write_config")
     if denied:
         return denied
-    payload, status = _ytd_feature_service().update_transaction(index, request.get_json(silent=True) or {})
+    payload, status = _ytd_feature_service().update_transaction(index, _json_obj())
     return jsonify(payload), status
 
 
@@ -1057,7 +1076,7 @@ def ytd_account_setup_save():
     denied = _require("write_config")
     if denied:
         return denied
-    return jsonify(_ytd_feature_service().save_account_setup(request.get_json(silent=True) or {}))
+    return jsonify(_ytd_feature_service().save_account_setup(_json_obj()))
 
 
 @app.route("/api/ytd/account-setup/roll-forward", methods=["POST"])
@@ -1112,7 +1131,7 @@ def sales_holding_period_check():
     if denied:
         return denied
     from .. import sales_service as _sales
-    if not request.args.get("year", "").isdigit():
+    if not _ascii_digits(request.args.get("year", "")):
         return jsonify({"success": False, "error": "year must be a number"}), 400
     return _sales_call(lambda root: {"check": _sales.holding_period_check(root, int(request.args["year"]))})
 
@@ -1143,7 +1162,7 @@ def sales_batch():
     if denied:
         return denied
     from .. import sales_service as _sales
-    rows = (request.get_json(silent=True) or {}).get("rows")
+    rows = (_json_obj()).get("rows")
     if not isinstance(rows, list) or not rows:
         return jsonify({"success": False, "error": "add at least one sale"}), 400
     return _sales_call(_sales.add_sales, rows)
@@ -1155,7 +1174,7 @@ def sales_add():
     if denied:
         return denied
     from .. import sales_service as _sales
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     response = _sales_call(lambda root: {"sale": _sales.add_sale(root, body)})
     if response[1] == 200:
         _audit("sale_recorded", {"symbol": str(body.get("symbol") or "").upper()})
@@ -1201,7 +1220,7 @@ def sales_carryforward():
     if denied:
         return denied
     from .. import sales_tax_year as _tax_year
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     response = _sales_call(lambda root: _tax_year.set_carryforward(
         root, body.get("year"), short=body.get("carryforward_short"), long=body.get("carryforward_long")))
     if response[1] == 200:
@@ -1224,7 +1243,7 @@ def sales_wash_cards():
     if denied:
         return denied
     from .. import sales_tax_year as _tax_year
-    if not request.args.get("year", "").isdigit():
+    if not _ascii_digits(request.args.get("year", "")):
         return jsonify({"success": False, "error": "year must be a number"}), 400
     return _sales_call(_tax_year.wash_cards, int(request.args["year"]))
 
@@ -1244,7 +1263,7 @@ def sales_wash_review():
     if denied:
         return denied
     from .. import sales_tax_year as _tax_year
-    b = request.get_json(silent=True) or {}
+    b = _json_obj()
     return _sales_call(_tax_year.set_wash_review, str(b.get("sale_key") or ""), str(b.get("outcome") or ""), reason=b.get("reason"),
                        broker_amount=b.get("broker_amount"))
 
@@ -1255,7 +1274,7 @@ def sales_wash_review_clear():
     if denied:
         return denied
     from .. import sales_tax_year as _tax_year
-    return _sales_call(_tax_year.clear_wash_review, str((request.get_json(silent=True) or {}).get("sale_key") or ""))
+    return _sales_call(_tax_year.clear_wash_review, str((_json_obj()).get("sale_key") or ""))
 
 
 # ---- Sale queue: confirm against specific lots, undo, dismiss (step 2.2; logic in src/sales_confirm.py) ----
@@ -1288,7 +1307,7 @@ def sales_candidate_panel(candidate_id: int):
 
 @app.route("/api/sales/candidates/<int:candidate_id>/confirm", methods=["POST"])
 def sales_candidate_confirm(candidate_id: int):
-    b = request.get_json(silent=True) or {}
+    b = _json_obj()
     try:
         kw = {"allocation": dict(b.get("allocation") or {}), "tax_class": str(b.get("tax_class") or ""),
               "trade_date": str(b.get("trade_date") or ""), "symbol": b.get("symbol") or None}
@@ -1314,7 +1333,7 @@ def sales_candidate_undo(candidate_id: int):
 
 @app.route("/api/sales/candidates/<int:candidate_id>/dismiss", methods=["POST"])
 def sales_candidate_dismiss(candidate_id: int):
-    return _confirm_call("write_config", "dismiss", candidate_id, reason=str((request.get_json(silent=True) or {}).get("reason") or ""))
+    return _confirm_call("write_config", "dismiss", candidate_id, reason=str((_json_obj()).get("reason") or ""))
 
 
 @app.route("/api/sales/candidates/<int:candidate_id>/restore", methods=["POST"])
@@ -1329,7 +1348,7 @@ def _bulk_call(permission: str, fn_name: str, key: str, event: str | None = None
     if denied:
         return denied
     from .. import sales_confirm_bulk as _bulk
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     response = _sales_call(lambda root: getattr(_bulk, fn_name)(root, body.get(key), **{k: body.get(k) for k in extra}))
     if event and response[1] == 200:
         _audit(event, {"count": len(body.get(key) or [])})
@@ -1400,7 +1419,7 @@ def sales_1099b_preview():
     if denied:
         return denied
     from .. import sales_1099b as _s1099b
-    kw, err = _statement_args(request.get_json(silent=True) or {})
+    kw, err = _statement_args(_json_obj())
     return err or _sales_call(lambda root: _s1099b.preview(root, **kw))
 
 
@@ -1423,7 +1442,7 @@ def sales_1099b_apply():
     if denied:
         return denied
     from .. import sales_1099b as _s1099b
-    b = request.get_json(silent=True) or {}
+    b = _json_obj()
     kw, err = _statement_args(b)
     if err:
         return err
@@ -1439,7 +1458,7 @@ def sales_replace(sale_id: int):
     if denied:
         return denied
     from .. import sales_service as _sales
-    b = request.get_json(silent=True) or {}
+    b = _json_obj()
     row = {k: v for k, v in b.items() if v not in (None, "")}
     for name in ("shares", "proceeds", "fees", "basis"):
         if name in row:
@@ -1500,7 +1519,7 @@ def investment_income_symbol_type():
     if denied:
         return denied
     from .. import investment_income as _ii
-    b = request.get_json(silent=True) or {}
+    b = _json_obj()
     return _sales_call(_ii.set_symbol_type, str(b.get("symbol") or ""), str(b.get("type") or "") or None)
 
 
@@ -1525,7 +1544,7 @@ def sales_history_record():
     if denied:
         return denied
     from .. import history_sales as _hs
-    b = request.get_json(silent=True) or {}
+    b = _json_obj()
     response = _sales_call(lambda root: _hs.record(root, str(b.get("key") or ""), tax_class=str(b.get("tax_class") or "") or None))
     if response[1] == 200:
         _audit("history_sale_recorded", {})
@@ -1538,7 +1557,7 @@ def sales_history_dismiss():
     if denied:
         return denied
     from .. import history_sales as _hs
-    b = request.get_json(silent=True) or {}
+    b = _json_obj()
     return _sales_call(lambda root: _hs.dismiss(root, str(b.get("key") or "")))
 
 
@@ -1548,7 +1567,7 @@ def sales_history_undismiss():
     if denied:
         return denied
     from .. import history_sales as _hs
-    b = request.get_json(silent=True) or {}
+    b = _json_obj()
     return _sales_call(lambda root: _hs.undismiss(root, str(b.get("key") or "")))
 
 
@@ -1571,7 +1590,7 @@ def sales_broker_preview():
     if denied:
         return denied
     from .. import broker_import as _bi
-    b = request.get_json(silent=True) or {}
+    b = _json_obj()
     return _sales_call(lambda root: _bi.preview(root, account=str(b.get("account") or "") or None,
                                                 method=str(b.get("method") or "fifo"), **_broker_args(b)))
 
@@ -1582,7 +1601,7 @@ def sales_broker_commit():
     if denied:
         return denied
     from .. import broker_import as _bi
-    b = request.get_json(silent=True) or {}
+    b = _json_obj()
     response = _sales_call(lambda root: _bi.commit(root, account=str(b.get("account") or ""),
                                                    confirm_method=str(b.get("confirm_method") or "") or None, **_broker_args(b)))
     if response[1] == 200:
@@ -1619,7 +1638,7 @@ def transactions_list():
         return denied
     from .. import transactions_view as _tv
     year = request.args.get("year", "")
-    if year and not year.isdigit():
+    if year and not _ascii_digits(year):
         return jsonify({"success": False, "error": "year must be a number"}), 400
     types = [t for t in request.args.get("type", "").split(",") if t]
     return _sales_call(_tv.view, account=request.args.get("account") or None, symbol=request.args.get("symbol") or None,
@@ -1634,7 +1653,7 @@ def cash_accounts_view():
         return denied
     from .. import cash_view as _cv
     year = request.args.get("year", "")
-    if year and not year.isdigit():
+    if year and not _ascii_digits(year):
         return jsonify({"success": False, "error": "year must be a number"}), 400
     return _sales_call(_cv.view, account=request.args.get("account") or None, year=int(year) if year else None)
 
@@ -1646,7 +1665,7 @@ def cash_year_close_status():
         return denied
     from .. import cash_year_close as _cyc
     year = request.args.get("year", "")
-    if not year.isdigit():
+    if not _ascii_digits(year):
         return jsonify({"success": False, "error": "year must be a number"}), 400
     return _sales_call(_cyc.service, int(year))
 
@@ -1657,7 +1676,7 @@ def cash_year_close_action():
     if denied:
         return denied
     from .. import cash_year_close as _cyc
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     year, action = body.get("year"), body.get("action")
     if not isinstance(year, int) or isinstance(year, bool) or action not in ("close", "reopen"):
         return jsonify({"success": False, "error": "year (number) and action (close or reopen) are required"}), 400
@@ -1675,7 +1694,7 @@ def cash_rollover_mark():
     if denied:
         return denied
     from .. import cash_rollover_marks as _crm
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     account, date, amount = body.get("account"), body.get("date"), body.get("amount")
     if not isinstance(account, str) or not account or not isinstance(date, str) or not date             or isinstance(amount, bool) or not isinstance(amount, (int, float)):
         return jsonify({"success": False, "error": "account, date and amount are required"}), 400
@@ -1694,7 +1713,7 @@ def cash_verify_account():
     if denied:
         return denied
     from .. import cash_verified_accounts as _cva
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     account = body.get("account")
     if not isinstance(account, str) or not account:
         return jsonify({"success": False, "error": "account is required"}), 400
@@ -1714,7 +1733,7 @@ def year_end_checklist():
         return denied
     from .. import year_end as _ye
     year = request.args.get("year", "")
-    if year and not year.isdigit():
+    if year and not _ascii_digits(year):
         return jsonify({"success": False, "error": "year must be a number"}), 400
     return _sales_call(_ye.service, int(year) if year else None)
 
@@ -1725,7 +1744,7 @@ def year_end_confirm():
     if denied:
         return denied
     from .. import year_end as _ye
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     year, step = body.get("year"), body.get("step")
     if not isinstance(year, int) or isinstance(year, bool) or step not in _ye.CONFIRMABLE:
         return jsonify({"success": False, "error": "year (number) and a confirmable step are required"}), 400
@@ -1735,7 +1754,7 @@ def year_end_confirm():
 
 
 def _log_body() -> dict:
-    return request.get_json(silent=True) or {}
+    return _json_obj()
 
 
 def _log_fields(b: dict) -> dict:
@@ -1771,7 +1790,7 @@ def transactions_log():
         return denied
     from .. import transactions as _t
     year = request.args.get("year", "")
-    if year and not year.isdigit():
+    if year and not _ascii_digits(year):
         return jsonify({"success": False, "error": "year must be a number"}), 400
     return _sales_call(_t.log_view, account=request.args.get("account") or None, symbol=request.args.get("symbol") or None,
                        year=int(year) if year else None)
@@ -1873,7 +1892,7 @@ def reconcile_map():
     if denied:
         return denied
     from .. import reconcile as _reconcile
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     response = _reconcile_call(_reconcile.set_mapping, str(body.get("account_key") or ""), body.get("target") or None)
     if response[1] == 200:
         _audit("reconcile_mapped", {"account_key": str(body.get("account_key") or ""), "target": str(body.get("target") or "")})
@@ -1886,7 +1905,7 @@ def reconcile_policy():
     if denied:
         return denied
     from .. import reconcile as _reconcile
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     response = _reconcile_call(_reconcile.set_policy, str(body.get("account_key") or ""), str(body.get("policy") or ""))
     if response[1] == 200:
         _audit("reconcile_policy", {"account_key": str(body.get("account_key") or ""), "policy": str(body.get("policy") or "")})
@@ -1930,7 +1949,7 @@ def cash_accounts_add():
     if denied:
         return denied
     from .. import cash_accounts as _ca
-    b = request.get_json(silent=True) or {}
+    b = _json_obj()
     response = _cash_accounts_call(_ca.add_account, str(b.get("name") or ""), b.get("balance", 0),
                                    str(b.get("as_of") or "") or None, str(b.get("import_account_key") or "") or None)
     if response[1] == 200:
@@ -1944,7 +1963,7 @@ def cash_accounts_delete():
     if denied:
         return denied
     from .. import cash_accounts as _ca
-    account = str((request.get_json(silent=True) or {}).get("account") or "")
+    account = str((_json_obj()).get("account") or "")
     response = _cash_accounts_call(_ca.delete_account, account)
     if response[1] == 200:
         _audit("cash_account_deleted", {"account": account})
@@ -1957,7 +1976,7 @@ def reconcile_seed():
     if denied:
         return denied
     from .. import reconcile as _reconcile
-    text = (request.get_json(silent=True) or {}).get("csv_text")
+    text = (_json_obj()).get("csv_text")
     if not isinstance(text, str) or not text.strip():
         return jsonify({"success": False, "error": "csv_text is required"}), 400
     response = _reconcile_call(_reconcile.seed_from_csv, text)
@@ -1972,7 +1991,7 @@ def reconcile_preview():
     if denied:
         return denied
     from .. import reconcile as _reconcile
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     items = body.get("items") if isinstance(body.get("items"), list) else []
     return _reconcile_call(_reconcile.preview, items, body.get("as_of") or None)
 
@@ -1983,7 +2002,7 @@ def reconcile_apply():
     if denied:
         return denied
     from .. import reconcile as _reconcile
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     items = body.get("items") if isinstance(body.get("items"), list) else []
     response = _reconcile_call(_reconcile.apply, items, body.get("as_of") or None)
     if response[1] == 200:
@@ -1997,7 +2016,7 @@ def reconcile_undo():
     if denied:
         return denied
     from .. import reconcile as _reconcile
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     try:
         change_id = int(body.get("change_id"))
     except (TypeError, ValueError):
@@ -2022,7 +2041,7 @@ def ytd_transactions_bulk_save():
     denied = _require("write_config")
     if denied:
         return denied
-    return jsonify(_ytd_feature_service().bulk_save_transactions(request.get_json(silent=True) or {}))
+    return jsonify(_ytd_feature_service().bulk_save_transactions(_json_obj()))
 
 
 # ---- Spending Tracker endpoints ----
@@ -2083,7 +2102,7 @@ def spending_taxonomy_category_add():
     denied = _require("write_config")
     if denied:
         return denied
-    return _json_service_result(_spending_feature_service().taxonomy_category_add_payload(request.get_json(silent=True) or {}))
+    return _json_service_result(_spending_feature_service().taxonomy_category_add_payload(_json_obj()))
 
 
 @app.route("/api/spending/taxonomy/category/<cat_id>", methods=["PUT"])
@@ -2091,7 +2110,7 @@ def spending_taxonomy_category_update(cat_id):
     denied = _require("write_config")
     if denied:
         return denied
-    return _json_service_result(_spending_feature_service().taxonomy_category_update_payload(cat_id, request.get_json(silent=True) or {}))
+    return _json_service_result(_spending_feature_service().taxonomy_category_update_payload(cat_id, _json_obj()))
 
 
 @app.route("/api/spending/taxonomy/category/<cat_id>", methods=["DELETE"])
@@ -2107,7 +2126,7 @@ def spending_taxonomy_group_delete():
     denied = _require("write_config")
     if denied:
         return denied
-    return _json_service_result(_spending_feature_service().taxonomy_group_delete_payload(request.get_json(silent=True) or {}))
+    return _json_service_result(_spending_feature_service().taxonomy_group_delete_payload(_json_obj()))
 
 
 @app.route("/api/spending/rules", methods=["GET"])
@@ -2123,7 +2142,7 @@ def spending_rules_save():
     denied = _require("write_config")
     if denied:
         return denied
-    return _json_service_result(_spending_feature_service().save_rules_payload(request.get_json(silent=True) or {}))
+    return _json_service_result(_spending_feature_service().save_rules_payload(_json_obj()))
 
 
 @app.route("/api/spending/budget/taxonomy", methods=["GET"])
@@ -2139,7 +2158,7 @@ def spending_budget_taxonomy_save():
     denied = _require("write_config")
     if denied:
         return denied
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _spending_budget_save_result(lambda: _spending_feature_service().save_budget_taxonomy_payload(body))
 
 
@@ -2172,7 +2191,7 @@ def spending_category_create():
     denied = _require("write_config")
     if denied:
         return denied
-    return _json_service_result(_spending_feature_service().category_create_payload(request.get_json(silent=True) or {}))
+    return _json_service_result(_spending_feature_service().category_create_payload(_json_obj()))
 
 
 @app.route("/api/spending/category/<cat_id>", methods=["PUT"])
@@ -2180,7 +2199,7 @@ def spending_category_update_unified(cat_id):
     denied = _require("write_config")
     if denied:
         return denied
-    return _json_service_result(_spending_feature_service().category_update_payload(cat_id, request.get_json(silent=True) or {}))
+    return _json_service_result(_spending_feature_service().category_update_payload(cat_id, _json_obj()))
 
 
 @app.route("/api/spending/category/<cat_id>", methods=["DELETE"])
@@ -2204,7 +2223,7 @@ def spending_restore_template_unified():
     denied = _require("write_config")
     if denied:
         return denied
-    return _json_service_result(_spending_feature_service().restore_template_payload(request.get_json(silent=True) or {}))
+    return _json_service_result(_spending_feature_service().restore_template_payload(_json_obj()))
 
 
 @app.route("/api/spending/hide-unused-templates", methods=["POST"])
@@ -2220,7 +2239,7 @@ def spending_alias_add_unified():
     denied = _require("write_config")
     if denied:
         return denied
-    return _json_service_result(_spending_feature_service().alias_add_payload(request.get_json(silent=True) or {}))
+    return _json_service_result(_spending_feature_service().alias_add_payload(_json_obj()))
 
 
 @app.route("/api/spending/aliases", methods=["GET", "POST"])
@@ -2233,7 +2252,7 @@ def spending_aliases_unified():
     denied = _require("write_config")
     if denied:
         return denied
-    return _json_service_result(_spending_feature_service().save_aliases_payload(request.get_json(silent=True) or {}))
+    return _json_service_result(_spending_feature_service().save_aliases_payload(_json_obj()))
 
 
 @app.route("/api/spending/budget", methods=["GET", "POST"])
@@ -2246,7 +2265,7 @@ def spending_budget_unified():
     denied = _require("write_config")
     if denied:
         return denied
-    body = request.get_json(silent=True) or {}
+    body = _json_obj()
     return _spending_budget_save_result(lambda: _spending_feature_service().save_unified_budget_payload(body))
 
 # PlanFileService owns the plan file's copy/replace/backup semantics (wal_checkpoint, validated
@@ -2288,9 +2307,62 @@ def _plan_file_feature_service() -> plan_file_service.PlanFileService:
     )
 
 
+class _BodyNotObject(BaseException):
+    """The request body is JSON but not an object (PR-05). A BaseException so the many `except Exception` blocks in the
+    routes (which answer 500 with the exception text) cannot swallow it; the app error handler answers 400."""
+
+
+def _json_obj() -> dict:
+    """The JSON request body as a dict: ``{}`` when it is absent or empty, a 400 (never a 500) when it is a list,
+    string or number."""
+    body = request.get_json(silent=True)
+    if not body:
+        return {}
+    if not isinstance(body, dict):
+        raise _BodyNotObject("Request body must be a JSON object.")
+    return body
+
+
+@app.errorhandler(_BodyNotObject)
+def _body_not_object(exc):
+    return jsonify({"success": False, "error": str(exc)}), 400
+
+
+def _ascii_digits(text) -> bool:
+    """``isdigit()`` also accepts characters ``int()`` rejects (superscript digits); years are ASCII digits only (PR-06)."""
+    text = str(text or "")
+    return text.isascii() and text.isdigit()
+
+
+def _paths_refusal(*raws):
+    """A 403 response when a user-supplied or stored file/folder path is outside the server's allowed folders (PR-01,
+    PR-02), else None. Desktop use on loopback has no allowlist; the check applies in remote mode and on a LAN-bound
+    server. The resolved path (symlinks followed) is what is checked, not the typed name; relative paths are taken
+    against the workspace, as the settings that store them do."""
+    for raw in raws:
+        text = str(raw or "").strip()
+        if not text:
+            continue
+        path = Path(text).expanduser()
+        if not path.is_absolute():
+            path = Path(WORKSPACE_ROOT) / path
+        allowed, reason = _server_path_allowed(path)
+        if not allowed:
+            _audit("path_refused", {"path": text})
+            return jsonify({"success": False, "error": reason}), 403
+    return None
+
+
+def _plan_path_refusal(raw):
+    return _paths_refusal(raw)
+
+
 @app.route("/api/plan/exit-snapshot", methods=["POST"])
 def plan_exit_snapshot():
     """Create a versioned copy of the plan file and the local database at exit time. Keeps only the last 10 of each."""
+    denied = _require("write_config")
+    if denied:
+        return denied
     try:
         return jsonify(_plan_file_feature_service().exit_snapshot())
     except Exception as exc:  # noqa: BLE001
@@ -2300,8 +2372,15 @@ def plan_exit_snapshot():
 @app.route("/api/plan/save-as", methods=["POST"])
 def plan_save_as():
     """Copy the active plan file to a user-chosen path (.rpx), register it and make it active."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+    body = _json_obj()
+    refused = _plan_path_refusal(body.get("path"))
+    if refused:
+        return refused
     try:
-        return jsonify(_plan_file_feature_service().save_as(request.get_json(silent=True) or {}))
+        return jsonify(_plan_file_feature_service().save_as(body))
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})
 
@@ -2310,8 +2389,15 @@ def plan_save_as():
 def plan_load_file():
     """Open a user-chosen .rpx plan file as the active plan (``mode: "restore"`` replaces the
     active plan file's contents with it instead, validated and backed up)."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+    body = _json_obj()
+    refused = _plan_path_refusal(body.get("path"))
+    if refused:
+        return refused
     try:
-        return jsonify(_plan_file_feature_service().load_file(request.get_json(silent=True) or {}))
+        return jsonify(_plan_file_feature_service().load_file(body))
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})
 
@@ -2354,7 +2440,7 @@ def plan_upload():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    upload_body = request.get_json(silent=True) or {}
+    upload_body = _json_obj()
     if _limits.too_large(upload_body.get("content_base64"), _limits.MAX_PLAN_UPLOAD_B64):  # PR-11
         return jsonify({"success": False, "error": "That plan file is too large."}), 413
     try:
@@ -2417,7 +2503,7 @@ def conversion_check():
     denied = _require("write_config")
     if denied:
         return denied
-    return _service_json(_conversion_feature_service().start(request.get_json(silent=True) or {}, dry_run=True))
+    return _service_json(_conversion_feature_service().start(_json_obj(), dry_run=True))
 
 
 @app.route("/api/conversion/run", methods=["POST"])
@@ -2426,7 +2512,7 @@ def conversion_run():
     denied = _require("write_config")
     if denied:
         return denied
-    return _service_json(_conversion_feature_service().start(request.get_json(silent=True) or {}, dry_run=False))
+    return _service_json(_conversion_feature_service().start(_json_obj(), dry_run=False))
 
 
 @app.route("/api/plans", methods=["GET"])
@@ -2439,7 +2525,7 @@ def plans_list():
 
 
 def _plan_id_from_body():
-    plan_id = str((request.get_json(silent=True) or {}).get("plan_id") or "").strip()
+    plan_id = str((_json_obj()).get("plan_id") or "").strip()
     if not plan_id:
         raise plan_registry.PlanRegistryError("plan_id is required")
     return plan_id
@@ -2468,7 +2554,7 @@ def plans_rename():
         return denied
 
     def run():
-        plan_manage.rename_plan(_plan_id_from_body(), (request.get_json(silent=True) or {}).get("name"))
+        plan_manage.rename_plan(_plan_id_from_body(), (_json_obj()).get("name"))
         return _plans_payload()
 
     return _plan_registry_result(run)
@@ -2482,7 +2568,7 @@ def plans_create():
         return denied
 
     def run():
-        body = request.get_json(silent=True) or {}
+        body = _json_obj()
         rec = plan_manage.create_plan(body.get("name"), body.get("from"))
         rec = plan_registry.activate(rec["plan_id"], check=False)
         _after_plan_switch(Path(rec["path"]))
@@ -2500,7 +2586,7 @@ def plans_duplicate():
         return denied
 
     def run():
-        body = request.get_json(silent=True) or {}
+        body = _json_obj()
         rec = plan_manage.duplicate_plan(_plan_id_from_body(), body.get("name"))
         _audit("plan_duplicated", {"plan_id": rec["plan_id"]})
         return {**_plans_payload(), "plan": _public_plan(rec)}
@@ -2516,7 +2602,7 @@ def plans_delete():
         return denied
 
     def run():
-        body = request.get_json(silent=True) or {}
+        body = _json_obj()
         plan_id = _plan_id_from_body()
         plan_manage.delete_plan(plan_id, confirm_name=body.get("confirm_name"), build_running=_build_running())
         _audit("plan_deleted", {"plan_id": plan_id})
@@ -2645,7 +2731,7 @@ def plan_snapshot_compare():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    payload, status = _plan_file_feature_service().snapshot_compare_payload(request.get_json(silent=True) or {})
+    payload, status = _plan_file_feature_service().snapshot_compare_payload(_json_obj())
     return jsonify(payload), status
 
 
@@ -2654,5 +2740,5 @@ def plan_snapshot_restore():
     denied = _require("write_config")
     if denied:
         return denied
-    payload, status = _plan_file_feature_service().snapshot_restore_payload(request.get_json(silent=True) or {})
+    payload, status = _plan_file_feature_service().snapshot_restore_payload(_json_obj())
     return jsonify(payload), status

@@ -9281,6 +9281,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "ytdActualsPeriod",
       "file": "frontend/js/dashboard_decomp_ytd_edit.js",
       "kind": "read",

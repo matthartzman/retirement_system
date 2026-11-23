@@ -1,0 +1,4 @@
+# F-17: files that change what a developer's machine or an assistant session is allowed to run need the owner's review.
+/.claude/ @matthartzman
+/tools/*.ps1 @matthartzman
+/.github/ @matthartzman

@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import Callable
 from urllib.parse import unquote
 
+from src.http_runtime import security_headers
 from src.http_runtime.wsgi_facade import HeaderMap, LocalRequest, Response
 
 from .build_queue import FINAL_STATUSES, AlreadyQueued, BuildQueue
@@ -205,6 +206,9 @@ class WorkerProxy:
             if k == "location" and value.startswith(loopback):
                 value = value[len(loopback):] or "/"
             out[key] = value
+        # SEC-07: whatever the worker (or Financial Insights) set wins; anything it left out gets the narrowest policy
+        # the planner pages work with.
+        security_headers.apply(out, security_headers.PLANNER_CSP)
         resp = Response(data, status=status, headers=dict(out))
         return resp
 

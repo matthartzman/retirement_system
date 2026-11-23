@@ -12,17 +12,22 @@ Pure parsing and decisions here; ``check_funnel`` is the one function that runs 
 """
 from __future__ import annotations
 
+import ipaddress
 import json
-import re
 import subprocess
 from dataclasses import dataclass, field
 from typing import Iterable
+from urllib.parse import urlsplit
 
 REPORTER_LOCAL_PORT = 5057
 REPORTER_REMOTE_PORT = 5058
 PLANNER_EXTERNAL_PORTS = (8443, 10000)
 REPORTER_EXTERNAL_PORT = 443
-_PORT_RE = re.compile(r"^(?:[a-z][a-z0-9+.-]*://)?(?:\[[^\]]+\]|[^:/\s]+)?:(\d{1,5})(?:/|$)", re.I)
+# Local-only apps with no sign-in of their own (or, for 5058, the guest listener, which belongs on 443 alone): the planner
+# server, the Admin app and the reporter's local listener must never be published on any external port (X-5).
+PLANNER_SERVER_PORT = 5050
+ADMIN_APP_PORT = 5056
+NO_SIGN_IN_LOCAL_PORTS = (PLANNER_SERVER_PORT, ADMIN_APP_PORT)
 
 
 @dataclass(frozen=True)
@@ -44,24 +49,35 @@ class FunnelReport:
         return not self.problems and not self.unreadable
 
 
-_LOCAL_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
-_HOST_RE = re.compile(r"^(?:[a-z][a-z0-9+.-]*://)?(?:[^@/\s]*@)?(\[[^\]]+\]|[^:/\s]+)", re.I)
-
-
 def _target_port(text: str) -> int | None:
     """The port of a ``Proxy`` target, or None when it is not a local ``host:port`` (another machine counts as
     not local: a Funnel pointed at a LAN host publishes that host, which is neither the gateway nor the reporter)."""
-    m = _PORT_RE.match(text.strip())
-    h = _HOST_RE.match(text.strip())
-    if m and h and h.group(1).lower() not in _LOCAL_HOSTS:
+    t = text.strip()
+    if t.isascii() and t.isdigit():  # tailscale accepts a bare port as shorthand for localhost
+        return int(t) if 0 < int(t) < 65536 else None
+    try:
+        parts = urlsplit(t if "://" in t else "//" + t)
+        host, port = (parts.hostname or "").lower(), parts.port
+    except ValueError:
         return None
-    return int(m.group(1)) if m else None
+    if port is None:
+        return None
+    if host != "localhost":
+        try:
+            if not ipaddress.ip_address(host).is_loopback:
+                return None
+        except ValueError:
+            return None
+    return port
 
 
 def parse_serve_status(data: dict) -> list[Exposure]:
     """Every (external port, local target) in a ``tailscale serve status --json`` document, including
     foreground sessions (``tailscale serve``/``funnel`` without ``--bg``), which sit under ``Foreground``."""
     found = _parse_one(data)
+    for service in (data.get("Services") or {}).values():  # Tailscale Services: tailnet-only, but still a publication
+        if isinstance(service, dict):
+            found.extend(_parse_one(service))
     for session in (data.get("Foreground") or {}).values():
         if isinstance(session, dict):
             found.extend(_parse_one(session))
@@ -112,6 +128,9 @@ def evaluate(exposures: Iterable[Exposure], *, gateway_funnel_port: int | None, 
         elif e.target_port == reporter_local_port:
             problems.append(f"{what} points at port {e.target_port}, the trends reporter's local port, which has "
                             f"no sign-in. Point it at {reporter_remote_port} only.")
+        elif e.target_port in NO_SIGN_IN_LOCAL_PORTS:
+            problems.append(f"{what} points at port {e.target_port}, a local-only app port (planner server "
+                            f"{PLANNER_SERVER_PORT}, Admin app {ADMIN_APP_PORT}) with no sign-in. Remove it.")
         elif gateway_local_port is not None and e.target_port == gateway_local_port:
             problems.append(f"{what} points at port {e.target_port}, the gateway's local listener. Point it at the "
                             f"Funnel port {gateway_funnel_port} only.")
@@ -133,8 +152,10 @@ def read_serve_status(run=subprocess.run) -> dict | None:
     """The parsed ``tailscale serve status --json``, or None when tailscale is missing or the output unreadable."""
     try:
         out = run(["tailscale", "serve", "status", "--json"], capture_output=True, text=True, timeout=15)
+        if getattr(out, "returncode", 0) != 0:  # a failed command prints nothing useful: unverified, not "nothing published" (X-4)
+            return None
         text = getattr(out, "stdout", "") or ""
-        data = json.loads(text) if text.strip() else {}
+        data = json.loads(text) if text.strip() else None
     except (OSError, subprocess.SubprocessError, ValueError):
         return None
     return data if isinstance(data, dict) else None

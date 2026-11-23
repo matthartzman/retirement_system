@@ -17,7 +17,6 @@
       "Bash(git blame*)",
       "Bash(git add*)",
       "Bash(git commit*)",
-      "Bash(git push*)",
       "Bash(wc *)",
       "Bash(ls*)",
       "Bash(python tools/regen_golden_master.py measure*)",
@@ -25,7 +24,15 @@
       "Bash(python tools/regen_golden_master.py verify-endpoint*)"
     ],
     "ask": [
-      "Bash(python tools/regen_golden_master.py regen*)"
+      "Bash(python tools/regen_golden_master.py regen*)",
+      "Bash(git push*)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * --force*)",
+      "Bash(git push * -f*)",
+      "Bash(git push --delete*)"
     ]
   },
   "hooks": {

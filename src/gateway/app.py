@@ -19,7 +19,7 @@ from urllib.parse import quote
 
 import segno
 from src import access_core
-from src.access_core import has_proxy_headers, is_loopback_host
+from src.access_core import forwarded_client_ip, has_proxy_headers, is_loopback_host
 from src.gateway.signin_throttle import SignInThrottle, login_username
 from src.http_runtime.wsgi_facade import Flask, HeaderMap, LocalRequest, Response, request
 
@@ -169,10 +169,9 @@ def _clear_cookie() -> str:
 def _client_ip() -> str:
     """Right-most X-Forwarded-For entry on the Funnel listener (added by Funnel itself); the socket address otherwise."""
     if request.environ.get("listener") == "funnel":
-        forwarded = str(request.headers.get("X-Forwarded-For", "") or "")
-        parts = [p.strip() for p in forwarded.split(",") if p.strip()]
-        if parts:
-            return parts[-1][:64]
+        forwarded = forwarded_client_ip(request.headers)
+        if forwarded:
+            return forwarded
     return str(request.remote_addr or "")[:64]
 
 

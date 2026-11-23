@@ -26,6 +26,11 @@ except ImportError:  # direct file loading fallback
     from src.csv_exchange import text_csv as _tcsv  # type: ignore
 
 try:
+    from ..http_runtime import security_headers
+except ImportError:  # direct file loading fallback
+    from src.http_runtime import security_headers  # type: ignore
+
+try:
     from ..http_runtime.wsgi_facade import (
         Flask,
         HTTPException,
@@ -1200,6 +1205,13 @@ def _remote_mode_gate():
     if not remote_allowlist.route_allowed(request.method, route.rule):
         return jsonify({"success": False, "error": remote_mode.DISABLED_FEATURE, "remote_mode": True}), 403
     return None
+
+
+@app.after_request
+def _security_headers(response):
+    """SEC-07 / S-02: CSP, nosniff, no framing and no referrer on every planner server response."""
+    security_headers.apply(response.headers, security_headers.PLANNER_CSP)
+    return response
 
 
 @app.after_request

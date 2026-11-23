@@ -125,12 +125,17 @@ def test_signin_error_body_identical_for_unknown_user_and_wrong_password(rig):
     assert unknown.get_data() == wrong.get_data()
 
 
-def test_lockout_returns_429(rig):
+def test_lockout_is_indistinguishable_from_a_wrong_password(rig):
+    """Owner decision (X-8 / F-07): a locked account answers exactly like a wrong password (401, same body, no
+    Retry-After), so a caller cannot tell it exists or is locked. The owner still sees "locked out" in the activity log."""
     rig.add()
-    for _ in range(5):
+    wrong, _ = rig.signin("ann", "nope nope nope")
+    for _ in range(4):
         rig.signin("ann", "nope nope nope")
     resp, token = rig.signin("ann", PW)
-    assert resp.status_code == 429 and token is None
+    assert resp.status_code == 401 and token is None
+    assert resp.get_data() == wrong.get_data() and resp.headers.get("Retry-After") is None
+    assert "locked out" in [e["event"] for e in rig.store.read_events()]
 
 
 def test_remote_has_no_local_only_routes_even_when_signed_in(rig):

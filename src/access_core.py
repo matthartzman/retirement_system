@@ -134,6 +134,16 @@ def has_proxy_headers(headers: dict) -> bool:
     return False
 
 
+def forwarded_client_ip(headers, fallback: str = "") -> str:
+    """The client address Tailscale Funnel appended to ``X-Forwarded-For``: the right-most entry.
+
+    Earlier entries are whatever the client sent, so they are never trusted (F-06). ``fallback`` is returned when the
+    header is absent or empty.
+    """
+    parts = [p.strip() for p in str(headers.get("X-Forwarded-For", "") or "").split(",") if p.strip()]
+    return parts[-1][:64] if parts else fallback
+
+
 def is_loopback_host(host_header: str) -> bool:
     host = (host_header or "").strip().lower()
     if host.startswith("["):

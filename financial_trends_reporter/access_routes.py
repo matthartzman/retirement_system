@@ -18,6 +18,8 @@ from typing import Callable
 
 from src.http_runtime.wsgi_facade import Response, request
 
+from src.access_core import forwarded_client_ip
+from src.http_runtime import security_headers
 from src.identity import totp as totp_lib
 from src.identity.store import IdentityStore
 from src.secrets_store import SecretStoreUnavailable
@@ -96,7 +98,7 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
         local_gate.register(app, is_local=lambda: current_listener() == "local")
     def _log(event: str, details: str = "", person: str | None = None) -> None:
         env = request.environ
-        source = str(request.headers.get("X-Forwarded-For", "") or "").split(",")[0].strip() if current_listener() == "remote" else ""
+        source = forwarded_client_ip(request.headers) if current_listener() == "remote" else ""
         store.log_event(person or env.get("person") or "(not signed in)", current_listener(), event, details, source, now=clock())
 
     store.clear_app_sessions("insights")  # a restarted app holds no sessions; mirror rows from before are stale
@@ -209,6 +211,17 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
         return _json({"success": False, "error": "Something went wrong. Try again later.", "error_id": error_id}, resp.status_code)
 
     @app.after_request
+    def _security_headers(resp):
+        """SEC-07 / F-10: CSP (inline script blocks admitted by hash only), nosniff, no framing, no referrer; the remote
+        listener's pages and API replies are also no-store so the back button shows no data after sign-out."""
+        if resp.mimetype == "text/html":
+            csp = security_headers.csp_for_html(resp.get_data(as_text=True))
+        else:
+            csp = security_headers.PLANNER_CSP
+        security_headers.apply(resp.headers, csp, no_store=current_listener() == "remote")
+        return resp
+
+    @app.after_request
     def _percent_view(resp):
         user = request.environ.get("user")
         path = request.path
@@ -250,7 +263,9 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
         attempted = str(body.get("username") or "")[:64]
         if result.reason == "locked":
             _log("locked out", attempted, person="(not signed in)")
-            return _json({"success": False, "error": "Too many attempts. Try again in a few minutes."}, 429, {"Retry-After": "900"})
+            # Same answer as a wrong password (F-07, X-8): a caller learns nothing about whether the account exists or is
+            # locked. The owner sees "locked out" in the activity log.
+            return _json({"success": False, "error": "Incorrect username or password."}, 401)
         if result.reason == "totp":  # password was right; ask for the code (the grant is still checked once the code is in)
             if store.get_grant(result.user_id, "insights") is None:
                 _log("sign-in failed", attempted, person="(not signed in)")
@@ -268,7 +283,7 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
         store.touch_last_signin(result.user_id, now)
         token = sessions.create(result.user_id, store.session_epoch(result.user_id) or 0)
         store.register_session(token, result.user_id, "insights", current_listener(),
-                               str(request.headers.get("X-Forwarded-For", "") or "").split(",")[0].strip(), now=now)
+                               forwarded_client_ip(request.headers), now=now)
         who = store.get_user(result.user_id)["display_name"]
         if totp_lib.looks_like_recovery(code):
             _log("recovery code used", person=who)

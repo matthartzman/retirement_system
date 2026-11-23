@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from .. import active_plan
 
@@ -13,8 +13,13 @@ def safe_next_path(raw: object) -> str:
     """Return a same-origin, root-relative navigation target."""
     text = str(raw or "/").strip() or "/"
     parsed = urlparse(text)
-    if parsed.scheme or parsed.netloc or not text.startswith("/") or text.startswith("//") or "\r" in text or "\n" in text:
+    if parsed.scheme or parsed.netloc or not text.startswith("/"):
         return "/"
+    # Browsers treat a backslash as a slash and drop tabs and newlines, so "/\\evil.example", "/%5Cevil.example" and
+    # "/%09/evil.example" all become "//evil.example": test the raw and the percent-decoded form (X-10).
+    for form in (text, unquote(text)):
+        if form.startswith("//") or "\\" in form or any(ord(c) < 32 or ord(c) == 127 for c in form):
+            return "/"
     return text
 
 

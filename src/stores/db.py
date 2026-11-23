@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator, Sequence
 
+from ..sqlite_util import foreign_objects, harden  # noqa: F401 - re-exported: hostile-file guards live in sqlite_util
 from .errors import SchemaVersionError, StoreError  # re-exported: ``from .db import StoreError`` keeps working
 
 MEMORY = ":memory:"
@@ -41,6 +42,7 @@ def connect(path: str | Path = MEMORY, *, readonly: bool = False,
         con = sqlite3.connect(target, isolation_level=None, check_same_thread=check_same_thread)
     try:
         con.row_factory = sqlite3.Row
+        harden(con)
         con.execute("PRAGMA foreign_keys=ON")
         if not readonly and target != MEMORY:
             con.execute("PRAGMA journal_mode=WAL")

@@ -106,9 +106,9 @@ def test_code_failures_lock_the_account_like_password_failures(rig):
     for _ in range(4):
         assert _signin(rig, code="000000")[0].status_code == 401
     locked = _signin(rig, code="000000")[0]
-    assert locked.status_code == 429
+    assert locked.status_code == 401  # a locked account answers like a wrong code (X-8, owner decision)
     good = _signin(rig, code=totp_lib.totp_at(secret, rig.now[0]))[0]
-    assert good.status_code == 429  # a correct code does not lift the lock
+    assert good.status_code == 401  # a correct code does not lift the lock
     assert any(e["event"] == "locked out" for e in rig.store.read_events())
 
 
