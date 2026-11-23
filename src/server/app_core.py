@@ -58,6 +58,7 @@ except ImportError:  # direct file loading fallback
 try:
     from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value
     from ..runtime_config import load_runtime_config
+    from . import csv_write_gate as _csv_write_gate
     from ..system_config import load_system_config, set_system_settings, setting as system_config_setting
     from ..app_state import app_db_env, app_store_path
     from ..security import append_audit_event, constant_time_token_ok, extract_bearer_or_header, get_server_token, redact_text, sha256_fingerprint
@@ -80,6 +81,7 @@ except ImportError:  # direct execution fallback
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from src.schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value
     from src.runtime_config import load_runtime_config
+    from src.server import csv_write_gate as _csv_write_gate
     from src.system_config import load_system_config, set_system_settings, setting as system_config_setting
     from src.app_state import app_db_env, app_store_path
     from src.security import append_audit_event, constant_time_token_ok, extract_bearer_or_header, get_server_token, redact_text, sha256_fingerprint
@@ -1267,6 +1269,11 @@ def _security_gate():
 # browser had open read every API response -- full read/write of the
 # household's plan data -- since _security_gate() enforces no auth in LOCAL
 # mode. No replacement CORS handling is added: nothing legitimate needs it.
+
+
+# PR-07: the operator's "CSV writes disabled" switch, enforced for every plan-data write route in one hook
+# (src/server/csv_write_gate.py), registered after the security gate so permission checks keep their order.
+_csv_write_gate.install(app, lambda: _runtime_config())
 
 
 # Export private helper names to route modules using star imports.

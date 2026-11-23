@@ -32,8 +32,8 @@ def test_off_unless_asked():
 
 
 def test_redaction_removes_amounts_and_account_numbers():
-    html = ('<div class="acct">Checking ••••1234 <span>$12,345.67</span> <b>-$89.10</b> ($5,000)</div>'
-            '<input value="987654.32" data-balance="1500000"> acct 123456789012 total 1,234,567 ok')
+    html = ('<div class="acct">Checking ••••1234 <span>$12,345.67</span> <b>-$89.10</b> ($5,000)</div>'  # acct-scan: ok (synthetic)
+            '<input value="987654.32" data-amount="1500000"> acct 123456789012 total 1,234,567 ok')  # acct-scan: ok (synthetic)
     out = dumps.redact_html(html)
     for secret in ("12,345.67", "1234", "89.10", "5,000", "987654", "1500000", "123456789012", "1,234,567"):
         assert secret not in out, secret

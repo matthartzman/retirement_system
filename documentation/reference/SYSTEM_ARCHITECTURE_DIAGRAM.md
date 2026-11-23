@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 391 Python files under `src/`, 92 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 392 Python files under `src/`, 92 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -15,7 +15,7 @@ flowchart TB
         FEcount["92 JS files, browser-loaded via index.html script tags"]
     end
     FE -->|fetch /api/*| L_HTTP_Routes
-    subgraph L_HTTP_Routes["HTTP Routes (13 modules)"]
+    subgraph L_HTTP_Routes["HTTP Routes (14 modules)"]
         L_HTTP_Routes_d["Thin HTTP adapters: request parsing, calls into services"]
     end
     subgraph L_Server_Services["Server Services (21 modules)"]
@@ -533,6 +533,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server/admin_routes.py` | `governance`, `http_runtime.local_token_gate`, `platform_runtime`, `server.app_core`, `server_services`, `version` | — |
 | `src/server/app_core.py` | `src`, `active_plan`, `app_state`, `blank_plan`, `config_backend`, `core`, `csv_exchange`, `http_runtime`, `http_runtime.wsgi_facade`, `permissions`, `plan_dates`, `plan_file_io`, `roth_ui_build_guard`, `runtime_config`, `schema_registry`, `secrets_store`, `security`, `server`, `server.security_audit`, `stores.ref_getters.schema_fields`, `system_config`, `us_states`, `workspace_context` | — |
 | `src/server/base_routes.py` | `api_contracts`, `glossary`, `server.app_core`, `server.route_manifest`, `server_services`, `version` | — |
+| `src/server/csv_write_gate.py` | `http_runtime.wsgi_facade` | — |
 | `src/server/import_export_routes.py` | `src`, `active_plan`, `server.app_core` | — |
 | `src/server/monarch_routes.py` | `src`, `secrets_store`, `server.app_core`, `server.plan_routes` | — |
 | `src/server/plan_routes.py` | `active_plan`, `data_io`, `housing`, `http_runtime.wsgi_facade`, `module_catalog`, `monarch_autoimport_job`, `plan_data_migration`, `plan_interview`, `portfolio_analytics`, `report_compute`, `secrets_store`, `server.app_core`, `server.workbook_routes`, `server_services`, `stores.ref_getters.schema_fields`, `version` | — |
