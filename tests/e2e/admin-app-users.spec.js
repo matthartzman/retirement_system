@@ -47,6 +47,13 @@ test.beforeAll(async () => {
   await waitUntilReady(Date.now() + 30_000);
 });
 
+
+// The Admin app needs its per-boot local token (security review X-1); the launcher hands a browser a cookie, a spec sends the header.
+test.beforeEach(async ({ context }) => {
+  const token = fs.readFileSync(path.join(workspace, 'local_state', 'admin_local_token'), 'utf8').trim();
+  await context.setExtraHTTPHeaders({ 'X-Local-Token': token });
+});
+
 test.afterAll(() => {
   if (child) child.kill();
   if (workspace) fs.rmSync(workspace, { recursive: true, force: true });

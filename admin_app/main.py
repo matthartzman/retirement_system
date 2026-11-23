@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Admin app: people, access grants, activity and the admin audit (loopback only, no sign-in).
+"""Admin app: people, access grants, activity and the admin audit (loopback only; a per-boot local token gates every request).
 
-Usage: python -m admin_app [--retirement-system-dir PATH] [--port 5056] [--no-open]
+Usage: python -m admin_app [--retirement-system-dir PATH] [--port 5056] [--no-open] [--print-open-url]
        python -m admin_app create-admin --username NAME      (makes the first administrator)
 
-The trust boundary is described in ``admin_app/trust.py``. There is no ``--host``: the server binds 127.0.0.1 only.
+The trust boundary is described in ``admin_app/trust.py`` and ``src/http_runtime/local_token_gate.py``. There is no ``--host``: the server
+binds 127.0.0.1 only. Browsers get in through the launcher's one-time handoff; ``--print-open-url`` prints that one-time URL
+for an already-running Admin app instead of opening it.
 """
 from __future__ import annotations
 
@@ -23,6 +25,7 @@ if str(_REPO_ROOT) not in sys.path:
 from src.http_runtime.server import LocalHTTPServer  # noqa: E402
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 from src.identity import DB_FILENAME, LEGACY_ACCESS_DB, IdentityStore, open_identity_store  # noqa: E402
+from src.http_runtime.local_token_gate import LocalTokenGate, open_running_app  # noqa: E402
 
 from admin_app import DEFAULT_PORT  # noqa: E402
 from admin_app.processes import ProcessManager
@@ -33,6 +36,7 @@ from admin_app.settings import SettingsService  # noqa: E402
 from admin_app.trust import add_security_headers, check_funnel_target, check_request  # noqa: E402
 
 LOOPBACK = "127.0.0.1"
+GATE_NAME = "admin"  # token file: <workspace>/local_state/admin_local_token
 FRONTEND = Path(__file__).resolve().parent / "frontend"
 # Served files: exactly these and nothing else, so a path can never reach outside the frontend folder.
 PAGES = {"/": (FRONTEND / "index.html", "text/html"), "/users.js": (FRONTEND / "users.js", "text/javascript"),
@@ -52,9 +56,14 @@ def legacy_access_path(retirement_system_dir: Path) -> Path:
 
 
 def create_app(store: IdentityStore, clock=time.time, settings: SettingsService | None = None,
-               processes: ProcessManager | None = None) -> Flask:
+               processes: ProcessManager | None = None, local_gate: LocalTokenGate | None = None) -> Flask:
+    """``local_gate`` is the per-boot token gate (X-1). ``main()`` always passes one; ``None`` is for in-process tests only."""
     app = Flask("admin_app", static_folder=str(FRONTEND))
+    app.local_gate = local_gate
     app.before_request(check_request)
+    if local_gate is not None:
+        app.before_request(local_gate.check)  # after the Host/Origin/proxy checks, before any route
+        local_gate.register(app)
     app.after_request(add_security_headers)
 
     def page(path: str) -> Response:
@@ -89,23 +98,31 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--retirement-system-dir", default=str(_REPO_ROOT), help="workspace root; defaults to this repo's own root")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--no-open", action="store_true", help="Don't auto-open a browser tab")
+    parser.add_argument("--print-open-url", action="store_true",
+                        help="Print a one-time sign-in URL for the running Admin app (valid 60 seconds) instead of opening it")
     args = parser.parse_args(argv)
 
     url = f"http://{LOOPBACK}:{args.port}/"
+    root = Path(args.retirement_system_dir)
     if _port_in_use(args.port):
+        if args.print_open_url:
+            return open_running_app(url, root, GATE_NAME, print_only=True, opener=webbrowser.open)
         print(f"Admin app is already running; opening {url}")
-        if not args.no_open:
-            webbrowser.open(url)
-        return 0
+        if args.no_open:
+            return 0
+        return open_running_app(url, root, GATE_NAME, print_only=False, opener=webbrowser.open)
+    if args.print_open_url:
+        print("The Admin app is not running; start it first.", file=sys.stderr)
+        return 1
     if (problem := check_funnel_target(args.port)):
         print(problem, file=sys.stderr)
         return 1
-    root = Path(args.retirement_system_dir)
     store = open_identity_store(identity_db_path(root), legacy_access_path=legacy_access_path(root))
-    server = LocalHTTPServer((LOOPBACK, int(args.port)), create_app(store, settings=SettingsService(root)))
+    gate = LocalTokenGate.start(GATE_NAME, root, module="-m admin_app")
+    server = LocalHTTPServer((LOOPBACK, int(args.port)), create_app(store, settings=SettingsService(root), local_gate=gate))
     print(f"Admin app listening on {url} (this computer only)")
     if not args.no_open:
-        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+        threading.Timer(1.0, lambda: webbrowser.open(gate.open_url(url))).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

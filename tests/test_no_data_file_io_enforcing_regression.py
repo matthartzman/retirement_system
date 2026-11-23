@@ -29,6 +29,7 @@ ALLOWLIST: dict[str, str] = {
     "src/server_services/base_service.py": "reads the legacy data/prefs.json once (migrates into app.db)",
     "src/secrets_store.py": "reads the legacy plain-text secrets file only to migrate it into the OS credential store",
     "src/reporting/workbook_format_config.py": "reads the legacy workbook format file once (migrates into app.db)",
+    "src/http_runtime/local_token_gate.py": "reads and writes the per-boot local token file (a credential for the loopback apps, not plan data)",
     "src/desktop_api.py": "writes a file the user picked in a Save dialog (exports and downloads)",
     "src/server/workbook_routes.py": "reads a generated output file for download/compare; not plan data",
     "src/reporting/projection_tables.py": "writes the build's projection_tables.json output (Trends Recent Projections); not plan data",

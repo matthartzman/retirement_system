@@ -46,7 +46,7 @@ This review complements `documentation/future/multi-user-server-security-review.
 |---|---|---|
 | Desktop mode (`main.py`) | No socket; in-process JS bridge | OS user |
 | Server mode (`src/server`, port 5050) | Loopback by default; non-loopback only if a static token is set | Host/Origin/CSRF gates; **no user authentication on loopback** |
-| Admin app (port 5056) | Loopback | Loopback + same-origin + JSON content-type gates; no sign-in |
+| Admin app (port 5056) | Loopback | Loopback + same-origin + JSON content-type gates + per-boot local token (X-1 fix, 6a); no password sign-in |
 | Gateway (`src/gateway`) | Loopback behind Tailscale Funnel | Password + TOTP, `__Host-` cookie sessions, CSRF token, admin/member/viewer roles |
 | Workers | One Windows account per user, loopback port, per-worker token | Gateway proxy strips identity/credential headers |
 | Financial Insights | Loopback owner listener (5057); guest listener (5058) or via gateway | Session + tab grants + percent/dollar view; owner listener unauthenticated by design |
@@ -253,7 +253,7 @@ Security-relevant suites exist for access gating, TOTP, CSRF/Origin, Funnel guar
 | SEC-10 | **Fixed** | Change-password is throttled, refused while locked, and counts failures. | None. |
 | SEC-11 / PR-05 | **Fixed (gateway)** | Non-object bodies return 400, counted against the sign-in throttle on pre-auth routes. | The same pattern on about 25 planner routes (`plan_routes.py`) is still open. |
 | SEC-06 | **Fixed** | Password hashes are upgraded on successful sign-in when stored cost is below the configured cost. | Cost itself not yet raised; N and a common-password list remain open. |
-| X-1 | **Open, decision needed** | Not changed. Depends on the section 9.1 result. | Do not run the Admin app or the 5057 listener on the multi-user host, or add a credential. |
+| X-1 | **Implemented, pending owner verification** | Owner decision: add a credential. Both the Admin app (5056) and the Financial Insights owner listener (5057) generate a per-boot `secrets.token_urlsafe(32)` at startup (`src/http_runtime/local_token_gate.py`) and write it to `local_state/admin_local_token` / `local_state/insights_local_token` (mode 0600; on Windows an explicit `icacls` grant to the current user only, inheritance removed). Every request needs either the HttpOnly, SameSite=Strict session cookie from the launcher's one-time handoff (token file -> `POST /_local/nonce` with `X-Local-Token` -> 60 s single-use nonce -> `/_local/open?n=` -> cookie -> redirect) or the token in `X-Local-Token`; otherwise 401. Compared with `hmac.compare_digest`; the token is never in a URL, log or argv. Existing Host/Origin/Sec-Fetch/proxy-header gates run first and are unchanged. The guest listener 5058 and the gateway are untouched. Tests: `tests/test_local_token_gate_functional.py`. | Same-user malware can read the token file (this stops other accounts, not the owner's own processes). The Windows file ACL (and the folder ACL of `local_state/`) is the protection, and an `icacls` failure only prints a warning. Cookies are shared across ports on 127.0.0.1 (names differ per app), so any page the owner opens from another local listener could see them. A rogue process that binds 5056/5057 before the real app would receive the launcher's token header; the existing port-in-use check does not detect that. Owner check: section 9.1 and the commands in the runbook. |
 
 Tests added: `test_trends_guest_view_only_contract`, `test_trends_balance_future_date_regression`, `test_trends_session_lifetime_regression`, `test_gateway_json_body_regression`, `test_gateway_lockout_per_source_regression`, `tests/frontend/gateway_next_path.test.mjs`. Two existing tests were adjusted with justification: the account-lock assertion now uses the offending address (the cross-address case has its own test), and schema version pins moved from 4 to 5.
 
@@ -284,6 +284,7 @@ Run in an elevated PowerShell on the server host unless stated. `$Root` is the g
 4. If a port connects: `Invoke-WebRequest http://127.0.0.1:5057/api/whoami -UseBasicParsing | select StatusCode` and `Invoke-WebRequest http://127.0.0.1:5056/ -UseBasicParsing | select StatusCode`.
 - Safe: connection refused or timeout, or a 403/401.
 - Unsafe: `TcpTestSucceeded: True` and HTTP 200. Then stop the Admin app and 5057 on this host or add a credential.
+- After the X-1 fix: the same two requests from the worker shell must give 401 (PowerShell reports an error whose `.Exception.Response.StatusCode` is `Unauthorized`), and `Get-Content <repo>\local_state\insights_local_token` and `...\admin_local_token` from the worker shell must say access denied.
 
 **9.2 SEC-02/03: junction and reparse-point races in backup, log and ACL jobs**
 1. Use a throw-away test user, never a real one. `mkdir $env:TEMP\rp_t\victim`.
@@ -321,3 +322,18 @@ Run in an elevated PowerShell on the server host unless stated. `$Root` is the g
 3. `Get-ChildItem "Monarch Extractor\output" -Filter monarch-debug-*` and delete leftover failure dumps after reviewing them.
 4. Confirm none of these folders is under OneDrive: `(Get-Item <path>).FullName -match 'OneDrive'` must be false.
 
+
+## 10. Owner verification results (2026-11-23, run interactively on the server host)
+
+Environment observed: a Windows host running the gateway as the `RetirementGateway` service (`LocalSystem`, installed copy `C:\RetirementPlanner\app`), three worker accounts `rpw_1` to `rpw_3`, the standalone Financial Insights (5057/5058) and the Admin app (5056) running as the owner account from the working copy, Tailscale Funnel serving 443 to 5058 and 8443 to 5065.
+
+| Section | Result | Final rating |
+|---|---|---|
+| 9.1 X-1 | **Confirmed.** With no sign-in, 5057 returned HTTP 200 for `/api/history` (1.27 MB) and `/api/balances` (464 KB); 5056 returned 200 for users, settings, processes, sessions, audit and system status. 5058 returned 401. Both loopback apps run as the owner account, so a local worker would act with the owner's rights. Write routes were deliberately not exercised. | **High, confirmed.** Credential fix implemented (section 6a); verify after deployment with the worker-shell checks in 9.1 |
+| 9.2 SEC-02/03 | Guard verified on real Windows junctions: junction detected, ordinary path not flagged, outside-root flagged, removal deletes only the link, target intact. The check-then-open window remains a code finding. | **Low-Medium** (code fix pending) |
+| 9.3 SEC-12 / F-06 | A phone on mobile data (no Tailscale) failed three logins; the gateway audit recorded the phone's real public address with `listener=funnel`, not loopback and not a supplied value. Funnel supplies the client address, so the gateway's right-most rule is correct. The guest listener on 443 still uses the first header entry (not tested; code fix). | SEC-12 **closed**; F-06 **Low** |
+| 9.4 X-2, SEC-08, SEC-09 | Service path quoted; config and state folders `SYSTEM`/Administrators only; no worker-writable entry anywhere under the install tree; each `data\users\<id>` folder grants only its own `rpw_<id>` account; `shares` gateway-only; `backup.key` readable only by the owner, Administrators and `SYSTEM`; TOTP secrets 2 of 2 sealed with DPAPI and not unsealable by an Administrator account. Service privileges are unrestricted. `C:\ProgramData\RetirementPlannerGateway` lets `Users` create files beside the protected `backups` and `keys` folders. | X-2 **Info**; SEC-08 **Low**; SEC-09 **Info**; ProgramData parent **Low** |
+| 9.5 X-3 | `C:\Windows\Temp\rpw_system_run.cmd` absent; the only SYSTEM tasks are vendor updaters in `Program Files`. | **Low** (script defect, not live) |
+| 9.6 F-11, F-13, X-13 | BitLocker on and fully encrypted; working copy and sensitive folders restricted to owner, Administrators and `SYSTEM`; no worker-writable file under the folders scheduled tasks run. Four Monarch failure dumps and two OneDrive zips holding real plan files (in a business OneDrive tenant) were found, and **the owner has since deleted them**. | F-11 **Low**; F-13 **Low**; X-13 **closed for these files** (the backup tool still copies unencrypted project data) |
+
+Items still open for the owner: deploy and verify the X-1 credential (section 9.1 commands after the fix), lock down the `ProgramData\RetirementPlannerGateway` parent folder, and consider restricting the service's privileges.

@@ -37,7 +37,7 @@ unchanged.
 | FI accounts | `AccessStore` in `data/access.db`: scrypt hashes, `must_change`, lockout after 5 failures, global throttle, `money_view` (dollars/percent/both), and an `activity` table. No roles, no disable, no TOTP, no expiry. | `financial_trends_reporter/access_store.py` |
 | FI people UI | Owner-only routes answer 404 on the remote listener; the People page is `access.js`, injected only on the local listener. | `access_routes.py:34,69-86,224-296`; FI `index.html:1020` |
 | FI sessions | In-memory `SessionTable`, 10-minute idle; `sessions.end_user()` is called on reset/delete, which only works because the people routes run **in the same process**. | `financial_trends_reporter/sessions.py`; `access_routes.py:262,285` |
-| FI listeners | Local 5057 (owner, no sign-in, loopback Host only, proxy headers refused) and remote 5058 (Tailscale Funnel, sign-in required). | `financial_trends_reporter/listeners.py`; `main.py:475-520` |
+| FI listeners | Local 5057 (owner, no password; loopback Host only, proxy headers refused, per-boot local token required since X-1) and remote 5058 (Tailscale Funnel, sign-in required). | `financial_trends_reporter/listeners.py`; `main.py:475-520` |
 | Tests touching the console | About 20 test files read or load `admin.js`/`admin.html` (Python, Node and one Playwright spec). | `grep -l "admin.js\|admin.html" tests` |
 | Route manifest | `/admin`, `/system-configuration` and ten `/api/admin/*` routes are listed. | `src/server/route_manifest.py:7,67-70` |
 
@@ -209,8 +209,9 @@ Tax modeling (Plan Settings), Global rebalancing, Annuity calibration, Workbook 
 
 1. **Engine knobs stay in the planner** as per-plan "Plan assumptions"; only install-wide settings move. An
    admin-owned "defaults for new plans" page can come later.
-2. **Admin app is loopback-only with no sign-in** in this slice, the same trust as FI's local listener. Admin
-   sign-in arrives with the multi-user gateway.
+2. **Admin app is loopback-only with no password sign-in** in this slice, the same trust as FI's local listener. Since
+   security review X-1 both also require a per-boot local token (`src/http_runtime/local_token_gate.py`): the launcher opens the
+   browser through a one-time handoff link, scripts send `X-Local-Token`. Admin sign-in arrives with the multi-user gateway.
 3. **TOTP is required by default for new FI users**, optional per user; existing migrated users are prompted to
    enrol at next sign-in.
 4. **Planner access grants are stored but not enforced** until the multi-user gateway exists (there is no planner

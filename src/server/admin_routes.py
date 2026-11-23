@@ -63,7 +63,12 @@ def admin_index():
     if denied:
         return denied
     if _admin_app_running():
-        return redirect(ADMIN_APP_URL, code=302)
+        # The Admin app needs its per-boot local token (X-1): ask it for a one-time sign-in URL; if this process cannot
+        # read the token file, the plain URL lands on its "open from the launcher" page.
+        from src.http_runtime.local_token_gate import request_open_url  # noqa: PLC0415
+        from src.platform_runtime import workspace_root  # noqa: PLC0415
+
+        return redirect(request_open_url(ADMIN_APP_URL, workspace_root(), "admin") or ADMIN_APP_URL, code=302)
     return Response(_HAND_OFF_PAGE, status=200, content_type="text/html; charset=utf-8")
 
 

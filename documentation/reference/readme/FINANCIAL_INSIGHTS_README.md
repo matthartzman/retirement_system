@@ -5,7 +5,7 @@ gains and recent projections, served from the weekday trends log. Entry point: `
 
 ## Ports
 
-- **5057**: the owner's PC. Loopback only, no sign-in.
+- **5057**: the owner's PC. Loopback only, no password; every request needs the per-boot local token (open it from the desktop shortcut, or run `python financial_trends_reporter\main.py --print-open-url`).
 - **5058**: the remote listener for Tailscale Funnel. Sign-in required. See
   `documentation/reference/TRENDS_REMOTE_ACCESS_RUNBOOK.md`.
 

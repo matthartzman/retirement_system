@@ -7,7 +7,10 @@ as JSON. Run this to view trends interactively; the weekday-5pm log entry
 itself is written by tools/append_trends_log.py (headless, via Windows Task
 Scheduler), not by this server.
 
-Usage: python financial_trends_reporter/main.py [--retirement-system-dir PATH] [--port 5057] [--host 127.0.0.1]
+Usage: python financial_trends_reporter/main.py [--retirement-system-dir PATH] [--port 5057] [--host 127.0.0.1] [--print-open-url]
+
+The owner listener (5057) needs the per-boot local token (src/http_runtime/local_token_gate.py): the browser gets in through the launcher's
+one-time handoff, scripts send X-Local-Token. --print-open-url prints that one-time URL for a running app.
 """
 from __future__ import annotations
 
@@ -30,6 +33,7 @@ if str(_REPO_ROOT) not in sys.path:
 from src.http_runtime.host_guard import assert_safe_to_bind  # noqa: E402
 from src.http_runtime.server import LocalHTTPServer, _configured_token  # noqa: E402
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
+from src.http_runtime.local_token_gate import LocalTokenGate, open_running_app  # noqa: E402
 from src.stores import SchemaVersionError  # noqa: E402
 
 from financial_trends_reporter import account_registry, balance_series, flows, liquid_change, live_snapshot, percent_view, plan_annuity_values, projections, realized_view, share_snapshot, spending_window  # noqa: E402
@@ -47,6 +51,7 @@ from financial_trends_reporter.trends_log import default_log_path, read_history 
 from src.active_plan import plan_path_for_workspace  # noqa: E402
 from src import spending_tracker  # noqa: E402
 
+GATE_NAME = "insights"  # token file: <workspace>/local_state/insights_local_token
 INDEX_HTML_PATH = _APP_ROOT / "frontend" / "index.html"
 # A run newer than this is fresh enough that the page skips its automatic update on open.
 FRESH_RUN_SECONDS = 900
@@ -75,10 +80,15 @@ def _parse_spending_window(args) -> tuple[date, date]:
 
 
 def create_app(retirement_system_dir: Path, log_path: Path | None = None, access_store: IdentityStore | None = None,
-               sessions: SessionTable | None = None, clock=time.time, percent_basis=None, mode: str = "desktop") -> Flask:
-    """``mode="worker"``: served by a user's own planner worker (multi-user server); see ``worker_mode``."""
+               sessions: SessionTable | None = None, clock=time.time, percent_basis=None, mode: str = "desktop",
+               local_gate: LocalTokenGate | None = None) -> Flask:
+    """``mode="worker"``: served by a user's own planner worker (multi-user server); see ``worker_mode``.
+
+    ``local_gate`` is the per-boot token gate for the owner listener (X-1). ``main()`` always passes one; ``None`` is for
+    in-process tests only. It applies to the local listener (5057) alone; the remote listener keeps its own sign-in."""
     worker = mode == "worker"
     app = Flask("financial_trends_reporter", static_folder=str(_APP_ROOT / "frontend"))
+    app.local_gate = local_gate
     resolved_log_path = log_path or default_log_path(_APP_ROOT)
 
     @app.before_request
@@ -484,6 +494,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
         percent_basis=percent_basis or (lambda: percent_view.scale_basis(
             _balances_db(), read_history(_log_path()),
             plan_annuity_values.account_values(retirement_system_dir, _balances_db()))),
+        local_gate=local_gate,
     )
     return app
 
@@ -512,21 +523,30 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--remote-port", type=int, default=5058, help="Loopback port Tailscale Funnel points at (sign-in required)")
     parser.add_argument("--no-remote", action="store_true", help="Don't start the remote (sign-in) listener")
     parser.add_argument("--no-open", action="store_true", help="Don't auto-open a browser tab")
+    parser.add_argument("--print-open-url", action="store_true",
+                        help="Print a one-time sign-in URL for the running app (valid 60 seconds) instead of opening it")
     args = parser.parse_args(argv)
 
     if _port_in_use(_local_host(args.host), args.port):
         url = f"http://{_local_host(args.host)}:{args.port}"
+        root = Path(args.retirement_system_dir)
+        if args.print_open_url:
+            return open_running_app(url, root, GATE_NAME, print_only=True, opener=webbrowser.open)
         print(f"Financial Insight app is already running; opening {url}.")
-        if not args.no_open:
-            webbrowser.open(url)
-        return 0
+        if args.no_open:
+            return 0
+        return open_running_app(url, root, GATE_NAME, print_only=False, opener=webbrowser.open)
+    if args.print_open_url:
+        print("The Financial Insight app is not running; start it first.", file=sys.stderr)
+        return 1
     # Re-read account types/mapping from the app so a fix to the sync applies without waiting for the next import.
     sync_from_app(default_log_path(_APP_ROOT).with_name(DB_FILENAME), args.retirement_system_dir)
     assert_safe_to_bind(args.host, _configured_token())
     if (problem := check_funnel_target(args.port)):
         print(problem, file=sys.stderr)
         return 1
-    app = create_app(Path(args.retirement_system_dir))
+    gate = LocalTokenGate.start(GATE_NAME, args.retirement_system_dir, module="financial_trends_reporter/main.py")
+    app = create_app(Path(args.retirement_system_dir), local_gate=gate)
     server = LocalHTTPServer((args.host, int(args.port)), ListenerApp(app, "local"))
     if not args.no_remote:
         if _port_in_use("127.0.0.1", args.remote_port):
@@ -539,7 +559,7 @@ def main(argv: list[str] | None = None) -> int:
     url = f"http://{_local_host(args.host)}:{args.port}"
     print(f"Financial Insight app listening on {url}")
     if not args.no_open:
-        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+        threading.Timer(1.0, lambda: webbrowser.open(gate.open_url(url))).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -26,13 +26,21 @@ function waitUntilReady(deadline) {
 }
 
 let child;
+let workspace;
 
 test.beforeAll(async () => {
-  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'admin-settings-e2e-'));
+  workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'admin-settings-e2e-'));
   child = spawn(process.platform === 'win32' ? 'python' : 'python3',
     ['-m', 'admin_app', '--retirement-system-dir', workspace, '--port', String(PORT), '--no-open'],
     { cwd: ROOT, stdio: 'ignore' });
   await waitUntilReady(Date.now() + 30_000);
+});
+
+
+// The Admin app needs its per-boot local token (security review X-1); the launcher hands a browser a cookie, a spec sends the header.
+test.beforeEach(async ({ context }) => {
+  const token = fs.readFileSync(path.join(workspace, 'local_state', 'admin_local_token'), 'utf8').trim();
+  await context.setExtraHTTPHeaders({ 'X-Local-Token': token });
 });
 
 test.afterAll(() => { if (child) child.kill(); });

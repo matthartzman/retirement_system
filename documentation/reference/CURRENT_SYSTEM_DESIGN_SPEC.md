@@ -222,7 +222,7 @@ The system is three separate loopback processes that share one account store. De
 | App | Entry | Port | Owns |
 |---|---|---|---|
 | Retirement Planner | `main.py` | 5050 (server mode; desktop mode opens no socket) | plan rows, builds, per-plan engine assumptions |
-| Financial Insights (FI) | `financial_trends_reporter/main.py` | 5057 local (owner, no sign-in), 5058 remote (Tailscale Funnel, sign-in) | balance trends, projections, its sessions |
+| Financial Insights (FI) | `financial_trends_reporter/main.py` | 5057 local (owner, per-boot local token, no password), 5058 remote (Tailscale Funnel, sign-in) | balance trends, projections, its sessions |
 | Admin app | `python -m admin_app` | 5056, loopback only | people, app grants, activity, admin audit, install-wide settings, system tools |
 
 - **Identity store** (`src/identity/`, `local_state/identity.db`, `open_identity_store`). One account list for the whole
@@ -236,8 +236,8 @@ The system is three separate loopback processes that share one account store. De
   longer manages accounts; its owner-only People and Activity routes were removed in favour of the Admin app. A password
   reset, disable or grant removal in the Admin app takes effect in FI because sessions carry the user's epoch and are
   checked against the store, so the apps need not share a process.
-- **Admin app** (`admin_app/`) reuses `src.http_runtime`. It has no sign-in: the trust boundary is loopback only
-  (`admin_app/trust.py` refuses a non-loopback Host and any proxy header, and checks that the Funnel does not target
+- **Admin app** (`admin_app/`) reuses `src.http_runtime`. It has no password sign-in: the trust boundary is loopback plus a per-boot local token (`src/http_runtime/local_token_gate.py`,
+  X-1) (`admin_app/trust.py` refuses a non-loopback Host and any proxy header, and checks that the Funnel does not target
   its port). Routes: `/api/users*`, `/api/activity`, `/api/audit` (`routes_users.py`); `/api/settings*`,
   `/api/tax-law-dashboard`, `/api/system/*` (`routes_system.py`). Every write is recorded in `admin_audit` as counts and
   labels, never values.
