@@ -144,13 +144,16 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None, stderr:
         return refuse(str(exc))
 
 
-def _key(args, say, refuse, *, crypt=None) -> int:
+_DEFAULT = object()
+
+
+def _key(args, say, refuse, *, crypt=_DEFAULT) -> int:
     """``key check|seal|rotate|export`` (SEC-08). ``crypt`` is a (protect, unprotect) pair; Windows DPAPI by default."""
     from . import key_acl  # noqa: PLC0415
 
     if (miss := _need(args, "key_file")):
         return refuse(miss)
-    crypt = crypt or bc.default_protect()
+    crypt = bc.default_protect() if crypt is _DEFAULT else crypt  # None: no DPAPI here (tests, non-Windows)
     path = Path(args.key_file)
     unprotect = crypt[1] if crypt else None
     ring = bc.read_key_file(path, unprotect=unprotect)

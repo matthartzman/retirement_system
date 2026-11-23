@@ -17,11 +17,12 @@ import logging
 import os
 import secrets
 import shutil
+import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
 
-from src.http_runtime.local_token_gate import restrict_to_current_user
 from src.plan_file_io import write_text_atomic
 
 LOG = logging.getLogger("retirement.trends_log")
@@ -66,6 +67,24 @@ def integrity_path(log_path: str | Path) -> Path:
     return path.with_name(path.name + ".integrity.json")
 
 
+def _restrict_key_file(path: Path) -> None:
+    """Owner-only: chmod 600, and on Windows an explicit ACL with inheritance removed (best effort, never fatal).
+    Uses Popen rather than ``subprocess.run`` so it is not caught by tests that stub the price-refresh subprocess."""
+    if sys.platform == "win32":
+        from src.http_runtime.local_token_gate import _windows_user_grant  # noqa: PLC0415
+
+        try:
+            proc = subprocess.Popen(["icacls", str(path), "/inheritance:r", "/grant:r", _windows_user_grant()],
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            proc.communicate(timeout=30)
+            if proc.returncode:
+                LOG.warning("could not restrict %s to the current user (icacls exit %s)", path, proc.returncode)
+        except Exception as exc:  # noqa: BLE001
+            LOG.warning("could not restrict %s to the current user: %s", path, type(exc).__name__)
+        return
+    os.chmod(path, 0o600)
+
+
 def _load_key(log_path: Path, *, create: bool) -> bytes | None:
     kp = _key_path(log_path)
     try:
@@ -80,7 +99,7 @@ def _load_key(log_path: Path, *, create: bool) -> bytes | None:
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="ascii") as fh:
         fh.write(key.hex() + "\n")
-    restrict_to_current_user(tmp)
+    _restrict_key_file(tmp)
     os.replace(tmp, kp)
     return key
 
