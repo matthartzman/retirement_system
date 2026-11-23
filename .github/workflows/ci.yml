@@ -22,6 +22,10 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# F-15: the workflow token is read-only; no job here writes to the repository or issues.
+permissions:
+  contents: read
+
 jobs:
   # Runs first and reports in well under a minute: ruff, the source-text-only
   # test files (no src/ import -- line-count ratchets, string-presence and
@@ -38,6 +42,8 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
 
     - uses: actions/setup-python@v6
       with:
@@ -108,6 +114,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v6
@@ -253,6 +261,8 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
 
     - uses: actions/setup-node@v6
       with:
@@ -281,6 +291,8 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
 
     - uses: actions/setup-python@v6
       with:
@@ -337,6 +349,8 @@ jobs:
     # merge via branch protection regardless of `build`'s own result.
     steps:
     - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
 
     - name: Set up Python
       uses: actions/setup-python@v6
@@ -375,3 +389,31 @@ jobs:
           Write-Error "✗ Build failed: retirement_planner.exe not found"
           exit 1
         }
+
+  # F-16: report-only dependency audit. It never fails the build on its first runs (continue-on-error); read the log,
+  # then drop continue-on-error once the findings are triaged. Not a merge gate yet.
+  dependency-audit:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - uses: actions/setup-node@v6
+      with:
+        node-version: "22"
+
+    - name: pip-audit (report only)
+      continue-on-error: true
+      run: |
+        python -m pip install --upgrade pip pip-audit
+        pip-audit -r requirements.txt -r requirements-gateway.txt
+
+    - name: npm audit (report only)
+      continue-on-error: true
+      run: npm audit --omit=dev
