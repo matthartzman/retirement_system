@@ -319,7 +319,7 @@ jobs:
     # playwright install` otherwise re-downloads Chromium on every single CI
     # run. Invalidates itself automatically on a version bump.
     - name: Cache Playwright browsers
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       id: playwright-cache
       with:
         path: ~/AppData/Local/ms-playwright
