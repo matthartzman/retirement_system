@@ -1386,7 +1386,7 @@ def _statement_args(b: dict):
         except (binascii.Error, ValueError):
             return None, (jsonify({"success": False, "error": "pdf_base64 is not valid base64"}), 400)
         if (problem := _limits.pdf_problem(kw["pdf_bytes"])):  # PR-11: page limit before the parser sees it
-            return None, (jsonify({"success": False, "error": problem}), 413)
+            return None, (jsonify({"success": False, "error": problem[1]}), problem[0])
     elif b.get("content"):
         kw["text"] = str(b["content"])
     else:

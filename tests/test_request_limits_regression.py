@@ -54,7 +54,8 @@ def test_pdf_page_limit():
     one = b"%PDF-1.4\n1 0 obj<</Type /Pages>>endobj 2 0 obj<</Type /Page>>endobj"
     many = b"%PDF-1.4\n" + b"<</Type /Page>>" * (lim.MAX_PDF_PAGES + 1)
     assert lim.pdf_page_count(one) == 1 and lim.pdf_problem(one) is None
-    assert "pages" in lim.pdf_problem(many) and "not a PDF" in lim.pdf_problem(b"hello")
+    assert lim.pdf_problem(many)[0] == 413 and "pages" in lim.pdf_problem(many)[1]
+    assert lim.pdf_problem(b"hello")[0] == 400 and "not a PDF" in lim.pdf_problem(b"hello")[1]
 
 
 # ---- routes ----
@@ -91,7 +92,7 @@ def test_a_pdf_over_the_page_limit_is_refused_before_parsing(ws, monkeypatch):
     assert r.status_code == 413 and "pages" in r.get_json()["error"]
     r = client.post("/api/sales/1099b/preview", headers=HEADERS,
                     json={"pdf_base64": base64.b64encode(b"not a pdf").decode(), "broker": "b", "account": "a"})
-    assert r.status_code == 413 and "not a PDF" in r.get_json()["error"]
+    assert r.status_code == 400 and "not a PDF" in r.get_json()["error"]
 
 
 def test_forced_backups_are_rate_limited_and_the_trigger_is_bounded(ws, monkeypatch):

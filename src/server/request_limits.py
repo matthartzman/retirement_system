@@ -40,11 +40,12 @@ def pdf_page_count(data: bytes) -> int:
     return len(_PAGE.findall(data))
 
 
-def pdf_problem(data: bytes) -> str | None:
+def pdf_problem(data: bytes) -> tuple[int, str] | None:
+    """(HTTP status, message) when the bytes should not reach the PDF parser, else None."""
     if not data.lstrip()[:5] == b"%PDF-":
-        return "pdf_base64 is not a PDF file"
+        return 400, "pdf_base64 is not a PDF file"
     if pdf_page_count(data) > MAX_PDF_PAGES:
-        return f"the PDF has more than {MAX_PDF_PAGES} pages; split it and import the parts"
+        return 413, f"the PDF has more than {MAX_PDF_PAGES} pages; split it and import the parts"
     return None
 
 
