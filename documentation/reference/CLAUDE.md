@@ -35,7 +35,7 @@ Or double-click `launchers/BUILD.bat`. The raw build step alone is still:
 ```
 pyinstaller retirement_planner.spec --noconfirm
 ```
-Output lands at `dist/retirement_planner/retirement_planner.exe` (onedir layout). After any change to `frontend/`, `src/`, or `tools/`, rebuild the exe to bundle updates. `build.py` runs `tools/backup_to_onedrive.py` after a successful build, dropping a full zip into the OneDrive `Retirement Planning/Backups` folder (keeps the last 10).
+Output lands at `dist/retirement_planner/retirement_planner.exe` (onedir layout). After any change to `frontend/`, `src/`, or `tools/`, rebuild the exe to bundle updates. `build.py` runs `tools/backup_to_onedrive.py` after a successful build, dropping a code-and-tooling zip into the OneDrive `Retirement Planning/Backups` folder when it exists (else `~/RetirementPlannerBackups`; keeps the last 10). Household data (identity/app databases, `*.rpx`, balances, trend log, `local_state/`) is excluded unless `python tools/backup_to_onedrive.py --include-data` is run, which writes an encrypted `.zip.enc` (passphrase prompt or `--passphrase-file`; `--decrypt` reverses it).
 
 ### Project location (moved off OneDrive)
 

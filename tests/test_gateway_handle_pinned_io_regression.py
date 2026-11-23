@@ -101,12 +101,18 @@ def test_pinned_missing_file_is_a_plain_oserror():
             pass
 
 
-# ---- the real POSIX operations with real symlinks ----
-posix = pytest.mark.skipif(sys.platform == "win32", reason="symlink analogue of a junction swap")
+# ---- the real operations: symlinks on POSIX, junctions on Windows (so CI on Windows runs the real Windows calls) ----
+def _link(link: Path, target: Path) -> None:
+    """A directory link another folder: a junction on Windows (no privilege needed), a symlink elsewhere."""
+    if sys.platform == "win32":
+        import _winapi  # noqa: PLC0415
+
+        _winapi.CreateJunction(str(target), str(link))
+    else:
+        link.symlink_to(target, target_is_directory=True)
 
 
-@posix
-def test_posix_pinned_refuses_symlink_final_and_intermediate(tmp_path):
+def test_real_pinned_refuses_a_link_final_and_intermediate(tmp_path):
     u1, u2 = tmp_path / "u1", tmp_path / "u2"
     (u1 / "d").mkdir(parents=True)
     u2.mkdir()
@@ -114,15 +120,16 @@ def test_posix_pinned_refuses_symlink_final_and_intermediate(tmp_path):
     (u2 / "secret").write_text("theirs")
     with fsguard.pinned(u1 / "d" / "f", u1) as final:
         assert final.endswith("f")
-    (u1 / "lnk").symlink_to(u2)
+    _link(u1 / "lnk", u2)
     for target in (u1 / "lnk", u1 / "lnk" / "secret"):
         with pytest.raises(fsguard.UnsafePathError):
             with fsguard.pinned(target, u1):
                 pass
-    (u1 / "flnk").symlink_to(u2 / "secret")
-    with pytest.raises(fsguard.UnsafePathError):
-        with fsguard.pinned(u1 / "flnk", u1):
-            pass
+    if sys.platform != "win32":  # a file symlink needs a privilege on Windows; directory links above cover it there
+        (u1 / "flnk").symlink_to(u2 / "secret")
+        with pytest.raises(fsguard.UnsafePathError):
+            with fsguard.pinned(u1 / "flnk", u1):
+                pass
 
 
 def _db(path: Path, value: str) -> None:
@@ -134,7 +141,6 @@ def _db(path: Path, value: str) -> None:
     con.close()
 
 
-@posix
 def test_backup_skips_a_swapped_link_and_reports_it_without_reading_the_target(tmp_path, monkeypatch):
     root = tmp_path / "data"
     u1, u2 = root / "users" / "1", root / "users" / "2"
@@ -142,7 +148,7 @@ def test_backup_skips_a_swapped_link_and_reports_it_without_reading_the_target(t
     u2.mkdir(parents=True)
     _db(u2 / "local_state" / "app.db", "other-user-secret")
     (u1 / "plan.rpx").write_bytes(b"x")
-    (u1 / "local_state").symlink_to(u2 / "local_state")
+    _link(u1 / "local_state", u2 / "local_state")
     # defeat the name check on purpose: the open-handle check alone must still refuse (the race outcome)
     monkeypatch.setattr(bs.fsguard, "has_reparse_point", lambda *a, **k: False)
     read: list[str] = []
@@ -154,7 +160,6 @@ def test_backup_skips_a_swapped_link_and_reports_it_without_reading_the_target(t
     assert any("link inside the workspace" in e for e in report["errors"]), report
 
 
-@posix
 def test_log_trim_uses_one_handle_and_keeps_the_tail(tmp_path):
     folder = tmp_path / "users" / "1"
     log_file = folder / logs.CONSOLE_LOG
@@ -166,14 +171,13 @@ def test_log_trim_uses_one_handle_and_keeps_the_tail(tmp_path):
     assert data.startswith(b"[older output trimmed by the gateway]\n") and data.endswith(b"TAIL") and len(data) < 1100
 
 
-@posix
 def test_log_trim_refuses_a_linked_log_folder(tmp_path, monkeypatch):
     folder, other = tmp_path / "users" / "1", tmp_path / "elsewhere"  # outside users/: only user 1 is visited
     (other / "local_state" / "logs").mkdir(parents=True)
     victim = other / "local_state" / "logs" / "worker_console.log"
     victim.write_bytes(b"B" * 5000)
     folder.mkdir(parents=True)
-    (folder / "local_state").symlink_to(other / "local_state")
+    _link(folder / "local_state", other / "local_state")
     monkeypatch.setattr(logs.fsguard, "has_reparse_point", lambda *a, **k: False)  # the race: the name check passed
     out = logs.prune_worker_logs(tmp_path, lambda uid: False, max_bytes=1000)
     assert out == {"trimmed": 0, "removed": 0} and victim.read_bytes() == b"B" * 5000

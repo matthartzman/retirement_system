@@ -33,7 +33,8 @@ if str(_REPO_ROOT) not in sys.path:
 from src.http_runtime.host_guard import assert_safe_to_bind  # noqa: E402
 from src.http_runtime.server import LocalHTTPServer, _configured_token  # noqa: E402
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
-from src.http_runtime.local_token_gate import LocalTokenGate, open_running_app  # noqa: E402
+from src.http_runtime import data_exposure_check  # noqa: E402
+from src.http_runtime.local_token_gate import LocalTokenGate, open_running_app, token_file_path  # noqa: E402
 from src.stores import SchemaVersionError  # noqa: E402
 
 from financial_trends_reporter import account_registry, balance_series, flows, liquid_change, live_snapshot, percent_view, plan_annuity_values, projections, realized_view, share_snapshot, spending_window  # noqa: E402
@@ -89,6 +90,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
     worker = mode == "worker"
     app = Flask("financial_trends_reporter", static_folder=str(_APP_ROOT / "frontend"))
     app.local_gate = local_gate
+    app.data_exposure_warnings = []  # main() fills it (F-11); the front page shows it as a banner
     resolved_log_path = log_path or default_log_path(_APP_ROOT)
 
     @app.before_request
@@ -122,7 +124,10 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
 
     @app.route("/", methods=["GET"])
     def index():
-        return Response(INDEX_HTML_PATH.read_text(encoding="utf-8"), content_type="text/html; charset=utf-8")
+        page = INDEX_HTML_PATH.read_text(encoding="utf-8")
+        # F-11: a visible notice when the data folder or token file is open to other accounts or under OneDrive
+        return Response(data_exposure_check.inject_banner(page, app.data_exposure_warnings),
+                        content_type="text/html; charset=utf-8")
 
     @app.route("/charts.js", methods=["GET"])
     def charts_js():
@@ -551,6 +556,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     gate = LocalTokenGate.start(GATE_NAME, args.retirement_system_dir, module="financial_trends_reporter/main.py")
     app = create_app(Path(args.retirement_system_dir), local_gate=gate)
+    root = Path(args.retirement_system_dir)
+    app.data_exposure_warnings = data_exposure_check.check_paths(
+        [("Financial Insights data folder", _APP_ROOT / "data"), ("local token file", token_file_path(root, GATE_NAME))])
+    data_exposure_check.announce("Financial Insights", app.data_exposure_warnings)
     server = LocalHTTPServer((args.host, int(args.port)), ListenerApp(app, "local"))
     if not args.no_remote:
         if _port_in_use("127.0.0.1", args.remote_port):

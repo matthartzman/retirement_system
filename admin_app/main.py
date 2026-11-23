@@ -25,7 +25,8 @@ if str(_REPO_ROOT) not in sys.path:
 from src.http_runtime.server import LocalHTTPServer  # noqa: E402
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 from src.identity import DB_FILENAME, LEGACY_ACCESS_DB, IdentityStore, open_identity_store  # noqa: E402
-from src.http_runtime.local_token_gate import LocalTokenGate, open_running_app  # noqa: E402
+from src.http_runtime import data_exposure_check  # noqa: E402
+from src.http_runtime.local_token_gate import LocalTokenGate, open_running_app, token_file_path  # noqa: E402
 
 from admin_app import DEFAULT_PORT  # noqa: E402
 from admin_app.processes import ProcessManager
@@ -60,6 +61,7 @@ def create_app(store: IdentityStore, clock=time.time, settings: SettingsService 
     """``local_gate`` is the per-boot token gate (X-1). ``main()`` always passes one; ``None`` is for in-process tests only."""
     app = Flask("admin_app", static_folder=str(FRONTEND))
     app.local_gate = local_gate
+    app.data_exposure_warnings = []  # main() fills it (F-11); the front page shows it as a banner
     app.before_request(check_request)
     if local_gate is not None:
         app.before_request(local_gate.check)  # after the Host/Origin/proxy checks, before any route
@@ -68,7 +70,10 @@ def create_app(store: IdentityStore, clock=time.time, settings: SettingsService 
 
     def page(path: str) -> Response:
         file, mime = PAGES[path]
-        return Response(file.read_text(encoding="utf-8"), content_type=f"{mime}; charset=utf-8")
+        text = file.read_text(encoding="utf-8")
+        if path == "/":  # F-11: a visible notice when the data or token file is open to other accounts or under OneDrive
+            text = data_exposure_check.inject_banner(text, app.data_exposure_warnings)
+        return Response(text, content_type=f"{mime}; charset=utf-8")
 
     for route in PAGES:
         app.route(route, methods=["GET"])(lambda route=route: page(route))
@@ -119,7 +124,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     store = open_identity_store(identity_db_path(root), legacy_access_path=legacy_access_path(root))
     gate = LocalTokenGate.start(GATE_NAME, root, module="-m admin_app")
-    server = LocalHTTPServer((LOOPBACK, int(args.port)), create_app(store, settings=SettingsService(root), local_gate=gate))
+    flask_app = create_app(store, settings=SettingsService(root), local_gate=gate)
+    flask_app.data_exposure_warnings = data_exposure_check.check_paths(
+        [("identity database folder", identity_db_path(root).parent), ("local token file", token_file_path(root, GATE_NAME))])
+    data_exposure_check.announce("Admin app", flask_app.data_exposure_warnings)
+    server = LocalHTTPServer((LOOPBACK, int(args.port)), flask_app)
     print(f"Admin app listening on {url} (this computer only)")
     if not args.no_open:
         threading.Timer(1.0, lambda: webbrowser.open(gate.open_url(url))).start()

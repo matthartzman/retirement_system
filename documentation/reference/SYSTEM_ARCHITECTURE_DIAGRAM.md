@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 390 Python files under `src/`, 92 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 391 Python files under `src/`, 92 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -21,7 +21,7 @@ flowchart TB
     subgraph L_Server_Services["Server Services (21 modules)"]
         L_Server_Services_d["Feature-owned, request-independent business logic"]
     end
-    subgraph L_HTTP_Runtime["HTTP Runtime (5 modules)"]
+    subgraph L_HTTP_Runtime["HTTP Runtime (6 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
     subgraph L_Core_Engine___Domain["Core Engine & Domain (288 modules)"]
@@ -573,6 +573,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | Module | Internal imports | External imports |
 |---|---|---|
 | `src/http_runtime/__init__.py` | `http_runtime.wsgi_facade` | — |
+| `src/http_runtime/data_exposure_check.py` | `gateway` | — |
 | `src/http_runtime/host_guard.py` | — | — |
 | `src/http_runtime/local_token_gate.py` | `http_runtime.wsgi_facade` | — |
 | `src/http_runtime/server.py` | `http_runtime.host_guard`, `http_runtime.wsgi_facade`, `runtime_config` | — |
