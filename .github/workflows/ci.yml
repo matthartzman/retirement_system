@@ -45,7 +45,7 @@ jobs:
       with:
         persist-credentials: false
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@v7
       with:
         python-version: '3.14'
         cache: 'pip'
@@ -118,7 +118,7 @@ jobs:
         persist-credentials: false
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
@@ -294,7 +294,7 @@ jobs:
       with:
         persist-credentials: false
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@v7
       with:
         # Aligned to the `test` job's 3.14 (was 3.11 here and in `build`
         # below) so the e2e suite exercises the same interpreter the
@@ -353,7 +353,7 @@ jobs:
         persist-credentials: false
 
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '3.14'
         cache: 'pip'
@@ -399,7 +399,7 @@ jobs:
       with:
         persist-credentials: false
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@v7
       with:
         python-version: '3.14'
         cache: 'pip'
