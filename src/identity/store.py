@@ -554,6 +554,7 @@ class IdentityStore:
                 access_core.burn_password_check(password, self._n)
                 return LoginResult(False, None, False, "bad")
             if row["locked_until"] > now:
+                access_core.burn_password_check(password, self._n)  # same work as any other refusal: timing says nothing (X-8)
                 return LoginResult(False, row["id"], False, "locked")
             if access_core.password_matches(password, row["pw_salt"], row["scrypt_n"], row["pw_hash"]):
                 enrolled = self.totp_enrolled(row["id"])

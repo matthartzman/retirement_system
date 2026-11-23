@@ -12,6 +12,7 @@ import hashlib
 import hmac
 import secrets
 import struct
+import threading
 import time
 from urllib.parse import quote
 
@@ -119,16 +120,20 @@ def looks_like_recovery(code: str) -> bool:
     return len(n) == 10 and all(c in _RECOVERY_ALPHABET for c in n)
 
 
+_KEY_LOCK = threading.Lock()
+
+
 def default_key() -> bytes:
     """The sealing key from the OS credential store, created on first use. Raises ``SecretStoreUnavailable``
     when there is no credential store (callers fail closed: no second factor can be checked or enrolled)."""
     from src import secrets_store
 
-    value = secrets_store.get_secret(KEY_SECRET_NAME)
-    if not value:
-        value = secrets.token_hex(32)
-        secrets_store.set_secret(KEY_SECRET_NAME, value)
-    return bytes.fromhex(value)
+    with _KEY_LOCK:  # two first sign-ins at once must not mint two keys, one of which seals secrets the other cannot open (X-8)
+        value = secrets_store.get_secret(KEY_SECRET_NAME)
+        if not value:
+            secrets_store.set_secret(KEY_SECRET_NAME, secrets.token_hex(32))
+            value = secrets_store.get_secret(KEY_SECRET_NAME)  # what is stored is the key, whoever wrote it last
+        return bytes.fromhex(value)
 
 
 def now() -> float:
