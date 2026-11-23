@@ -1,6 +1,7 @@
 """Auth gate and account routes for the two listeners.
 
-Local (5057): no sign-in; Host must be loopback and proxy headers are refused. Remote (5058):
+Local (5057): no password sign-in, but every request needs the per-boot local token (src/http_runtime/local_token_gate.py); Host must
+be loopback and proxy headers are refused. Remote (5058):
 every request needs a session except the sign-in page and API; local-only paths are 404.
 
 People live in the shared identity store (src/identity) and are managed in the Admin app. A remote session ends on the
@@ -90,7 +91,9 @@ def _json(payload, status=200, headers=None) -> Response:
 
 
 def register_access(app, store: IdentityStore, sessions: SessionTable, clock=time.time,
-                    percent_basis: Callable[[], float | None] = lambda: None) -> None:
+                    percent_basis: Callable[[], float | None] = lambda: None, local_gate=None) -> None:
+    if local_gate is not None:
+        local_gate.register(app, is_local=lambda: current_listener() == "local")
     def _log(event: str, details: str = "", person: str | None = None) -> None:
         env = request.environ
         source = str(request.headers.get("X-Forwarded-For", "") or "").split(",")[0].strip() if current_listener() == "remote" else ""
@@ -135,6 +138,8 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
                 return _json({"success": False, "error": "misdirected request"}, 421)
             if has_proxy_headers(request.headers):
                 return _json({"success": False, "error": "proxied requests are not allowed here"}, 403)
+            if local_gate is not None and (refusal := local_gate.check()) is not None:
+                return refusal  # X-1: loopback alone does not identify the owner on a host with worker accounts
             env["person"] = OWNER_NAME
             _log_action()
             return None

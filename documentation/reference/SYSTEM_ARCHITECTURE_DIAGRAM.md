@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 388 Python files under `src/`, 92 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 389 Python files under `src/`, 92 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -21,7 +21,7 @@ flowchart TB
     subgraph L_Server_Services["Server Services (21 modules)"]
         L_Server_Services_d["Feature-owned, request-independent business logic"]
     end
-    subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
+    subgraph L_HTTP_Runtime["HTTP Runtime (5 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
     subgraph L_Core_Engine___Domain["Core Engine & Domain (287 modules)"]
@@ -530,7 +530,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 |---|---|---|
 | `src/server/__init__.py` | `server`, `server.app_core` | — |
 | `src/server/__main__.py` | `http_runtime.server`, `server`, `version` | — |
-| `src/server/admin_routes.py` | `governance`, `server.app_core`, `server_services`, `version` | — |
+| `src/server/admin_routes.py` | `governance`, `http_runtime.local_token_gate`, `platform_runtime`, `server.app_core`, `server_services`, `version` | — |
 | `src/server/app_core.py` | `src`, `active_plan`, `app_state`, `blank_plan`, `config_backend`, `core`, `csv_exchange`, `http_runtime`, `http_runtime.wsgi_facade`, `permissions`, `plan_dates`, `plan_file_io`, `roth_ui_build_guard`, `runtime_config`, `schema_registry`, `secrets_store`, `security`, `server`, `server.security_audit`, `stores.ref_getters.schema_fields`, `system_config`, `us_states`, `workspace_context` | — |
 | `src/server/base_routes.py` | `api_contracts`, `glossary`, `server.app_core`, `server.route_manifest`, `server_services`, `version` | — |
 | `src/server/import_export_routes.py` | `src`, `active_plan`, `server.app_core` | — |
@@ -574,6 +574,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 |---|---|---|
 | `src/http_runtime/__init__.py` | `http_runtime.wsgi_facade` | — |
 | `src/http_runtime/host_guard.py` | — | — |
+| `src/http_runtime/local_token_gate.py` | `http_runtime.wsgi_facade` | — |
 | `src/http_runtime/server.py` | `http_runtime.host_guard`, `http_runtime.wsgi_facade`, `runtime_config` | — |
 | `src/http_runtime/wsgi_facade.py` | `http_runtime.server` | — |
 
@@ -628,7 +629,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/csv_exchange/text_csv.py` | — | — |
 | `src/daf_optimizer.py` | — | — |
 | `src/data_io.py` | `core`, `csv_exchange`, `engine_defaults`, `market_data`, `money`, `parsing.advanced_modules`, `parsing.allocation_optimizer_inputs`, `parsing.client_sections`, `parsing.daf`, `parsing.estate_planning`, `parsing.hsa_policy`, `parsing.insurance`, `parsing.note_receivable`, `parsing.rental_properties`, `parsing.roth_conversion_policy`, `parsing.validation`, `parsing.withdrawal_order`, `parsing.withdrawal_policy`, `plan_config`, `plan_data_migration`, `plan_data_registry`, `plan_defaults`, `plan_label_rules`, `report_compute`, `roth_ui_build_guard`, `stores.ref_getters.cma`, `system_config`, `tax_law`, `workspace_context` | — |
-| `src/desktop_api.py` | `src`, `bootstrap`, `server`, `server.app_core`, `server.workbook_routes`, `server_services` | `pywebview` |
+| `src/desktop_api.py` | `src`, `bootstrap`, `http_runtime.local_token_gate`, `platform_runtime`, `server`, `server.app_core`, `server.workbook_routes`, `server_services` | `pywebview` |
 | `src/desktop_app.py` | `desktop_api` | `pywebview` |
 | `src/detailed_results.py` | `results_model` | `openpyxl` |
 | `src/domain_models.py` | `money`, `person_labels`, `plan_data_migration` | — |

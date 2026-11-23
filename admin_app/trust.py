@@ -1,6 +1,7 @@
 """The Admin app's trust boundary.
 
-There is no sign-in: the only protection is that a request provably came from this PC's own browser.
+There is no password sign-in: a request must provably come from this PC's own browser *and* carry the per-boot local
+token (``src/http_runtime/local_token_gate.py``), because worker accounts on the same host can also reach loopback (review X-1).
 Every request must pass all of these, in this order, before any route runs:
 
 1. The peer address is loopback (defence in depth; the server also binds loopback only).
@@ -10,6 +11,8 @@ Every request must pass all of these, in this order, before any route runs:
 4. If the browser sent ``Origin`` it must be exactly this server (``http://<Host>``); ``Sec-Fetch-Site``, if sent,
    must say same-origin or none.
 5. A write (anything but GET/HEAD) must carry a JSON ``Content-Type``, which a cross-site HTML form cannot send.
+6. The local token gate (``LocalTokenGate.check``, installed by ``create_app``): the session cookie from the launcher's
+   one-time handoff, or the token in ``X-Local-Token``; otherwise 401.
 """
 from __future__ import annotations
 
@@ -77,6 +80,6 @@ def check_funnel_target(port: int, run=subprocess.run) -> str | None:
     Skipped (None) when the ``tailscale`` command is unavailable or its output is unreadable.
     """
     if tailscale_serves_port(port, run=run):
-        return (f"Tailscale is configured to serve port {port}, which is the Admin app and has no sign-in. "
+        return (f"Tailscale is configured to serve port {port}, which is the Admin app and has no internet-grade sign-in. "
                 "Run 'tailscale funnel reset' (or remove that serve entry) and try again.")
     return None

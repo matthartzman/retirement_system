@@ -123,7 +123,11 @@ class DesktopApi:
             # System configuration lives in the Admin app: open it in the system browser, not this window.
             import webbrowser  # noqa: PLC0415
 
-            webbrowser.open("http://127.0.0.1:5056/")
+            from src.http_runtime.local_token_gate import request_open_url  # noqa: PLC0415
+            from src.platform_runtime import workspace_root  # noqa: PLC0415
+
+            admin_url = "http://127.0.0.1:5056/"  # the Admin app needs its per-boot token: use a one-time handoff URL
+            webbrowser.open(request_open_url(admin_url, workspace_root(), "admin") or admin_url)
             return
         else:
             return

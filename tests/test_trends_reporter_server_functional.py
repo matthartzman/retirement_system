@@ -94,19 +94,27 @@ def test_run_now_tells_the_user_to_restart_when_the_app_database_is_newer(tmp_pa
     assert "older code" in resp.get_json()["error"]
 
 
-def test_second_instance_opens_the_browser_and_exits_cleanly(monkeypatch):
-    import socket
-
+def test_second_instance_opens_the_browser_and_exits_cleanly(monkeypatch, tmp_path):
+    # X-1: the second instance reads the running app's token file and opens a one-time handoff URL (never the bare URL).
     from financial_trends_reporter import main as reporter_main
+    from financial_trends_reporter.listeners import ListenerApp
+    from src.http_runtime.server import LocalHTTPServer
+    from src.http_runtime.local_token_gate import LocalTokenGate
 
     opened = []
     monkeypatch.setattr(reporter_main.webbrowser, "open", opened.append)
-    with socket.socket() as srv:
-        srv.bind(("127.0.0.1", 0))
-        srv.listen(1)
-        port = srv.getsockname()[1]
-        assert reporter_main.main(["--port", str(port)]) == 0
-    assert opened == [f"http://127.0.0.1:{port}"]
+    workspace = _workspace(tmp_path)
+    gate = LocalTokenGate.start("insights", workspace)
+    server = LocalHTTPServer(("127.0.0.1", 0), ListenerApp(create_app(workspace, log_path=tmp_path / "log.jsonl", local_gate=gate), "local"))
+    port = server.server_address[1]
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        assert reporter_main.main(["--port", str(port), "--retirement-system-dir", str(workspace)]) == 0
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert len(opened) == 1 and opened[0].startswith(f"http://127.0.0.1:{port}/_local/open?n=")
+    assert gate.token not in opened[0]
 
 
 def test_exit_endpoint_does_not_stop_the_server(tmp_path):
