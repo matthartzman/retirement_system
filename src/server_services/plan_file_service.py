@@ -50,6 +50,23 @@ class PlanFileServiceContext:
     after_switch: Callable[[Path], Any] | None = None
 
 
+def _may_overwrite_with_plan(path: Path) -> bool:
+    """True for an empty file or an existing plan file (opened read-only, so nothing is migrated or run)."""
+    try:
+        if path.is_dir():
+            return False
+        if path.stat().st_size == 0:
+            return True
+        conn = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
+        try:
+            names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        finally:
+            conn.close()
+        return set(PLAN_FILE_TABLES) <= names
+    except (OSError, sqlite3.Error):
+        return False
+
+
 def _sidecar_paths(db_path: Path) -> list[Path]:
     return [Path(str(db_path) + suffix) for suffix in ("-wal", "-shm")]
 
@@ -147,8 +164,12 @@ class PlanFileService:
             dest = remote_mode.confine_path(dest, what="save location")
         elif not dest.is_absolute():
             dest = Path.cwd() / dest
+        if dest.suffix.lower() != ".rpx":
+            return {"success": False, "error": "Plan files are saved with the .rpx extension."}
         same = plan_registry.same_path(src, dest)
         if not same:
+            if dest.exists() and not _may_overwrite_with_plan(dest):
+                return {"success": False, "error": f"{dest} exists and is not a plan file, so it will not be overwritten."}
             other = next((r for r in plan_registry.list_plans() if plan_registry.same_path(r["path"], dest)), None)
             if other is not None:  # never overwrite another registered plan (demo, a saved case)
                 return {"success": False, "error": f"{dest} is already the plan \"{other['name']}\". Choose a different file name."}

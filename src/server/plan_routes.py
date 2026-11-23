@@ -190,12 +190,15 @@ def _server_path_allowed(folder: Path):
     if not roots:
         return False, "LAN/server-side Plan Data paths require System Configuration > Security > local_plan_data_roots allowlist."
     try:
-        resolved = folder.resolve()
-        for root in roots:
+        resolved = folder.resolve()  # follows symlinks, so a link inside an allowed folder cannot lead outside it
+    except Exception:  # noqa: BLE001 - unresolvable: fail closed
+        return False, "Requested Plan Data path is outside the configured local_plan_data_roots allowlist."
+    for root in roots:  # any configured root may admit the path, not just the first one
+        try:
             resolved.relative_to(root)
             return True, ""
-    except Exception:
-        pass
+        except ValueError:
+            continue
     return False, "Requested Plan Data path is outside the configured local_plan_data_roots allowlist."
 
 @app.route("/api/status", methods=["GET"])
@@ -296,7 +299,11 @@ def local_backup_config():
     denied = _require("write_config")
     if denied:
         return denied
-    payload = local_backup_scheduler.save_policy(WORKSPACE_ROOT, request.get_json(silent=True) or {})
+    body = request.get_json(silent=True) or {}
+    refused = _paths_refusal(body.get("backup_dir"))
+    if refused:
+        return refused
+    payload = local_backup_scheduler.save_policy(WORKSPACE_ROOT, body)
     status = local_backup_scheduler.scheduler_status(WORKSPACE_ROOT, _sqlite_db())
     status.update(payload)
     _audit("local_backup_policy_saved", {"policy": status.get("policy")})
@@ -309,6 +316,11 @@ def local_backup_run():
     if denied:
         return denied
     body = request.get_json(silent=True) or {}
+    # A folder stored before the allowlist applied (or by hand) is checked again at run time.
+    stored = local_backup_scheduler.load_policy(WORKSPACE_ROOT)["policy"]
+    refused = _paths_refusal(stored.get("backup_dir"))
+    if refused:
+        return refused
     payload = local_backup_scheduler.run_backup(
         WORKSPACE_ROOT,
         _sqlite_db(),
@@ -337,6 +349,9 @@ def monarch_autoupdate_config():
     if denied:
         return denied
     body = request.get_json(silent=True) or {}
+    refused = _paths_refusal(body.get("source_dir"), body.get("field_map_path"))
+    if refused:
+        return refused
     try:
         payload = monarch_autoupdate.save_policy(WORKSPACE_ROOT, body)
     except ValueError as exc:
@@ -360,6 +375,10 @@ def monarch_autoupdate_run():
     if denied:
         return denied
     body = request.get_json(silent=True) or {}
+    stored = monarch_autoupdate.load_policy(WORKSPACE_ROOT)["policy"]
+    refused = _paths_refusal(stored.get("source_dir"), stored.get("field_map_path"))
+    if refused:
+        return refused
     payload = _run_monarch_autoimport(WORKSPACE_ROOT, force=bool(body.get("force", True)))
     payload["balances_status"] = monarch_autoupdate.load_balances_status(WORKSPACE_ROOT)
     _audit("monarch_autoupdate_run", {"success": payload.get("success"), "skipped": payload.get("skipped")})
@@ -2273,9 +2292,35 @@ def _plan_file_feature_service() -> plan_file_service.PlanFileService:
     )
 
 
+def _paths_refusal(*raws):
+    """A 403 response when a user-supplied or stored file/folder path is outside the server's allowed folders (PR-01,
+    PR-02), else None. Desktop use on loopback has no allowlist; the check applies in remote mode and on a LAN-bound
+    server. The resolved path (symlinks followed) is what is checked, not the typed name; relative paths are taken
+    against the workspace, as the settings that store them do."""
+    for raw in raws:
+        text = str(raw or "").strip()
+        if not text:
+            continue
+        path = Path(text).expanduser()
+        if not path.is_absolute():
+            path = Path(WORKSPACE_ROOT) / path
+        allowed, reason = _server_path_allowed(path)
+        if not allowed:
+            _audit("path_refused", {"path": text})
+            return jsonify({"success": False, "error": reason}), 403
+    return None
+
+
+def _plan_path_refusal(raw):
+    return _paths_refusal(raw)
+
+
 @app.route("/api/plan/exit-snapshot", methods=["POST"])
 def plan_exit_snapshot():
     """Create a versioned copy of the plan file and the local database at exit time. Keeps only the last 10 of each."""
+    denied = _require("write_config")
+    if denied:
+        return denied
     try:
         return jsonify(_plan_file_feature_service().exit_snapshot())
     except Exception as exc:  # noqa: BLE001
@@ -2285,8 +2330,15 @@ def plan_exit_snapshot():
 @app.route("/api/plan/save-as", methods=["POST"])
 def plan_save_as():
     """Copy the active plan file to a user-chosen path (.rpx), register it and make it active."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+    body = request.get_json(silent=True) or {}
+    refused = _plan_path_refusal(body.get("path"))
+    if refused:
+        return refused
     try:
-        return jsonify(_plan_file_feature_service().save_as(request.get_json(silent=True) or {}))
+        return jsonify(_plan_file_feature_service().save_as(body))
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})
 
@@ -2295,8 +2347,15 @@ def plan_save_as():
 def plan_load_file():
     """Open a user-chosen .rpx plan file as the active plan (``mode: "restore"`` replaces the
     active plan file's contents with it instead, validated and backed up)."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+    body = request.get_json(silent=True) or {}
+    refused = _plan_path_refusal(body.get("path"))
+    if refused:
+        return refused
     try:
-        return jsonify(_plan_file_feature_service().load_file(request.get_json(silent=True) or {}))
+        return jsonify(_plan_file_feature_service().load_file(body))
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})
 
