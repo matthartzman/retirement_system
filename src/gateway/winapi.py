@@ -302,7 +302,10 @@ class _BLOB(ctypes.Structure):
     _fields_ = [("cbData", w.DWORD), ("pbData", ctypes.POINTER(ctypes.c_char))]
 
 
-def _crypt(fn_name: str, data: bytes) -> bytes:
+_CRYPTPROTECT_LOCAL_MACHINE = 0x4
+
+
+def _crypt(fn_name: str, data: bytes, *, machine: bool = False) -> bytes:
     crypt32, k = _dll("crypt32"), _kernel32()
     fn = getattr(crypt32, fn_name)
     fn.argtypes = [ctypes.POINTER(_BLOB), ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, w.DWORD,
@@ -310,7 +313,8 @@ def _crypt(fn_name: str, data: bytes) -> bytes:
     src_buf = ctypes.create_string_buffer(data, len(data))
     src = _BLOB(len(data), ctypes.cast(src_buf, ctypes.POINTER(ctypes.c_char)))
     out = _BLOB()
-    if not fn(ctypes.byref(src), None, None, None, None, _PI_NOUI, ctypes.byref(out)):
+    if not fn(ctypes.byref(src), None, None, None, None, _PI_NOUI | (_CRYPTPROTECT_LOCAL_MACHINE if machine else 0),
+              ctypes.byref(out)):
         raise _fail(fn_name)
     try:
         return ctypes.string_at(out.pbData, out.cbData)
@@ -321,6 +325,12 @@ def _crypt(fn_name: str, data: bytes) -> bytes:
 def dpapi_protect(data: bytes) -> bytes:
     """Encrypt for the current account only (DPAPI user scope)."""
     return _crypt("CryptProtectData", data)
+
+
+def dpapi_protect_machine(data: bytes) -> bytes:
+    """Encrypt for this machine (any account on it can open it): used for the backup key, whose only consumers are the
+    service (LocalSystem) and the operator's ``ops`` commands (an administrator), which are different accounts."""
+    return _crypt("CryptProtectData", data, machine=True)
 
 
 def dpapi_unprotect(blob: bytes) -> bytes:

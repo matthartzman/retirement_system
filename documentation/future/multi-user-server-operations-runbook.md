@@ -68,6 +68,29 @@ data folder or the install folder; the key is never inside the backup folder; `C
    **Copy the key file offline now** (a USB stick in a safe and a password-manager attachment). It exists nowhere else.
    Without it every backup is unreadable; with it the backup folder alone is useless to a thief. Test the copy by
    running the section 5 restore drill with the copied file.
+
+   **Seal the key at rest, check its permissions, rotate it (SEC-08).** After the offline copy is safe, seal the key
+   with Windows DPAPI (machine scope: the service, which runs as SYSTEM, and any administrator on this machine can open
+   it; the file is useless if copied elsewhere). Then check who can read it:
+   ```powershell
+   & $PY -m src.gateway.ops key seal  --config C:\RetirementPlanner\state\gateway.json
+   & $PY -m src.gateway.ops key check --config C:\RetirementPlanner\state\gateway.json
+   ```
+   `key check` prints the number of keys, whether the file is sealed, and any account other than SYSTEM, Administrators,
+   the gateway account and the file's owner that can read it (exit status 1). The service runs the same check at start
+   and **refuses to start** when another account can read the key, unless `--allow-weak-key-acl` is given (it is then
+   logged loudly). Rotation:
+   ```powershell
+   & $PY -m src.gateway.ops key rotate --config C:\RetirementPlanner\state\gateway.json
+   & $PY -m src.gateway.service restart
+   & $PY -m src.gateway.ops key export --config C:\RetirementPlanner\state\gateway.json --out E:\offline\backup-key-ring.json
+   ```
+   A rotation adds a new current key and **keeps every earlier key** in the same file, so archives written before it
+   still verify and restore (each archive names its key by id). New backups use the new key only after the service
+   restarts. The old offline copy does not contain the new key: export a new one and replace it (the export refuses to
+   overwrite and to write inside the data, backup or install folders). A sealed file is bound to this machine, so the
+   offline copy is what restores backups on a rebuilt machine; put it back with a plain copy to the key path and run
+   `key seal` again. Off Windows (development) the key stays a plain file.
 5. **Service config** `C:\RetirementPlanner\state\gateway.json` (forward slashes are fine). The destination and key
    settings live **only here**; there is no web setting for them, so only a Windows administrator can change them:
    ```json

@@ -9,10 +9,13 @@ from __future__ import annotations
 import base64
 import hashlib
 import io
+import json
 import os
 import struct
+import sys
+import time
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, Callable, Iterable
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes
@@ -59,15 +62,117 @@ def write_key_file(path: Path, master: bytes | None = None) -> bytes:
     return master
 
 
-def read_key_file(path: Path) -> bytes:
+class KeyRing(bytes):
+    """The CURRENT key (as bytes, so every existing ``master: bytes`` caller encrypts with it) plus every older key by
+    ``key_id``: a rotation does not orphan archives written under a previous key (SEC-08)."""
+
+    keys: dict[bytes, bytes]
+
+    def __new__(cls, current: bytes, older: Iterable[bytes] = ()) -> "KeyRing":
+        ring = super().__new__(cls, current)
+        ring.keys = {key_id(k): bytes(k) for k in (*older, current)}
+        return ring
+
+    @property
+    def current_id(self) -> bytes:
+        return key_id(bytes(self))
+
+    def for_archive(self, kid: bytes) -> bytes | None:
+        return self.keys.get(kid)
+
+
+Protect = Callable[[bytes], bytes]
+SEAL_MAGIC = b"RPSEAL1\n"  # a key file that holds a DPAPI blob of the key ring JSON
+_RING_FORMAT = "rp-backup-keyring"
+
+
+def default_protect() -> tuple[Protect, Protect] | None:
+    """(protect, unprotect) through machine-scope DPAPI on Windows; None elsewhere (the plain-file fallback)."""
+    if sys.platform != "win32":
+        return None
+    from . import winapi  # noqa: PLC0415
+
+    return winapi.dpapi_protect_machine, winapi.dpapi_unprotect
+
+
+def keyring_to_bytes(ring: KeyRing) -> bytes:
+    entries = [{"id": kid.hex(), "key": base64.b64encode(k).decode("ascii")} for kid, k in ring.keys.items()]
+    return json.dumps({"format": _RING_FORMAT, "version": 1, "current": ring.current_id.hex(), "keys": entries,
+                       "written": int(time.time())}, indent=1).encode("utf-8")
+
+
+def _ring_from_json(raw: bytes) -> KeyRing:
     try:
-        raw = Path(path).read_bytes().strip()
-        master = base64.b64decode(raw, validate=True)
-    except (OSError, ValueError) as exc:
+        doc = json.loads(raw.decode("utf-8"))
+        if doc.get("format") != _RING_FORMAT:
+            raise ValueError("format")
+        keys = {bytes.fromhex(e["id"]): base64.b64decode(e["key"], validate=True) for e in doc["keys"]}
+        current = keys[bytes.fromhex(doc["current"])]
+    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise WrongKeyError(f"the backup key file is not a valid key ring ({type(exc).__name__})") from None
+    if any(len(k) != KEY_BYTES or key_id(k) != kid for kid, k in keys.items()):
+        raise WrongKeyError("the backup key ring holds a key of the wrong size or id")
+    return KeyRing(current, [k for kid, k in keys.items() if k != current])
+
+
+def is_sealed(path: Path) -> bool:
+    try:
+        with open(path, "rb") as fh:
+            return fh.read(len(SEAL_MAGIC)) == SEAL_MAGIC
+    except OSError:
+        return False
+
+
+def read_key_file(path: Path, *, unprotect: Protect | None = None) -> KeyRing:
+    """Read a key file in any of its three forms: the original single base64 key, a plain key-ring JSON, or a key
+    ring sealed with DPAPI (``unprotect`` defaults to Windows DPAPI). Returns the ring (bytes: the current key)."""
+    try:
+        raw = Path(path).read_bytes()
+    except OSError as exc:
+        raise WrongKeyError(f"the backup key file cannot be read ({type(exc).__name__})") from None
+    if raw.startswith(SEAL_MAGIC):
+        un = unprotect or (default_protect() or (None, None))[1]
+        if un is None:
+            raise WrongKeyError("the backup key file is sealed with Windows DPAPI and can only be opened on Windows")
+        try:
+            return _ring_from_json(un(base64.b64decode(raw[len(SEAL_MAGIC):].strip(), validate=True)))
+        except WrongKeyError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - DPAPI refusals are OSError, bad base64 is ValueError
+            raise WrongKeyError(f"the sealed backup key file cannot be opened here ({type(exc).__name__})") from None
+    if raw.lstrip().startswith(b"{"):
+        return _ring_from_json(raw)
+    try:
+        master = base64.b64decode(raw.strip(), validate=True)
+    except ValueError as exc:
         raise WrongKeyError(f"the backup key file cannot be read ({type(exc).__name__})") from None
     if len(master) != KEY_BYTES:
         raise WrongKeyError("the backup key file does not hold a 32-byte key")
-    return master
+    return KeyRing(master)
+
+
+def write_keyring_file(path: Path, ring: KeyRing, *, protect: Protect | None = None) -> None:
+    """Replace ``path`` atomically with the ring (sealed when ``protect`` is given). The temp file is created exclusive
+    and 0600 in the same folder, so a crash leaves the old key file intact."""
+    path = Path(path)
+    payload = keyring_to_bytes(ring)
+    data = SEAL_MAGIC + base64.b64encode(protect(payload)) + b"\n" if protect else payload + b"\n"
+    tmp = path.with_name(path.name + ".new")
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def rotate_keyring(ring: KeyRing) -> KeyRing:
+    """A new current key; every earlier key is kept so older archives still open."""
+    return KeyRing(generate_key(), list(ring.keys.values()))
 
 
 def _data_key(master: bytes, salt: bytes) -> AESGCM:
@@ -134,10 +239,11 @@ class DecryptingReader(io.RawIOBase):
         magic, version, kid, salt, prefix, chunk = _HEADER.unpack(raw)
         if magic != MAGIC or version != VERSION or chunk != CHUNK_SIZE:
             raise CorruptBackupError("not a backup archive of a supported version")
-        if master is None or kid != key_id(master):
+        key = master.for_archive(kid) if isinstance(master, KeyRing) else master
+        if key is None or kid != key_id(key):
             raise WrongKeyError("this archive was written with a different key")
         self._header, self._prefix = raw, prefix
-        self._aes = _data_key(master, salt)
+        self._aes = _data_key(key, salt)
         self._index = 0
         self._plain = b""
         self._pos = 0
