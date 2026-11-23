@@ -18,6 +18,7 @@ from typing import Callable
 
 from src.http_runtime.wsgi_facade import Response, request
 
+from src.access_core import forwarded_client_ip
 from src.http_runtime import security_headers
 from src.identity import totp as totp_lib
 from src.identity.store import IdentityStore
@@ -97,7 +98,7 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
         local_gate.register(app, is_local=lambda: current_listener() == "local")
     def _log(event: str, details: str = "", person: str | None = None) -> None:
         env = request.environ
-        source = str(request.headers.get("X-Forwarded-For", "") or "").split(",")[0].strip() if current_listener() == "remote" else ""
+        source = forwarded_client_ip(request.headers) if current_listener() == "remote" else ""
         store.log_event(person or env.get("person") or "(not signed in)", current_listener(), event, details, source, now=clock())
 
     store.clear_app_sessions("insights")  # a restarted app holds no sessions; mirror rows from before are stale
@@ -280,7 +281,7 @@ def register_access(app, store: IdentityStore, sessions: SessionTable, clock=tim
         store.touch_last_signin(result.user_id, now)
         token = sessions.create(result.user_id, store.session_epoch(result.user_id) or 0)
         store.register_session(token, result.user_id, "insights", current_listener(),
-                               str(request.headers.get("X-Forwarded-For", "") or "").split(",")[0].strip(), now=now)
+                               forwarded_client_ip(request.headers), now=now)
         who = store.get_user(result.user_id)["display_name"]
         if totp_lib.looks_like_recovery(code):
             _log("recovery code used", person=who)
