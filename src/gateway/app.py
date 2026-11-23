@@ -18,6 +18,7 @@ from typing import Callable, Protocol
 from urllib.parse import quote
 
 import segno
+from src import access_core
 from src.access_core import has_proxy_headers, is_loopback_host
 from src.gateway.signin_throttle import SignInThrottle, login_username
 from src.http_runtime.wsgi_facade import Flask, HeaderMap, LocalRequest, Response, request
@@ -121,6 +122,14 @@ class GatewayListener:
         req = LocalRequest(method, target, HeaderMap(headers or {}), body, remote_addr=remote_addr,
                            environ={"listener": self.kind, "listener_port": self.port})
         return self.app.dispatch_request(req)
+
+
+class _Refusal(Exception):
+    """Carries a ready response out of a helper (``_body``) to the handler registered in ``create_gateway_app``."""
+
+    def __init__(self, response: Response) -> None:
+        super().__init__("refused")
+        self.response = response
 
 
 def safe_next(value: str | None) -> str:
@@ -391,6 +400,10 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         return _json({"success": False, "error": "Something went wrong.", "error_id": error_id}, 500)
 
     # Registered after the catch-all: handlers are tried newest first.
+    @app.errorhandler(_Refusal)
+    def _refusal(exc):
+        return exc.response
+
     @app.errorhandler(HashBusyError)
     def _hash_busy(_exc):
         resp = _refused("The server is busy. Try again in a moment.", 503)
@@ -453,15 +466,30 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
             store.audit("login failure surge", now=now, actor=_actor(),
                         details=f"{surge} failures in {round(cfg.throttle_window)} s")
 
+    def _body(now: float | None = None, username: str = "") -> dict:
+        """The JSON object body (``{}`` when there is none); any other JSON value is a 400 (SEC-11).
+
+        With ``now`` (a pre-auth route) the bad request is first checked against, then counted toward, the sign-in
+        throttle, so a client cannot use it to skip the throttle."""
+        body = request.get_json(silent=True)
+        if body is None or isinstance(body, dict):
+            return body or {}
+        if now is not None:
+            refused = _throttled(now, username)
+            if refused is not None:
+                raise _Refusal(refused)
+            _count_failure(now, username)
+        raise _Refusal(_refused("Request body must be a JSON object.", 400))
+
     @app.route("/api/auth/login", methods=["POST"])
     def login():
         now = clock()
-        body = request.get_json(silent=True) or {}
+        body = _body(now)
         username = login_username(body.get("username"))
         refused = _throttled(now, username)
         if refused is not None:
             return refused
-        check = store.verify_password(username, str(body.get("password") or ""), now)
+        check = store.verify_password(username, str(body.get("password") or ""), now, request.environ["client_ip"])
         if not check.ok:
             _count_failure(now, username)
             event = "account locked" if check.reason == "locked" else "login failed"
@@ -485,7 +513,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
 
     def _promote(sess: dict, token: str, now: float, event: str) -> Response:
         new_token, csrf = store.rotate_session(token, "active", now)
-        store.touch_login(sess["user_id"], now)
+        store.touch_login(sess["user_id"], now, request.environ["client_ip"])
         actor = _actor(sess["user_id"], sess["username"])
         store.audit(event, now=now, actor=actor)
         store.audit("login succeeded", now=now, actor=actor)
@@ -495,7 +523,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
 
     def _code_failed(sess: dict, now: float) -> Response:
         _count_failure(now, sess["username"])
-        locked = store.record_failure(sess["user_id"], now)
+        locked = store.record_failure(sess["user_id"], now, request.environ["client_ip"])
         actor = _actor(sess["user_id"], sess["username"])
         store.audit("totp failed", now=now, actor=actor)
         if locked:
@@ -515,12 +543,12 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         refused = _throttled(now, sess["username"])
         if refused is not None:
             return refused
-        if store.is_locked(sess["user_id"], now):
+        if store.is_locked(sess["user_id"], now, request.environ["client_ip"]):
             store.end_session(token)
             return _json({"success": False, "authenticated": False, "error": LOGIN_ERROR}, 401)
         if (store.totp_status(sess["user_id"]) == "enrolled") != enrolled:
             return _refused("wrong two-factor step", 409)
-        code = str((request.get_json(silent=True) or {}).get("code") or "")
+        code = str(_body(now, sess["username"]).get("code") or "")
         ok = (store.verify_totp if enrolled else store.confirm_totp)(sess["user_id"], code, now)
         return _promote(sess, token, now, event) if ok else _code_failed(sess, now)
 
@@ -578,11 +606,19 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
     @app.route("/api/auth/password", methods=["POST"])
     def change_password():
         ident: Identity = request.environ["gateway_identity"]
-        body = request.get_json(silent=True) or {}
         now = clock()
+        # SEC-10: the same throttle and lock as sign-in, checked before the current password is tried, so a stolen
+        # session cannot guess it without limit and a locked source is refused even with the right one.
+        blocked = _throttled(now, ident.username)
+        if blocked is None and store.is_locked(ident.user_id, now, request.environ["client_ip"]):
+            blocked = _refused("Too many attempts. Try again shortly.", 429)
+            blocked.headers["Retry-After"] = str(int(access_core.LOCK_SECONDS))
+        if blocked is not None:
+            return blocked
+        body = _body(now, ident.username)
         if not store.check_current_password(ident.user_id, str(body.get("current") or "")):
             _count_failure(now, ident.username)
-            store.record_failure(ident.user_id, now)
+            store.record_failure(ident.user_id, now, request.environ["client_ip"])
             return _refused("Your current password is not right.", 400)
         try:
             store.set_password(ident.user_id, str(body.get("new") or ""), must_change=False, now=now, actor=_actor(),
@@ -604,10 +640,6 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         warning = after(result) if after is not None else None
         extra = {"warning": warning} if warning else {}
         return _json({"success": True, **(result if isinstance(result, dict) else {}), **extra})
-
-    def _body() -> dict:
-        body = request.get_json(silent=True)
-        return body if isinstance(body, dict) else {}
 
     @app.route("/api/auth/admin/users", methods=["GET"])
     def admin_users():

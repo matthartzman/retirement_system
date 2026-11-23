@@ -100,7 +100,9 @@ def test_enrolled_user_must_pass_totp_and_wrong_codes_lock_the_account(rig):
     r = b2.post("/api/auth/totp/verify", json={"code": bad})
     assert r.status_code == 401  # locked: the pending session is ended
     assert COOKIE_NAME not in b2.cookies
-    b3 = rig.browser(ip="198.51.100.8")
+    # SEC-05: the lock is per source address, so it is the offending address (198.51.100.7) that is refused; a
+    # different address is covered by tests/test_gateway_lockout_per_source_regression.py.
+    b3 = rig.browser(ip="198.51.100.7")
     r = b3.login("ann")
     assert r.status_code == 401
     assert r.get_json()["error"] == b3.login("nobody").get_json()["error"]  # same text: no username probing

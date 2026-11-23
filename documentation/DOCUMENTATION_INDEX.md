@@ -33,6 +33,7 @@ plan in `future/` and in `archive/superpowers/` dated 2026-09-16 or later carrie
 | `reference/RENTAL_TAX_RULES.md` | Rental-property tax constants and the preparer's verification note |
 | `archive/reference/FRONTEND_HOOK_REGISTRY.md` | Former hook registry note, now folded into the design spec section 7.2 |
 | `reference/TRENDS_REMOTE_ACCESS_RUNBOOK.md` | How Financial Insight is reached from outside the home network |
+| `reference/SECURITY_REVIEW_2026-11-23.md` | Security review of the planner, gateway and Financial Insights for external auditors and product owners: findings, controls, remediation roadmap |
 | `reference/NOTICE_WORDING_2026-11_WAVE2.md`, `reference/PROFESSIONAL_REVIEW_ENGAGEMENT_NOTES_2026-11.md` | Limitation-notice wording and the CPA and attorney engagement notes from the 2026-11-10 system review |
 | `reference/PLANNING_ASSUMPTIONS_AND_EXPERT_DECISIONS_REGISTER.md` | Living register: expert decisions, laws and rates with update schedules, and other assumptions needing review (maintenance rules inside) |
 | `archive/reference/MC_PARITY_MEASUREMENT_WI009.md`, `archive/reference/MC_PARITY_MEASUREMENT_WI036.md`, `archive/reference/WP11_REACHABILITY.md` | Measurements cited from code comments and tools (Monte Carlo parity; WP11 reachability output) |

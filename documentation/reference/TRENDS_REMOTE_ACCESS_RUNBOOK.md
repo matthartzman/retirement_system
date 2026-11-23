@@ -42,6 +42,8 @@ A %-only person does **not** see merchant detail, individual transactions or the
 
 Changing a person's setting applies on their next tap; they do not need to sign in again.
 
+**Guests are view-only.** The remote listener refuses a guest every write: `/api/account`, `/api/account-prefs`, `/api/passthrough-decision`, `/api/run-now` and `/api/run-cancel` are owner-only (the PC listener on 5057), and the only POST routes a guest may use are sign-in, sign-out, change-password, the two-factor routes, `/api/ping`, `/api/view` and `/api/exit` (`OWNER_ONLY_POST` and `GUEST_WRITABLE_POST` in `access_routes.py`; `tests/test_trends_guest_view_only_contract.py` fails on a POST route in neither). A remote session also ends 12 hours after sign-in whatever it reports, and a remote 500 shows a guest only a generic message and an error id (the detail is in the server log).
+
 Adding any new `/api/` route fails `tests/test_trends_percent_view_leak_guard_regression.py` until the route is classified (scaled, passed through, withheld or owner-only), so a new route cannot leak dollars to a %-only person by accident.
 
 ## Day to day

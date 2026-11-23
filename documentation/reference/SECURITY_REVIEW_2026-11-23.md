@@ -1,0 +1,323 @@
+# Security Review — Retirement Planning System and Financial Insights
+
+**Date:** 2026-11-23 (revision 2)
+**Audience:** External auditors; internal product owners
+**Basis:** repository commit `89c51a6` / `58ad4e0` (shallow clone, 230 commits visible)
+**Owner decisions applied (revision 2):** server mode runs on a **dedicated machine**; Financial Insights **guests must be view-only** (they must not change settings).
+**Method:** static source review by six reviewers across two rounds (gateway; local server and admin app; Financial Insights, Monarch Extractor and supply chain; then a full read of `plan_routes.py`, a full read of the remaining unreviewed modules, and a dynamic confirmation pass). Dynamic proof-of-concept scripts ran in-process against the Flask apps with temporary data; they changed no repository files and touched no real plan data. Findings re-read by the lead reviewer: F-01, F-02, F-04, F-15, SEC-01.
+**Status vocabulary:** **CONFIRMED** = reproduced by running code; **V** = verified by reading code; **C** = depends on Windows, Tailscale or installed-service behaviour that cannot be observed in the review environment, with owner steps in section 9.
+**Still not performed:** penetration testing; dependency CVE scanning; Windows runtime checks (section 9); the large business-logic services `rental`, `spending`, `strategy_asset`, `plan_tier`, `plan_forms` (targeted I/O, subprocess and network greps only, nothing found); the pricing/portfolio subprocess helpers in depth; the pure-arithmetic parts of `live_snapshot.py`; the 1099-B PDF parser library; xlsx formula-injection tracing in the workbook builder.
+
+Pre-review integrity check (OneDrive truncation): all Python files compile, all tracked JavaScript parses, no tracked HTML lacks a closing tag. No truncated files were found.
+
+---
+
+## 1. Executive summary
+
+The system is a local-first retirement planner with three optional network surfaces: a single-user loopback server, a multi-user **gateway** (per-user worker accounts, password + TOTP, reverse proxy, encrypted backups, per-grantee shares), and **Financial Insights** (FI), a net-worth/cash-flow reporter fed by a Monarch extractor and exposed to guests through the gateway or a standalone Tailscale Funnel listener.
+
+**Overall posture: good for a self-hosted, single-household tool; not yet audit-ready for multi-party use.** The authentication, session, CSRF, proxy-header and backup-crypto designs are consistently defensive and mostly test-covered. There is no LLM or AI API traffic, no use of `shell=True`, `eval`, `pickle` or unsafe YAML in server paths, no secrets in tracked files, and no real data found in committed history.
+
+| Severity | Count | Headline items |
+|---|---|---|
+| Critical | 0 | none |
+| High | 2 | **F-01** guest sessions can write to the owner's Financial Insights store (CONFIRMED); **X-1** the Admin app and the local Financial Insights listener have no sign-in and are reachable from worker accounts on the server host (C, owner to verify) |
+| Medium | 21 | Open redirect (CONFIRMED); lockout DoS and an unthrottled change-password endpoint (CONFIRMED); future-dated balance poisoning (CONFIRMED); client-controlled session idle time (CONFIRMED); missing security headers; hostile-plan triggers run in the app (CONFIRMED); gateway/LocalSystem trust files; predictable SYSTEM script path; unpinned CI and dependencies; unprotected data at rest |
+| Low | 41 | See section 3.6 |
+| Info | 7 | See section 3.6 |
+
+Counts are by consolidated register row (section 3.6), which is authoritative for severity and status; duplicate reports of one issue are merged. The per-area tables in 3.1 to 3.3 keep the **original** round-1 ratings for traceability.
+
+**Effect of the owner decisions.** The dedicated-machine decision removes most of the exposure of the unauthenticated loopback server (S-01, now Low) because no other human uses the host, **but it does not remove the risk from worker accounts**, which are untrusted members on the same host and can reach loopback ports (X-1). The view-only decision makes F-01 a defect against intended behaviour, not a design choice.
+
+**Top actions** (in order): (1) make every Financial Insights write route owner-only (F-01) and stop running the Admin app and the 5057 listener on the multi-user host or give them a credential (X-1); (2) bound balance dates, absolute session lifetime and server-side idle tracking (F-02, F-04); (3) fix the `?next=` redirect, throttle change-password and make lockout per-source (SEC-01, SEC-05, SEC-10); (4) security headers on the planner, FI listeners and gateway proxy (SEC-07/F-10); (5) pin CI actions, hash-lock dependencies, add audit steps (F-15, F-16); (6) run the Windows owner checks in section 9 before the Funnel listener goes live.
+
+---
+
+## 1a. Relationship to prior reviews
+
+This review complements `documentation/future/multi-user-server-security-review.md` (Phase 7, 2026-11-16, **CONDITIONAL GO**, six conditions met on the owner's machine; the service and Funnel listener had not yet been installed). That review concentrated on Windows account isolation, ACLs, pre-authentication exhaustion and TOTP sealing, and ran elevated tests. This review did **not** re-run those tests. It adds the surfaces that review did not cover: Financial Insights authorisation and data integrity, the local single-user server and Admin app, frontend injection sinks, supply chain and SDLC. Overlap exists on SEC-02/03/08/09 and X-1/X-2 (Windows file handling, key storage, loopback reachability from worker accounts), where the earlier review's open items should be reconciled against these findings before the Funnel listener goes live. Earlier system reviews are archived in `documentation/archive/reports/`.
+
+---
+
+## 2. System and trust boundaries
+
+| Component | Exposure | Trust model |
+|---|---|---|
+| Desktop mode (`main.py`) | No socket; in-process JS bridge | OS user |
+| Server mode (`src/server`, port 5050) | Loopback by default; non-loopback only if a static token is set | Host/Origin/CSRF gates; **no user authentication on loopback** |
+| Admin app (port 5056) | Loopback | Loopback + same-origin + JSON content-type gates; no sign-in |
+| Gateway (`src/gateway`) | Loopback behind Tailscale Funnel | Password + TOTP, `__Host-` cookie sessions, CSRF token, admin/member/viewer roles |
+| Workers | One Windows account per user, loopback port, per-worker token | Gateway proxy strips identity/credential headers |
+| Financial Insights | Loopback owner listener (5057); guest listener (5058) or via gateway | Session + tab grants + percent/dollar view; owner listener unauthenticated by design |
+| Monarch extractor | Scheduled task, persistent Chromium profile | Same OS user |
+
+Data leaving the machine: ticker symbols (holdings disclosure) and provider keys to Yahoo, Stooq, Nasdaq, FMP, Alpha Vantage; authenticated calls to `api.monarch.com` only (redirects refused, URL prefix pinned). Nothing else was found.
+
+---
+
+## 3. Findings
+
+Status: **V** verified in code; **C** needs confirmation (runtime, Windows or deployment). Reference IDs are the reviewers' original IDs (S = local server, SEC = gateway, F = Financial Insights/supply chain).
+
+### 3.1 High
+
+**F-01 · Guest sessions can modify the owner's FI store and trigger jobs — V**
+`financial_trends_reporter/access_routes.py:38-43` classifies `/api/run-now`, `/api/run-cancel`, `/api/account` and (as a trends route) `/api/passthrough-decision` and `/api/account-prefs`. The gate checks session, tab grant and money view only. The handlers (`main.py:205-218`, `:381-408`, `:443`) perform no owner check. A guest with any FI access, including percent-only, can change account type, app-account mapping, chart inclusion and passthrough decisions in the owner's single balances database, silently altering net worth, flows and liquid figures shown to the owner and every other guest. The activity log records only a count. They can also repeatedly start the price-refresh subprocess.
+**Revision 2: CONFIRMED.** A percent-only guest and a dollar guest each got HTTP 200 on `/api/account`, `/api/account-prefs`, `/api/passthrough-decision` and `/api/run-cancel`. The balances DB changed (account type `Loan`, `app_account` `HACKED`, net-worth preference disabled), `/api/run-now` returned success, and an unauthenticated request got 401. Cause: `_gate` in `access_routes.py` never checks `money_view` or a read-only flag for POSTs, and `/api/account` sits in `TAB_FREE_ROUTES`, so even a tab-limited grant does not block it. In **worker mode** the same calls succeed but the actor is the plan owner editing their own store (gateway viewers are refused by `tests/test_gateway_viewer_gate_contract.py`), so it is not an escalation there; the exposure is the standalone remote listener. Owner decision: guests are view-only, so every POST except sign-in, sign-out, change-password, TOTP and ping must be refused for guest sessions.
+*Fix:* make write routes owner-only for remote sessions (or a distinct grant); add a contract test that fails when a POST route is neither owner-only nor deliberately guest-writable (the existing guard covers percent leakage only). *Note:* worker mode uses per-plan stores, which limits blast radius.
+
+### 3.2 Medium
+
+| ID | Finding | Evidence | Fix |
+|---|---|---|---|
+| S-01 (V) | Loopback server and Admin app have no authentication; any local process or other OS user on a shared host can read or overwrite plans and call shutdown. Requests with no Origin skip CSRF. | `security_audit.py:83-88`; `app_core.py:1140-1170`; `admin_app/trust.py:3-4` | Per-launch random token on loopback, or a Unix socket/named pipe; document server mode as unsafe on multi-user hosts. Desktop mode unaffected. |
+| S-02 (C) | No CSP or security headers on the planner server; ~70 `innerHTML` assignments with a privileged desktop bridge (`js_api`). One missed `esc()` on CSV- or `.rpx`-derived text becomes script with API access. Spot checks found no unescaped fields. | `src/server/*`, `frontend/js`; `desktop_app.py:38-40` | CSP + `nosniff` on all responses and a meta tag in `index.html`; lint rule banning unescaped interpolation in `innerHTML`. |
+| S-03 (C) | Untrusted `.rpx` (SQLite) opened without `trusted_schema=OFF`, `cell_size_check`, or defensive mode; opening may upgrade in place. Triggers/views in a crafted plan could execute. | `plan_file_service.py:230-235`; `plan_db_replace.py:72,86-96` | Harden pragmas; reject unknown triggers/views; validate read-only first. |
+| SEC-01 (V) | Open redirect after sign-in: `nextPath()` accepts `/%09/evil.example`, which the browser normalises to `//evil.example`. Server-side `safe_next` is stricter but not used by this path. | `pages/gateway.js:77-85`; `app.py:126-134` | Apply `safe_next` rules client-side; resolve with `new URL()` and require same origin. |
+| SEC-02 (C) | Check-then-use windows on worker-writable trees in backup/log jobs run as LocalSystem (junction swap between `has_reparse_point` and open). | `backup_store.py:66-77,115-127,213-231,394-406`; `logs.py:30-45`; `fsguard.py:213-239` | Open with no-follow/`FILE_FLAG_OPEN_REPARSE_POINT` and verify final path; run while worker stopped. |
+| SEC-04 (V) | Pre-enrolment takeover: anyone with the admin-issued temporary password can enrol their own authenticator within the 72-hour window. | `store.py:51,719-732`; `app.py:531-546` | One-time out-of-band enrolment code; shorter window; admin notification. |
+| SEC-05 (V) | Lockout DoS: five failures lock a username for 15 minutes regardless of source, including the only admin; the Funnel listener is internet-reachable. | `store.py:634-649`; `access_core.py:18-19` | Per-user+per-IP counting, exponential delay, exempt valid sessions. |
+| SEC-07 / F-10 (V) | Proxied planner/`/insights/` responses and the standalone FI listeners lack CSP, frame-ancestors, Referrer-Policy and (FI) `no-store`. Worker XSS would share an origin with gateway admin APIs; the FI runbook's "back button shows no data" test depends on `no-store`. | `app.py:374-385`; `proxy.py:196-209`; FI `index.html:401` (inline module script) | `setdefault` headers in the proxy; `after_request` on FI listeners; nonce/hash for the inline script. |
+| SEC-08 (V) | Backup key is a plain base64 file (`0o600` has no effect on Windows), not DPAPI-wrapped, same host as archives; no rotation (`key_id` is fixed). | `backup_crypto.py:43-59`; `ops.py:147-161` | DPAPI/passphrase-wrap; ACL check on start; multi-key support. |
+| F-02 (V) | A future-dated balance row passes the staleness guard and, via `active = (last_seen = MAX(date))`, deactivates all other accounts; net worth and the percent basis collapse. | `balance_store.py:197,235-236,97-105` | Reject dates > today+1; add jump/magnitude checks; keep last good import. |
+| F-03 (V) | No integrity protection on balances DB, log or CSV; the log silently drops bad lines; heuristic rename merging deletes history irreversibly; money stored as REAL. | `trends_log.py:39-57`; `balance_store.py:111-150` | Hash-chain/HMAC the log; snapshot before destructive imports; confirm renames; integer cents. |
+| F-04 (V) | Idle timeout trusts client-supplied `idle_ms`; no absolute lifetime; sessions are memory-only. A stolen cookie stays alive with `{"idle_ms":0}` pings. | `sessions.py:51-55`; `access_routes.py:361-371` | Absolute lifetime (e.g. 12 h); server-side activity tracking; cap client influence. |
+| F-05 (V) | Remote 500 responses expose exception text and filesystem paths to dollar-view guests. | `access_routes.py:174-178`; `main.py:424` | Opaque error id (as `gateway/app.py:393`). |
+| F-08 (V/C) | Percent view divides every figure by one constant `k` (today's net worth). One known dollar anchor (mortgage, salary) recovers all balances. Account names may embed employer/person names. | `percent_view.py:81-91` | Document as obfuscation, not a privacy boundary; jitter/rotate `k`; pseudonymise names. |
+| F-11 (V) | Financial data at rest is plaintext with no explicit permissions: trend log, balances DB, `balances.csv`, raw CSVs; Monarch failure dumps (full-page screenshots/HTML of authenticated pages) are never cleaned. OneDrive may replicate. | `monarch_extract.py:1230-1246`; FI package (no ACL calls) | Require disk encryption; startup ACL and OneDrive-path check; retention policy; debug dumps off/redacted by default. |
+| F-12 (V) | Persistent Chromium profile holds Monarch session credentials; same-user malware or a copied profile yields full account access. | `monarch_extract.py:32,1192`; `monarch_balances.py:30,142` | Keep outside OneDrive/repo; restrict ACL; dedicated login with MFA. |
+| F-15 (V) | CI actions pinned by tag, not SHA; `ci.yml` has no `permissions` block; third-party `codecov-action` in nightly. No `pull_request_target`, no secrets use. | `ci.yml:40-362`; `nightly.yml` | Pin to SHAs + Dependabot; `permissions: contents: read`; `persist-credentials: false`. |
+| F-16 (V) | Python dependencies are ranges with no lockfile/hashes; no pip-audit or npm-audit in CI; frozen release is UPX-packed and unsigned. (npm lockfile has integrity hashes.) | `requirements*.txt`; `retirement_planner.spec:144-159` | Hashed lock; audit steps; sign binaries; drop UPX. |
+| F-17 (V) | `.claude/settings.json` auto-allows `git push*`/`commit*`/`add*` and `Agent`; SessionStart runs repo-supplied PowerShell with `-ExecutionPolicy Bypass`; the push hook is bypassable via `SKIP_FAST_GATES=1`. | `.claude/settings.json`; `tools/sync_main.ps1` | `ask` for push; deny force-push; CODEOWNERS on `.claude/` and `tools/*.ps1`. |
+
+### 3.3 Low and Info
+
+| ID | Sev | Finding | Fix |
+|---|---|---|---|
+| S-04 | Low | Save As / Load File accept arbitrary absolute paths in local mode (`plan_file_service.py:121-153`) | Require `.rpx`; refuse overwriting non-plan files |
+| S-05 | Low | Provider API keys in URL query strings; HTTP Stooq fallback (`market_data.py:68-73,839`) | Headers where supported; drop HTTP fallback |
+| S-06 | Low | `server_api_token` plaintext in app.db (`runtime_config.py:160`) | Keyring/DPAPI or hash |
+| S-07 | Low | Non-loopback mode is plain HTTP with a static token, no lockout (`host_guard.py:61-70`) | Require TLS/reverse proxy; startup warning |
+| S-08 | Low | Desktop auto-opens downloads with the OS handler; suffix from server (`desktop_api.py:136-240`) | Suffix allowlist |
+| S-09 | Low | No CSV/xlsx formula-injection neutralisation (`csv_exchange/core.py:495-513`) | Prefix `'` on cells starting `= + - @` |
+| S-10 | Low | Zip import trusts header sizes, unbounded entry count (`plan_set.py:98-102`) | Cap entries; stream with limit |
+| SEC-03 | Low-Med (C) | `icacls /reset /T` after link removal is racy (`acl.py:171-181`) | Run with workers stopped; apply ACLs by handle |
+| SEC-06 | Low | scrypt N=2^15, min length 12, no breach check, no rehash on login (`access_core.py:20-30`; `store.py:41-42`) | Raise N; rehash; common-password list |
+| SEC-09 | Low | TOTP secret falls back to plaintext off Windows; DPAPI without entropy (`secret_box.py:82-113`) | Refuse production start without DPAPI |
+| SEC-10 | Low | Change-password endpoint skips `_throttled` (`app.py:578-592`) | Throttle; require fresh TOTP |
+| SEC-12 / F-06 | Low (C) | Client IP from `X-Forwarded-For`; gateway uses right-most (confirm Funnel appends), FI uses first (spoofable) (`app.py:160-167`; `access_routes.py:81,238`) | Right-most trusted hop |
+| SEC-13 | Low | Resource exhaustion by an authenticated member: 64 MiB bodies, 256 MiB responses, no global budget (`proxy.py:50-57`; `build_queue.py:118-130`) | Global in-flight byte budget |
+| F-07 | Low | Username enumeration via lockout message in FI (`access_routes.py:218-220`) | Uniform response |
+| F-09 | Low | FI share snapshot free text is not HTML-escaped; safety depends on consumers using `esc()` | Extend escaping test |
+| F-13 | Low | Scheduled tasks use `-ExecutionPolicy Bypass` and PATH-resolved Python (`register_monarch_extract_task.ps1:107-123`) | Absolute interpreter; `-RunLevel Limited` |
+| F-14 | Low (C) | Funnel check at FI startup only (`listeners.py`, `main.py:526`) | Periodic re-check |
+| F-18 | Low | Personal identifiers committed (`.claude/launch.json:28`, fixture `ytd_account_setup.csv`, `tools/backup_to_onedrive.py`) | Replace with fictional values |
+| F-19 | Low | No root LICENSE; third-party notices cover only segno | Add LICENSE and generated notices |
+| F-20 | Low (C) | Committed binaries spot-checked only (`reference.db`, `demo_seed.rpx`) | Full table scan |
+| SEC-11, S-11–13, SEC-14–15 | Info | Non-dict JSON → 500 + traceback log; Admin app auth model; launcher PATH hijack and UPX; lxml/openpyxl only on self-generated files; HSTS minimal; cross-site GET navigation refused | See reviewer notes |
+
+---
+
+### 3.4 Round-2 findings (full read of `plan_routes.py` and the remaining modules)
+
+`plan_routes.py` was read in full. All 206 routes are classified in `remote_allowlist.py` (193 allowed, 13 refused, none unclassified), and every route that takes a server path is refused in remote mode. No arbitrary file read, write or delete is reachable in remote mode.
+
+**High**
+
+| ID | Finding | Evidence | Fix |
+|---|---|---|---|
+| X-1 (C) | The Admin app (5056) and the Financial Insights local listener (5057) authenticate only by "peer is loopback". A worker is an untrusted member, and any code running in a worker account satisfies that test. From there: create an admin in `identity.db`, reset TOTP, disable accounts, write install-wide settings and the provider key, start/stop the planner and FI processes (5056); read the owner's full net-worth history and trigger runs (5057). The runbook lists per-account firewall rules only as "optional later", and Windows Firewall does not filter loopback anyway. | `admin_app/trust.py:42-63`; `admin_app/main.py:119-125`; `financial_trends_reporter/listeners.py:1-8`; `main.py:84-99` | Do not run the Admin app or the 5057 listener on the multi-user host; otherwise add a per-boot token in a file ACL'd to the operator, or a named pipe with an ACL. Owner check: section 9.1. |
+
+**Medium**
+
+| ID | Finding | Evidence | Fix |
+|---|---|---|---|
+| X-2 (C) | The gateway service runs as LocalSystem and loads `gateway.json` and `log_file` without checking their DACLs, the `--python`/`--install-dir` they name, or `sys.executable`. `acl check` does not test `gateway.json` or the log folder, and `check_readonly` reads only the install folder's own DACL, not its children. A writable `.py`/`.pyd` under the install, or a writable config, is SYSTEM code execution. Protected today only because `acl setup` locks the state folder. | `service.py:77-137`; `acl.py:243-255,340-343`; `supervisor.py:35` | Refuse config/log paths writable by anyone but SYSTEM/Administrators; make `acl check` walk the install tree and cover config and logs; restrict service privileges. Owner check: section 9.4. |
+| X-3 (C) | `tools/run_elevated_tests_as_system.ps1` writes a script to the predictable `C:\Windows\Temp\rpw_system_run.cmd` and registers it as SYSTEM. Any local account can pre-create the name and keep write access, then swap content before it runs. | lines 11-16 | Admin-only directory, `CreateNew`, absolute interpreter path. Owner check: section 9.5. |
+| PR-08 (V) | The price symbol tester (`/api/prices/test-symbol*`, allowed in remote mode) has no symbol validation or concurrency cap, spawns an unbounded thread per start, and returns `traceback.format_exc()[-4000:]` even in remote mode. `quote(symbol)` keeps `/`, so `A/../../v4/profile/AAPL` reaches other paths on the fixed provider host and spends the shared key's quota (not SSRF; the key is redacted). | `plan_routes.py:230-254`; `pricing_service.py:90-164`; `market_data.py:1160,1213` | Validate `^[A-Z0-9.^=\-]{1,15}$`; `quote(..., safe="")`; cap concurrent jobs; drop `traceback_tail` in remote mode. |
+
+**Low**
+
+| ID | Finding | Fix |
+|---|---|---|
+| PR-01 | `save-as`, `load-file`, `exit-snapshot` have no `_require(...)` and skip the server-path allowlist; `save_as` can overwrite any writable file (CONFIRMED, S-04). | `_require("write_config")`; pass `_server_path_allowed`; require `.rpx`; refuse overwriting non-plan files |
+| PR-02 | `backup_dir`, Monarch `source_dir` and `field_map_path` accept arbitrary absolute paths in server mode; `prune_backups` unlinks "orphaned" files in the backup folder (deletion scope not confirmed, C). | Allowlist on save and at run time; match backup file-name pattern |
+| PR-03 | `_server_path_allowed` honours only the first allowlist root (the `try` wraps the loop); fails closed. A symlink inside an allowed folder can escape (C). | `try/except` inside the loop; re-check the resolved file |
+| PR-04 | `GET /api/ytd/status` mutates the plan: it merges account setup from sibling `*/input/ytd_account_setup.csv` folders. GET is exempt from the CSRF gate. Remote mode skips the scan. | Make `status` read-only; recovery via explicit POST |
+| PR-05 / SEC-11 | A non-object JSON body gives HTTP 500 on about 25 routes (CONFIRMED on 11) and on the pre-authentication gateway login, where the 500 occurs before the throttle, so these requests are not counted. Each hit logs a traceback. | One `_json_obj()` helper returning 400; use the gateway's `_body()` everywhere |
+| PR-06 | `isdigit()` accepts characters `int()` rejects (`year=²` gives 500) at seven sites. | `type=int` or `isascii()` |
+| PR-07 | The "CSV writes disabled" switch is not applied to the sales, transactions, cash, reconcile, YTD, spending, seed and plan-registry write routes. | Shared decorator |
+| PR-09 | Exception text returned with HTTP 200 or 500 (`str(exc)`, `ClassName: msg`, `traceback_tail`, `stdout_tail` unredacted); `remote_mode.scrub` removes only known roots. | Generic message plus `error_id` in remote mode; proper status codes; `redact_text` on build output |
+| PR-10 / S-09 | No formula-injection neutralisation in any CSV export (CONFIRMED: `=cmd|' /C calc'!A0` exported verbatim; also `/api/investment-income.csv`). xlsx path not traced. | Prefix `'` on cells starting `= + - @ tab CR` |
+| PR-11 | No per-route size caps below 64 MiB (plan upload, 1099-B `pdf_base64`, broker content); `mode:"restore"` skips plan-quota check; PDF parser unreviewed (C). | Per-route caps; read-only validation open |
+| PR-12 | `/api/secrets` accepts any secret name (write-only, refused in remote mode). | Allowlist provider key names |
+| PR-13 | NaN/Infinity accepted by `float()` at `plan_routes.py:1287-1290,1432-1437` (C). | `math.isfinite` |
+| PR-14 | `/api/plan/backups/run` allowed in remote mode with free-form `trigger`; likely bypasses plan quota (C). | Minimum interval; length limit |
+| X-4 | **CONFIRMED** `funnel_guard` fails open: a non-zero `tailscale` exit with empty stdout parses as `{}` and returns `ok=True`. | Treat non-zero exit as unreadable |
+| X-5 | `funnel_guard` ignores the `Services` section, denies only ports 5057/5058 (`funnel_command` will publish 5050 or 5056), and parses URLs by regex. | Deny all internal ports; parse `Services`; `urlsplit` |
+| X-7 | `/api/plan` Monte Carlo runs outside the build queue; a member can starve CPU (C). | Route through the queue |
+| X-8 | Identity store: locked accounts return `locked` before password work (oracle and lockout DoS); `default_key` get-then-set race can mint two TOTP keys (C). | Uniform response; atomic key creation |
+| X-9 | Build `stdout_tail` never redacted; many `str(exc)` returns. | See PR-09 |
+| X-10 | `safe_next_path` passes `/\evil.com` (no caller today, C). | Reject `\`, `%5c`; `urlsplit` |
+| X-11 | `/api/prefs` has no size cap or `_require`; `.before_blank_*` backups never pruned. | Cap; prune |
+| X-12 | `tools/upgrade_installed_server.ps1` runs unpinned `pip install` as Administrator. | `--require-hashes` |
+| X-13 | `tools/backup_to_onedrive.py` zips `identity.db`, `app.db`, plan files and Monarch CSVs unencrypted to OneDrive; `tools/manage_secret.py` crashes with `NameError: _run` (CONFIRMED). | Exclude/encrypt; fix tool |
+
+Info: X-14 (settings unconfined but routes refused in remote mode: keep both guards), X-15 (scheduler runs users serially, bounded).
+
+### 3.5 Dynamic confirmation results
+
+| Item | Result | Detail |
+|---|---|---|
+| F-01 | **CONFIRMED** | See section 3.1. Worker mode reproduces but is not an escalation. |
+| F-02 | **CONFIRMED, worse than reported** | A `2099-01-01` row deactivated the other two accounts (net worth 131,000 to 1,001). A later legitimate import does **not** recover; the poison persists until the 2099 rows are deleted. |
+| F-04 | **CONFIRMED** | One `idle_ms=0` ping per minute kept a session alive for 33.3 simulated hours; the control expired at 601 s. |
+| F-05 | **CONFIRMED** (class name and message) | `AttributeError: 'int' object has no attribute 'strip'` returned to a dollar guest; `/api/account-prefs` leaks even to percent guests (it is in `PASS_THROUGH_FOR_PERCENT`). A filesystem-path leak to a dollar guest was not demonstrated directly. |
+| SEC-01 | **CONFIRMED** | `?next=/%09/evil.example` gives `https://evil.example/`; `%0a`, `%0d` likewise. Server-side `safe_next` rejects all of these, so only `gateway.js` is affected. |
+| SEC-11 | **CONFIRMED** | List/string/number bodies on `/api/auth/login` return 500 before throttling. |
+| S-03 | **CONFIRMED, SQL-only impact** | `validate_plan_file`/`check_plan_file` accept foreign triggers, views and side tables. A trigger fired during the in-place v14 migration and on the first app write; a `RAISE(ABORT)` trigger blocked the app's writes. No code execution (`load_extension` disabled, no file I/O functions): impact is silent data tampering and denial of service. `validate_plan_file` upgraded the path passed to it; whether the real import path always uses a temp copy was not verified. |
+| S-09 | **CONFIRMED (CSV)** | Raw `=cmd|...` cell in exported CSV. xlsx not traced. |
+| S-10 | **PARTIAL; correction** | A 189 KB zip with 190 MB of zeros used 400 MB peak RSS; 150,000 tiny entries added about 115 MB; no entry-count cap. **Forged header sizes are not exploitable**: `zipfile` raises `Bad CRC-32`. The round-1 wording implying header trust is corrected. |
+| S-04 | **CONFIRMED (local mode)** | `save-as` overwrote an existing non-plan file with SQLite content; arbitrary extensions accepted. |
+| SEC-05 | **CONFIRMED** | 15 bad passwords from 15 IPs locked the user for 900 s; the correct password from the user's own IP then returned 429. |
+| SEC-10 | **CONFIRMED, worse than reported** | 30 wrong `current` values on change-password gave no 429, and the endpoint still accepted the correct password while the account was locked: a stolen session can brute-force the current password without limit. |
+| SEC-06 | **CONFIRMED** | A user stored with `scrypt_n=16` verified under `2**14` and was never rehashed. |
+| S-02 | **NOT REPRODUCED** | 129 `innerHTML`/`insertAdjacentHTML` sites scanned across `frontend/js`, FI frontend, gateway pages and admin frontend; all CSV/user-derived interpolations checked were escaped. Heuristic, not proof; rated Low (hardening). `admin_app/frontend/processes.js:15` interpolates a server-defined name unescaped. |
+
+### 3.6 Consolidated register (authoritative severity and status)
+
+**High (2):** F-01 (CONFIRMED); X-1 (C).
+
+**Medium (21):** S-03 (CONFIRMED); SEC-01 (CONFIRMED); SEC-02 (C); SEC-04 (V); SEC-05 (CONFIRMED); SEC-07/F-10 (V); SEC-08 (V); SEC-10 (CONFIRMED, raised from Low); F-02 (CONFIRMED); F-03 (V); F-04 (CONFIRMED); F-05 (CONFIRMED); F-08 (V); F-11 (V); F-12 (V); F-15 (V); F-16 (V); F-17 (V); X-2 (C); X-3 (C); PR-08 (V).
+
+**Low (41):** S-01 (downgraded: dedicated host; residual risk is X-1); S-02 (downgraded: not reproduced); S-04 (CONFIRMED); S-05; S-06; S-07; S-08; S-09/PR-10 (CONFIRMED); S-10 (partial); SEC-03 (C); SEC-06 (CONFIRMED); SEC-09; SEC-11/PR-05 (CONFIRMED, raised from Info); SEC-12/F-06/F-14 (C); SEC-13; F-07; F-09; F-13; F-18; F-19; F-20 (C); PR-01; PR-02; PR-03; PR-04; PR-06; PR-07; PR-09; PR-11; PR-12; PR-13; PR-14; X-4 (CONFIRMED); X-5; X-7; X-8; X-9; X-10; X-11; X-12; X-13 (CONFIRMED).
+
+**Info (7):** S-11; S-12; S-13; SEC-14; SEC-15; X-14; X-15.
+
+Ratings reflect the owner decisions (dedicated host, view-only guests). Items marked C that the owner's checks in section 9 show to be exposed should be re-rated up one level.
+
+---
+
+## 4. Positive controls (evidence for auditors)
+
+**Authentication and sessions.** scrypt with per-user salt and bounded concurrency; RFC 6238 TOTP with replay protection inside `BEGIN IMMEDIATE`; shared lockout budget; per-IP and per-user throttling; uniform responses and a dummy hash for unknown users; `__Host-` cookie, `Secure; HttpOnly; SameSite=Strict`; 256-bit tokens stored hashed; rotation on stage change; idle 15 min / absolute 12 h; revocation on password change, disable, role change, TOTP reset. (`store.py`, `app.py`, `totp.py`, `signin_throttle.py`)
+
+**CSRF/CORS/Host.** Per-session CSRF token, Origin allowlist, `Sec-Fetch-Site` checks, content-type allowlist, no CORS headers, Host allowlist against DNS rebinding, request-size caps. (`app.py:277-301`; `app_core.py:1116-1177`; `host_guard.py`)
+
+**Proxy and authorization.** Deny-by-default admin prefixes; viewer allowlist that never reaches workers; credential, cookie and forwarding headers stripped; worker `Set-Cookie`/CORS dropped; loopback-only upstream (no SSRF); path-traversal rejection; last-admin protection. (`proxy.py`, `upstream.py`, `viewer_routes.py`)
+
+**Isolation.** One Windows account per user (deny interactive/RDP/network), per-user ACLs, Job Object memory caps, scrubbed environment, `python -E -s -B`.
+
+**Shares.** No bearer links; 128-bit per-grantee ids; owner/grantee-scoped queries; SHA-256 binding of body to row; worker output revalidated (schema, percent-leak scan, Unicode normalisation); revocation deletes bodies; access log; viewer pages use `textContent` only.
+
+**Backups.** AES-256-GCM, per-archive HKDF salt, chunk AAD binding header/index/final flag (reorder/truncate detected), read-back verification, allowlisted restore members, destination confinement.
+
+**Local app.** Desktop mode opens no socket; remote mode deny-by-default allowlist and path confinement; keyring-only secrets with no plaintext fallback, write-only `/api/secrets`; log redaction and account-number masking; list-form subprocess calls; upload magic-byte and schema validation with atomic swap; Monarch connector refuses redirects and size-caps responses.
+
+**Financial Insights.** Two-port trust boundary with startup Funnel guard; fail-closed percent scaling with merchant collapse and leak scan run twice; bound SQL parameters throughout; escaped frontend; importer guards (header, finite values, stale export, account-count drop) with rejection records; per-plan worker stores.
+
+**Round-2 additions.** Worker token required on every worker route before routing (env only, constant-time, never in argv); deny-by-default allow-list matched after routing with every server-path route refused; worker binds `127.0.0.1` with `SO_EXCLUSIVEADDRUSE` and the supervisor checks port ownership before sending the token; Monarch connector uses PKCE S256, single-use state, a URL prefix pin, disabled redirects, an 8 MB response cap and per-account credential stores; plan download/delete check `_inside` and sanitise names; snapshot restore refuses a `db_copy` outside the workspace in remote mode; identity store uses scrypt with a dummy hash, TOTP and recovery-code compare-and-swap, and encrypt-then-MAC sealed secrets; Admin app has fixed page map, no `--host` option and refuses to start if Tailscale serves its port; `insights_schedule` selects members positively so viewers never get a worker.
+
+**SDLC.** No `pull_request_target`; nightly workflow least-privilege; `npm ci` with integrity hashes; account-number check in CI; `.gitignore` covers databases, `*.rpx`, `input/`, FI data, Monarch profile and output; secret-pattern scan of tracked files and the visible history found nothing.
+
+---
+
+## 5. Test coverage
+
+Security-relevant suites exist for access gating, TOTP, CSRF/Origin, Funnel guard, percent leakage, worker allowlist, share snapshot/store/publish, gateway auth/throttle/ACL/backup crypto/pre-auth limits, multi-user isolation, credential exclusion from backups and chart escaping.
+
+**Gaps (no test found):** guest writes to the owner store (F-01); future-dated balances (F-02); client `idle_ms` extension (F-04); `X-Forwarded-For` spoofing; headers on FI listeners and proxied planner pages; unescaped data interpolation across frontends; `next=` redirect with control characters (SEC-01).
+
+---
+
+## 6. Remediation roadmap
+
+| Wave | Items | Effort |
+|---|---|---|
+| 1 now | F-01 (owner-only writes plus a test that fails on any unclassified POST); X-1 (stop running 5056/5057 on the multi-user host, or add a credential); F-02 (date bound, plus a way to purge poisoned rows); F-04; F-05; SEC-01; SEC-10 and SEC-05; SEC-11/PR-05 | Small each |
+| 2 next sprint | SEC-07/F-10 and S-02 headers/CSP; PR-08; F-15, F-16, F-17; X-2, X-3 (once section 9 confirms); X-4/X-5 `funnel_guard`; PR-01 to PR-04; S-03 pragmas and schema allowlist | Small to medium |
+| 3 hardening | SEC-04 enrolment; SEC-08 key wrapping; SEC-02/03 handle-based I/O; F-03 integrity; F-11/F-12 at-rest controls; S-01 loopback token (defence in depth); PR-07 shared write gate | Medium to large |
+| 4 hygiene | Remaining Low and Info items; F-18; F-19; document percent view as obfuscation | Small |
+
+## 6a. Remediation status (wave 1, 2026-11-23)
+
+| ID | Status | What changed | Residual / not done |
+|---|---|---|---|
+| F-01 | **Fixed** | Guest sessions are view-only: `OWNER_ONLY_POST` and `GUEST_WRITABLE_POST` sets in `access_routes.py`; any other write from a guest gets 403. Contract test fails on any unclassified POST route. Worker mode unchanged (plan owner edits their own store; viewers are refused by the gateway). | `/api/view` and `/api/exit` were classified guest-writable (they only log or end the session); confirm that is intended. |
+| F-02 | **Fixed (prevention)** | Imports whose latest date is after today+1 are rejected and recorded; mirror path bounded. | No tool yet to purge rows from an earlier poisoned import; delete rows dated in the future from `monarch_balances.sqlite3` by hand. |
+| F-04 | **Fixed** | 12-hour absolute session lifetime; client `idle_ms` clamped. | The server cannot tell a real touch from a false report, so idle time stays client-assisted; the absolute cap is the hard bound. |
+| F-05 | **Fixed** | Remote guests get a generic message plus `error_id` on any 5xx; detail goes to the server log. | Local owner listener stays verbose by design. |
+| SEC-01 | **Fixed** | `nextPath()` rejects control characters, backslashes and `//`, then requires same origin. JS test added. | None. |
+| SEC-05 | **Fixed** | Failures lock the offending source address (5 failures, 15 min); an account-wide lock at 50 failures applies only to sources with no successful sign-in in 30 days. Schema 5 adds `login_sources`. Admin unlock clears all. | The per-username soft throttle delay (up to 300 s) is unchanged, so an attacker spraying a username can still slow that user briefly. Per-source counts do not decay. |
+| SEC-10 | **Fixed** | Change-password is throttled, refused while locked, and counts failures. | None. |
+| SEC-11 / PR-05 | **Fixed (gateway)** | Non-object bodies return 400, counted against the sign-in throttle on pre-auth routes. | The same pattern on about 25 planner routes (`plan_routes.py`) is still open. |
+| SEC-06 | **Fixed** | Password hashes are upgraded on successful sign-in when stored cost is below the configured cost. | Cost itself not yet raised; N and a common-password list remain open. |
+| X-1 | **Open, decision needed** | Not changed. Depends on the section 9.1 result. | Do not run the Admin app or the 5057 listener on the multi-user host, or add a credential. |
+
+Tests added: `test_trends_guest_view_only_contract`, `test_trends_balance_future_date_regression`, `test_trends_session_lifetime_regression`, `test_gateway_json_body_regression`, `test_gateway_lockout_per_source_regression`, `tests/frontend/gateway_next_path.test.mjs`. Two existing tests were adjusted with justification: the account-lock assertion now uses the offending address (the cross-address case has its own test), and schema version pins moved from 4 to 5.
+
+---
+
+## 7. Decisions recorded and open questions
+
+Decided (2026-11-23): server mode runs on a dedicated machine; Financial Insights guests are view-only.
+
+Open:
+1. Is the Admin app or the 5057 listener ever run on the same host as worker accounts? (Drives X-1.)
+2. Is percent view treated as a privacy control or as obfuscation? (F-08.)
+3. Does Tailscale Funnel append `X-Forwarded-For`? (Section 9.3.)
+4. Is the repository or any fixture shared outside the household? (F-18.)
+
+## 8. Limitations
+
+Static review plus in-process dynamic checks on Linux; no penetration test and no Windows runtime verification (see section 9). Findings reflect the code at the stated commit. The proof-of-concept scripts were written to a session scratch folder and are not committed; they can be re-created on request and converted into regression tests. Severity ratings assume the dedicated-host, view-only-guest decisions above and should be re-rated for any multi-tenant or commercial use. This document is not a certification.
+
+## 9. Owner verification steps (items that could not be confirmed here)
+
+Run in an elevated PowerShell on the server host unless stated. `$Root` is the gateway data root and `$Install` the install folder. Report the output of each step; "unsafe" results should be re-rated up one level.
+
+**9.1 X-1: can a worker account reach the Admin app and the 5057 listener?**
+1. List listeners: `Get-NetTCPConnection -State Listen | ? LocalPort -in 5050,5056,5057,5058,5065 | select LocalAddress,LocalPort,OwningProcess`. Note which of these exist on the server host at all. If 5056 and 5057 are not listening, X-1 does not apply; stop here.
+2. Open a shell as a worker account: `runas /user:<worker account> powershell` (accounts use the configured prefix, `rpw_` by default).
+3. In that shell: `Test-NetConnection 127.0.0.1 -Port 5056` and `Test-NetConnection 127.0.0.1 -Port 5057`.
+4. If a port connects: `Invoke-WebRequest http://127.0.0.1:5057/api/whoami -UseBasicParsing | select StatusCode` and `Invoke-WebRequest http://127.0.0.1:5056/ -UseBasicParsing | select StatusCode`.
+- Safe: connection refused or timeout, or a 403/401.
+- Unsafe: `TcpTestSucceeded: True` and HTTP 200. Then stop the Admin app and 5057 on this host or add a credential.
+
+**9.2 SEC-02/03: junction and reparse-point races in backup, log and ACL jobs**
+1. Use a throw-away test user, never a real one. `mkdir $env:TEMP\rp_t\victim`.
+2. With the worker stopped, replace the user's data folder with a junction: `Remove-Item $Root\users\<testuser> -Recurse -Force; cmd /c mklink /J $Root\users\<testuser> $env:TEMP\rp_t\victim`.
+3. Run a gateway backup (`python -m src.gateway.ops backup ...`) and the log-trim job, then `Get-ChildItem $env:TEMP\rp_t\victim -Recurse`.
+- Safe: the job refuses with a reparse-point error and nothing is written under `victim`.
+- Unsafe: files appear under `victim`.
+4. Race test: in one window loop `while($true){ Remove-Item $Root\users\<testuser> -Force -Recurse -EA SilentlyContinue; cmd /c mklink /J $Root\users\<testuser> $env:TEMP\rp_t\victim >$null; Remove-Item $Root\users\<testuser> -Force; mkdir $Root\users\<testuser> >$null }`; in another, repeat the backup 100 times. Unsafe: any file lands in `victim`.
+5. Afterwards `icacls $Root\users\<testuser>` should list only the user, SYSTEM and Administrators.
+
+**9.3 SEC-12 / F-06 / F-14: Tailscale Funnel and X-Forwarded-For**
+1. `tailscale funnel status`: it must point only at the gateway port (5065), never 5050, 5056, 5057 or 5058.
+2. From an external host: `curl -k -i -H "X-Forwarded-For: 1.2.3.4" https://<node>.ts.net:8443/api/auth/session`, then again with `-H "Tailscale-User-Login: a@b"`.
+3. Login-throttle test (use a test username): `1..20 | % { curl -k -s -o NUL -w "%{http_code}\n" -H "X-Forwarded-For: 10.0.0.$_" -H "Content-Type: application/json" -d '{"username":"testuser","password":"x"}' https://<node>.ts.net:8443/api/auth/login }`.
+- Safe: 429 appears regardless of the spoofed header, and the audit `client_ip` shows the real address.
+- Unsafe: no 429 and the audit log shows the spoofed address. Also confirm whether Funnel appends the real client address as the last `X-Forwarded-For` entry.
+
+**9.4 X-2, SEC-08, SEC-09: service, config, key and secret storage**
+1. `sc.exe qc <ServiceName>` (quoted path, run-as account); `wmic service get name,pathname` for unquoted paths containing spaces.
+2. `icacls <path to gateway.json>`, `icacls <log folder>`, `icacls $Install /T | findstr /i "Users Everyone Authenticated"`, `icacls $Root`, `icacls <backup key folder>`.
+- Safe: write/modify only for SYSTEM, Administrators and the service account.
+- Unsafe: `BUILTIN\Users`, `Everyone` or `Authenticated Users` with `(W)`, `(M)` or `(F)` anywhere under `$Install`, on the config, log folder or key folder.
+3. As a non-admin: `echo x > "$Install\test.txt"` should fail with Access denied.
+4. TOTP secret sealing: query `gateway.db` with `sqlite3` and inspect the TOTP secret column. Safe: DPAPI blob (base64 starting `AQAAANCMnd8`). Unsafe: base32 text, or a log line saying DPAPI is unavailable and secrets are stored in clear text.
+5. Scope check: as a different Windows user, try to unseal a copied blob with `[Security.Cryptography.ProtectedData]::Unprotect(...)`. Safe: fails. Unsafe: decrypts (machine scope).
+6. Confirm the backup key file is not in a synced or world-readable folder: `icacls <key file>`.
+
+**9.5 X-3: SYSTEM test script path**
+1. `icacls C:\Windows\Temp\rpw_system_run.cmd` (if it exists) and `Get-Acl C:\Windows\Temp | fl`.
+2. Do not run `tools/run_elevated_tests_as_system.ps1` on a host with untrusted local accounts until it is fixed. Unsafe: a non-admin can create or modify the file.
+
+**9.6 Data at rest (F-11, F-12)**
+1. `manage-bde -status` for the drive holding `$Root`, `financial_trends_reporter\data` and `Monarch Extractor`. Safe: protection on. Unsafe: off.
+2. `icacls "Monarch Extractor\monarch-browser"`, `icacls "Monarch Extractor\output"` and `icacls financial_trends_reporter\data`: only the operator account and SYSTEM.
+3. `Get-ChildItem "Monarch Extractor\output" -Filter monarch-debug-*` and delete leftover failure dumps after reviewing them.
+4. Confirm none of these folders is under OneDrive: `(Get-Item <path>).FullName -match 'OneDrive'` must be false.
+

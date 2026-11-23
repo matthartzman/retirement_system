@@ -52,10 +52,22 @@
     return fallback || "Request failed (" + res.status + ").";
   }
 
+  // Same rules as the server's safe_next (app.py), then resolved against this origin. The browser strips tab, newline
+  // and carriage return from a URL, so "/%09/evil.example" would otherwise become "//evil.example" (SEC-01).
   function nextPath() {
     var n = new URLSearchParams(location.search).get("next") || "";
-    if (n.charAt(0) === "/" && n.charAt(1) !== "/" && n.charAt(1) !== "\\") { return n; }
-    return "/";
+    if (n.charAt(0) !== "/" || n.charAt(1) === "/" || n.indexOf("\\") !== -1) { return "/"; }
+    for (var i = 0; i < n.length; i++) {
+      var c = n.charCodeAt(i);
+      if (c < 0x20 || c === 0x7f) { return "/"; }
+    }
+    try {
+      var u = new URL(n, location.origin);
+      if (u.origin !== location.origin) { return "/"; }
+      return u.pathname + u.search + u.hash;
+    } catch (e) {
+      return "/";
+    }
   }
 
   function toLogin() {
@@ -84,7 +96,7 @@
       location.href = landingPath({ next: nextPath(), app: savedApp(), kind: j.kind, insights: j.insights });
     }).catch(function () { location.href = nextPath(); });
   }
-  window.GatewayLanding = { landingPath: landingPath };
+  window.GatewayLanding = { landingPath: landingPath, nextPath: nextPath };
 
   function busy(form, on) {
     var b = form.querySelector("button[type=submit]");
