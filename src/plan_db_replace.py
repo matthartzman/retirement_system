@@ -34,6 +34,8 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
+from .sqlite_util import foreign_objects, harden
+
 SQLITE_HEADER = b"SQLite format 3\x00"
 
 # ``client_files`` is created by config_backend.init_sqlite for the legacy local database.
@@ -58,6 +60,18 @@ def remove_sidecars(db_path: Path) -> int:
     return removed
 
 
+def _open_read_only(path: Path) -> sqlite3.Connection:
+    """A hardened read-only connection (so validating an upload changes nothing and runs nothing); a plain connection
+    only when the folder does not allow the read-only open of a WAL file."""
+    try:
+        conn = sqlite3.connect(f"{Path(path).resolve().as_uri()}?mode=ro", uri=True)
+        conn.execute("SELECT count(*) FROM sqlite_master").fetchone()
+    except sqlite3.OperationalError:
+        conn = sqlite3.connect(str(path))
+    harden(conn)
+    return conn
+
+
 def validate_plan_db(path: Path, required_tables: Iterable[str] = DEFAULT_REQUIRED_TABLES) -> str | None:
     """Return an error message if ``path`` is not a healthy plan DB, else None."""
     try:
@@ -67,8 +81,11 @@ def validate_plan_db(path: Path, required_tables: Iterable[str] = DEFAULT_REQUIR
     except OSError as exc:
         return f"Could not read the selected file: {exc}"
     try:
-        conn = sqlite3.connect(str(path))
+        conn = _open_read_only(path)
         try:
+            foreign = foreign_objects(conn)
+            if foreign:  # vetted before any writable open could run it (S-03)
+                return f"The selected plan file contains a {foreign[0][0]} ({foreign[0][1]!r}) that is not part of the plan schema."
             rows = conn.execute("PRAGMA integrity_check").fetchall()
             if [r[0] for r in rows] != ["ok"]:
                 return "The selected plan database failed its integrity check."

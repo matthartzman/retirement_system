@@ -53,6 +53,7 @@ class _SqliteStore:
     PRE_UPGRADE_BACKUP: bool = False
     APPLICATION_ID: int = 0
     MIGRATIONS: Sequence[str] = ()
+    SCHEMA_OBJECT_ALLOWLIST: frozenset[str] = frozenset()  # the application's own triggers and views (none today)
 
     def __init__(self, con: sqlite3.Connection, *, path: str, readonly: bool, clock: Clock | None) -> None:
         self._con_: sqlite3.Connection | None = con
@@ -103,6 +104,10 @@ class _SqliteStore:
         version = db.get_version(con)
         app_id = int(con.execute("PRAGMA application_id").fetchone()[0])
         current = len(cls.MIGRATIONS)
+        foreign = db.foreign_objects(con, cls.SCHEMA_OBJECT_ALLOWLIST)
+        if foreign:  # before any upgrade or write could fire a hostile trigger (S-03)
+            kind, name = foreign[0]
+            raise StoreError(f"{target} contains a {kind} ({name!r}) that is not part of the {cls.KIND} schema; refusing to open it")
         if version == 0:
             if con.execute("SELECT count(*) FROM sqlite_master").fetchone()[0]:
                 raise StoreError(f"{target} is not a valid {cls.KIND}.db (unversioned tables present)")

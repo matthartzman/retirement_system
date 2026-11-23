@@ -774,7 +774,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/plan_data_registry.py` | — | — |
 | `src/plan_datasets.py` | `active_plan`, `csv_exchange` | — |
 | `src/plan_dates.py` | — | — |
-| `src/plan_db_replace.py` | `stores` | — |
+| `src/plan_db_replace.py` | `sqlite_util`, `stores` | — |
 | `src/plan_defaults.py` | `schema_registry` | — |
 | `src/plan_file_io.py` | — | — |
 | `src/plan_interview.py` | — | — |
@@ -829,7 +829,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/stores/broker_repo.py` | `stores.errors`, `stores.sales_repo` | — |
 | `src/stores/build_results.py` | `stores.errors` | — |
 | `src/stores/datasets.py` | `stores.errors` | — |
-| `src/stores/db.py` | `stores.errors` | — |
+| `src/stores/db.py` | `sqlite_util`, `stores.errors` | — |
 | `src/stores/errors.py` | — | — |
 | `src/stores/monarch_repo.py` | `stores.errors` | — |
 | `src/stores/plan_store.py` | `stores._base`, `stores.broker_repo`, `stores.build_results`, `stores.datasets`, `stores.errors`, `stores.monarch_repo`, `stores.rental_repo`, `stores.sales_repo`, `stores.spending_repo`, `stores.transactions_repo` | — |
