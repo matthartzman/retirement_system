@@ -10,6 +10,6 @@ pytest-xdist>=3.5,<4
 # passes --timeout=300 --timeout-method=thread explicitly (see ci.yml); the
 # thread method interrupts a stuck test without relying on signals, which are
 # unreliable on the Windows runners this suite runs on.
-pytest-timeout>=2.3,<3
+pytest-timeout>=2.4.0,<3
 ruff>=0.6,<1
 mypy>=1.10,<2
