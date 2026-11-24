@@ -264,6 +264,8 @@ installs `origin/main`). It stops at the first failed step, including a failed f
 before the export starts the service again; a later stop leaves the service stopped, and you fix the cause or roll back
 (below). It does not tell users or open the health page for you.
 
+**One step: `tools/update_server.ps1`** (desktop shortcut **Update Retirement Server**, made by `python tools/INSTALL_DESKTOP_ICON.py`). The upgrade script installs `origin/main` but runs from your checkout, so an out-of-date checkout runs an out-of-date script. This wrapper first fast-forwards the checkout (it refuses, and changes nothing, if the checkout is not on `main`, has uncommitted changes to tracked files, or cannot fast-forward), then runs the upgrade script in the same window, then checks the result: service `RUNNING`, database schema equal to the code's, `ops key check`, `ops health`, and the gateway answering HTTP 401 on `/api/auth/session`. It ends with `ALL CHECKS PASSED` or `SOMETHING NEEDS ATTENTION`. The upgrade script still asks for Enter before closing; press it and the checks follow.
+
 1. Tell users; stop the service: `& $PY -m src.gateway.service stop`.
 2. Full backup with the *old* code: `ops backup run ...` and keep its file name.
 3. Copy the new release over `C:\RetirementPlanner\app` (elevated: `powershell -ExecutionPolicy Bypass -File "<checkout>\tools\export_main_to_install.ps1"`, which
