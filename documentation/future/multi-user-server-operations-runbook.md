@@ -53,6 +53,7 @@ data folder or the install folder; the key is never inside the backup folder; `C
        --install-dir C:\RetirementPlanner\app --backup-dir C:\ProgramData\RetirementPlannerGateway\backups --gateway-sid S-1-5-18 `
        --forbid "C:\RetirementPlanning\Version 12"
    ```
+   `acl setup` refuses to reset a user's folder that already has files unless every worker is stopped (SEC-03: the reset follows whatever a running worker could plant meanwhile). On a first install there is nothing to reset; on a re-run, stop the service first (`python -m src.gateway.service stop`) and add `--workers-stopped`; `tools/upgrade_installed_server.ps1` does both.
    `--forbid` only *checks*; if it fails for the owner's working copy, fix that by hand (this runbook never changes it).
    Re-run `acl check` after the first user signs in, after a restore, and after any upgrade. `acl setup` leaves each
    folder with exactly its own grants: it also removes an explicit entry for any other account, so re-running it
@@ -67,6 +68,29 @@ data folder or the install folder; the key is never inside the backup folder; `C
    **Copy the key file offline now** (a USB stick in a safe and a password-manager attachment). It exists nowhere else.
    Without it every backup is unreadable; with it the backup folder alone is useless to a thief. Test the copy by
    running the section 5 restore drill with the copied file.
+
+   **Seal the key at rest, check its permissions, rotate it (SEC-08).** After the offline copy is safe, seal the key
+   with Windows DPAPI (machine scope: the service, which runs as SYSTEM, and any administrator on this machine can open
+   it; the file is useless if copied elsewhere). Then check who can read it:
+   ```powershell
+   & $PY -m src.gateway.ops key seal  --config C:\RetirementPlanner\state\gateway.json
+   & $PY -m src.gateway.ops key check --config C:\RetirementPlanner\state\gateway.json
+   ```
+   `key check` prints the number of keys, whether the file is sealed, and any account other than SYSTEM, Administrators,
+   the gateway account and the file's owner that can read it (exit status 1). The service runs the same check at start
+   and **refuses to start** when another account can read the key, unless `--allow-weak-key-acl` is given (it is then
+   logged loudly). Rotation:
+   ```powershell
+   & $PY -m src.gateway.ops key rotate --config C:\RetirementPlanner\state\gateway.json
+   & $PY -m src.gateway.service restart
+   & $PY -m src.gateway.ops key export --config C:\RetirementPlanner\state\gateway.json --out E:\offline\backup-key-ring.json
+   ```
+   A rotation adds a new current key and **keeps every earlier key** in the same file, so archives written before it
+   still verify and restore (each archive names its key by id). New backups use the new key only after the service
+   restarts. The old offline copy does not contain the new key: export a new one and replace it (the export refuses to
+   overwrite and to write inside the data, backup or install folders). A sealed file is bound to this machine, so the
+   offline copy is what restores backups on a rebuilt machine; put it back with a plain copy to the key path and run
+   `key seal` again. Off Windows (development) the key stays a plain file.
 5. **Service config** `C:\RetirementPlanner\state\gateway.json` (forward slashes are fine). The destination and key
    settings live **only here**; there is no web setting for them, so only a Windows administrator can change them:
    ```json
@@ -160,18 +184,18 @@ loads blank and the gateway log says `admin console file missing`.
 
 | Task | How | What happens |
 |---|---|---|
-| **Create** | Admin console, Add person: username, display name, role, a one-time temporary password (say it to them out of band) | Account in `gateway.db`; Windows account `rpw_<id>` and the locked-down folder are made automatically. At first sign-in the user must choose a new password **and enrol two-factor** (QR code or key); nothing else is reachable until then. |
+| **Create** | Admin console, Add person: username, display name, role, a one-time temporary password (say it to them out of band) | Account in `gateway.db`; Windows account `rpw_<id>` and the locked-down folder are made automatically. The console then shows a **one-time enrolment code** (SEC-04): copy it and give it to the person by a *different* route than the temporary password (in person or by phone). At first sign-in the user must choose a new password **and enrol two-factor** (they type the code, then scan the QR code or key); nothing else is reachable until then. The code is shown once, stored only as a hash, works once and expires after 20 minutes; if it lapses, open the person and choose **New enrolment code**. |
 | **Disable** | Admin console, Edit, Password, sessions and removal, Disable | Sessions end at once, the worker stops, the Windows account is disabled, data is kept. Enable reverses it. |
 | **Delete** | Admin console, Edit, Password, sessions and removal; type the person's username to enable Delete (cannot be undone: it says their plans and data are deleted) | Worker stopped, a last encrypted snapshot `<stamp>.user<id>.rpbak` taken, the Windows account, its rights, profile and the `data\users\<id>` folder removed. Verify: `net user rpw_<id>` says no such user, the folder is gone, `ops backup list` shows the snapshot. **The user's data still sits in that snapshot and in every retained full backup** (14 days with the defaults). To purge sooner, delete the snapshot and the older `*.rpbak` files you accept losing. |
 | **User password** | The user: `/gateway/account`. If forgotten: admin, reset password (a new temporary one; they must change it) | Sessions end. |
-| **Lost phone** | Admin, reset two-factor | They re-enrol at next sign-in. |
+| **Lost phone** | Admin, reset two-factor | The console shows a new one-time enrolment code; they re-enrol at next sign-in with it. |
 | **Locked out** | Admin console, Edit, Unlock (shown while they are locked) | Lockout is 5 failures for 15 minutes otherwise. |
 | **Second admin** | Admin console, Edit, Role: Administrator, Save | Any admin can promote or demote; the last active admin cannot be demoted, disabled or deleted. Keep **two** admins so a lost phone is a reset, not an incident. |
-| **Break-glass** (every admin locked out) | On the server: `& $PY -m src.gateway.cli break-glass --db C:\RetirementPlanner\state\gateway.db --username owner` | Hidden prompt for a new password; two-factor cleared (re-enrol at next sign-in), account unlocked and enabled, sessions ended, audited as `cli:<windows user>`. Only a Windows administrator on the server can do it. |
+| **Break-glass** (every admin locked out) | On the server: `& $PY -m src.gateway.cli break-glass --db C:\RetirementPlanner\state\gateway.db --username owner` | Hidden prompt for a new password; two-factor cleared (re-enrol at next sign-in, using the one-time enrolment code the command prints; `create-admin` prints one too, and it is valid 20 minutes, so run the command when you are ready to sign in), account unlocked and enabled, sessions ended, audited as `cli:<windows user>`. Only a Windows administrator on the server can do it. |
 | **Worker account passwords** | Automatic: rotated every `--account-rotate-days` (default 90) with `NetUserChangePassword`; never shown or logged | Nothing to do. There is no manual command. |
 | **Shared price-provider key** | Set the machine environment variable, then restart the service | Passed to workers with `--pass-env`; never put on a command line. |
 | **Backup key** | See section 4 | |
-| **Two-factor deadline** (every account, from the Phase 9 release) | Nothing to do if they enrol in time | An account must enrol two-factor within 72 hours of creation or of an admin reset (password or two-factor). After that the password is refused with the usual error and the Audit log says `reason enrol_overdue`; reset the password to give a fresh 72 hours. Accounts that had not enrolled when the release was installed got 72 hours from the upgrade. |
+| **Two-factor deadline** (every account, from the Phase 9 release) | Nothing to do if they enrol in time | An account must enrol two-factor within 24 hours (SEC-04; it was 72) of creation or of an admin reset (password or two-factor). After that the password is refused with the usual error and the Audit log says `reason enrol_overdue`; reset the password to give a fresh 24 hours. A wrong or expired enrolment code counts as a failed sign-in attempt, and completing enrolment is audited as `enrolment completed`. Accounts that had not enrolled when the release was installed got 72 hours from the upgrade. |
 | **Shared views on or off** | Add `--shared-views` to the service's command line (it needs `--insights` and `--data-root`; the service refuses to start otherwise) and restart. **Do not turn it on until the Phase 9 release checklist in `multi-user-shared-view-security-review.md` is complete.** Settings: `--share-default-days` (90), `--share-max-days` (365), `--share-max-mb` (8), `--viewer-idle-minutes` (10), `--viewer-max-hours` (2), `--max-shares-per-owner` (10), `--max-viewers-per-sponsor` (5) | Off: every owner and viewer page answers 404 and nothing is published; rows and records are kept, and turning it on again restores them. On: members see **Share…** in Financial Insight; records live in `<data root>\shares\`, which `acl setup` locks to the gateway and `acl check` walks. |
 | **Add viewer** (only with `--shared-views`, which stays off until the Phase 9 release checklist is complete) | Admin console, Add viewer: display name, username, temporary password, the sponsoring member, access end (default 90 days) | A low-privilege account that can only read the shared views its sponsor grants it. No Windows account, folder or worker is created, and a viewer can never be made an admin. Resetting a viewer's password or two-factor suspends their shares until the owner enables each one again. Deleting a member deletes the viewers they sponsor. |
 

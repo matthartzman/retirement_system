@@ -553,10 +553,13 @@ class IdentityStore:
             if row["status"] != "active" or (row["expires_at"] is not None and row["expires_at"] <= now):
                 access_core.burn_password_check(password, self._n)
                 return LoginResult(False, None, False, "bad")
+            # X-8: do the same password work whether or not the account is locked, so response time does not say
+            # which usernames are locked (the lock check then decides; a locked account's right password still fails).
+            matched = access_core.password_matches(password, row["pw_salt"], row["scrypt_n"], row["pw_hash"])
             if row["locked_until"] > now:
                 access_core.burn_password_check(password, self._n)  # same work as any other refusal: timing says nothing (X-8)
                 return LoginResult(False, row["id"], False, "locked")
-            if access_core.password_matches(password, row["pw_salt"], row["scrypt_n"], row["pw_hash"]):
+            if matched:
                 enrolled = self.totp_enrolled(row["id"])
                 if enrolled:
                     if not (code or "").strip():

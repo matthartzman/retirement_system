@@ -270,3 +270,19 @@ def test_gateway_start_refuses_unencrypted_or_misplaced_backups(srv, tmp_path):
     assert run_gateway([*base, "--backup-dir", str(tmp_path / "OneDrive" / "bk"), "--backup-key-file", str(key)], stop) == 2
     assert run_gateway([*base, "--backup-dir", str(srv.dest), "--backup-key-file", str(srv.dest / "k.key")], stop) == 2
     assert run_gateway([*base, "--backup-dir", str(srv.dest), "--backup-key-file", str(srv.tmp / "missing.key")], stop) == 2
+
+
+def test_gateway_start_refuses_a_backup_key_others_can_read_unless_overridden(srv, monkeypatch):
+    import threading
+
+    from src.gateway import key_acl
+    from src.gateway.server import run_gateway
+
+    base = ["--db", str(srv.db), "--local-port", "0", "--no-tailscale-check", "--data-root", str(srv.data),
+            "--backup-dir", str(srv.dest)]
+    _make_key(srv)
+    monkeypatch.setattr(key_acl, "key_file_findings", lambda *a, **k: [f"{srv.key}: account S-1-5-32-545 can read the backup key"])
+    stop = threading.Event()
+    assert run_gateway([*base, "--backup-key-file", str(srv.key)], stop) == 2  # SEC-08: refused, not just warned
+    stop.set()  # with the override the gateway gets past the check and then stops at once
+    assert run_gateway([*base, "--backup-key-file", str(srv.key), "--allow-weak-key-acl"], stop) == 0

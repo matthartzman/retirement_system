@@ -7,6 +7,7 @@ trims logs whose worker is not running, and removes rotated copies older than th
 from __future__ import annotations
 
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Callable, Iterable
@@ -17,6 +18,20 @@ log = logging.getLogger("retirement.gateway.logs")
 CONSOLE_LOG = Path("local_state") / "logs" / "worker_console.log"
 MAX_CONSOLE_BYTES = 5 * 1024 * 1024
 KEEP_ROTATED_DAYS = 14.0
+
+
+def _trim_one(path: Path, max_bytes: int) -> bool:
+    """Keep the tail of an oversized log, through ONE open handle (no second lookup of the name)."""
+    with open(path, "r+b") as fh:
+        size = os.fstat(fh.fileno()).st_size
+        if size <= max_bytes:
+            return False
+        fh.seek(max(0, size - max_bytes // 2))  # the tail only: never the whole file
+        data = fh.read()
+        fh.seek(0)
+        fh.write(b"[older output trimmed by the gateway]\n" + data)
+        fh.truncate()
+    return True
 
 
 def prune_worker_logs(data_root: Path, is_running: Callable[[int], bool], *, max_bytes: int = MAX_CONSOLE_BYTES,
@@ -37,15 +52,19 @@ def prune_worker_logs(data_root: Path, is_running: Callable[[int], bool], *, max
             log.warning("log housekeeping skipped user %s: a link inside the workspace", uid)
             continue
         try:
-            if rotated.is_file() and now - rotated.stat().st_mtime > keep_days * 86400 and not is_running(uid):
-                rotated.unlink()
-                removed += 1
-            if current.is_file() and current.stat().st_size > max_bytes and not is_running(uid):
-                with open(current, "rb") as fh:  # the tail only: never the whole file
-                    fh.seek(max(0, current.stat().st_size - max_bytes // 2))
-                    data = fh.read()
-                current.write_bytes(b"[older output trimmed by the gateway]\n" + data)
-                trimmed += 1
+            # SEC-02: the folder is verified through an open handle that stays open while its files are touched
+            with fsguard.pinned(current.parent, folder):
+                if rotated.is_file() and now - rotated.stat().st_mtime > keep_days * 86400 and not is_running(uid):
+                    rotated.unlink()
+                    removed += 1
+                if current.is_file() and not is_running(uid):
+                    with fsguard.pinned(current, folder):  # the file itself is verified and held, too
+                        if _trim_one(current, max_bytes):
+                            trimmed += 1
+        except fsguard.UnsafePathError:
+            log.warning("log housekeeping skipped user %s: a link inside the workspace", uid)
+        except FileNotFoundError:
+            continue  # no log folder yet
         except OSError as exc:
             log.warning("log housekeeping for user %s failed: %s", uid, type(exc).__name__)
     return {"trimmed": trimmed, "removed": removed}

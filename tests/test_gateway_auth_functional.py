@@ -66,7 +66,7 @@ def test_first_login_requires_totp_enrolment(rig):
     assert r.status_code == 302 and r.headers["Location"] == "/gateway/enrol"
     assert b.get("/gateway/enrol").status_code == 200
     assert b.get("/api/auth/session").get_json()["stage"] == "pending"
-    start = b.post("/api/auth/totp/enrol/start").get_json()
+    start = rig.enrol_start(b, uid).get_json()
     assert start["secret"] and start["otpauth_uri"].startswith("otpauth://totp/")
     assert f"secret={start['secret']}" in start["otpauth_uri"]
     bad = "000000" if rig.code(uid) != "000000" else "111111"
@@ -320,7 +320,7 @@ def test_must_change_password_gate_and_change(rig):
     uid = rig.add_user("ann", must_change=True)
     b = rig.browser()
     b.login("ann")
-    b.post("/api/auth/totp/enrol/start")
+    rig.enrol_start(b, uid)
     b.post("/api/auth/totp/enrol/confirm", json={"code": rig.code(uid)})
     b.refresh_csrf()
     r = b.get("/api/plan/rows")
@@ -375,16 +375,16 @@ def test_audit_records_logins_with_the_real_user_and_client_ip(rig):
 def test_enrolment_qr_encodes_the_same_otpauth_uri_as_the_manual_key(rig):
     import segno
 
-    rig.add_user("ann")
+    uid = rig.add_user("ann")
     b = rig.browser()
     b.login("ann")
-    start = b.post("/api/auth/totp/enrol/start").get_json()
+    start = rig.enrol_start(b, uid).get_json()
     uri, qr = start["otpauth_uri"], start["qr_svg_data_uri"]
     assert f"secret={start['secret']}" in uri  # the manual key is still returned as the fallback
     assert qr.startswith("data:image/svg+xml")
     # Rendered locally: identical to segno's own encoding of exactly this URI, and not of any other.
     assert qr == segno.make(uri, error="m", micro=False).svg_data_uri(scale=5, border=4)
     assert qr != segno.make(uri.replace(start["secret"], "A" * 32), error="m", micro=False).svg_data_uri(scale=5, border=4)
-    assert b.post("/api/auth/totp/enrol/start").get_json()["qr_svg_data_uri"] == qr  # same pending secret
+    assert rig.enrol_start(b, uid).get_json()["qr_svg_data_uri"] == qr  # same pending secret
     csp = b.get("/gateway/enrol").headers["Content-Security-Policy"]
     assert "img-src 'self' data:" in csp and "http" not in csp

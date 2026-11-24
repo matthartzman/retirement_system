@@ -169,10 +169,15 @@ def _remove_other_entries(p: Path, keep: set[str]) -> list[str]:
     return extra
 
 
-def _lock(path: Path, grants: list[str]) -> None:
+def _lock(path: Path, grants: list[str], *, worker_stopped: bool = True) -> None:
+    """``worker_stopped`` must be True for a worker-writable tree that already has content (SEC-03): the link scan and
+    the recursive ``icacls /reset /T`` are not atomic, so a running worker could plant a link in between."""
     p = _guard(path)
     p.mkdir(parents=True, exist_ok=True)
     has_children = any(p.iterdir())
+    if has_children and not worker_stopped:
+        raise AclError(f"{p} has files and its worker may be running; stop the worker (or the whole gateway service) "
+                       "before resetting permissions on it")
     if has_children:
         fsguard.remove_reparse_points(p)  # icacls /T follows links a worker may have planted
     _icacls(str(p), "/inheritance:r", "/grant:r", *grants, "/C", "/Q")
@@ -192,8 +197,10 @@ def lock_gateway_only(path: Path, *, gateway_sid: str) -> None:
     _lock(path, _core(gateway_sid))
 
 
-def lock_user_folder(path: Path, *, account_sid: str, gateway_sid: str) -> None:
-    _lock(path, _core(gateway_sid) + [f"*{account_sid}:(OI)(CI)M"])
+def lock_user_folder(path: Path, *, account_sid: str, gateway_sid: str, worker_stopped: bool = False) -> None:
+    """Lock a worker's folder. Refuses to reset a folder that has content unless the caller asserts the user's worker
+    is stopped (SEC-03). A freshly created folder (no content) needs no assertion."""
+    _lock(path, _core(gateway_sid) + [f"*{account_sid}:(OI)(CI)M"], worker_stopped=worker_stopped)
 
 
 def lock_install_readonly(path: Path, *, gateway_sid: str) -> None:
@@ -350,6 +357,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--config-file", type=Path, help="gateway.json (checked: only SYSTEM and Administrators may write it)")
     p.add_argument("--log-dir", type=Path, help="the service's log folder (checked: no worker may write it or its files)")
     p.add_argument("--gateway-sid", help="the gateway's account SID (default: the account running this command)")
+    p.add_argument("--workers-stopped", action="store_true",
+                   help="setup: confirm the gateway service and every worker are stopped (needed to reset a user "
+                        "folder that already has files)")
     p.add_argument("--forbid", type=Path, action="append", default=[],
                    help="a folder worker accounts must not be able to read; checked only, never changed")
     args = p.parse_args(argv)
@@ -363,7 +373,8 @@ def main(argv: list[str] | None = None) -> int:
             lock_gateway_only(args.data_root / "users", gateway_sid=gateway_sid)
             lock_gateway_only(args.data_root / "shares", gateway_sid=gateway_sid)  # Phase 9 shared-view records
             for uid, (_name, sid) in sorted(workers.items()):
-                lock_user_folder(args.data_root / "users" / str(uid), account_sid=sid, gateway_sid=gateway_sid)
+                lock_user_folder(args.data_root / "users" / str(uid), account_sid=sid, gateway_sid=gateway_sid,
+                                 worker_stopped=args.workers_stopped)
             if args.gateway_db is not None:
                 lock_gateway_only(args.gateway_db.parent, gateway_sid=gateway_sid)
             if args.backup_dir is not None:

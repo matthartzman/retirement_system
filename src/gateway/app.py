@@ -27,7 +27,7 @@ from . import totp
 from .admin_console import register_admin_console
 from .share_routes import register_share_routes
 from .share_store import ShareSettings, ShareStore
-from .store import MEMBER, Actor, GatewayStore, HashBusyError, LastAdminError
+from .store import ENROL_CODE_SECONDS, MEMBER, Actor, GatewayStore, HashBusyError, LastAdminError
 from .upstream import Identity, PlaceholderUpstream, Upstream
 from .viewer_api import register_viewer_api
 from .viewer_routes import NOT_AVAILABLE_BODY, STATUS_RULE, VIEWER_HOME, viewer_may
@@ -533,6 +533,21 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
             return resp
         return _refused(CODE_ERROR, 400)
 
+    def _enrol_code_failed(sess: dict, now: float) -> Response:
+        """A wrong enrolment code counts like a wrong password or TOTP code (sign-in throttle and per-source lock)."""
+        _count_failure(now, sess["username"])
+        locked = store.record_failure(sess["user_id"], now, request.environ["client_ip"])
+        actor = _actor(sess["user_id"], sess["username"])
+        store.audit("enrol code failed", now=now, actor=actor)
+        if locked:
+            store.audit("account locked", now=now, actor=actor, details="reason enrol code")
+            store.end_session(request.environ["session_token"])
+            resp = _json({"success": False, "authenticated": False, "error": LOGIN_ERROR}, 401)
+            resp.headers["Set-Cookie"] = _clear_cookie()
+            return resp
+        return _json({"success": False, "enrol_code_required": True,
+                      "error": "That enrolment code is not right, or it has expired."}, 403)
+
     def _code_step(enrolled: bool, event: str) -> Response:
         pending = _pending_user()
         if isinstance(pending, Response):
@@ -549,6 +564,8 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
             return _refused("wrong two-factor step", 409)
         code = str(_body(now, sess["username"]).get("code") or "")
         ok = (store.verify_totp if enrolled else store.confirm_totp)(sess["user_id"], code, now)
+        if ok and not enrolled:
+            store.spend_enrol_code(sess["user_id"], now=now, actor=_actor(sess["user_id"], sess["username"]))
         return _promote(sess, token, now, event) if ok else _code_failed(sess, now)
 
     @app.route("/api/auth/totp/verify", methods=["POST"])
@@ -565,8 +582,19 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         if isinstance(pending, Response):
             return pending
         sess, _token = pending
+        now = clock()
+        refused = _throttled(now, sess["username"])
+        if refused is not None:
+            return refused
+        # SEC-04: the temporary password alone is not enough; the admin-issued one-time code is also required.
+        code = str(_body(now, sess["username"]).get("enrol_code") or "")
+        if store.enrol_code_state(sess["user_id"], now) != "active":
+            return _json({"success": False, "enrol_code_required": True,
+                          "error": "Ask your administrator for a new enrolment code."}, 403)
+        if not store.verify_enrol_code(sess["user_id"], code, now):
+            return _enrol_code_failed(sess, now)
         try:
-            secret = store.begin_totp_enrolment(sess["user_id"], clock())
+            secret = store.begin_totp_enrolment(sess["user_id"], now)
         except ValueError as exc:
             return _refused(str(exc), 409)
         uri = totp.provisioning_uri(secret, sess["username"])
@@ -627,6 +655,13 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         return _json({"success": True})
 
     # ---- admin (the gate has already checked the role) ----
+    def _enrol_code_fields(uid: int) -> dict:
+        """The one-time enrolment code for an account that still has to enrol (SEC-04); {} for an enrolled one."""
+        if store.totp_status(uid) == "enrolled":
+            return {}
+        return {"enrol_code": store.issue_enrol_code(uid, now=clock(), actor=_actor()),
+                "enrol_code_minutes": ENROL_CODE_SECONDS // 60}
+
     def _admin_call(fn: Callable[[], object], after: Callable[[object], str | None] | None = None) -> Response:
         try:
             result = fn()
@@ -647,10 +682,13 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
     @app.route("/api/auth/admin/users", methods=["POST"])
     def admin_create_user():
         b = _body()
-        return _admin_call(lambda: {"id": store.create_user(
-            str(b.get("username") or ""), str(b.get("display_name") or ""), str(b.get("role") or "user"),
-            str(b.get("temp_password") or ""), now=clock(), actor=_actor(), must_change=True)},
-            after=lambda r: _notify("user_created", r["id"], member=True))
+
+        def create() -> dict:
+            uid = store.create_user(
+                str(b.get("username") or ""), str(b.get("display_name") or ""), str(b.get("role") or "user"),
+                str(b.get("temp_password") or ""), now=clock(), actor=_actor(), must_change=True)
+            return {"id": uid, **_enrol_code_fields(uid)}
+        return _admin_call(create, after=lambda r: _notify("user_created", r["id"], member=True))
 
     @app.route("/api/auth/admin/users/<int:uid>/role", methods=["POST"])
     def admin_role(uid: int):
@@ -688,12 +726,23 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
     @app.route("/api/auth/admin/users/<int:uid>/reset-password", methods=["POST"])
     def admin_reset_password(uid: int):
         temp = str(_body().get("temp_password") or "")
-        return _admin_call(lambda: store.set_password(uid, temp, must_change=True, now=clock(), actor=_actor(),
-                                                      event="password reset"))
+
+        def reset() -> dict:
+            store.set_password(uid, temp, must_change=True, now=clock(), actor=_actor(), event="password reset")
+            return _enrol_code_fields(uid)
+        return _admin_call(reset)
 
     @app.route("/api/auth/admin/users/<int:uid>/reset-totp", methods=["POST"])
     def admin_reset_totp(uid: int):
-        return _admin_call(lambda: store.reset_totp(uid, now=clock(), actor=_actor()))
+        def reset() -> dict:
+            store.reset_totp(uid, now=clock(), actor=_actor())
+            return _enrol_code_fields(uid)
+        return _admin_call(reset)
+
+    @app.route("/api/auth/admin/users/<int:uid>/enrol-code", methods=["POST"])
+    def admin_enrol_code(uid: int):
+        """Issue a fresh one-time enrolment code (SEC-04); shown to the admin once, never stored in clear."""
+        return _admin_call(lambda: _enrol_code_fields(uid))
 
     @app.route("/api/auth/admin/health", methods=["GET"])
     def admin_health():
@@ -722,7 +771,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
     register_admin_console(app, store, clock=clock, actor=_actor, admin_call=_admin_call, notify=_notify,
                            refused=_refused, page=_page, file_page=_file_page, json_response=_json,
                            delete_account=_delete_account, shared_views=cfg.shared_views,
-                           max_viewers_per_sponsor=cfg.max_viewers_per_sponsor)
+                           max_viewers_per_sponsor=cfg.max_viewers_per_sponsor, enrol_fields=_enrol_code_fields)
     register_viewer_api(app, store, shares, enabled=cfg.shared_views, clock=clock, actor=_actor, page=_page,
                         file_page=_file_page, json_response=_json)
     register_share_routes(app, store, shares, publisher, enabled=cfg.shared_views, clock=clock, actor=_actor,

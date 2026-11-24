@@ -38,7 +38,8 @@ def _make_tree(root: Path) -> None:
 def test_secrets_store_and_monarch_browser_profile_are_excluded(tmp_path):
     _make_tree(tmp_path)
 
-    included = {p.relative_to(tmp_path).as_posix() for p in backup_to_onedrive.iter_files(tmp_path)}
+    # --include-data: the widest archive there is (it is then written encrypted); credentials stay out regardless
+    included = {p.relative_to(tmp_path).as_posix() for p in backup_to_onedrive.iter_files(tmp_path, include_data=True)}
 
     assert "local_state/secrets.local.json" not in included
     assert not any("monarch-browser" in p for p in included)

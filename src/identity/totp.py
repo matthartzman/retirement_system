@@ -8,12 +8,16 @@ Nothing here logs or returns a secret except ``new_secret`` (shown once during e
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import hmac
+import os
 import secrets
 import struct
+import tempfile
 import threading
 import time
+from pathlib import Path
 from urllib.parse import quote
 
 STEP_SECONDS = 30
@@ -120,20 +124,55 @@ def looks_like_recovery(code: str) -> bool:
     return len(n) == 10 and all(c in _RECOVERY_ALPHABET for c in n)
 
 
-_KEY_LOCK = threading.Lock()
+_KEY_THREAD_LOCK = threading.Lock()
+
+
+@contextlib.contextmanager
+def _key_creation_lock():
+    """Serialise first-use key creation across threads AND processes (the Admin app, Financial Insights and the
+    gateway can all start at once): an OS file lock in the user's temp folder, plus a thread lock."""
+    path = Path(tempfile.gettempdir()) / "retirement_identity_totp_key.lock"
+    with _KEY_THREAD_LOCK:
+        fd = os.open(str(path), os.O_RDWR | os.O_CREAT, 0o600)  # a lock handle, not data
+        try:
+            if os.name == "nt":
+                import msvcrt  # noqa: PLC0415
+
+                msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+                try:
+                    yield
+                finally:
+                    os.lseek(fd, 0, os.SEEK_SET)
+                    msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl  # noqa: PLC0415
+
+                fcntl.flock(fd, fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
 
 
 def default_key() -> bytes:
     """The sealing key from the OS credential store, created on first use. Raises ``SecretStoreUnavailable``
-    when there is no credential store (callers fail closed: no second factor can be checked or enrolled)."""
+    when there is no credential store (callers fail closed: no second factor can be checked or enrolled).
+
+    X-8: creation is atomic. The get-then-set used to let two starters each mint a key, the later write orphaning
+    every secret sealed with the first; now the check, the mint and the write happen under one lock, and the value is
+    read back so every caller returns what is actually stored."""
     from src import secrets_store
 
-    with _KEY_LOCK:  # two first sign-ins at once must not mint two keys, one of which seals secrets the other cannot open (X-8)
-        value = secrets_store.get_secret(KEY_SECRET_NAME)
-        if not value:
-            secrets_store.set_secret(KEY_SECRET_NAME, secrets.token_hex(32))
-            value = secrets_store.get_secret(KEY_SECRET_NAME)  # what is stored is the key, whoever wrote it last
-        return bytes.fromhex(value)
+    value = secrets_store.get_secret(KEY_SECRET_NAME)
+    if not value:
+        with _key_creation_lock():
+            value = secrets_store.get_secret(KEY_SECRET_NAME)  # someone may have created it while we waited
+            if not value:
+                secrets_store.set_secret(KEY_SECRET_NAME, secrets.token_hex(32))
+                value = secrets_store.get_secret(KEY_SECRET_NAME)
+    return bytes.fromhex(value)
 
 
 def now() -> float:

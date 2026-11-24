@@ -15,6 +15,16 @@ def fingerprint(value: str | None) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
 
 
+def _run(args) -> None:
+    if args.show:
+        val = get_secret(args.name, args.workspace)
+        print({"configured": bool(val), "fingerprint": fingerprint(val), **encryption_status()})
+    else:
+        val = getpass.getpass(f"Value for {args.name}: ")
+        set_secret(args.name, val, args.workspace)
+        print({"stored": True, "fingerprint": fingerprint(val), **encryption_status()})
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Store or inspect API keys in the OS credential store")
     ap.add_argument("name", help="secret name, e.g. fmp_api_key")
@@ -25,13 +35,3 @@ if __name__ == "__main__":
         _run(args)
     except SecretStoreUnavailable as exc:
         raise SystemExit(f"error: {exc}")
-
-
-def _run(args) -> None:
-    if args.show:
-        val = get_secret(args.name, args.workspace)
-        print({"configured": bool(val), "fingerprint": fingerprint(val), **encryption_status()})
-    else:
-        val = getpass.getpass(f"Value for {args.name}: ")
-        set_secret(args.name, val, args.workspace)
-        print({"stored": True, "fingerprint": fingerprint(val), **encryption_status()})

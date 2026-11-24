@@ -1,6 +1,7 @@
 """Operator commands for the gateway server, run by the Windows administrator (no web route reaches them).
 
     python -m src.gateway.ops backup-key create  --config gateway.json
+    python -m src.gateway.ops key check|seal|rotate|export  --config gateway.json [--out <file>]
     python -m src.gateway.ops backup run|list|verify  --config gateway.json [--archive <file>]
     python -m src.gateway.ops restore --config gateway.json --archive <file> (--user <id> | --gateway-db-out <new file>)
     python -m src.gateway.ops migrate-all --config gateway.json [--report <file>]
@@ -38,6 +39,10 @@ def _parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", required=True)
     k = sub.add_parser("backup-key", parents=[common])
     k.add_argument("action", choices=["create"])
+    kk = sub.add_parser("key", parents=[common], help="inspect, seal (DPAPI) or rotate the backup key")
+    kk.add_argument("action", choices=["check", "seal", "rotate", "export"])
+    kk.add_argument("--out", type=Path, help="export: where to write the PLAIN key ring (an offline copy)")
+    kk.add_argument("--gateway-sid", help="check: the gateway's account SID (default SYSTEM, the service account)")
     b = sub.add_parser("backup", parents=[common])
     b.add_argument("action", choices=["run", "list", "verify"])
     b.add_argument("--archive", type=Path)
@@ -124,6 +129,8 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None, stderr:
             return _funnel(args, say, refuse, run, err)
         if args.command == "health":
             return _health(args, say)
+        if args.command == "key":
+            return _key(args, say, refuse)
         return _backup_family(args, say, refuse, clock)
     except bd.BackupDestinationError as exc:
         return refuse(f"Refused: {exc}")
@@ -135,6 +142,62 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None, stderr:
         return refuse(f"Not restored: {exc}", 1)
     except ValueError as exc:
         return refuse(str(exc))
+
+
+_DEFAULT = object()
+
+
+def _key(args, say, refuse, *, crypt=_DEFAULT) -> int:
+    """``key check|seal|rotate|export`` (SEC-08). ``crypt`` is a (protect, unprotect) pair; Windows DPAPI by default."""
+    from . import key_acl  # noqa: PLC0415
+
+    if (miss := _need(args, "key_file")):
+        return refuse(miss)
+    crypt = bc.default_protect() if crypt is _DEFAULT else crypt  # None: no DPAPI here (tests, non-Windows)
+    path = Path(args.key_file)
+    unprotect = crypt[1] if crypt else None
+    ring = bc.read_key_file(path, unprotect=unprotect)
+    sealed = bc.is_sealed(path)
+    if args.action == "check":
+        findings = key_acl.key_file_findings(path, gateway_sid=args.gateway_sid or "S-1-5-18")
+        say(f"Key file: {path}")
+        say(f"  keys in the ring: {len(ring.keys)} (current id {ring.current_id.hex()})")
+        say("  sealed with DPAPI: " + ("yes (machine scope)" if sealed else "NO (plain file; run 'key seal' on the server)"))
+        for f in findings:
+            say(f"  PROBLEM: {f}")
+        say("  permissions: " + ("not checked on this platform" if not findings and crypt is None else
+                                 "only the expected accounts can read it" if not findings else "TOO OPEN"))
+        return 1 if findings else 0
+    if args.action == "export":
+        if args.out is None:
+            return refuse("missing: --out")
+        bd.validate_key_location(args.out, backup_dir=args.backup_dir, data_root=args.data_root, install_dir=args.install_dir)
+        if Path(args.out).exists():
+            return refuse("The output file already exists; it is never overwritten.", 1)
+        bc.write_keyring_file(Path(args.out), ring)  # plain on purpose: this is the offline recovery copy
+        say(f"Plain key ring ({len(ring.keys)} key(s)) written to {args.out}. Move it OFFLINE now and delete it here.")
+        return 0
+    if args.action == "seal":
+        if crypt is None:
+            return refuse("Sealing needs Windows DPAPI; on this platform the key stays a plain file.", 1)
+        if sealed:
+            say("The key file is already sealed; nothing to do.")
+            return 0
+        bc.write_keyring_file(path, ring, protect=crypt[0])
+        back = bc.read_key_file(path, unprotect=unprotect)
+        if bytes(back) != bytes(ring) or set(back.keys) != set(ring.keys):
+            return refuse("The sealed key did not read back; the file was NOT trusted. Restore your offline copy.", 1)
+        say("Sealed with Windows DPAPI (machine scope: the service and any administrator on THIS machine can open it; "
+            "a copy of the file elsewhere is useless). Keep your offline copy of the key: it is what restores backups "
+            "on a rebuilt machine.")
+        return 0
+    # rotate
+    new = bc.rotate_keyring(ring)
+    bc.write_keyring_file(path, new, protect=crypt[0] if (sealed and crypt) else None)
+    say(f"New backup key {new.current_id.hex()} is now current; {len(new.keys) - 1} earlier key(s) are kept, so old "
+        "archives still open. Restart the gateway service so it encrypts new backups with the new key, then run "
+        "'ops key export' and store the new offline copy (the old offline copy does NOT contain the new key).")
+    return 0
 
 
 def _backup_family(args, say, refuse, clock) -> int:

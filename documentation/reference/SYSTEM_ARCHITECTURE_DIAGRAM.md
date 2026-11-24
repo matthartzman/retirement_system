@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 390 Python files under `src/`, 92 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 395 Python files under `src/`, 92 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -15,16 +15,16 @@ flowchart TB
         FEcount["92 JS files, browser-loaded via index.html script tags"]
     end
     FE -->|fetch /api/*| L_HTTP_Routes
-    subgraph L_HTTP_Routes["HTTP Routes (13 modules)"]
+    subgraph L_HTTP_Routes["HTTP Routes (15 modules)"]
         L_HTTP_Routes_d["Thin HTTP adapters: request parsing, calls into services"]
     end
     subgraph L_Server_Services["Server Services (21 modules)"]
         L_Server_Services_d["Feature-owned, request-independent business logic"]
     end
-    subgraph L_HTTP_Runtime["HTTP Runtime (6 modules)"]
+    subgraph L_HTTP_Runtime["HTTP Runtime (7 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (287 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (289 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (35 modules)"]
@@ -533,10 +533,12 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server/admin_routes.py` | `governance`, `http_runtime.local_token_gate`, `platform_runtime`, `server.app_core`, `server_services`, `version` | — |
 | `src/server/app_core.py` | `src`, `active_plan`, `app_state`, `blank_plan`, `config_backend`, `core`, `csv_exchange`, `http_runtime`, `http_runtime.wsgi_facade`, `permissions`, `plan_dates`, `plan_file_io`, `roth_ui_build_guard`, `runtime_config`, `schema_registry`, `secrets_store`, `security`, `server`, `server.security_audit`, `stores.ref_getters.schema_fields`, `system_config`, `us_states`, `workspace_context` | — |
 | `src/server/base_routes.py` | `api_contracts`, `glossary`, `server.app_core`, `server.route_manifest`, `server_services`, `version` | — |
+| `src/server/csv_write_gate.py` | `http_runtime.wsgi_facade` | — |
 | `src/server/import_export_routes.py` | `src`, `active_plan`, `server.app_core` | — |
 | `src/server/monarch_routes.py` | `src`, `secrets_store`, `server.app_core`, `server.plan_routes` | — |
-| `src/server/plan_routes.py` | `active_plan`, `data_io`, `housing`, `http_runtime.wsgi_facade`, `module_catalog`, `monarch_autoimport_job`, `plan_data_migration`, `plan_interview`, `portfolio_analytics`, `report_compute`, `secrets_store`, `server.app_core`, `server.workbook_routes`, `server_services`, `stores.ref_getters.schema_fields`, `version` | — |
+| `src/server/plan_routes.py` | `active_plan`, `data_io`, `housing`, `http_runtime.wsgi_facade`, `module_catalog`, `monarch_autoimport_job`, `plan_data_migration`, `plan_interview`, `portfolio_analytics`, `report_compute`, `secrets_store`, `server`, `server.app_core`, `server.workbook_routes`, `server_services`, `stores.ref_getters.schema_fields`, `version` | — |
 | `src/server/remote_allowlist.py` | — | — |
+| `src/server/request_limits.py` | — | — |
 | `src/server/route_manifest.py` | — | — |
 | `src/server/security_audit.py` | `account_numbers`, `app_state`, `http_runtime.wsgi_facade`, `permissions`, `security`, `server`, `workspace_context` | — |
 | `src/server/workbook_routes.py` | `active_plan`, `http_runtime.wsgi_facade`, `import_preview`, `local_store`, `platform_runtime`, `reporting`, `schema_registry`, `server.app_core`, `server_forecast`, `server_services`, `workspace_context` | — |
@@ -573,6 +575,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | Module | Internal imports | External imports |
 |---|---|---|
 | `src/http_runtime/__init__.py` | `http_runtime.wsgi_facade` | — |
+| `src/http_runtime/data_exposure_check.py` | `gateway` | — |
 | `src/http_runtime/host_guard.py` | — | — |
 | `src/http_runtime/local_token_gate.py` | `http_runtime.wsgi_facade` | — |
 | `src/http_runtime/security_headers.py` | — | — |
@@ -584,7 +587,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | Module | Internal imports | External imports |
 |---|---|---|
 | `src/__init__.py` | `version` | — |
-| `src/access_core.py` | — | — |
+| `src/access_core.py` | `common_passwords` | — |
 | `src/account_numbers.py` | — | — |
 | `src/active_plan.py` | `csv_exchange`, `csv_exchange.flat_csv`, `roth_ui_build_guard`, `stores`, `stores.plan_store`, `workspace_context` | — |
 | `src/after_tax.py` | `core` | — |
@@ -619,6 +622,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/cash_verified_accounts.py` | `platform_runtime` | — |
 | `src/cash_view.py` | `cash_ledger`, `cash_pairing`, `local_store`, `platform_runtime`, `sales_confirm`, `workspace_context` | — |
 | `src/cash_year_close.py` | `local_store`, `platform_runtime`, `workspace_context` | — |
+| `src/common_passwords.py` | — | — |
 | `src/config_backend.py` | `active_plan`, `app_state`, `engine_defaults`, `sqlite_util`, `system_config` | — |
 | `src/core.py` | `person_labels`, `tax_law` | — |
 | `src/csv_exchange/__init__.py` | `csv_exchange`, `csv_exchange.core`, `csv_exchange.flat_csv`, `csv_exchange.plan_csv`, `csv_exchange.plan_set`, `csv_exchange.text_csv`, `plan_label_rules` | — |
@@ -653,15 +657,16 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/gateway/acl.py` | `gateway`, `gateway.store` | — |
 | `src/gateway/admin_console.py` | `gateway.store`, `http_runtime.wsgi_facade` | — |
 | `src/gateway/app.py` | `src`, `access_core`, `gateway`, `gateway.admin_console`, `gateway.share_routes`, `gateway.share_store`, `gateway.signin_throttle`, `gateway.store`, `gateway.upstream`, `gateway.viewer_api`, `gateway.viewer_routes`, `http_runtime.wsgi_facade` | `segno` |
-| `src/gateway/backup_crypto.py` | — | `cryptography` |
+| `src/gateway/backup_crypto.py` | `gateway` | `cryptography` |
 | `src/gateway/backup_dest.py` | — | — |
 | `src/gateway/backup_store.py` | `gateway`, `gateway.backup_crypto`, `remote_worker` | — |
 | `src/gateway/backups.py` | — | — |
 | `src/gateway/build_queue.py` | — | — |
 | `src/gateway/cli.py` | `access_core`, `gateway.store` | — |
-| `src/gateway/fsguard.py` | — | — |
+| `src/gateway/fsguard.py` | `gateway` | — |
 | `src/gateway/health.py` | — | — |
 | `src/gateway/insights_schedule.py` | `gateway.supervisor` | — |
+| `src/gateway/key_acl.py` | `gateway` | — |
 | `src/gateway/launchers.py` | `gateway` | — |
 | `src/gateway/logs.py` | `gateway` | — |
 | `src/gateway/migrate_all.py` | `gateway.backup_store`, `gateway.migrate_user` | — |
@@ -670,7 +675,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/gateway/power.py` | — | — |
 | `src/gateway/proxy.py` | `gateway.build_queue`, `gateway.supervisor`, `gateway.upstream`, `http_runtime`, `http_runtime.wsgi_facade` | — |
 | `src/gateway/secret_box.py` | `gateway` | — |
-| `src/gateway/server.py` | `access_core`, `gateway`, `gateway.accounts`, `gateway.app`, `gateway.backup_crypto`, `gateway.backup_dest`, `gateway.backup_store`, `gateway.build_queue`, `gateway.health`, `gateway.insights_schedule`, `gateway.launchers`, `gateway.logs`, `gateway.proxy`, `gateway.share_publish`, `gateway.share_store`, `gateway.store`, `gateway.supervisor`, `http_runtime.server` | — |
+| `src/gateway/server.py` | `access_core`, `gateway`, `gateway.accounts`, `gateway.app`, `gateway.backup_crypto`, `gateway.backup_dest`, `gateway.backup_store`, `gateway.build_queue`, `gateway.health`, `gateway.insights_schedule`, `gateway.key_acl`, `gateway.launchers`, `gateway.logs`, `gateway.proxy`, `gateway.share_publish`, `gateway.share_store`, `gateway.store`, `gateway.supervisor`, `http_runtime.server` | — |
 | `src/gateway/service.py` | `gateway.server` | — |
 | `src/gateway/share_publish.py` | `gateway.share_store`, `gateway.store`, `gateway.supervisor` | `financial_trends_reporter` |
 | `src/gateway/share_routes.py` | `gateway.share_store`, `gateway.store`, `http_runtime.wsgi_facade` | — |

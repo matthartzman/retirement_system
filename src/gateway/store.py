@@ -31,7 +31,7 @@ from .secret_box import SecretBox, default_secret_box
 
 LOG = logging.getLogger("retirement.gateway.store")
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 ROLES = ("admin", "user")
 # Phase 9: an account is a planner member or a low-privilege viewer of shared Financial Insight views. Anything but
 # exactly "member" is treated as a viewer everywhere (fail closed); the column's CHECK admits these two only.
@@ -48,11 +48,17 @@ VIEWER_ABSOLUTE_SECONDS = 2 * 3600  # --viewer-max-hours
 PENDING_SECONDS = 5 * 60
 # Every account must enrol its authenticator within this long of creation or of an admin reset, or it is locked
 # until an admin issues a new temporary password (Phase 9, design 5.7; residual risk R-5 extended it to members).
-ENROL_DEADLINE_SECONDS = 72 * 3600
+ENROL_DEADLINE_SECONDS = 24 * 3600  # SEC-04: was 72 h
+# SEC-04: the temporary password alone no longer lets anyone start enrolment. The admin is shown a one-time code at
+# creation / reset time and passes it to the person out of band; only its hash is stored, it expires quickly and is
+# spent when enrolment completes.
+ENROL_CODE_SECONDS = 20 * 60
+ENROL_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O/1/I/L
+ENROL_CODE_LENGTH = 10  # about 49 bits
 MAX_VIEWERS_PER_SPONSOR = 5
 TOUCH_EVERY_SECONDS = 30
 AUDIT_DETAILS_MAX = 300
-# scrypt (n=2**15, r=8) holds ~32 MiB while it runs: only this many password hashes at once, and a caller
+# scrypt (n=2**16, r=8) holds ~64 MiB while it runs: only this many password hashes at once, and a caller
 # waits at most HASH_WAIT_SECONDS for a slot before the gateway answers 503 (P7-O3).
 DEFAULT_HASH_CONCURRENCY = 4
 HASH_WAIT_SECONDS = 20.0
@@ -179,6 +185,11 @@ _MIGRATIONS: list[tuple[int, list[str]]] = [
             last_ok_at REAL NOT NULL DEFAULT 0,
             PRIMARY KEY (user_id, source)
         )""",
+    ]),
+    # SEC-04: one-time enrolment code (hash only) and its expiry; NULL means no code is outstanding.
+    (6, [
+        "ALTER TABLE users ADD COLUMN enrol_code_hash TEXT",
+        "ALTER TABLE users ADD COLUMN enrol_code_expires REAL",
     ]),
 ]
 
@@ -595,7 +606,8 @@ class GatewayStore:
             if must_change:
                 # A temporary password (an admin or CLI reset) starts a fresh enrol-by deadline, and a viewer's
                 # shares wait for each owner to enable them again (design 5.7, C10 and C11).
-                conn.execute("UPDATE users SET enrol_by=? WHERE id=?", (now + ENROL_DEADLINE_SECONDS, row["id"]))
+                conn.execute("UPDATE users SET enrol_by=?, enrol_code_hash=NULL, enrol_code_expires=NULL WHERE id=?",
+                             (now + ENROL_DEADLINE_SECONDS, row["id"]))
                 self._suspend_received_shares(conn, row, now, actor)
             self._end_user_sessions(conn, row["id"], except_hash=_token_hash(keep_session) if keep_session else None)
             self.audit(event, now=now, actor=actor, target_user_id=row["id"], target_username=row["username"], conn=conn)
@@ -792,6 +804,58 @@ class GatewayStore:
             return "none"
         return "enrolled" if row["enrolled_at"] is not None else "pending"
 
+    # ---- one-time enrolment code (SEC-04) ----
+    @staticmethod
+    def _normalise_enrol_code(code: str) -> str:
+        return "".join(ch for ch in str(code or "").upper() if ch.isalnum())
+
+    @classmethod
+    def _enrol_code_hash(cls, code: str) -> str:
+        return hashlib.sha256(b"rp-enrol-code\0" + cls._normalise_enrol_code(code).encode()).hexdigest()
+
+    def issue_enrol_code(self, user_id: int, *, now: float, actor: Actor) -> str:
+        """Mint a fresh enrolment code for an account that has not enrolled; the clear code is returned once.
+
+        Only its hash is stored and a previous code is replaced. An already-enrolled account raises ValueError
+        (an admin resets its two-factor first)."""
+        if self.totp_status(user_id) == "enrolled":
+            raise ValueError("two-factor is already set up; reset it first to issue a new enrolment code")
+        raw = "".join(secrets.choice(ENROL_CODE_ALPHABET) for _ in range(ENROL_CODE_LENGTH))
+        with self._tx() as conn:
+            row = self._locked_user(conn, user_id)
+            conn.execute("UPDATE users SET enrol_code_hash=?, enrol_code_expires=? WHERE id=?",
+                         (self._enrol_code_hash(raw), now + ENROL_CODE_SECONDS, row["id"]))
+            self.audit("enrol code issued", now=now, actor=actor, target_user_id=row["id"],
+                       target_username=row["username"], details=f"valid {ENROL_CODE_SECONDS // 60} min", conn=conn)
+        return f"{raw[:5]}-{raw[5:]}"
+
+    def enrol_code_state(self, user_id: int, now: float) -> str:
+        """``none`` (no code outstanding), ``expired`` or ``active``."""
+        rows = self._read("SELECT enrol_code_hash, enrol_code_expires FROM users WHERE id=?", (int(user_id),))
+        if not rows or not rows[0]["enrol_code_hash"]:
+            return "none"
+        return "active" if now < float(rows[0]["enrol_code_expires"] or 0) else "expired"
+
+    def verify_enrol_code(self, user_id: int, code: str, now: float) -> bool:
+        """Constant-time check of the code against the stored hash; it does not spend the code."""
+        rows = self._read("SELECT enrol_code_hash, enrol_code_expires FROM users WHERE id=?", (int(user_id),))
+        stored = (rows[0]["enrol_code_hash"] if rows else None) or ""
+        live = bool(stored) and now < float(rows[0]["enrol_code_expires"] or 0)
+        candidate = self._enrol_code_hash(code)
+        # always compare, even when no code is outstanding, so the time taken does not say whether one exists
+        same = hmac.compare_digest(candidate, stored or "0" * len(candidate))
+        return bool(live and same)
+
+    def spend_enrol_code(self, user_id: int, *, now: float, actor: Actor) -> None:
+        """Enrolment completed: the code is single use. Audited so the admin log shows who enrolled and when."""
+        with self._tx() as conn:
+            row = conn.execute("SELECT id, username FROM users WHERE id=?", (int(user_id),)).fetchone()
+            if row is None:
+                return
+            conn.execute("UPDATE users SET enrol_code_hash=NULL, enrol_code_expires=NULL WHERE id=?", (row["id"],))
+            self.audit("enrolment completed", now=now, actor=actor, target_user_id=row["id"],
+                       target_username=row["username"], details="one-time enrolment code spent", conn=conn)
+
     def begin_totp_enrolment(self, user_id: int, now: float) -> str:
         with self._tx() as conn:
             row = conn.execute("SELECT * FROM totp_secrets WHERE user_id=?", (int(user_id),)).fetchone()
@@ -835,7 +899,8 @@ class GatewayStore:
         with self._tx() as conn:
             row = self._locked_user(conn, user_id)
             conn.execute("DELETE FROM totp_secrets WHERE user_id=?", (row["id"],))
-            conn.execute("UPDATE users SET enrol_by=? WHERE id=?", (now + ENROL_DEADLINE_SECONDS, row["id"]))
+            conn.execute("UPDATE users SET enrol_by=?, enrol_code_hash=NULL, enrol_code_expires=NULL WHERE id=?",
+                         (now + ENROL_DEADLINE_SECONDS, row["id"]))
             self._suspend_received_shares(conn, row, now, actor)
             self._end_user_sessions(conn, row["id"])
             if event:

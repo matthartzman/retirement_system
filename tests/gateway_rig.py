@@ -98,9 +98,14 @@ class Rig:
         return self.store.create_viewer(username, username.title(), password, sponsor_user_id=sponsor,
                                         now=self.now[0], actor=CLI, must_change=must_change, expires_at=expires_at)
 
+    def enrol_start(self, b: "Browser", uid: int):
+        """Start enrolment the way a person does: with the one-time code an admin issued (SEC-04)."""
+        code = self.store.issue_enrol_code(uid, now=self.now[0], actor=CLI)
+        return b.post("/api/auth/totp/enrol/start", json={"enrol_code": code})
+
     def enrol(self, b: "Browser", uid: int) -> None:
         """Finish first sign-in for a browser holding a pending session: enrol TOTP, become active."""
-        b.post("/api/auth/totp/enrol/start")
+        self.enrol_start(b, uid)
         r = b.post("/api/auth/totp/enrol/confirm", json={"code": self.code(uid)})
         assert r.status_code == 200, r.get_data(as_text=True)
         b.refresh_csrf()
@@ -126,7 +131,7 @@ class Rig:
         uid = self.add_user(username, role)
         b = self.browser(ip)
         b.login(username)
-        b.post("/api/auth/totp/enrol/start")
+        self.enrol_start(b, uid)
         r = b.post("/api/auth/totp/enrol/confirm", json={"code": self.code(uid)})
         assert r.status_code == 200, r.get_data(as_text=True)
         b.refresh_csrf()

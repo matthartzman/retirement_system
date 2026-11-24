@@ -73,7 +73,7 @@ def test_create_grants_rights_locks_the_folder_and_stores_only_a_protected_passw
     pw = fake.users["rpw_7"]["pw"]
     sid = fake.users["rpw_7"]["sid"]
     assert fake.rights[sid] == set(accounts.WORKER_RIGHTS)
-    assert fake.acl == [(ws, {"account_sid": sid, "gateway_sid": "S-1-5-18"})]
+    assert fake.acl == [(ws, {"account_sid": sid, "gateway_sid": "S-1-5-18", "worker_stopped": True})]
     row = store.get_worker_account(7)
     assert row["sid"] == sid and pw.encode() not in bytes(row["secret"])
     assert m.credentials(7) == ("rpw_7", pw)

@@ -86,17 +86,17 @@ def test_viewer_idle_and_absolute_limits(rig):
 def test_viewer_not_enrolled_within_the_deadline_is_locked(rig):
     owner = rig.add_user("olive")
     vid = rig.add_viewer("vic", sponsor=owner)
-    rig.advance(72 * HOUR - 60)
+    rig.advance(gstore.ENROL_DEADLINE_SECONDS - 60)
     pending = rig.browser()
     assert pending.login("vic").status_code == 200  # just inside the deadline: the password works
     rig.advance(120)
-    pending.post("/api/auth/totp/enrol/start")
+    rig.enrol_start(pending, vid)
     r = pending.post("/api/auth/totp/enrol/confirm", json={"code": rig.code(vid)})
     assert r.status_code in (400, 401)  # a session opened before the deadline cannot finish after it
     assert rig.browser().login("vic").status_code == 401  # locked out: the generic error
     reasons = [e["details"] for e in rig.store.read_audit(50) if e["event"] == "login failed"]
     assert "reason enrol_overdue" in reasons
-    # An admin issues a new temporary password: a fresh 72 hours.
+    # An admin issues a new temporary password: a fresh deadline.
     rig.store.set_password(vid, TEMP, must_change=True, now=rig.now[0], actor=CLI, event="password reset")
     b = rig.browser()
     assert b.login("vic", password=TEMP).status_code == 200
@@ -107,7 +107,7 @@ def test_viewer_not_enrolled_within_the_deadline_is_locked(rig):
 
 def test_member_not_enrolled_within_the_deadline_is_locked(rig):
     uid = rig.add_user("mel")
-    rig.advance(72 * HOUR + 1)
+    rig.advance(gstore.ENROL_DEADLINE_SECONDS + 1)
     assert rig.browser().login("mel").status_code == 401
     assert rig.store.verify_password("mel", PW, rig.now[0]).reason == "enrol_overdue"
     # An admin TOTP reset is a reset too: a fresh deadline.
@@ -131,8 +131,8 @@ def test_unenrolled_account_gets_a_fresh_deadline_at_upgrade(tmp_path):
     s.set_password(ann["id"], PW, must_change=False, now=upgrade, actor=CLI)  # a real hash for the check below
     assert ann["enrol_by"] == upgrade + gstore.ENROL_DEADLINE_SECONDS
     assert root["enrol_by"] is None  # enrolled: unaffected
-    assert s.verify_password("ann", PW, upgrade + 71 * HOUR).ok
-    assert s.verify_password("ann", PW, upgrade + 73 * HOUR).reason == "enrol_overdue"
+    assert s.verify_password("ann", PW, upgrade + 23 * HOUR).ok
+    assert s.verify_password("ann", PW, upgrade + 25 * HOUR).reason == "enrol_overdue"
     assert not s.enrol_overdue(root["id"], upgrade + 10_000 * HOUR)
 
 

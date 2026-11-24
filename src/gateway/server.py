@@ -225,6 +225,9 @@ def _parser() -> argparse.ArgumentParser:
                    "the ProgramData/RetirementPlannerGateway/backups folder). Never a synced or user-readable folder")
     w.add_argument("--backup-key-file", help="the backup encryption key (create it with 'ops backup-key create'); "
                    "backups are enabled only when this is given. Kept outside the backup folder")
+    w.add_argument("--allow-weak-key-acl", action="store_true",
+                   help="start even when the backup key file can be read by accounts other than SYSTEM, "
+                        "Administrators, the gateway account and its owner (SEC-08); logged loudly")
     w.add_argument("--monarch-connector", action="store_true",
                    help="let users connect Monarch's read-only MCP connector (needs --launcher per-account)")
     w.add_argument("--insights", action="store_true",
@@ -318,15 +321,24 @@ class _Runtime:
         self.backup_interval = args.backup_hours * 3600
         self.data_root, self.store, self.started_at = data_root, store, time.time()
         if args.backup_key_file:
-            from .backup_crypto import read_key_file  # noqa: PLC0415
+            from .backup_crypto import is_sealed, read_key_file  # noqa: PLC0415
             from .backup_dest import default_backup_dir, validate_backup_destination, validate_key_location  # noqa: PLC0415
             from .backup_store import EncryptedBackupScheduler  # noqa: PLC0415
+            from .key_acl import key_file_findings  # noqa: PLC0415
 
             install = Path(args.install_dir)
             self.backup_dir = validate_backup_destination(args.backup_dir or default_backup_dir(), data_root=data_root,
                                                           install_dir=install, key_file=Path(args.backup_key_file))
             validate_key_location(Path(args.backup_key_file), backup_dir=self.backup_dir, data_root=data_root,
                                   install_dir=install)
+            weak = key_file_findings(Path(args.backup_key_file))
+            for finding in weak:
+                LOG.error("backup key permissions: %s", finding)
+            if weak and not args.allow_weak_key_acl:
+                raise ValueError("the backup key file is readable by other accounts (see the log); fix its permissions "
+                                 "('python -m src.gateway.ops key check'), or start with --allow-weak-key-acl")
+            if not is_sealed(Path(args.backup_key_file)):
+                LOG.warning("the backup key file is a plain file, not sealed with DPAPI; run 'ops key seal'")
             self.backups = EncryptedBackupScheduler(
                 data_root=data_root, gateway_db=Path(args.db), dest=self.backup_dir,
                 master=read_key_file(Path(args.backup_key_file)), user_ids=store.member_ids,

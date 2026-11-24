@@ -318,7 +318,8 @@ class WindowsAccountManager:
         self.store.put_worker_account(user_id, name, sid, winapi.dpapi_protect(password.encode("utf-8")), self._clock())
         del password
         workspace.mkdir(parents=True, exist_ok=True)
-        acl.lock_user_folder(workspace, account_sid=sid, gateway_sid=self.gateway_sid)
+        # A brand-new account cannot have a running worker, so resetting whatever is already in the folder is safe.
+        acl.lock_user_folder(workspace, account_sid=sid, gateway_sid=self.gateway_sid, worker_stopped=True)
         LOG.info("worker account %s created for user %s", name, user_id)
 
     def credentials(self, user_id: int) -> tuple[str, str]:

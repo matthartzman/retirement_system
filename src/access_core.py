@@ -14,6 +14,8 @@ import secrets
 import subprocess
 import threading
 
+from .common_passwords import is_common_password
+
 MIN_PASSWORD_LENGTH = 10
 MAX_FAILED_BEFORE_LOCK = 5
 LOCK_SECONDS = 15 * 60
@@ -23,7 +25,7 @@ LOCK_SECONDS = 15 * 60
 # sign-in, while an address with a recent completed sign-in (a known-good source) still reaches the password check.
 MAX_FAILED_ACCOUNT = 50
 KNOWN_GOOD_SECONDS = 30 * 24 * 3600
-DEFAULT_SCRYPT_N = 2**15
+DEFAULT_SCRYPT_N = 2**16  # SEC-06: was 2**15; stored hashes below the configured cost are upgraded on sign-in
 _DUMMY_SALT = b"\0" * 16
 
 
@@ -50,6 +52,8 @@ def check_password_policy(password: str, min_length: int = MIN_PASSWORD_LENGTH, 
         raise ValueError(f"password must be at least {min_length} characters")
     if max_length is not None and len(password) > max_length:
         raise ValueError(f"password must be at most {max_length} characters")
+    if is_common_password(password):  # SEC-06
+        raise ValueError("that password is on the list of passwords everyone tries first; choose another")
 
 
 def failure_outcome(failed_count: int, now: float, max_failed: int = MAX_FAILED_BEFORE_LOCK,

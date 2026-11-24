@@ -76,6 +76,7 @@ from ..version import VERSION
 from ..server_services import base_service, config_service, conversion_service, demo_plan_service, plan_tier_service, pricing_service, rental_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
 from ..portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
 from .. import local_backup_scheduler
+from . import request_limits as _limits
 from .. import monarch_autoupdate
 from ..monarch_autoimport_job import run as _run_monarch_autoimport
 from ..secrets_store import set_secret as _set_secret_value
@@ -310,6 +311,9 @@ def local_backup_config():
     return jsonify(status)
 
 
+_FORCED_BACKUPS = _limits.ForcedRunLimiter()
+
+
 @app.route("/api/plan/backups/run", methods=["POST"])
 def local_backup_run():
     denied = _require("write_config")
@@ -321,13 +325,17 @@ def local_backup_run():
     refused = _paths_refusal(stored.get("backup_dir"))
     if refused:
         return refused
+    trigger = _limits.clean_trigger(body.get("trigger"))  # PR-14: bounded label, and forced runs are rate-limited
+    if body.get("force") and (wait := _FORCED_BACKUPS.acquire()) > 0:
+        resp = jsonify({"success": False, "error": "A forced backup was just made; try again shortly."})
+        return resp, 429, {"Retry-After": str(int(wait) + 1)}
     payload = local_backup_scheduler.run_backup(
         WORKSPACE_ROOT,
         _sqlite_db(),
-        trigger=str(body.get("trigger") or "manual"),
+        trigger=trigger,
         force=bool(body.get("force")),
     )
-    _audit("local_backup_run", {"created": payload.get("created"), "trigger": body.get("trigger") or "manual"})
+    _audit("local_backup_run", {"created": payload.get("created"), "trigger": trigger})
     return jsonify(payload), 200 if payload.get("success", True) else 400
 
 
@@ -1291,7 +1299,7 @@ def sales_candidates():
 @app.route("/api/sales/candidates/<int:candidate_id>/panel", methods=["GET"])
 def sales_candidate_panel(candidate_id: int):
     try:
-        shares = float(request.args["shares"]) if request.args.get("shares") else None
+        shares = _limits.finite_float(request.args["shares"]) if request.args.get("shares") else None
     except ValueError:
         return jsonify({"success": False, "error": "shares must be a number"}), 400
     return _confirm_call("view_dashboard", "panel", candidate_id, symbol=request.args.get("symbol") or None, shares=shares)
@@ -1305,8 +1313,8 @@ def sales_candidate_confirm(candidate_id: int):
               "trade_date": str(b.get("trade_date") or ""), "symbol": b.get("symbol") or None}
         for name in ("fees", "proceeds", "shares"):
             if b.get(name) not in (None, ""):
-                kw[name] = float(b[name])
-        kw["allocation"] = {str(k): float(v) for k, v in kw["allocation"].items()}
+                kw[name] = _limits.finite_float(b[name])
+        kw["allocation"] = {str(k): _limits.finite_float(v) for k, v in kw["allocation"].items()}
     except (TypeError, ValueError):
         return jsonify({"success": False, "error": "allocation, fees, proceeds and shares must be numbers"}), 400
     response = _confirm_call("write_config", "confirm", candidate_id, **kw)
@@ -1389,11 +1397,15 @@ def _statement_args(b: dict):
             kw["tax_year"] = int(b["tax_year"])
         except (TypeError, ValueError):
             return None, (jsonify({"success": False, "error": "tax_year must be a number"}), 400)
+    if _limits.too_large(b.get("pdf_base64"), _limits.MAX_PDF_B64) or _limits.too_large(b.get("content"), _limits.MAX_STATEMENT_TEXT):
+        return None, (jsonify({"success": False, "error": "the statement is too large"}), 413)
     if b.get("pdf_base64"):
         try:
             kw["pdf_bytes"] = base64.b64decode(str(b["pdf_base64"]), validate=True)
         except (binascii.Error, ValueError):
             return None, (jsonify({"success": False, "error": "pdf_base64 is not valid base64"}), 400)
+        if (problem := _limits.pdf_problem(kw["pdf_bytes"])):  # PR-11: page limit before the parser sees it
+            return None, (jsonify({"success": False, "error": problem[1]}), problem[0])
     elif b.get("content"):
         kw["text"] = str(b["content"])
     else:
@@ -1451,7 +1463,7 @@ def sales_replace(sale_id: int):
     for name in ("shares", "proceeds", "fees", "basis"):
         if name in row:
             try:
-                row[name] = float(row[name])
+                row[name] = _limits.finite_float(row[name])
             except (TypeError, ValueError):
                 return jsonify({"success": False, "error": f"{name} must be a number"}), 400
     response = _sales_call(lambda root: {"sale": _sales.replace_sale(root, sale_id, row)})
@@ -1562,6 +1574,9 @@ def sales_history_undismiss():
 # ---- Broker activity bulk import (src/broker_import.py) ----
 
 def _broker_args(b: dict) -> dict:
+    if _limits.too_large(b.get("content"), _limits.MAX_STATEMENT_TEXT):
+        from .. import sales_service as _sales
+        raise _sales.ValidationError("the statement is too large")
     accounts = b.get("accounts")
     return {"broker": str(b.get("broker") or ""), "text": str(b.get("content") or ""),
             "file_name": str(b.get("file_name") or "") or None,
@@ -1865,7 +1880,7 @@ def reconcile_rows():
         return denied
     from .. import reconcile as _reconcile
     try:
-        tolerance = float(request.args.get("tolerance") or _reconcile.DEFAULT_TOLERANCE)
+        tolerance = _limits.finite_float(request.args.get("tolerance") or _reconcile.DEFAULT_TOLERANCE)
     except ValueError:
         return jsonify({"success": False, "error": "tolerance must be a number"}), 400
     return _reconcile_call(_reconcile.build_rows, request.args.get("as_of") or None, tolerance=tolerance)
@@ -2425,8 +2440,11 @@ def plan_upload():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    upload_body = _json_obj()
+    if _limits.too_large(upload_body.get("content_base64"), _limits.MAX_PLAN_UPLOAD_B64):  # PR-11
+        return jsonify({"success": False, "error": "That plan file is too large."}), 413
     try:
-        payload, status = _plan_file_feature_service().upload(_json_obj())
+        payload, status = _plan_file_feature_service().upload(upload_body)
     except plan_limits.PlanLimitError as exc:
         return jsonify({"success": False, "error": str(exc)}), 409
     return jsonify(payload), status

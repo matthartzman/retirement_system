@@ -27,7 +27,7 @@ def test_applying_a_user_folder_does_not_reset_the_permissions_behind_a_junction
     (folder / "plan.rpx").write_bytes(b"a")
     _winapi.CreateJunction(str(victim), str(folder / "sub" / "link"))
     try:
-        acl.lock_user_folder(folder, account_sid="S-1-5-32-559", gateway_sid=me)
+        acl.lock_user_folder(folder, account_sid="S-1-5-32-559", gateway_sid=me, worker_stopped=True)
         after = subprocess.run(["icacls", str(secret)], capture_output=True, text=True).stdout
         assert after == before, "the permissions of a file behind a junction were rewritten"
         assert secret.read_bytes() == b"k"

@@ -27,7 +27,7 @@ def layout(tmp_path):
     (gw / "gateway.db").write_bytes(b"")
     acl.lock_gateway_only(root, gateway_sid=me)
     acl.lock_gateway_only(root / "users", gateway_sid=me)
-    acl.lock_user_folder(root / "users" / "1", account_sid=WORKER_A, gateway_sid=me)
+    acl.lock_user_folder(root / "users" / "1", account_sid=WORKER_A, gateway_sid=me, worker_stopped=True)
     acl.lock_user_folder(root / "users" / "2", account_sid=WORKER_B, gateway_sid=me)
     acl.lock_gateway_only(gw, gateway_sid=me)
     workers = {1: ("rpw_1", WORKER_A), 2: ("rpw_2", WORKER_B)}

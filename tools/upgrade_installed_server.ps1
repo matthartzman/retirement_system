@@ -37,7 +37,7 @@ try {
     Check "pip install"
     Set-Location $app
     $acl = @("--data-root", $data, "--gateway-db", "$state\gateway.db", "--install-dir", $app, "--backup-dir", $bk, "--gateway-sid", "S-1-5-18")
-    & $PY -m src.gateway.acl setup @acl
+    & $PY -m src.gateway.acl setup @acl --workers-stopped  # step 1 stopped the service and so every worker (SEC-03)
     Check "acl setup"
     & $PY -m src.gateway.acl check @acl --forbid $repo
     Check "acl check (read its findings above; the service was NOT started)"

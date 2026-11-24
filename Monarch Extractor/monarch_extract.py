@@ -39,6 +39,13 @@ CHANGED_FILE = OUTPUT_DIR / "changed_transactions.csv"
 DUPLICATES_FILE = OUTPUT_DIR / "duplicates_removed.csv"
 STATE_DB = OUTPUT_DIR / "monarch_state.sqlite3"
 
+# F-11: failure dumps are opt-in (see monarch_debug_dumps.py); main() sets these from the command line.
+DEBUG_DUMPS = False
+DEBUG_SCREENSHOT = False
+
+sys.path.insert(0, str(BASE_DIR))  # the sibling helper module, however this file was loaded
+import monarch_debug_dumps  # noqa: E402
+
 PAGE_TIMEOUT_MS = 90_000
 DOWNLOAD_TIMEOUT_MS = 120_000
 DOWNLOAD_RETRIES = 3
@@ -1225,32 +1232,18 @@ async def download_monarch_csv(headed, period_label):
             return await download_csv_with_retries(page)
 
         except Exception:
-            timestamp = datetime.now().strftime(
-                "%Y%m%d-%H%M%S"
-            )
-
-            debug_png = OUTPUT_DIR / (
-                f"monarch-debug-{timestamp}.png"
-            )
-            debug_html = OUTPUT_DIR / (
-                f"monarch-debug-{timestamp}.html"
-            )
-
-            try:
-                await page.screenshot(
-                    path=str(debug_png),
-                    full_page=True,
-                )
-
-                debug_html.write_text(
-                    await page.content(),
-                    encoding="utf-8",
-                )
-
-                print(f"Debug screenshot: {debug_png}")
-                print(f"Debug HTML: {debug_html}")
-            except Exception:
-                pass
+            if monarch_debug_dumps.dumps_enabled(DEBUG_DUMPS):
+                timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+                debug_html = OUTPUT_DIR / f"monarch-debug-{timestamp}.html"
+                try:
+                    debug_html.write_text(monarch_debug_dumps.redact_html(await page.content()), encoding="utf-8")
+                    print(f"Debug HTML (amounts redacted, deleted after {monarch_debug_dumps.MAX_AGE_DAYS} days): {debug_html}")
+                    if DEBUG_SCREENSHOT:  # a picture cannot be redacted
+                        debug_png = OUTPUT_DIR / f"monarch-debug-{timestamp}.png"
+                        await page.screenshot(path=str(debug_png), full_page=True)
+                        print(f"Debug screenshot (SHOWS REAL BALANCES; delete when done): {debug_png}")
+                except Exception:
+                    pass
 
             raise
 
@@ -1423,7 +1416,25 @@ async def main():
         ),
     )
 
+    parser.add_argument(
+        "--debug-dumps",
+        action="store_true",
+        help="On failure save a redacted copy of the page HTML (also MONARCH_DEBUG_DUMPS=1). Off by default.",
+    )
+
+    parser.add_argument(
+        "--debug-screenshot",
+        action="store_true",
+        help="With --debug-dumps, also save a full-page screenshot. It shows real balances; it cannot be redacted.",
+    )
+
     args = parser.parse_args()
+
+    global DEBUG_DUMPS, DEBUG_SCREENSHOT
+    DEBUG_DUMPS = monarch_debug_dumps.dumps_enabled(args.debug_dumps)
+    DEBUG_SCREENSHOT = bool(args.debug_screenshot and DEBUG_DUMPS)
+    for gone in monarch_debug_dumps.purge_old_dumps(OUTPUT_DIR):
+        print(f"Removed old failure dump: {gone.name}")
 
     init_database()
 
