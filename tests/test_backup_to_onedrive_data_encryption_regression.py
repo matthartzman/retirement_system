@@ -17,7 +17,8 @@ bk = importlib.import_module("tools.backup_to_onedrive")
 
 def _tree(root: Path) -> None:
     files = {
-        "src/core.py": "pass\n", "README.md": "hi\n",
+        "src/core.py": "pass\n", "README.md": "hi\n", "input/client_data.csv": "household\n",
+        "tests/fixtures/input/sample.csv": "synthetic\n",
         "local_state/identity.db": "ID", "local_state/app.db": "APP", "local_state/retirement_system_v10.db": "db",
         "saved_plans/auto_backups/plan.rpx": "PLAN", "plan.rpx": "PLAN", "plan.rpx.version_20261101": "PLAN",
         "saved_plans/old.RPX": "PLAN",
@@ -41,13 +42,13 @@ def _names(root, **kw):
 def test_default_archive_excludes_every_household_data_file(tmp_path):
     _tree(tmp_path)
     got = _names(tmp_path)
-    assert got == {"src/core.py", "README.md"}
+    assert got == {"src/core.py", "README.md", "tests/fixtures/input/sample.csv"}  # only the top-level input/ is household data
 
 
 def test_include_data_adds_them_but_never_credentials(tmp_path):
     _tree(tmp_path)
     got = _names(tmp_path, include_data=True)
-    assert {"local_state/identity.db", "plan.rpx", "plan.rpx.version_20261101", "saved_plans/old.RPX",
+    assert {"input/client_data.csv", "local_state/identity.db", "plan.rpx", "plan.rpx.version_20261101", "saved_plans/old.RPX",
             "financial_trends_reporter/data/monarch_balances.sqlite3"} <= got
     assert not any("monarch-browser" in p for p in got)
 
@@ -112,7 +113,7 @@ def test_default_run_writes_a_plain_zip_without_data(tmp_path, monkeypatch):
     (zpath,) = list((tmp_path / "dest").iterdir())
     assert zpath.suffix == ".zip"
     with zipfile.ZipFile(zpath) as zf:
-        assert sorted(n.split("/", 1)[1] for n in zf.namelist()) == ["README.md", "src/core.py"]
+        assert sorted(n.split("/", 1)[1] for n in zf.namelist()) == ["README.md", "src/core.py", "tests/fixtures/input/sample.csv"]
 
 
 def test_manage_secret_runs_without_a_nameerror(monkeypatch, capsys):

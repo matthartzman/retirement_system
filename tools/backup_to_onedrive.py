@@ -9,8 +9,8 @@ hand:
     python tools/backup_to_onedrive.py --include-data        # ALSO plan and financial data, ENCRYPTED
 
 By default nothing that holds household data goes into the archive (X-13): identity and app databases, ``*.rpx``
-plan files (and their version copies), ``balances.csv``, ``monarch_balances*``, ``financial_trends_log*`` and the
-whole ``local_state/`` folder are skipped. ``--include-data`` adds them and then writes an ENCRYPTED archive
+plan files (and their version copies), ``balances.csv``, ``monarch_balances*``, ``financial_trends_log*``, the
+whole ``local_state/`` folder and the top-level ``input/`` folder are skipped. ``--include-data`` adds them and then writes an ENCRYPTED archive
 (``.zip.enc``: AES-256-GCM through ``src/gateway/backup_crypto.py``, key derived from a passphrase with scrypt); the
 passphrase is read from ``--passphrase-file`` or asked for twice. Without a passphrase the run refuses, so a
 data-bearing zip is never written in the clear. ``--decrypt <file> <out.zip>`` reverses it.
@@ -57,6 +57,7 @@ EXCLUDE_FILES = {"local_state/secrets.local.json"}
 
 # X-13: household data. Skipped unless --include-data (and then the archive is encrypted).
 DATA_DIRS = {"local_state"}
+DATA_ROOT_DIRS = {"input"}  # household CSVs: only the project's own top-level input/ (a fixture folder elsewhere is code)
 DATA_FILE_PATTERNS = ("identity.db", "app.db", "*.rpx", "*.rpx.*", "balances.csv", "monarch_balances*",
                       "financial_trends_log*")
 
@@ -94,6 +95,8 @@ def iter_files(root: Path, include_data: bool = False):
     for dirpath, dirnames, filenames in os.walk(root):
         # prune excluded dirs in place so os.walk doesn't descend into them
         dirnames[:] = [d for d in dirnames if d not in excluded_dirs]
+        if not include_data and Path(dirpath) == Path(root):
+            dirnames[:] = [d for d in dirnames if d not in DATA_ROOT_DIRS]
         for name in filenames:
             fpath = Path(dirpath) / name
             if fpath.relative_to(root).as_posix() in EXCLUDE_FILES:
