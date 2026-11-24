@@ -173,17 +173,23 @@ def is_demo_active() -> bool:
     return active_record().get("kind") == "demo"
 
 
-def plan_id_for_path(path: str | Path) -> str | None:
-    """The registry id of the plan file at ``path`` (read only; None when not registered or
+def record_for_path(path: str | Path) -> dict[str, Any] | None:
+    """The registry record of the plan file at ``path`` (read only; None when not registered or
     when there is no app.db yet)."""
     store_path = app_state.app_store_path()
     if not store_path.is_file():
         return None
     try:
         with app_state.open_app_store(store_path, readonly=True) as store:
-            rec = _find(store, path)
+            return _find(store, path)
     except Exception:  # noqa: BLE001 - an app.db this code cannot read: not registered
         return None
+
+
+def plan_id_for_path(path: str | Path) -> str | None:
+    """The registry id of the plan file at ``path`` (read only; None when not registered or
+    when there is no app.db yet)."""
+    rec = record_for_path(path)
     return None if rec is None else str(rec["plan_id"])
 
 
