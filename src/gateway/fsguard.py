@@ -4,6 +4,10 @@ A worker account has Modify on its own folder, and creating a directory junction
 user can point ``local_state`` (or ``input``, or a log folder) at another user's data. The gateway's own
 jobs run with far more access than any worker (backup, restore, migrate-all, log housekeeping); they must
 check with :func:`has_reparse_point` before reading or writing a path under a user's folder.
+
+``has_reparse_point`` looks at names, so it is only a first filter. Code that then reads, writes or moves the file
+must hold :func:`pinned` around the work (SEC-02), which verifies the open handle and keeps the folder chain from
+being swapped while the job runs.
 """
 from __future__ import annotations
 
