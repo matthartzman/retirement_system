@@ -546,8 +546,13 @@ def compare_and_record(transactions, source_csv, period_label):
     """
     Compare genuine Monarch-Id transactions to persistent state.
 
-    It creates an outbox event only once for a particular Monarch Id plus
-    transaction fingerprint, even if a scheduled job repeats the same export.
+    Repeating the same export creates nothing: a transaction whose fingerprint
+    matches the stored one is not a change. The outbox keeps one row per Monarch
+    Id plus fingerprint, so a transaction seen for the first time never replays
+    an event that was already delivered (a lost history table must not resend
+    everything), while a genuine change re-queues its row: when a transaction
+    goes back to a state it was in before, the earlier row for that state is
+    made pending again under the current run, so the consumer hears about it.
     """
     run_id = str(uuid.uuid4())
     now = utc_now()
@@ -670,9 +675,14 @@ def compare_and_record(transactions, source_csv, period_label):
                 f"{tx_id}|{fingerprint}".encode("utf-8")
             ).hexdigest()
 
+            # A change always replaces an earlier row for the same state (the
+            # row is deleted and re-inserted pending, with this run's id and
+            # time); a first sighting leaves a delivered row alone.
+            on_conflict = "REPLACE" if change_type == "changed" else "IGNORE"
+
             connection.execute(
-                """
-                INSERT OR IGNORE INTO outbox (
+                f"""
+                INSERT OR {on_conflict} INTO outbox (
                     event_id,
                     run_id,
                     transaction_id,

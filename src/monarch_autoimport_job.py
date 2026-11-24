@@ -5,19 +5,26 @@ headless CLI entry point (tools/monarch_autoimport.py, run by Windows Task
 Scheduler at 4am) and from the server's "run now" route
 (src/server/plan_routes.py), so a manual in-app trigger and the unattended
 scheduled run share one code path.
+
+The job writes into the workspace's active plan, so it runs only while that plan is the user's
+own: a demo plan or a saved case is skipped (see ``_plan_kind_refusal``) and nothing is
+acknowledged to the extractor, which keeps the events pending for the next run.
 """
 
 import subprocess
 from pathlib import Path
 from typing import Any
 
+from . import active_plan
 from . import monarch_autoupdate as mau
 from . import monarch_import as mi
 from .monarch_balances_import import import_balances
 from . import onedrive_guard
+from . import plan_registry
 from . import ytd_tracking as ytd
 
 _MARK_DELIVERED_TIMEOUT_SECONDS = 60
+_PLAN_KIND_LABELS = {"demo": "demo plan", "case": "saved case"}
 # What monarch_extract.py --mark-delivered prints when the run was already acknowledged.
 _ALREADY_DELIVERED = "No pending events found for run ID"
 
@@ -76,6 +83,29 @@ def _mark_runs_delivered(extractor_dir: Path, run_ids: list[str]) -> list[str]:
     return errors
 
 
+def _plan_kind_refusal(base_dir: str | Path) -> str | None:
+    """Why the job must not write the plan of workspace ``base_dir`` (None: go ahead).
+
+    The job writes into the active plan, whichever plan that is. A demo plan or a saved case is not
+    the user's own books, so Monarch rows and balances must not land there: on 2026-11-15 they did,
+    the real plan silently missed the run, and the extractor was told it had been delivered. A plan
+    the registry does not know (a bare workspace, one chosen by RETIREMENT_SYSTEM_PLAN_DB) is written
+    as before, and so is any case where the registry cannot be read: that is no evidence of a demo,
+    and the steps below report their own failures.
+    """
+    try:
+        record = plan_registry.record_for_path(active_plan.plan_path_for_workspace(base_dir))
+    except Exception:  # noqa: BLE001
+        return None
+    if record is None or record["kind"] == "user":
+        return None
+    what = _PLAN_KIND_LABELS.get(record["kind"], record["kind"])
+    return (
+        f"Monarch import skipped: the active plan '{record['name']}' is a {what}, not one of your own plans. "
+        "Pending Monarch events stay queued and will import the next time your own plan is active."
+    )
+
+
 def run(base_dir: str | Path, *, force: bool = False) -> dict[str, Any]:
     """The daily job: two independent steps under one schedule -- transactions, then
     account balances. Each is switched by its own policy checkbox and records its own
@@ -87,6 +117,13 @@ def run(base_dir: str | Path, *, force: bool = False) -> dict[str, Any]:
     policy = mau.load_policy(base_dir)["policy"]
     if not policy["enabled"] and not force:
         return {"success": True, "skipped": True, "skip_reason": "disabled"}
+    refusal = _plan_kind_refusal(base_dir) if policy["transactions"] or policy["balances"] else None
+    if refusal:  # nothing is written or acknowledged, so the extractor keeps the events pending
+        if policy["transactions"]:
+            mau.write_status(base_dir, success=False, errors=[refusal])
+        if policy["balances"]:
+            mau.write_balances_status(base_dir, success=False, status="skipped", detail=refusal)
+        return {"success": False, "skipped": True, "skip_reason": "not_user_plan", "error": refusal}
     result: dict[str, Any] = {"success": True, "skipped": True, "skip_reason": "transactions off"}
     if policy["transactions"]:
         try:

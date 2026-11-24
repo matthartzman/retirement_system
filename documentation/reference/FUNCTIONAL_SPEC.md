@@ -279,6 +279,10 @@ app's own workspace root) that a scheduled or on-demand job reads from;
 against, not duplicated on top of, any rows the household already entered
 manually. The Monarch Extractor also exports daily account balances; they are
 imported into the plan file by the same job and feed Monarch Reconciliation.
+The job writes only while one of the household's own plans is the open plan:
+with the demo plan or a saved case open it skips the run, says why on the
+status panel, and leaves the extractor's pending rows waiting for the next run
+on the household's own plan.
 
 ### 4.10 Financial Insight app (companion app)
 A companion browser app, run alongside the main planner, that charts a
