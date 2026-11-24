@@ -68,7 +68,7 @@
       <div class="row3">${field("Role", `<select id="fRole"><option value="user"${u && u.role === "admin" ? "" : " selected"}>User</option><option value="admin"${u && u.role === "admin" ? " selected" : ""}>Administrator</option></select>`)} ${feat("expiry") ? field("Access ends after (blank = never)", `<input id="fExpires" type="date" value="${esc(dateValue(u && u.expires_at))}">`) : ""} ${field("Added", `<output id="fAdded">${esc(day(u ? u.created_at : Date.now() / 1000))}</output>`)}</div>
       ${u ? `<details class="acts"><summary>${host.maintenance || "Password, sessions and removal"}</summary>${host.note || ""}
         ${field("New temporary password", '<input id="fResetPw" type="password" autocomplete="new-password">')}
-        <div class="actions"><button type="button" data-act="reset-password">Reset password</button>${feat("end_sessions") ? '<button type="button" data-act="end-sessions">End sessions</button>' : ""}<button type="button" data-act="reset-totp">Reset two-factor</button>${host.showCode ? '<button type="button" data-act="enrol-code">New enrolment code</button>' : ""}
+        <div class="actions"><button type="button" data-act="reset-password">Reset password</button>${feat("end_sessions") ? '<button type="button" data-act="end-sessions">End sessions</button>' : ""}<button type="button" data-act="reset-totp">Reset two-factor</button>${host.showCode ? '<button type="button" data-act="enrol-code">New enrollment code</button>' : ""}
         ${host.sections ? "" : `<button type="button" data-act="${u.status === "disabled" ? "enable" : "disable"}">${u.status === "disabled" ? "Enable" : "Disable"}</button>`}${host.removal ? "" : '<button type="button" class="danger" data-act="delete">Delete</button>'}</div>${host.removal ? host.removal(u) : ""}</details>` : ""}</section>`;
     const planner = sec("Retirement Planner", tog("Can use the Retirement Planner", u ? u.grants.some((g) => g.app === "planner") : false, 'id="gPlanner"', "stored now; enforced when the multi-user server arrives"), true);
     const insights = sec("Financial Insights", `${field("Money shown as", `<select id="gMoney">${Object.entries(MONEY).map(([v, l]) => `<option value="${v}"${(ins ? ins.money_view : "percent") === v ? " selected" : ""}>${l}</option>`).join("")}</select>`)}
@@ -97,7 +97,7 @@
       const g = readGrants();
       if (g.insights && g.views && !g.views.length) return err("Choose at least one view, or untick Can sign in.");
       const out = u ? await saveEdit(u, g) : await saveNew(g);
-      if (!out.ok) return err(out.error || "The change was refused."); await (host.showCode && host.showCode(out, u ? u.display_name : $("#fName", dlg).value.trim()));  // SEC-04: gateway shows the one-time enrolment code once
+      if (!out.ok) return err(out.error || "The change was refused."); await (host.showCode && host.showCode(out, u ? u.display_name : $("#fName", dlg).value.trim()));  // SEC-04: gateway shows the one-time enrollment code once
       dlg.close();
       showUsers();
     });

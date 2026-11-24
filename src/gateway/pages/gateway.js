@@ -164,13 +164,13 @@
     });
   }
 
-  /* ---------- enrol ---------- */
+  /* ---------- enroll ---------- */
   function initEnrol() {
-    // SEC-04: the secret is only issued against the administrator's one-time enrolment code.
+    // SEC-04: the secret is only issued against the administrator's one-time enrollment code.
     onSubmit($("code-form"), function () {
       return api("POST", "/api/auth/totp/enrol/start", { enrol_code: $("enrol-code").value.trim() }).then(function (r) {
         if (r.status === 401) { say("Your sign-in expired. Please sign in again."); return; }
-        if (r.status !== 200 || !r.json.secret) { say(errText(r, "That enrolment code is not right.")); $("enrol-code").select(); return; }
+        if (r.status !== 200 || !r.json.secret) { say(errText(r, "That enrollment code is not right.")); $("enrol-code").select(); return; }
         $("code-form").hidden = true;
         $("setup").hidden = false;
         $("confirm-form").hidden = false;

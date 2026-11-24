@@ -21,7 +21,7 @@ def build_old_gateway_db(path: Path, version: int, users: tuple[tuple[str, str],
                          enrolled: tuple[str, ...] = ()) -> None:
     """A gateway.db exactly as an older gateway left it: the schema steps up to ``version`` and a few user rows.
 
-    ``enrolled`` names users with a finished TOTP enrolment. Built from the migration list itself, so it is the same
+    ``enrolled`` names users with a finished TOTP enrollment. Built from the migration list itself, so it is the same
     SQL an old gateway ran, not a later schema with columns dropped."""
     import sqlite3
 
@@ -99,12 +99,12 @@ class Rig:
                                         now=self.now[0], actor=CLI, must_change=must_change, expires_at=expires_at)
 
     def enrol_start(self, b: "Browser", uid: int):
-        """Start enrolment the way a person does: with the one-time code an admin issued (SEC-04)."""
+        """Start enrollment the way a person does: with the one-time code an admin issued (SEC-04)."""
         code = self.store.issue_enrol_code(uid, now=self.now[0], actor=CLI)
         return b.post("/api/auth/totp/enrol/start", json={"enrol_code": code})
 
     def enrol(self, b: "Browser", uid: int) -> None:
-        """Finish first sign-in for a browser holding a pending session: enrol TOTP, become active."""
+        """Finish first sign-in for a browser holding a pending session: enroll TOTP, become active."""
         self.enrol_start(b, uid)
         r = b.post("/api/auth/totp/enrol/confirm", json={"code": self.code(uid)})
         assert r.status_code == 200, r.get_data(as_text=True)

@@ -109,7 +109,7 @@ the gateway's anyway. That is Option B's work plus a second trust boundary, so i
 | Make admin / Make user | The dialog's Role select, saved with Save. Server rule unchanged |
 | Last-admin rule | Enforced in the store, not the UI: demoting, disabling or deleting the only active admin is refused with the same message, surfaced inside the dialog. Tests cover role change, disable and delete, and two concurrent attempts |
 | Audit log (who did what) | The console's "Admin audit" page reads the gateway `audit_log` (actor, event, target, details, client address, listener). It replaces the console's `admin_audit`, whose actor is the fixed string "owner (PC)". The gateway log is a superset (it also records sign-ins and lockouts) |
-| Mandatory two-factor and TOTP reset | The "require two-factor" switch is not shown (section 5). "Reset two-factor" stays. First sign-in after a reset forces re-enrolment |
+| Mandatory two-factor and TOTP reset | The "require two-factor" switch is not shown (section 5). "Reset two-factor" stays. First sign-in after a reset forces re-enrollment |
 | 12-character minimum password | Gateway-mode server value is 12 (`store.py:MIN_PASSWORD_LENGTH`). The console's 10 comes from `access_core.MIN_PASSWORD_LENGTH`, shared with the single-user Admin app and Financial Insights. Reconcile on the server by passing the minimum into the console (server-provided, not a JS constant) and keeping 12 in the gateway store; the single-user apps stay at 10 (decided) |
 | Temporary-password flow | `must_change=True` for every created or reset password, unchanged |
 | Reset password prompt | Replaced by the console's inline field (no `window.prompt`) |

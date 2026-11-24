@@ -42,7 +42,7 @@ ADMIN_PREFIXES = ("/gateway/admin", "/api/auth/admin", "/gateway/users")
 STATIC = {"gateway.js": "text/javascript; charset=utf-8", "gateway.css": "text/css; charset=utf-8"}
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 BODY_TYPES = frozenset({"application/json", "text/plain"})
-# data: images only for the enrolment QR code, which is drawn here as an SVG data URI (no remote images).
+# data: images only for the enrollment QR code, which is drawn here as an SVG data URI (no remote images).
 CSP = "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
 QR_SCALE, QR_BORDER = 5, 4
 PUBLIC = frozenset({("GET", "/login"), ("POST", "/api/auth/login"), ("GET", "/api/auth/session")})
@@ -534,19 +534,19 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         return _refused(CODE_ERROR, 400)
 
     def _enrol_code_failed(sess: dict, now: float) -> Response:
-        """A wrong enrolment code counts like a wrong password or TOTP code (sign-in throttle and per-source lock)."""
+        """A wrong enrollment code counts like a wrong password or TOTP code (sign-in throttle and per-source lock)."""
         _count_failure(now, sess["username"])
         locked = store.record_failure(sess["user_id"], now, request.environ["client_ip"])
         actor = _actor(sess["user_id"], sess["username"])
         store.audit("enrol code failed", now=now, actor=actor)
         if locked:
-            store.audit("account locked", now=now, actor=actor, details="reason enrol code")
+            store.audit("account locked", now=now, actor=actor, details="reason enroll code")
             store.end_session(request.environ["session_token"])
             resp = _json({"success": False, "authenticated": False, "error": LOGIN_ERROR}, 401)
             resp.headers["Set-Cookie"] = _clear_cookie()
             return resp
         return _json({"success": False, "enrol_code_required": True,
-                      "error": "That enrolment code is not right, or it has expired."}, 403)
+                      "error": "That enrollment code is not right, or it has expired."}, 403)
 
     def _code_step(enrolled: bool, event: str) -> Response:
         pending = _pending_user()
@@ -590,7 +590,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
         code = str(_body(now, sess["username"]).get("enrol_code") or "")
         if store.enrol_code_state(sess["user_id"], now) != "active":
             return _json({"success": False, "enrol_code_required": True,
-                          "error": "Ask your administrator for a new enrolment code."}, 403)
+                          "error": "Ask your administrator for a new enrollment code."}, 403)
         if not store.verify_enrol_code(sess["user_id"], code, now):
             return _enrol_code_failed(sess, now)
         try:
@@ -656,7 +656,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
 
     # ---- admin (the gate has already checked the role) ----
     def _enrol_code_fields(uid: int) -> dict:
-        """The one-time enrolment code for an account that still has to enrol (SEC-04); {} for an enrolled one."""
+        """The one-time enrollment code for an account that still has to enroll (SEC-04); {} for an enrolled one."""
         if store.totp_status(uid) == "enrolled":
             return {}
         return {"enrol_code": store.issue_enrol_code(uid, now=clock(), actor=_actor()),
@@ -741,7 +741,7 @@ def create_gateway_app(store: GatewayStore, *, config: GatewayConfig | None = No
 
     @app.route("/api/auth/admin/users/<int:uid>/enrol-code", methods=["POST"])
     def admin_enrol_code(uid: int):
-        """Issue a fresh one-time enrolment code (SEC-04); shown to the admin once, never stored in clear."""
+        """Issue a fresh one-time enrollment code (SEC-04); shown to the admin once, never stored in clear."""
         return _admin_call(lambda: _enrol_code_fields(uid))
 
     @app.route("/api/auth/admin/health", methods=["GET"])

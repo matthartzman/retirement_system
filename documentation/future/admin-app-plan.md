@@ -147,7 +147,7 @@ Tax modeling (Plan Settings), Global rebalancing, Annuity calibration, Workbook 
    user is `active`, not expired, and has an `insights` grant. Same error text for every refusal ("Incorrect
    username or password") so the sign-in page does not reveal which accounts exist or are disabled.
 2. **TOTP.** After the password, users with TOTP enrolled enter a 6-digit code; `last_used_step` blocks replay.
-   Enrolment is self-service on first sign-in when the admin has set "two-factor required" on the user (default
+   Enrollment is self-service on first sign-in when the admin has set "two-factor required" on the user (default
    on for new users; decision 3). New page `financial_trends_reporter/frontend/totp.html`.
 3. **Cross-process revocation.** Each session records the user's `session_epoch` at sign-in. The gate already
    reads the user row on every request (`access_routes.py:92`); it now also ends the session if the epoch has
@@ -213,7 +213,7 @@ Tax modeling (Plan Settings), Global rebalancing, Annuity calibration, Workbook 
    security review X-1 both also require a per-boot local token (`src/http_runtime/local_token_gate.py`): the launcher opens the
    browser through a one-time handoff link, scripts send `X-Local-Token`. Admin sign-in arrives with the multi-user gateway.
 3. **TOTP is required by default for new FI users**, optional per user; existing migrated users are prompted to
-   enrol at next sign-in.
+   enroll at next sign-in.
 4. **Planner access grants are stored but not enforced** until the multi-user gateway exists (there is no planner
    sign-in today).
 5. **Port 5056** for the Admin app (not on Chrome's restricted list; clear of 5050, 5057, 5058).
@@ -279,7 +279,7 @@ against frontend source.
 
 ### Phase 4 - Two-factor sign-in (0.15-0.25 cycle)
 
-- TOTP enrolment and verification in FI (stdlib HMAC; no new dependency), recovery codes, admin reset from the
+- TOTP enrollment and verification in FI (stdlib HMAC; no new dependency), recovery codes, admin reset from the
   Admin app, encrypted secrets via `secrets_store`.
 - Tests: RFC 6238 vectors, replay refusal, lockout interaction with the existing throttle.
 - Then the `security-review` skill over the FI gate and Admin app.

@@ -98,7 +98,7 @@ def test_a_code_cannot_be_replayed_not_even_the_enrolment_code(tmp_path):
     store = _store(tmp_path)
     uid = store.add_user("Ann", "ann", PW)
     secret, _ = _enrol(store, uid)
-    assert store.verify_login("ann", PW, T0 + 1, code=totp_lib.totp_at(secret, T0)).reason == "bad_code"  # enrolment code
+    assert store.verify_login("ann", PW, T0 + 1, code=totp_lib.totp_at(secret, T0)).reason == "bad_code"  # enrollment code
     code = totp_lib.totp_at(secret, T0 + 30)
     assert store.verify_login("ann", PW, T0 + 30, code=code).ok
     assert store.verify_login("ann", PW, T0 + 31, code=code).reason == "bad_code"
@@ -198,4 +198,4 @@ def test_credential_store_failure_is_raised_not_swallowed(tmp_path):
     uid = store.add_user("Ann", "ann", PW)
     with pytest.raises(SecretStoreUnavailable):
         store.begin_enrolment(uid, now=T0)
-    assert store.verify_login("ann", PW, T0).needs_enrolment  # people without a factor can still reach the enrolment page
+    assert store.verify_login("ann", PW, T0).needs_enrolment  # people without a factor can still reach the enrollment page

@@ -32,7 +32,7 @@ def test_create_admin_on_an_empty_database(tmp_path):
     store = GatewayStore(db, scrypt_n=2**4)
     user = store.find_user("root")
     assert user["role"] == "admin" and user["display_name"] == "The Owner" and not user["must_change"]
-    assert store.totp_status(user["id"]) == "none"  # enrols at first login
+    assert store.totp_status(user["id"]) == "none"  # enrolls at first login
     assert store.verify_password("root", PW, now=1).ok
     assert PW not in out and PW not in err
     assert any(r["event"] == "first admin created" and r["actor_user_id"] is None and r["actor_username"].startswith("cli:")

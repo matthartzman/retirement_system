@@ -2,7 +2,7 @@
 
 ## segno 1.6.6
 
-- Use: draws the TOTP enrolment `otpauth://` URI as a QR code (SVG data URI) on this machine, in
+- Use: draws the TOTP enrollment `otpauth://` URI as a QR code (SVG data URI) on this machine, in
   `src/gateway/app.py` (`qr_svg_data_uri`). Nothing is sent to a CDN or a QR web service.
 - Source: https://github.com/heuer/segno/ (PyPI package `segno`, pinned `segno==1.6.6` in `requirements.txt`).
 - Pure Python, no dependencies. Licence: BSD-3-Clause, text below (copied from the 1.6.6 wheel's

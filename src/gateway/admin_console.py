@@ -67,7 +67,7 @@ def register_admin_console(app, store: GatewayStore, *, clock: Callable[[], floa
                            file_page: Callable, json_response: Callable, delete_account: Callable | None = None,
                            shared_views: bool = False, max_viewers_per_sponsor: int = 5,
                            enrol_fields: Callable[[int], dict] | None = None) -> None:
-    codes = enrol_fields or (lambda _uid: {})  # SEC-04: the one-time enrolment code, shown to the admin once
+    codes = enrol_fields or (lambda _uid: {})  # SEC-04: the one-time enrollment code, shown to the admin once
     features = {**FEATURES, "viewers": bool(shared_views)}
     def body() -> dict:
         data = request.get_json(silent=True)
@@ -212,7 +212,7 @@ def register_admin_console(app, store: GatewayStore, *, clock: Callable[[], floa
 
     @app.route(API_BASE + "/users/enrol-code", methods=["POST"])
     def console_enrol_code():
-        """Issue a fresh one-time enrolment code for an account that has not enrolled (SEC-04)."""
+        """Issue a fresh one-time enrollment code for an account that has not enrolled (SEC-04)."""
         uid, bad = target(body())
         if bad:
             return bad

@@ -46,12 +46,12 @@ ABSOLUTE_SECONDS = 12 * 3600
 VIEWER_IDLE_SECONDS = 10 * 60  # Phase 9 (design 5.7, decision 8); --viewer-idle-minutes
 VIEWER_ABSOLUTE_SECONDS = 2 * 3600  # --viewer-max-hours
 PENDING_SECONDS = 5 * 60
-# Every account must enrol its authenticator within this long of creation or of an admin reset, or it is locked
+# Every account must enroll its authenticator within this long of creation or of an admin reset, or it is locked
 # until an admin issues a new temporary password (Phase 9, design 5.7; residual risk R-5 extended it to members).
 ENROL_DEADLINE_SECONDS = 24 * 3600  # SEC-04: was 72 h
-# SEC-04: the temporary password alone no longer lets anyone start enrolment. The admin is shown a one-time code at
+# SEC-04: the temporary password alone no longer lets anyone start enrollment. The admin is shown a one-time code at
 # creation / reset time and passes it to the person out of band; only its hash is stored, it expires quickly and is
-# spent when enrolment completes.
+# spent when enrollment completes.
 ENROL_CODE_SECONDS = 20 * 60
 ENROL_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O/1/I/L
 ENROL_CODE_LENGTH = 10  # about 49 bits
@@ -134,7 +134,7 @@ _MIGRATIONS: list[tuple[int, list[str]]] = [
         "ALTER TABLE users ADD COLUMN modules TEXT NOT NULL DEFAULT '{}'",
     ]),
     # Phase 9 (multi-user-shared-view-design.md 5.2): viewer accounts, shares and the owner's access log, plus the
-    # enrol-by deadline for every account (5.7). Additive: every existing row becomes a member.
+    # enroll-by deadline for every account (5.7). Additive: every existing row becomes a member.
     (4, [
         """ALTER TABLE users ADD COLUMN kind TEXT NOT NULL DEFAULT 'member'
             CHECK (kind IN ('member', 'viewer') AND (kind = 'member' OR role = 'user'))""",
@@ -186,7 +186,7 @@ _MIGRATIONS: list[tuple[int, list[str]]] = [
             PRIMARY KEY (user_id, source)
         )""",
     ]),
-    # SEC-04: one-time enrolment code (hash only) and its expiry; NULL means no code is outstanding.
+    # SEC-04: one-time enrollment code (hash only) and its expiry; NULL means no code is outstanding.
     (6, [
         "ALTER TABLE users ADD COLUMN enrol_code_hash TEXT",
         "ALTER TABLE users ADD COLUMN enrol_code_expires REAL",
@@ -604,7 +604,7 @@ class GatewayStore:
                          " updated_at=? WHERE id=?", (digest, salt, self._n, int(bool(must_change)), now, row["id"]))
             conn.execute("UPDATE login_sources SET failed_count=0, locked_until=0 WHERE user_id=?", (row["id"],))
             if must_change:
-                # A temporary password (an admin or CLI reset) starts a fresh enrol-by deadline, and a viewer's
+                # A temporary password (an admin or CLI reset) starts a fresh enroll-by deadline, and a viewer's
                 # shares wait for each owner to enable them again (design 5.7, C10 and C11).
                 conn.execute("UPDATE users SET enrol_by=?, enrol_code_hash=NULL, enrol_code_expires=NULL WHERE id=?",
                              (now + ENROL_DEADLINE_SECONDS, row["id"]))
@@ -749,7 +749,7 @@ class GatewayStore:
                              (int(user_id), source, now))
 
     def _enrol_overdue(self, user: dict | sqlite3.Row, now: float) -> bool:
-        """Not enrolled, and the enrol-by deadline has passed (C10)."""
+        """Not enrolled, and the enroll-by deadline has passed (C10)."""
         if user["enrol_by"] is None or now < user["enrol_by"]:
             return False
         return self.totp_status(int(user["id"])) != "enrolled"
@@ -804,7 +804,7 @@ class GatewayStore:
             return "none"
         return "enrolled" if row["enrolled_at"] is not None else "pending"
 
-    # ---- one-time enrolment code (SEC-04) ----
+    # ---- one-time enrollment code (SEC-04) ----
     @staticmethod
     def _normalise_enrol_code(code: str) -> str:
         return "".join(ch for ch in str(code or "").upper() if ch.isalnum())
@@ -814,12 +814,12 @@ class GatewayStore:
         return hashlib.sha256(b"rp-enrol-code\0" + cls._normalise_enrol_code(code).encode()).hexdigest()
 
     def issue_enrol_code(self, user_id: int, *, now: float, actor: Actor) -> str:
-        """Mint a fresh enrolment code for an account that has not enrolled; the clear code is returned once.
+        """Mint a fresh enrollment code for an account that has not enrolled; the clear code is returned once.
 
         Only its hash is stored and a previous code is replaced. An already-enrolled account raises ValueError
         (an admin resets its two-factor first)."""
         if self.totp_status(user_id) == "enrolled":
-            raise ValueError("two-factor is already set up; reset it first to issue a new enrolment code")
+            raise ValueError("two-factor is already set up; reset it first to issue a new enrollment code")
         raw = "".join(secrets.choice(ENROL_CODE_ALPHABET) for _ in range(ENROL_CODE_LENGTH))
         with self._tx() as conn:
             row = self._locked_user(conn, user_id)
@@ -847,14 +847,14 @@ class GatewayStore:
         return bool(live and same)
 
     def spend_enrol_code(self, user_id: int, *, now: float, actor: Actor) -> None:
-        """Enrolment completed: the code is single use. Audited so the admin log shows who enrolled and when."""
+        """Enrollment completed: the code is single use. Audited so the admin log shows who enrolled and when."""
         with self._tx() as conn:
             row = conn.execute("SELECT id, username FROM users WHERE id=?", (int(user_id),)).fetchone()
             if row is None:
                 return
             conn.execute("UPDATE users SET enrol_code_hash=NULL, enrol_code_expires=NULL WHERE id=?", (row["id"],))
-            self.audit("enrolment completed", now=now, actor=actor, target_user_id=row["id"],
-                       target_username=row["username"], details="one-time enrolment code spent", conn=conn)
+            self.audit("enrollment completed", now=now, actor=actor, target_user_id=row["id"],
+                       target_username=row["username"], details="one-time enrollment code spent", conn=conn)
 
     def begin_totp_enrolment(self, user_id: int, now: float) -> str:
         with self._tx() as conn:
