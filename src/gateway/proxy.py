@@ -55,6 +55,8 @@ class ProxyConfig:
     build_poll_seconds: float = 5.0
     max_upstream_per_user: int = 16  # parallel requests one user's worker is handed; the rest wait their turn
     upstream_wait_seconds: float = 60.0  # how long a request may wait for a turn before a 503
+    plan_wait_seconds: float = 20.0  # X-7: how long a /api/plan run may wait for a compute slot before a 429
+    plan_poll_seconds: float = 0.1
     refused_backoff: tuple[float, ...] = (0.05, 0.1, 0.2, 0.4, 0.8)  # retries of a refused connection to a live worker
 
 
@@ -109,6 +111,8 @@ class WorkerProxy:
             return _error(req, "That upload is too large.", 413)
         if path == "/api/build/start" and method == "POST":
             return self._build_start(req, uid)
+        if path == "/api/plan" and method == "POST":
+            return self._plan_run(req, uid)
         m = _PROGRESS.match(path)
         if m and method == "GET":
             return self._build_progress(req, uid, m.group(1))
@@ -211,6 +215,25 @@ class WorkerProxy:
         security_headers.apply(out, security_headers.PLANNER_CSP)
         resp = Response(data, status=status, headers=dict(out))
         return resp
+
+    # ---- the synchronous plan run (X-7) ----
+    def _plan_run(self, req: LocalRequest, uid: int) -> Response:
+        """``POST /api/plan`` runs a Monte Carlo inside the request, so a member could start many at once and starve
+        every other user's CPU. It now takes a slot from the same global limit as workbook builds (CPU, not memory,
+        is what limits both), one per user, and waits for it for up to ``plan_wait_seconds``; past that the answer
+        is 429 with ``Retry-After``. The slot is released when the worker answers, so a run never outlives it."""
+        deadline = time.monotonic() + self.config.plan_wait_seconds
+        while not self.queue.try_acquire(uid):
+            if time.monotonic() >= deadline:
+                return Response(json.dumps({"success": False, "status": "error",
+                                            "error": "The server is busy running other plans. Try again in a few seconds."}),
+                                status=429, headers={"Retry-After": "5"}, content_type="application/json")
+            time.sleep(self.config.plan_poll_seconds)
+        try:
+            return self._send(req, uid, req.path, retry=False)
+        finally:
+            self.queue.abandon(uid)  # releases the slot only while it is still this reservation (job_id None)
+            self._wake.set()  # a build waiting for a slot may start now
 
     # ---- builds ----
     def _build_start(self, req: LocalRequest, uid: int) -> Response:

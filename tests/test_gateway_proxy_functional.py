@@ -305,3 +305,56 @@ def test_one_users_parallel_requests_are_bounded_and_all_answered(rig):
     for t in threads:
         t.join(timeout=30)
     assert out == [200] * 30 and live["max"] <= 4
+
+
+# ---- X-7: the synchronous Monte Carlo run takes a slot from the global build limit ----
+def test_plan_runs_share_the_global_limit_wait_their_turn_and_then_get_429(rig):
+    proxy, _sup, workers, queue = rig  # the queue allows ONE build or plan run at a time
+    proxy.config = ProxyConfig(max_request_bytes=1000, max_response_bytes=5000, read_timeout=5.0,
+                               plan_wait_seconds=0.4, plan_poll_seconds=0.02)
+    workers[1].sleep = 0.25
+    results: dict[str, object] = {}
+
+    def run(name, ident):
+        results[name] = proxy.forward(_req("POST", "/api/plan", {"Content-Type": "application/json"}, b'{"x":1}'), ident)
+
+    t1 = threading.Thread(target=run, args=("alice", ALICE))
+    t1.start()
+    time.sleep(0.08)  # Alice's run is in the worker and holds the only slot
+    assert queue.has_build(1)
+    t2 = threading.Thread(target=run, args=("bob", BOB))
+    t2.start()
+    t1.join(5)
+    t2.join(5)
+    assert results["alice"].status_code == 200
+    assert results["bob"].status_code == 200  # Bob waited for the slot, then ran
+    assert [r["path"] for r in workers[2].requests] == ["/api/plan"]
+    assert not queue.has_build(1) and not queue.has_build(2)  # the slot is released afterwards
+
+
+def test_a_plan_run_that_cannot_get_a_slot_is_refused_with_retry_after_and_never_reaches_the_worker(rig):
+    proxy, _sup, workers, queue = rig
+    proxy.config = ProxyConfig(max_request_bytes=1000, read_timeout=1.0, plan_wait_seconds=0.15, plan_poll_seconds=0.02)
+    assert queue.try_acquire(1)  # a build holds the only slot
+    resp = proxy.forward(_req("POST", "/api/plan", {"Content-Type": "application/json"}, b"{}"), BOB)
+    assert resp.status_code == 429 and resp.headers.get("Retry-After") == "5"
+    assert "busy" in resp.get_json()["error"]
+    assert workers[2].requests == []
+    assert queue.has_build(1)  # the build's slot was not touched
+
+
+def test_a_plan_run_never_releases_a_build_that_started_meanwhile(rig):
+    proxy, _sup, workers, queue = rig
+    workers[1].sleep = 0.2
+    done = {}
+    t = threading.Thread(target=lambda: done.setdefault("r", proxy.forward(
+        _req("POST", "/api/plan", {"Content-Type": "application/json"}, b"{}"), ALICE)))
+    t.start()
+    time.sleep(0.05)
+    queue.worker_gone(1)           # slot reservation has job_id None, so this leaves it
+    queue.finished(1)              # simulate the reservation being cleared elsewhere...
+    assert queue.try_acquire(1)    # ...and a new reservation made by a build start
+    queue.started(1, "jobX")       # now a real build owns the slot
+    t.join(5)
+    assert done["r"].status_code == 200
+    assert queue.has_build(1), "the plan run released a slot that belongs to a build"
