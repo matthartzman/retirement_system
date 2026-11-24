@@ -71,10 +71,14 @@ def _restrict_key_file(path: Path) -> None:
     """Owner-only: chmod 600, and on Windows an explicit ACL with inheritance removed (best effort, never fatal).
     Uses Popen rather than ``subprocess.run`` so it is not caught by tests that stub the price-refresh subprocess."""
     if sys.platform == "win32":
-        from src.http_runtime.local_token_gate import _windows_user_grant  # noqa: PLC0415
+        import getpass  # noqa: PLC0415
 
+        # Account name from the environment, not ``whoami`` through subprocess.run (see the docstring).
+        domain = os.environ.get("USERDOMAIN") or os.environ.get("COMPUTERNAME") or ""
+        user = getpass.getuser()
+        grant = (f"{domain}\\{user}" if domain else user) + ":F"
         try:
-            proc = subprocess.Popen(["icacls", str(path), "/inheritance:r", "/grant:r", _windows_user_grant()],
+            proc = subprocess.Popen(["icacls", str(path), "/inheritance:r", "/grant:r", grant],
                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             proc.communicate(timeout=30)
             if proc.returncode:
