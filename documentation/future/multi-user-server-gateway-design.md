@@ -60,7 +60,7 @@ It runs only in the service process: DPAPI seals for the calling account, so a C
 Backups copy the file as it is, so they hold only the sealed form (older archives keep the clear text until they age
 out). A sealed secret that cannot be opened (a `gateway.db` restored on a rebuilt machine, or under another account)
 fails closed: the code is refused, startup logs the affected user ids, and an admin resets their two-factor
-(`reset-totp`; the user enrols again). **Why DPAPI and not a key from the backup key file:** the backup key is optional
+(`reset-totp`; the user enrolls again). **Why DPAPI and not a key from the backup key file:** the backup key is optional
 (backups can be off), is a file an operator copies around and must then be protected like the secrets, and would make
 every restore depend on it. DPAPI needs no new secret, matches the existing scheme and protects against the real
 threat (a copied `gateway.db` or archive); its cost is the rebuilt-machine reset above, which is small for ten users
@@ -88,7 +88,7 @@ Defaults suit ten users (a browser opens about six connections); raise `--max-co
 1. `POST /api/auth/login {username, password}`. Refused with 429 when the client IP or the whole gateway is
    throttled. A wrong password, unknown user, disabled account or locked account all get the same 401 text, so
    usernames cannot be probed. Five failures (password or code) lock the account for 15 minutes.
-2. Success creates a **pending** session (5-minute life) and returns `next`: `enrol` (no confirmed TOTP; the page
+2. Success creates a **pending** session (5-minute life) and returns `next`: `enroll` (no confirmed TOTP; the page
    goes to `/gateway/enrol`) or `totp`.
 3. `POST /api/auth/totp/enrol/start` returns the secret and `otpauth://` URI; `POST /api/auth/totp/enrol/confirm
    {code}` or `POST /api/auth/totp/verify {code}` promotes the session to **active**. The cookie value and CSRF
@@ -151,7 +151,7 @@ CLIs (run on the server by the Windows administrator, `--password-stdin` for scr
     python -m src.gateway.cli break-glass  --db <gateway.db> --username <admin>
 
 `create-admin` refuses when an admin already exists. `break-glass` works only on an admin account: it sets the new
-password, clears TOTP (re-enrolment at next login), unlocks and re-enables the account, and ends its sessions.
+password, clears TOTP (re-enrollment at next login), unlocks and re-enables the account, and ends its sessions.
 
 ## Running the gateway
 
@@ -178,7 +178,7 @@ sets `Content-Length` from the re-framed body, and injects `X-API-Token`. `Refer
 compares it against its Host when `Origin` is absent. Response `Set-Cookie`
 from a worker must be dropped by the proxy (the worker issues none in remote mode).
 
-Enrolment QR code: `segno` 1.6.6 (BSD-3-Clause, pure Python, no dependencies; pinned in `requirements.txt` and
+Enrollment QR code: `segno` 1.6.6 (BSD-3-Clause, pure Python, no dependencies; pinned in `requirements.txt` and
 named in the PyInstaller spec's hidden imports) draws the `otpauth://` URI as an SVG data URI on this machine. No CDN
 or QR web service sees the secret; the gateway CSP allows `data:` images for it. The key and link stay on the page as
 the manual fallback. Licence and source: `src/gateway/THIRD_PARTY_NOTICES.md`.

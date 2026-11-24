@@ -53,7 +53,7 @@ def test_login_page_is_public_and_hardened(rig):
     assert rig.browser().get("/gateway/static/..%2Fstore.py").status_code == 404
 
 
-# ---- first login: password, then mandatory TOTP enrolment ----
+# ---- first login: password, then mandatory TOTP enrollment ----
 def test_first_login_requires_totp_enrolment(rig):
     uid = rig.add_user("ann")
     b = rig.browser()

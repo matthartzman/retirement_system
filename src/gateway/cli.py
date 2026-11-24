@@ -40,8 +40,8 @@ def _password(args: argparse.Namespace, stdin: TextIO, stderr: TextIO) -> str | 
 
 
 def _print_code(code: str, stdout: TextIO) -> None:
-    """SEC-04: the one-time enrolment code is needed with the password at first sign-in; shown once, never stored."""
-    print(f"One-time enrolment code (needed with the password at first sign-in, valid {ENROL_CODE_SECONDS // 60} minutes, "
+    """SEC-04: the one-time enrollment code is needed with the password at first sign-in; shown once, never stored."""
+    print(f"One-time enrollment code (needed with the password at first sign-in, valid {ENROL_CODE_SECONDS // 60} minutes, "
           f"shown only now): {code}", file=stdout)
     print("If it expires, run break-glass again, or issue a new code from the Users page.", file=stdout)
 

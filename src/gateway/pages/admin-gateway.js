@@ -51,14 +51,14 @@
       if (u && !on && !confirm(`Disable ${u.display_name} and end their sessions?`)) return { ok: false, error: "Not saved: sign-in left on." };
       return api(`/users/${on ? "enable" : "disable"}`, { id });
     },
-    // SEC-04: the one-time enrolment code is shown to the administrator once, at creation or reset. The server keeps only
-    // its hash, so closing this box loses it; "New enrolment code" on a person's page issues another.
+    // SEC-04: the one-time enrollment code is shown to the administrator once, at creation or reset. The server keeps only
+    // its hash, so closing this box loses it; "New enrollment code" on a person's page issues another.
     showCode: (out, who) => {
       if (!out || !out.enrol_code) return Promise.resolve();
       return new Promise((resolve) => {
         const box = document.createElement("dialog"), h = document.createElement("h3"), code = document.createElement("p");
         const note = document.createElement("p"), ok = document.createElement("button");
-        h.textContent = `Enrolment code for ${who}`;
+        h.textContent = `Enrollment code for ${who}`;
         code.textContent = out.enrol_code;
         code.style.cssText = "font:700 1.6rem/1.4 monospace;letter-spacing:.12em;user-select:all";
         note.className = "note";

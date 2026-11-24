@@ -344,7 +344,7 @@ full and derived from nothing else: not from `remote_allowlist.py` and not from 
 | POST | `/api/auth/login` | password step | yes |
 | GET | `/api/auth/session` | session JSON (gains `kind`; `insights` false for viewers) | yes (`app.py:496-506`) |
 | POST | `/api/auth/totp/enrol/start`, `/api/auth/totp/enrol/confirm`, `/api/auth/totp/verify` | second factor | yes (`PENDING_ALLOWED`, `app.py:43-44`) |
-| GET | `/gateway/enrol` | enrolment page | yes |
+| GET | `/gateway/enrol` | enrollment page | yes |
 | POST | `/api/auth/logout` | sign out (adds `Clear-Site-Data: "cache"` for viewers) | yes (`app.py:486-494`) |
 | POST | `/api/auth/password` | change password | yes (`MUST_CHANGE_ALLOWED`, `app.py:45`) |
 | GET | `/gateway/account` | account page | yes |
@@ -375,15 +375,15 @@ does (`app.py:278-282`), so an open tab does not keep a guest's session alive.
 
 ### 5.7 Sign-in, TOTP and sessions for viewers
 
-- **Same path:** the same login, the same mandatory TOTP (enrolment on first sign-in), the same lockout and throttles
+- **Same path:** the same login, the same mandatory TOTP (enrollment on first sign-in), the same lockout and throttles
   (`app.py:380-416,447-463`). An admin-created account starts with `must_change`, so the temporary password works only
   for the auth API and the account page (`app.py:45,285-288`).
 - **Shorter sessions:** idle 10 minutes and absolute 2 hours for viewers; members keep 15 minutes and 12 hours
   (`store.py:38-39`). `get_session` already joins the user row (`store.py:605-606`) and applies the kind's idle limit;
   `create_session` and `rotate_session` (`store.py:590-599,624-636`) set the kind's absolute limit.
-- **Enrol-by deadline, for every account:** an account that has not enrolled TOTP within 72 hours of creation, or of
+- **Enroll-by deadline, for every account:** an account that has not enrolled TOTP within 72 hours of creation, or of
   an admin reset, is locked until an admin issues a new temporary password. Today nothing limits that wait
-  (`create_user`, `store.py:265-284`), so whoever first uses an intercepted temporary password enrols their own phone.
+  (`create_user`, `store.py:265-284`), so whoever first uses an intercepted temporary password enrolls their own phone.
   The deadline covers viewers and planner users alike: the owner extended it to members when answering residual risk
   R-5. An account that has not enrolled when 9a deploys gets a fresh 72 hours from the upgrade; enrolled accounts are
   unaffected.
@@ -537,7 +537,7 @@ control to one of these tests.
 |---|---|
 | `test_gateway_share_store_unit.py` | Migration 3 -> 4 on a copy of a version 3 database keeps every row and makes everyone a member; the `kind` and role `CHECK`; sponsor cascade; scoped queries; share id format; `member_ids()` excludes viewers |
 | `test_gateway_viewer_gate_contract.py` | Walks every gateway route and a list of planner and FI paths as an active viewer: only `VIEWER_ALLOWED` answers; the fake upstream and supervisor record zero calls; an unknown `kind` is treated as a viewer; Phase 8's `eligible_users` never selects a viewer; the table is a fixed literal, not derived from the planner's |
-| `test_gateway_viewer_session_functional.py` | Pending, must-change and enrolment stages for viewers; idle and absolute limits; enrol-by deadline for viewers and members, and the fresh deadline at upgrade; logout headers; admin reset suspends shares |
+| `test_gateway_viewer_session_functional.py` | Pending, must-change and enrollment stages for viewers; idle and absolute limits; enroll-by deadline for viewers and members, and the fresh deadline at upgrade; logout headers; admin reset suspends shares |
 | `test_gateway_share_routes_functional.py` | Owner and viewer routes: scoping, uniform 404 bodies (byte-equal), CSRF and Origin, limits, sponsor rule, no enumeration |
 | `test_gateway_share_publish_functional.py` | Output validation, size cap, schema and key checks, leak check, atomic write, digest binding, revoke and scope-change races, plan mismatch, browser block of the snapshot route |
 | `test_insights_share_snapshot_functional.py` | The worker route: views by construction; percent output equal to what the desktop percent hook returns for the same data; leak check; no error text; active-plan rule; plan file hash unchanged |
@@ -556,7 +556,7 @@ Effort is relative to **one 5-hour Claude Code cycle on the Pro plan**, using th
 
 | Phase | Work | Model / effort | Expected usage and what drives it |
 |---|---|---|---|
-| 9a. Data model, viewer accounts, gate | Migration step 4; store methods (`create_viewer`, `member_ids`, scoped share queries); `Identity.kind`; the gate branch and `VIEWER_ALLOWED`; refusals in the proxy and supervisor; members-only selection in Phase 8's `eligible_users`; viewer session limits, the enrol-by deadline for every account (R-5), resets suspend shares; admin console **Add viewer**; the store, gate-contract and session tests | Opus 5.5, high (the gate is the boundary) | **Moderate to heavy** (20-25%). `store.py` (695 lines) and `app.py` (604) change in a few functions: Grep, then read only those. The contract test that walks every route is the longest edit-test loop |
+| 9a. Data model, viewer accounts, gate | Migration step 4; store methods (`create_viewer`, `member_ids`, scoped share queries); `Identity.kind`; the gate branch and `VIEWER_ALLOWED`; refusals in the proxy and supervisor; members-only selection in Phase 8's `eligible_users`; viewer session limits, the enroll-by deadline for every account (R-5), resets suspend shares; admin console **Add viewer**; the store, gate-contract and session tests | Opus 5.5, high (the gate is the boundary) | **Moderate to heavy** (20-25%). `store.py` (695 lines) and `app.py` (604) change in a few functions: Grep, then read only those. The contract test that walks every route is the longest edit-test loop |
 | 9b. Publish path | FI worker route and allow-list entry; view-to-route map, fixed scopes, percent pipeline, leak check; proxy browser block; gateway publisher (`call_worker` with a new `max_bytes`, validation, atomic write, digest, race guards); optional refresh hook in Phase 8's `_update_user`; housekeeping; plan-delete hook; size and time measured on the demo plan | Opus 5.5, high | **Moderate to heavy** (20-25%). Step 0 Greps the realized and live parameters and the `percent_view` import. Never read `live_snapshot.py` (1,326 lines) or `index.html` linearly. Real-worker functional tests are slow: run each once |
 | 9c. Viewer page and route table | `/gateway/viewer` page and script, static allowlist, render from one record, status poll, sign-out clearing; frontend render test; Playwright guest spec | Sonnet 5.5, high (Opus 5.5 high to review the route table) | **Moderate** (15-20%). Step 0 decides between reusing FI's chart modules and a small renderer: Grep their exports, do not read them whole. Playwright compresses least; budget one retry round |
 | 9d. Owner UI and operations | `/gateway/sharing` page, owner routes, FI header link; `acl setup` and `acl check` for the shares folder; `restore_gateway_db` suspends shares; runbook lines | Sonnet 5.5, high | **Moderate** (15%). The FI link: Grep `index.html` and leave its fetch wrapper alone. `acl.py` changes are a few lines plus tests |
@@ -605,7 +605,7 @@ changed the same day to "fix it now, in scope": the fix is in this pull request.
 | 5 | Q5: export | No export |
 | 6 | Archive record bodies | No: rows travel in `gateway.db`; a restored `gateway.db` suspends every share |
 | 7 | Deleting a plan revokes its shares | Yes |
-| 8 | Viewer session limits and enrol-by deadline | 10 minutes idle, 2 hours absolute, 72 hours to enrol; the enrolment deadline then extended to every account (residual risk R-5) |
+| 8 | Viewer session limits and enroll-by deadline | 10 minutes idle, 2 hours absolute, 72 hours to enroll; the enrollment deadline then extended to every account (residual risk R-5) |
 | 9 | Record selection | Share id within the session's own set (not one share per viewer) |
 | 10 | Phase 8 refresh hook | On when `--insights-schedule` is set, only for shares whose plan is active |
 | 11 | An admin reset suspends the viewer's shares | Yes, until each owner re-enables them |
@@ -614,7 +614,7 @@ changed the same day to "fix it now, in scope": the fix is in this pull request.
 
 Residual risks, answered 2026-11-18 (security review, section 8): ten are accepted as they stand. R-4 is accepted, with
 the P7-O4 sign-in throttle fix as a prerequisite of turning on `--shared-views`. R-5 is closed by extending the
-enrol-by deadline to every account (5.7).
+enroll-by deadline to every account (5.7).
 
 Sign-off: the owner approved this design and the security review (design stage) on 2026-11-18. Phase 9 building may
 start at 9a; rollout waits for the review's release checklist.
@@ -644,7 +644,7 @@ Built, behind `--shared-views` (default off; the gateway refuses to start with i
   can create a viewer account (security review, condition 1 and hard rule 3 of the build brief).
 - **Migration step 4** (`src/gateway/store.py`, `_MIGRATIONS`): `kind` with the cross-column `CHECK`, `sponsor_user_id`
   with `ON DELETE CASCADE`, `shares`, `share_access_log` and their indexes, as in 5.2, plus one column the section did
-  not list: `users.enrol_by` (the enrol-by deadline, 5.7). A migration step may now be a callable that receives the
+  not list: `users.enrol_by` (the enroll-by deadline, 5.7). A migration step may now be a callable that receives the
   connection and the store's clock; step 4 uses one to give every account that has not enrolled a fresh 72 hours from
   the upgrade. `SCHEMA_VERSION` is 4. SQLite accepts the cross-column `CHECK` in `ADD COLUMN` and the self-referencing
   foreign key added by `ALTER TABLE` (section 14's open point): `test_gateway_share_store_unit.py` builds a real
@@ -654,7 +654,7 @@ Built, behind `--shared-views` (default off; the gateway refuses to start with i
   and `get_session` (viewers 10 minutes idle and 2 hours absolute, `--viewer-idle-minutes`, `--viewer-max-hours`; any
   kind but exactly `member` gets the viewer limits), `set_role` refuses viewers, `delete_user` audits each sponsored
   viewer it cascades, and `list_users` reports kind, sponsor, share counts and `enrol_overdue`.
-- **Enrol-by deadline for every account (C10, R-5):** `create_user`, `create_viewer`, a temporary-password reset
+- **Enroll-by deadline for every account (C10, R-5):** `create_user`, `create_viewer`, a temporary-password reset
   (`set_password` with `must_change=True`, which is what the admin console, the old admin route and nothing else uses)
   and `reset_totp` (admin console and break-glass) set `enrol_by` to now + 72 hours. `verify_password` refuses a correct
   password once the deadline has passed and TOTP is not enrolled (reason `enrol_overdue`, the same generic error for the
@@ -662,7 +662,7 @@ Built, behind `--shared-views` (default off; the gateway refuses to start with i
   before it cannot finish after it. Enrolled accounts are never affected. **Choice recorded:** the deadline is not
   behind `--shared-views`. It applies as soon as this code runs, because 5.7 says "an account that has not enrolled when
   9a deploys gets a fresh 72 hours from the upgrade" and the owner closed R-5 by extending it to members. Deploying this
-  build therefore starts a 72-hour clock for every account that has not finished two-factor enrolment.
+  build therefore starts a 72-hour clock for every account that has not finished two-factor enrollment.
 - **Shares, by construction scoped:** `src/gateway/share_store.py` holds every share query. Owner queries include
   `owner_user_id`, viewer queries `grantee_user_id`; the servable-row query also requires the owner to be a usable
   member and the grantee not to be a member. Body storage (atomic write, digest, size, embedded id and revision check)

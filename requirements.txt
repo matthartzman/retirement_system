@@ -20,6 +20,6 @@ pywebview>=4.0,<7
 # No plain-text fallback exists: with no usable backend, setting a key raises SecretStoreUnavailable.
 keyring>=24,<26
 
-# Multi-user gateway: QR code on the TOTP enrolment page, rendered locally as SVG.
+# Multi-user gateway: QR code on the TOTP enrollment page, rendered locally as SVG.
 # Pure Python, no dependencies, BSD-3-Clause; see src/gateway/THIRD_PARTY_NOTICES.md.
 segno==1.6.6

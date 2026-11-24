@@ -1,4 +1,4 @@
-"""Financial Insights two-factor sign-in over the remote listener: enrolment gate, code step, replay, lockout, reset."""
+"""Financial Insights two-factor sign-in over the remote listener: enrollment gate, code step, replay, lockout, reset."""
 from __future__ import annotations
 
 import pytest

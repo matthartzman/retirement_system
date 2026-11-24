@@ -1,7 +1,7 @@
-"""SEC-04: the admin-issued temporary password alone no longer lets anyone start TOTP enrolment.
+"""SEC-04: the admin-issued temporary password alone no longer lets anyone start TOTP enrollment.
 
-A one-time enrolment code (shown to the admin once, stored only as a hash, short expiry, single use, wrong tries
-counted toward the sign-in throttle) is needed as well, and completing enrolment is audited."""
+A one-time enrollment code (shown to the admin once, stored only as a hash, short expiry, single use, wrong tries
+counted toward the sign-in throttle) is needed as well, and completing enrollment is audited."""
 from __future__ import annotations
 
 import io
@@ -60,7 +60,7 @@ def test_correct_code_enrols_and_is_spent(rig):
     r = b.post(CONFIRM, json={"code": rig.code(uid)})
     assert r.status_code == 200
     assert rig.store.enrol_code_state(uid, rig.now[0]) == "none"
-    done = [e for e in rig.store.read_audit(100) if e["event"] == "enrolment completed"]
+    done = [e for e in rig.store.read_audit(100) if e["event"] == "enrollment completed"]
     assert len(done) == 1 and done[0]["target_user_id"] == uid
 
 
@@ -141,12 +141,12 @@ def test_cli_prints_a_code_for_create_admin_and_break_glass(tmp_path):
         return rc, out.getvalue()
 
     rc, out = run("create-admin", "--username", "root")
-    assert rc == 0 and "One-time enrolment code" in out
+    assert rc == 0 and "One-time enrollment code" in out
     store = GatewayStore(db, scrypt_n=2**4)
     code = out.split("shown only now): ")[1].split()[0]
     uid = store.find_user("root")["id"]
     assert store.verify_enrol_code(uid, code, __import__("time").time())
     rc, out = run("break-glass", "--username", "root")
-    assert rc == 0 and "One-time enrolment code" in out
+    assert rc == 0 and "One-time enrollment code" in out
     new = out.split("shown only now): ")[1].split()[0]
     assert new != code and not store.verify_enrol_code(uid, code, __import__("time").time())

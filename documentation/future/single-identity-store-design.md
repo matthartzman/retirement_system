@@ -204,7 +204,7 @@ Expensive steps and how to scope them:
 
 ## 8. Test plan (summary)
 
-1. One parametrised conformance suite: create, sign in, wrong password, lockout and unlock, must-change, disable, expire, last-admin rule (including two concurrent attempts), role change, TOTP enrol, verify, replay of a used step, reset, recovery code, session epoch, audit row for each, run against both legacy stores and the new library.
+1. One parametrised conformance suite: create, sign in, wrong password, lockout and unlock, must-change, disable, expire, last-admin rule (including two concurrent attempts), role change, TOTP enroll, verify, replay of a used step, reset, recovery code, session epoch, audit row for each, run against both legacy stores and the new library.
 2. Hash round-trip: hash made by either legacy store verifies in the new library and the other way round.
 3. Migration: dry-run report matches the apply result; a re-run is a no-op; a sealed secret that cannot be opened is reported, not guessed.
 4. Route-contract test for section 4: the gateway URL map has no settings/process/system routes; the Admin app app refuses non-loopback, proxied and cross-origin requests as before.
@@ -230,7 +230,7 @@ Expensive steps and how to scope them:
 **Not verified**
 
 - Whether any deployed server component other than the gateway reads `identity.db`, and whether FI runs on the server (the integration design makes the same note).
-- Whether `identity.db` recovery codes are stored hashed or encrypted, and how a pending enrolment is stored (read `identity/totp.py` only to line 60).
+- Whether `identity.db` recovery codes are stored hashed or encrypted, and how a pending enrollment is stored (read `identity/totp.py` only to line 60).
 - That DPAPI LocalSystem seals cannot be opened from the owner's account (documented in `secret_box.py`; not tried).
 - That `access_core` hashes are byte-identical across the stores in a round-trip (the call shape matches; no test run).
 - That the planner has no grant enforcement beyond `src/server/` (Grep there found none; `workers`, `proxy.py` and `launchers.py` were not read in full).

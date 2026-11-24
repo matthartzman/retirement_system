@@ -201,7 +201,7 @@ Implement the "Remote mode" contract above, plus the headless worker entry point
 - Roles `admin` and `user`; admin-created accounts only; first-admin CLI; password change; disable; TOTP.
   **Any number of admins:** an admin can promote or demote another account; the last remaining admin cannot be
   demoted, disabled or deleted; every admin action goes to the gateway audit log with the acting admin's id; a
-  new admin enrols their own TOTP at first login. A break-glass CLI on the server (run by the Windows administrator,
+  new admin enrolls their own TOTP at first login. A break-glass CLI on the server (run by the Windows administrator,
   not reachable from the web) can reset an admin's password and TOTP if all admins are locked out.
 - `gateway.db` with its own schema versioning. The gateway serves its own login page, user menu and Users page,
   so none of that lands in `frontend/js`.
@@ -297,7 +297,7 @@ remote users, so it stays inside the minimum slice.
 
 - Remote access through Tailscale Funnel pointed at the gateway port only (see "Remote access decision"), with
   the reporter's misconfiguration check reused so Funnel can never target a worker or the reporter's local port.
-  Mandatory TOTP enrolment at first login. User account lifecycle runbook: create, disable, delete (account,
+  Mandatory TOTP enrollment at first login. User account lifecycle runbook: create, disable, delete (account,
   profile, folder), password rotation.
 - Service wrapper, no-sleep policy, health page, log rotation.
 - Nightly encrypted backup of `data/users/` and `gateway.db`, run by the gateway (always-on server), to a

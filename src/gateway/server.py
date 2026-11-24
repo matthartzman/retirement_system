@@ -279,7 +279,7 @@ def protect_totp_at_startup(store: GatewayStore) -> None:
     unreadable = store.unreadable_totp_users()
     if unreadable:
         LOG.warning("the TOTP secret of user id(s) %s cannot be opened here (gateway.db from another machine or "
-                    "account?); reset their two-factor from the Users page so they can enrol again",
+                    "account?); reset their two-factor from the Users page so they can enroll again",
                     ", ".join(str(u) for u in unreadable))
 
 

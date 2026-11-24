@@ -107,7 +107,7 @@ class LoginResult:
     user_id: int | None
     must_change: bool
     reason: Literal["ok", "bad", "locked", "totp", "bad_code"]  # "totp": password right, a code is needed
-    needs_enrolment: bool = False  # signed in, but must enrol a second factor before anything else
+    needs_enrolment: bool = False  # signed in, but must enroll a second factor before anything else
 
 
 class LastAdminError(ValueError):
@@ -135,7 +135,7 @@ class IdentityStore:
             try:
                 conn.executescript(_SCHEMA)
                 if "totp_required" not in {r["name"] for r in conn.execute("PRAGMA table_info(users)")}:
-                    # Existing people default to required, so they are prompted to enrol at next sign-in.
+                    # Existing people default to required, so they are prompted to enroll at next sign-in.
                     conn.execute("ALTER TABLE users ADD COLUMN totp_required INTEGER NOT NULL DEFAULT 1")
                 conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
                 conn.commit()
@@ -322,7 +322,7 @@ class IdentityStore:
         return self.session_epoch(user_id) or 0
 
     def reset_totp(self, user_id: int) -> bool:
-        """Remove a person's second factor (they enrol again) and end their sessions. True if one was enrolled."""
+        """Remove a person's second factor (they enroll again) and end their sessions. True if one was enrolled."""
         self._pending.pop(user_id, None)
         had = bool(self._run("DELETE FROM totp WHERE user_id=?", (user_id,)).rowcount)
         self.end_sessions(user_id)
@@ -465,7 +465,7 @@ class IdentityStore:
         return secret
 
     def confirm_enrolment(self, user_id: int, code: str, now: float | None = None) -> list[str] | None:
-        """Finish enrolment with a code from the new secret. Returns the recovery codes (shown once), or None for a
+        """Finish enrollment with a code from the new secret. Returns the recovery codes (shown once), or None for a
         wrong code. After a few wrong codes the pending secret is dropped and ``begin_enrolment`` must be repeated."""
         now = self._now(now)
         with self._lock:

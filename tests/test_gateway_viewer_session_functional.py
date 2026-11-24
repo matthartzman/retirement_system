@@ -1,4 +1,4 @@
-"""Viewer sign-in and sessions (Phase 9, design 5.7): stages, limits, the enrol-by deadline, resets, sign-out.
+"""Viewer sign-in and sessions (Phase 9, design 5.7): stages, limits, the enroll-by deadline, resets, sign-out.
 
 Controls C8-C11, C26 and C27, plus the admin console's Add viewer (design 6.3). In process, no worker.
 """
@@ -82,7 +82,7 @@ def test_viewer_idle_and_absolute_limits(rig):
     assert m.get("/api/plans").status_code == 200  # members keep 12 hours
 
 
-# ---- C10: the enrol-by deadline, for every account ----
+# ---- C10: the enroll-by deadline, for every account ----
 def test_viewer_not_enrolled_within_the_deadline_is_locked(rig):
     owner = rig.add_user("olive")
     vid = rig.add_viewer("vic", sponsor=owner)

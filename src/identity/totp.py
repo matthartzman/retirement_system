@@ -3,7 +3,7 @@
 Secrets are sealed with a key held in the OS credential store (``secrets_store``), never in ``identity.db``,
 so a copied database does not yield working second factors. The seal is encrypt-then-MAC built from HMAC-SHA256
 (a counter-mode keystream plus a tag bound to the person), which needs no third-party package.
-Nothing here logs or returns a secret except ``new_secret`` (shown once during enrolment).
+Nothing here logs or returns a secret except ``new_secret`` (shown once during enrollment).
 """
 from __future__ import annotations
 
