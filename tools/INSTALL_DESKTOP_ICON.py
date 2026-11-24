@@ -40,6 +40,28 @@ def create_windows_shortcut(name: str, script: Path) -> Path | None:
     except Exception:
         return None
 
+UPDATE_SCRIPT = ROOT / 'tools' / 'update_server.ps1'
+UPDATE_NAME = 'Update Retirement Server'
+
+def create_powershell_shortcut(name: str, script: Path) -> Path | None:
+    """A Windows shortcut that runs a PowerShell script (the script elevates itself)."""
+    lnk = DESKTOP / f'{name}.lnk'
+    ps = "\n".join([
+        "$WshShell = New-Object -ComObject WScript.Shell",
+        f"$Shortcut = $WshShell.CreateShortcut('{psq(lnk)}')",
+        "$Shortcut.TargetPath = 'powershell.exe'",
+        f"$Shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -File \"{psq(script)}\"'",
+        f"$Shortcut.WorkingDirectory = '{psq(ROOT)}'",
+        "$Shortcut.WindowStyle = 1",
+        f"$Shortcut.IconLocation = '{psq(ICON)}'",
+        "$Shortcut.Save()",
+    ])
+    try:
+        subprocess.run(['powershell','-NoProfile','-ExecutionPolicy','Bypass','-Command',ps], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return lnk
+    except Exception:
+        return None
+
 launchers = [
     ('Retirement Planner', UI_SCRIPT, 'Start Retirement System'),
     ('Retirement Planner - Reset Local Mode', RESET_SCRIPT, 'Reset Retirement System to local mode'),
@@ -56,6 +78,9 @@ if platform.system() == 'Windows':
     for name, script, _comment in launchers:
         created = create_windows_shortcut(name, script) or write_bat(name, script)
         print(f'Created {created}')
+    # Windows only: upgrades the installed multi-user server (needs the server install; harmless elsewhere).
+    update = create_powershell_shortcut(UPDATE_NAME, UPDATE_SCRIPT)
+    print(f'Created {update}' if update else f'Could not create the {UPDATE_NAME} shortcut')
 elif platform.system() == 'Darwin':
     for name, script, _comment in launchers:
         target = DESKTOP / f'{name}.command'
