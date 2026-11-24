@@ -1,18 +1,42 @@
 # F-15 / F-16: keep GitHub Actions, Python and npm dependencies current so pinned versions do not rot.
+#
+# Cost control (2026-11-24): the first version of this file opened 12 pull requests at once, and every one
+# started a full Windows CI run (five jobs, roughly 35 minutes each, billed at the Windows multiplier). That
+# very likely contributed to the Actions spending limit being reached, after which GitHub refused to start
+# jobs ("recent account payments have failed or your spending limit needs to be increased"). So now:
+#   * one grouped pull request per ecosystem for minor and patch updates, and one for major updates,
+#   * at most two open pull requests per ecosystem (so at most six in total),
+#   * a monthly schedule instead of weekly.
+# A security update still opens its own pull request straight away; grouping and the schedule do not delay it.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]
+      actions-major:
+        update-types: [major]
   - package-ecosystem: pip
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      python-minor-and-patch:
+        update-types: [minor, patch]
+      python-major:
+        update-types: [major]
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+      npm-major:
+        update-types: [major]
