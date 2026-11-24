@@ -24,6 +24,20 @@ def fake_dpapi():
     return protect, unprotect
 
 
+_REAL_LOCK_DOWN = bc._lock_down_key_file  # kept for its own test below; the fixture swaps the module attribute
+
+
+@pytest.fixture(autouse=True)
+def _no_icacls(monkeypatch):
+    """This file's contract (see its docstring) is that DPAPI and the DACL are fakes: no real icacls here.
+    ``write_keyring_file`` locks the new key file down to Administrators and SYSTEM and then renames it from the same
+    process, which only works while the caller's token has the Administrators entry ENABLED (an elevated shell, SYSTEM,
+    the CI runner). In an ordinary non-elevated session ``os.replace`` fails with WinError 5. The tests here are about
+    sealing, rotating and exporting; the real icacls runs in test_gateway_backup_key_lock_down_integration.py, once
+    for each kind of token."""
+    monkeypatch.setattr(bc, "_lock_down_key_file", lambda _tmp: None)
+
+
 def _roundtrip(master, payload=b"archive bytes " * 100000):
     sink = io.BytesIO()
     w = bc.EncryptingWriter(sink, master)
@@ -208,11 +222,11 @@ def test_the_windows_lock_down_grants_only_administrators_and_system(tmp_path, m
     calls = []
     monkeypatch.setattr(bc.sys, "platform", "win32")
     monkeypatch.setattr(subprocess, "run", lambda cmd, **k: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0, "", ""))
-    bc._lock_down_key_file(tmp_path / "k.new")
+    _REAL_LOCK_DOWN(tmp_path / "k.new")
     assert calls == [["icacls", str(tmp_path / "k.new"), "/inheritance:r", "/grant:r", "*S-1-5-32-544:(F)", "*S-1-5-18:(R)"]]
     monkeypatch.setattr(subprocess, "run", lambda cmd, **k: subprocess.CompletedProcess(cmd, 5, "", "denied"))
     with pytest.raises(OSError, match="could not restrict"):
-        bc._lock_down_key_file(tmp_path / "k.new")
+        _REAL_LOCK_DOWN(tmp_path / "k.new")
 
 
 def test_seal_and_rotate_warn_when_the_rewritten_key_is_exposed(tmp_path, monkeypatch):
@@ -225,3 +239,23 @@ def test_seal_and_rotate_warn_when_the_rewritten_key_is_exposed(tmp_path, monkey
     assert rc == 0 and "WARNING" in out and "refuse to start" in out
     rc, out, _err = _run(["key", "rotate", "--key-file", str(f)], crypt)
     assert rc == 0 and "WARNING" in out
+
+
+@pytest.mark.parametrize("action", ["seal", "rotate", "export"])
+def test_seal_rotate_and_export_all_lock_the_rewritten_file_down_by_default(tmp_path, monkeypatch, action):
+    """The tests above run with the real icacls replaced by a no-op. This pins that every rewrite still goes through
+    the module's lock-down (what write_keyring_file uses when no ``lock_down`` is passed), on the temp file, before
+    the swap."""
+    seen = []
+    monkeypatch.setattr(bc, "_lock_down_key_file", lambda tmp: seen.append((Path(tmp).name, Path(tmp).exists())))
+    f = tmp_path / "keys" / "backup.key"
+    f.parent.mkdir()
+    bc.write_key_file(f)
+    args, target = ["key", action, "--key-file", str(f)], f
+    if action == "export":
+        target = tmp_path / "offline" / "copy.json"
+        target.parent.mkdir()
+        args += ["--out", str(target)]
+    rc, _out, err = _run(args, fake_dpapi())
+    assert rc == 0, err
+    assert seen == [(target.name + ".new", True)]
