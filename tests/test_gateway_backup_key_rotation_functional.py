@@ -173,3 +173,55 @@ def test_key_acl_null_dacl_and_unreadable_are_findings():
 def test_key_acl_is_a_noop_off_windows(monkeypatch):
     monkeypatch.setattr(key_acl.sys, "platform", "linux")
     assert key_acl.key_file_findings(Path("k")) == []
+
+
+# ---- the rewrite must not change who can read the key (found on the owner's server) ----
+def test_the_new_key_file_is_locked_down_before_it_replaces_the_old_one(tmp_path):
+    f = tmp_path / "backup.key"
+    old = bc.write_key_file(f)
+    seen = []
+
+    def lock(tmp):
+        seen.append((Path(tmp).name, Path(tmp).exists(), bytes(bc.read_key_file(f)) == bytes(old)))
+
+    bc.write_keyring_file(f, bc.read_key_file(f), protect=fake_dpapi()[0], lock_down=lock)
+    assert seen == [("backup.key.new", True, True)]  # called on the temp file while the OLD file was still in place
+    assert bc.is_sealed(f) and not (tmp_path / "backup.key.new").exists()
+
+
+def test_a_failed_lock_down_leaves_the_old_key_untouched(tmp_path):
+    f = tmp_path / "backup.key"
+    old = bc.write_key_file(f)
+
+    def refuse_lock(_tmp):
+        raise OSError("icacls failed")
+
+    with pytest.raises(OSError):
+        bc.write_keyring_file(f, bc.read_key_file(f), protect=fake_dpapi()[0], lock_down=refuse_lock)
+    assert not bc.is_sealed(f) and bytes(bc.read_key_file(f)) == bytes(old)
+    assert not (tmp_path / "backup.key.new").exists()
+
+
+def test_the_windows_lock_down_grants_only_administrators_and_system(tmp_path, monkeypatch):
+    import subprocess
+
+    calls = []
+    monkeypatch.setattr(bc.sys, "platform", "win32")
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **k: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0, "", ""))
+    bc._lock_down_key_file(tmp_path / "k.new")
+    assert calls == [["icacls", str(tmp_path / "k.new"), "/inheritance:r", "/grant:r", "*S-1-5-32-544:(F)", "*S-1-5-18:(R)"]]
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **k: subprocess.CompletedProcess(cmd, 5, "", "denied"))
+    with pytest.raises(OSError, match="could not restrict"):
+        bc._lock_down_key_file(tmp_path / "k.new")
+
+
+def test_seal_and_rotate_warn_when_the_rewritten_key_is_exposed(tmp_path, monkeypatch):
+    crypt = fake_dpapi()
+    f = tmp_path / "keys" / "backup.key"
+    f.parent.mkdir()
+    bc.write_key_file(f)
+    monkeypatch.setattr(key_acl, "key_file_findings", lambda *a, **k: [f"{f}: account S-1-5-32-545 can read the backup key"])
+    rc, out, _err = _run(["key", "seal", "--key-file", str(f)], crypt)
+    assert rc == 0 and "WARNING" in out and "refuse to start" in out
+    rc, out, _err = _run(["key", "rotate", "--key-file", str(f)], crypt)
+    assert rc == 0 and "WARNING" in out

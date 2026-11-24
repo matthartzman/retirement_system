@@ -147,6 +147,14 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None, stderr:
 _DEFAULT = object()
 
 
+def _warn_if_exposed(path, say, gateway_sid) -> None:
+    """A rewrite must not leave the key readable by other accounts; say so loudly if it did."""
+    from . import key_acl  # noqa: PLC0415
+
+    for finding in key_acl.key_file_findings(path, gateway_sid=gateway_sid):
+        say(f"WARNING: {finding}. The service will refuse to start until this is fixed.")
+
+
 def _key(args, say, refuse, *, crypt=_DEFAULT) -> int:
     """``key check|seal|rotate|export`` (SEC-08). ``crypt`` is a (protect, unprotect) pair; Windows DPAPI by default."""
     from . import key_acl  # noqa: PLC0415
@@ -187,6 +195,7 @@ def _key(args, say, refuse, *, crypt=_DEFAULT) -> int:
         back = bc.read_key_file(path, unprotect=unprotect)
         if bytes(back) != bytes(ring) or set(back.keys) != set(ring.keys):
             return refuse("The sealed key did not read back; the file was NOT trusted. Restore your offline copy.", 1)
+        _warn_if_exposed(path, say, args.gateway_sid or "S-1-5-18")
         say("Sealed with Windows DPAPI (machine scope: the service and any administrator on THIS machine can open it; "
             "a copy of the file elsewhere is useless). Keep your offline copy of the key: it is what restores backups "
             "on a rebuilt machine.")
@@ -194,6 +203,7 @@ def _key(args, say, refuse, *, crypt=_DEFAULT) -> int:
     # rotate
     new = bc.rotate_keyring(ring)
     bc.write_keyring_file(path, new, protect=crypt[0] if (sealed and crypt) else None)
+    _warn_if_exposed(path, say, args.gateway_sid or "S-1-5-18")
     say(f"New backup key {new.current_id.hex()} is now current; {len(new.keys) - 1} earlier key(s) are kept, so old "
         "archives still open. Restart the gateway service so it encrypts new backups with the new key, then run "
         "'ops key export' and store the new offline copy (the old offline copy does NOT contain the new key).")

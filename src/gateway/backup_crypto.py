@@ -151,9 +151,25 @@ def read_key_file(path: Path, *, unprotect: Protect | None = None) -> KeyRing:
     return KeyRing(master)
 
 
-def write_keyring_file(path: Path, ring: KeyRing, *, protect: Protect | None = None) -> None:
+def _lock_down_key_file(path: Path) -> None:
+    """Windows: ``0o600`` means nothing, and a new file takes its permissions from the folder, not from the file it
+    replaces. Give the new key file exactly Administrators (full) and SYSTEM (read), inheritance removed, BEFORE it
+    replaces the old one. Raises on failure: an exposed key must not replace a protected one."""
+    if sys.platform != "win32":
+        return
+    import subprocess  # noqa: PLC0415
+
+    proc = subprocess.run(["icacls", str(path), "/inheritance:r", "/grant:r", "*S-1-5-32-544:(F)", "*S-1-5-18:(R)"],
+                          capture_output=True, text=True, timeout=60)
+    if proc.returncode != 0:
+        raise OSError(f"could not restrict the new key file's permissions: {(proc.stdout + proc.stderr).strip()[-200:]}")
+
+
+def write_keyring_file(path: Path, ring: KeyRing, *, protect: Protect | None = None,
+                       lock_down: Callable[[Path], None] | None = None) -> None:
     """Replace ``path`` atomically with the ring (sealed when ``protect`` is given). The temp file is created exclusive
-    and 0600 in the same folder, so a crash leaves the old key file intact."""
+    and 0600 in the same folder, so a crash leaves the old key file intact. On Windows it is locked down to
+    Administrators and SYSTEM before the swap (a new file would otherwise inherit the folder's entries)."""
     path = Path(path)
     payload = keyring_to_bytes(ring)
     data = SEAL_MAGIC + base64.b64encode(protect(payload)) + b"\n" if protect else payload + b"\n"
@@ -164,6 +180,7 @@ def write_keyring_file(path: Path, ring: KeyRing, *, protect: Protect | None = N
             fh.write(data)
             fh.flush()
             os.fsync(fh.fileno())
+        (lock_down or _lock_down_key_file)(tmp)
         os.replace(tmp, path)
     except BaseException:
         tmp.unlink(missing_ok=True)
