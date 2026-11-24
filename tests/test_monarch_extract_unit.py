@@ -10,6 +10,7 @@ import copy
 import csv
 import importlib.util
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -164,6 +165,69 @@ def test_pending_events_span_runs(me):
     me.compare_and_record([_tx(me, Id="t2")], "b", "p")
     ids = sorted(e["transaction"]["id"] for e in me.get_all_pending_events())
     assert ids == ["t1", "t2"]
+
+
+# ---- a transaction that goes back to a state it was in before --------------
+#
+# Monarch showed one charge's category as A, B, A, B on four nights. The outbox keeps one row per
+# (Monarch id, fingerprint), and a change that landed on a state already delivered was dropped as a
+# duplicate: the history moved on and the run counted it, but the consumer never heard about it and
+# kept the old category.
+
+@pytest.fixture()
+def clock(me, monkeypatch):
+    """Each reading of the extractor's clock is one minute after the last, so event order never
+    depends on the timer's resolution."""
+    ticks = iter(range(1, 10_000))
+    monkeypatch.setattr(
+        me, "utc_now",
+        lambda: (datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(minutes=next(ticks))).isoformat(),
+    )
+
+
+def test_a_change_back_to_an_earlier_state_is_queued_again(me, clock):
+    food, dining = _tx(me, Category="Food"), _tx(me, Category="Dining")
+    me.mark_run_delivered(me.compare_and_record([food], "a.csv", "p")[0])  # new
+    me.mark_run_delivered(me.compare_and_record([dining], "b.csv", "p")[0])  # changed
+    run, new, changed = me.compare_and_record([food], "c.csv", "p")  # back to the first state
+    assert (new, changed) == (0, 1)
+    pending = [
+        (e["run_id"], e["change_type"], e["previous_transaction"]["category"], e["transaction"]["category"])
+        for e in me.get_all_pending_events()
+    ]
+    assert pending == [(run, "changed", "Dining", "Food")]
+
+
+def test_a_requeued_change_is_acknowledged_with_the_run_that_queued_it(me, clock):
+    food, dining = _tx(me, Category="Food"), _tx(me, Category="Dining")
+    me.mark_run_delivered(me.compare_and_record([food], "a.csv", "p")[0])
+    me.mark_run_delivered(me.compare_and_record([dining], "b.csv", "p")[0])
+    run, *_ = me.compare_and_record([food], "c.csv", "p")
+    me.mark_run_delivered(run)  # the consumer acknowledges the run id it read from the CSV
+    assert me.get_all_pending_events() == []
+
+
+def test_pending_changes_replay_in_the_order_they_happened(me, clock):
+    # Nothing is acknowledged between runs: A, B, A leaves two pending events, and replaying them in
+    # order has to end on the transaction's current state (A).
+    food, dining = _tx(me, Category="Food"), _tx(me, Category="Dining")
+    for state in (food, dining, food):
+        me.compare_and_record([state], "x.csv", "p")
+    assert [e["transaction"]["category"] for e in me.get_all_pending_events()] == ["Dining", "Food"]
+
+
+def test_a_rebuilt_history_does_not_replay_delivered_new_events(me, clock):
+    # Losing the history table makes every transaction look unseen. That is not a change, so what
+    # was already delivered stays delivered.
+    me.mark_run_delivered(me.compare_and_record([_tx(me)], "a.csv", "p")[0])
+    con = sqlite3.connect(me.STATE_DB)
+    try:
+        con.execute("DELETE FROM transactions")
+        con.commit()
+    finally:
+        con.close()
+    me.compare_and_record([_tx(me)], "b.csv", "p")
+    assert me.get_all_pending_events() == []
 
 
 # ---- mark delivered -------------------------------------------------------
