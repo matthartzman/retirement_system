@@ -69,6 +69,9 @@ def integrity_path(log_path: str | Path) -> Path:
 
 def _restrict_key_file(path: Path) -> None:
     """Owner-only: chmod 600, and on Windows an explicit ACL with inheritance removed (best effort, never fatal).
+    The Windows ACL also gives SYSTEM and Administrators read access: a file only its owner could open made
+    ``acl setup``/``acl check`` fail (they must read every DACL under the data root), and an administrator can
+    read the data beside it anyway; no other account is granted anything.
     Uses Popen rather than ``subprocess.run`` so it is not caught by tests that stub the price-refresh subprocess."""
     if sys.platform == "win32":
         import getpass  # noqa: PLC0415
@@ -78,7 +81,8 @@ def _restrict_key_file(path: Path) -> None:
         user = getpass.getuser()
         grant = (f"{domain}\\{user}" if domain else user) + ":F"
         try:
-            proc = subprocess.Popen(["icacls", str(path), "/inheritance:r", "/grant:r", grant],
+            proc = subprocess.Popen(["icacls", str(path), "/inheritance:r", "/grant:r", grant,
+                                     "*S-1-5-32-544:R", "*S-1-5-18:R"],
                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             proc.communicate(timeout=30)
             if proc.returncode:
