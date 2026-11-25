@@ -187,6 +187,22 @@ def _lock(path: Path, grants: list[str], *, worker_stopped: bool = True) -> None
         _icacls(str(p / "*"), "/reset", "/T", "/C", "/Q")
 
 
+def user_folders_with_content(data_root: Path) -> list[Path]:
+    """The per-user workspace folders under ``<data_root>/users`` that hold anything (read-only listing)."""
+    users = Path(data_root) / "users"
+    busy: list[Path] = []
+    try:
+        for d in sorted(users.iterdir()):
+            try:
+                if d.is_dir() and any(d.iterdir()):
+                    busy.append(d)
+            except OSError:
+                busy.append(d)  # a folder that cannot be listed is not shown to be quiet
+    except OSError:
+        return []  # no users folder yet: a first install
+    return busy
+
+
 def _core(gateway_sid: str, rights: str = "F") -> list[str]:
     sids = dict.fromkeys([SYSTEM, ADMINISTRATORS, gateway_sid])
     return [f"*{s}:(OI)(CI){rights}" for s in sids]
@@ -368,6 +384,15 @@ def main(argv: list[str] | None = None) -> int:
     gateway_sid = args.gateway_sid or winapi.current_user_sid()
     workers = _workers_from_db(args.gateway_db)
     if args.command == "setup":
+        # SEC-03: locking the data root and the users folder resets every permission beneath them (``icacls /reset /T``),
+        # user folders included, so the refusal has to come BEFORE any folder is touched, not at the user folder step.
+        busy = [] if args.workers_stopped else user_folders_with_content(args.data_root)
+        if busy:
+            print(f"setup stopped: {len(busy)} user folder(s) have files and their workers may be running "
+                  f"({', '.join(d.name for d in busy[:5])}{' ...' if len(busy) > 5 else ''}). Stop the gateway service "
+                  "(python -m src.gateway.service stop), then run setup again with --workers-stopped. Nothing was changed.",
+                  file=sys.stderr)
+            return 2
         try:
             lock_gateway_only(args.data_root, gateway_sid=gateway_sid)
             lock_gateway_only(args.data_root / "users", gateway_sid=gateway_sid)

@@ -53,7 +53,7 @@ data folder or the install folder; the key is never inside the backup folder; `C
        --install-dir C:\RetirementPlanner\app --backup-dir C:\ProgramData\RetirementPlannerGateway\backups --gateway-sid S-1-5-18 `
        --forbid "C:\RetirementPlanning\Version 12"
    ```
-   `acl setup` refuses to reset a user's folder that already has files unless every worker is stopped (SEC-03: the reset follows whatever a running worker could plant meanwhile). On a first install there is nothing to reset; on a re-run, stop the service first (`python -m src.gateway.service stop`) and add `--workers-stopped`; `tools/upgrade_installed_server.ps1` does both.
+   `acl setup` refuses, before it changes anything, when a user's folder already has files unless every worker is stopped (SEC-03: the reset follows whatever a running worker could plant meanwhile). On a first install there is nothing to reset; on a re-run, stop the service first (`python -m src.gateway.service stop`) and add `--workers-stopped`; `tools/upgrade_installed_server.ps1` does both.
    `--forbid` only *checks*; if it fails for the owner's working copy, fix that by hand (this runbook never changes it).
    Re-run `acl check` after the first user signs in, after a restore, and after any upgrade. `acl setup` leaves each
    folder with exactly its own grants: it also removes an explicit entry for any other account, so re-running it
